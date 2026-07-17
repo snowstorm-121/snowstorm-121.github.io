@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101c">
+  <title>Day 5 学习笔记：统计函数 _ random 模块 _ 手写线性回归 · SNOWSTORM</title>
+  <link rel="stylesheet" href="../../../../assets/library.css">
+</head>
+<body class="library-page">
+  <main class="library-shell">
+    <a class="library-brand" href="../../../../index.html">SNOWSTORM / ARCHIVE</a>
+    <p class="library-eyebrow">基础阶段</p>
+    <nav class="breadcrumbs"><a href="../../../index.html">学习</a><span>/</span><a href="../../index.html">PyTorch</a><span>/</span><span>基础阶段</span></nav>
+<article class="note-article"><h1>Day 5 学习笔记：统计函数 _ random 模块 _ 手写线性回归</h1><div class="note-content"><p>学习目标：AI 方向求职  </p>
+<p>参考书：《动手学深度学习》PyTorch 版 </p>
+<p>本阶段重点：框架本身的行为和坑（视图/拷贝、共享状态、API 差异、静默错误），线代纯数学概念不再赘述。 环境：MacBook Air M5 ｜ Miniconda 虚拟环境 <code>pytorch_env</code></p>
+<p>今天三块主线：统计函数（axis/dim/keepdim）、random 模块（随机状态管理）、用 NumPy 手写线性回归（含梯度推导与小批量改造）。下面把主线知识、追问后才弄清楚的点、以及踩过的坑都记下来。</p>
+<p>关联笔记：前置 <span class="wiki-link">NumPy 数组基础</span> 与 <span class="wiki-link">数组运算、矩阵乘法与广播</span>；后续用 <span class="wiki-link">Matplotlib</span> 可视化，并在 <span class="wiki-link">纯 Tensor 手写线性回归</span>中复现训练流程。</p>
+<p>---</p>
+<h2>一、统计函数与 axis / dim / keepdim</h2>
+<h3>1. 核心心智模型：被点名的轴会&quot;消失&quot;</h3>
+<p>对一个 <code>(2, 3)</code> 数组：</p>
+<p>+ <code>axis=0</code>：把第 0 轴压掉，3 列各被压成一个数，结果形状 <code>(3,)</code>。<br>+ <code>axis=1</code>：把第 1 轴压掉，2 行各被压成一个数，结果形状 <code>(2,)</code>。</p>
+<p>记忆口诀：<strong>你指定的那个轴就是消失的轴</strong>。不要记成&quot;axis=0 跟行有关&quot;，那是反的。</p>
+<pre><code class="language-python">import numpy as np
+a = np.arange(6).reshape(2, 3).astype(float)   # [[0,1,2],[3,4,5]]
+a.sum(axis=0)   # [3. 5. 7.]  形状 (3,)
+a.sum(axis=1)   # [3. 12.]    形状 (2,)
+a.sum()         # 15.0        不给 axis 全压成标量</code></pre>
+<h3>2. keepdim / keepdims 的唯一意义：让结果能广播回去</h3>
+<p>被压掉的那一维不删除、保留为长度 1，于是结果能和原数组对齐相减。这就是它存在的全部理由。</p>
+<pre><code class="language-python">row_mean = a.mean(axis=1, keepdims=True)   # 形状 (2, 1)
+a - row_mean                               # (2,3) - (2,1) 正确广播,按行减均值</code></pre>
+<h3>3. ⚠️ 重点更正（我第一次讲错了，这里是正确版）</h3>
+<p>关于&quot;忘了 keepdims 会怎样&quot;，要分形状讨论，结论和我最初说的不同：</p>
+<p>+ <strong>非方阵</strong>（如 <code>(2,3)</code>）：<code>a.mean(axis=1)</code> 是 <code>(2,)</code>，<code>(2,3) - (2,)</code> 按广播从右对齐，<code>3</code> 与 <code>2</code> 不匹配且都不是 1 → <strong>直接抛 ValueError</strong>：<code>operands could not be broadcast together with shapes (2,3) (2,)</code>。这种情况会<strong>响亮报错</strong>，你一眼能发现，反而不危险。<br>+ <strong>方阵</strong>（如 <code>(3,3)</code>）：<code>s.mean(axis=1)</code> 是 <code>(3,)</code>，<code>(3,3) - (3,)</code> 能广播成功，但减的是<strong>列方向</strong>，不是你想要的行方向 → <strong>静默算错，不报错</strong>。这才是真正的隐患。</p>
+<pre><code class="language-python">s = np.arange(9).reshape(3, 3).astype(float)
+s - s.mean(axis=1)                 # 不报错,但减错方向(危险)
+s - s.mean(axis=1, keepdims=True)  # 正确:每行减自己的均值</code></pre>
+<p>一句话结论：<strong>非方阵忘了 keepdims 会报错（能发现）；方阵会静默错（发现不了）。keepdims 的价值就是无论方不方都强制得到 </strong><code><strong>(行数, 1)</strong></code><strong>，永远正确广播。</strong></p>
+<h3>4. NumPy vs PyTorch 的四个关键差异</h3>
+<p>| 点 | NumPy | PyTorch | 后果 |<br>| --- | --- | --- | --- |<br>| 参数名 | <code>axis</code>&lt;br/&gt; / <code>keepdims</code> | <code>dim</code>&lt;br/&gt; / <code>keepdim</code> | 来回切容易写错（计划表里&quot;axis 参数和 keepdim&quot;本身就混用了两边的词） |<br>| <code>mean</code>&lt;br/&gt; 遇整数 | 自动升 float64 返回 | <strong>直接 RuntimeError</strong>，要求浮点/复数 | torch 要先 <code>.float()</code> |<br>| <code>std</code>&lt;br/&gt; 默认 | <code>ddof=0</code>&lt;br/&gt;（除以 N，总体） | <code>correction=1</code>&lt;br/&gt;（除以 N−1，无偏） | <strong>同一组数默认给出不同标准差，都不报错</strong> |<br>| <code>argmax</code>&lt;br/&gt; 并列 | 确定返回第一个 | 不保证返回哪一个 | 别依赖 torch 在并列时的落点 |</p>
+<p><code>std</code> 默认值差异的具体例子（已验证）：<code>[1,2,3,4]</code> 在 NumPy 默认得 <code>1.118</code>（ddof=0），在 PyTorch 默认得 <code>1.291</code>（相当于 ddof=1）。做特征标准化时若一半用 np、一半用 torch，方差会悄悄偏掉，比值是 √(N/(N−1))。要一致：<code>np.std(..., ddof=1)</code> 或 <code>torch.std(..., correction=0)</code>。</p>
+<p>PyTorch 写法对照：</p>
+<pre><code class="language-python">import torch
+t = torch.arange(6).reshape(2, 3)          # int64
+# torch.mean(t)                            # RuntimeError!
+t = t.float()
+t.sum(dim=0)                               # 用 dim,不是 axis
+t.mean(dim=1, keepdim=True)                # 用 keepdim,不是 keepdims</code></pre>
+<p>---</p>
+<h2>二、random 模块与随机状态管理</h2>
+<h3>1. 底层本质（理解这个，后面都顺）</h3>
+<p>计算机的&quot;随机&quot;是<strong>伪随机</strong>：内部存着一团叫<strong>状态(state)</strong><strong>的数据，每要一个数就「根据当前状态算出输出 → 把状态更新到下一个」。所以从某个状态出发，后面整串数字是</strong><strong>完全确定</strong>的。</p>
+<p><strong>种子(seed)就是用来指定这团状态的初始值。</strong> 同样的种子 → 同样的起点 → 后面整串数字一模一样。</p>
+<h3>2. 旧 API（全局共享，不推荐写新代码用）</h3>
+<p>numpy 内部藏着<strong>唯一一个全局生成器</strong>，<code>np.random.seed</code> 设它，所有 <code>np.random.*</code> 共用并推进它。</p>
+<pre><code class="language-python">np.random.seed(0)
+np.random.rand(2, 3)      # 维度是分开的位置参数
+np.random.randn(2, 3)     # 接着同一个全局状态往下走
+np.random.randint(0, 10, size=5)   # high 开区间,取不到 10</code></pre>
+<p>问题：全局、可变、共享。任何第三方库调一次 <code>np.random.*</code> 都会偷偷推进它，难以推理，也不适合多线程。d2l 书里还在用这套，看懂即可。</p>
+<h3>3. 新 API（推荐：状态封装进独立对象）</h3>
+<pre><code class="language-python">rng = np.random.default_rng(0)     # 一个独立生成器,自带状态
+rng.random((2, 3))                 # 维度是一个元组(和旧的 rand 不同!)
+rng.standard_normal((2, 3))
+rng.integers(0, 10, size=5)</code></pre>
+<p>独立性验证（已跑）：</p>
+<pre><code class="language-python">g1 = np.random.default_rng(0)
+g2 = np.random.default_rng(0)
+g1.random()   # 0.6369616873214543
+g2.random()   # 0.6369616873214543  &lt;- 同种子同起点,彼此独立、互不干扰</code></pre>
+<p>好处：状态封装、谁的归谁、底层算法（PCG64）也更好。<strong>自己写新代码优先用 </strong><code><strong>default_rng</strong></code><strong>。</strong></p>
+<h3>4. ⚠️ 形状坑：<code>random(2,3)</code> vs <code>random((2,3))</code></h3>
+<pre><code class="language-python">np.random.default_rng(0).random(2, 3)     # TypeError: Cannot interpret &#39;3&#39; as a data type
+np.random.default_rng(0).random((2, 3))   # 正确:位置传元组
+np.random.default_rng(0).random(size=(2, 3))  # 正确:关键字 size 传元组</code></pre>
+<p>原因很阴：<code>Generator.random</code> 签名是 <code>random(size, dtype, ...)</code>，<code>random(2,3)</code> 把 <code>2</code> 当 size、把 <code>3</code> 当 <strong>dtype</strong>，3 不是合法 dtype 才报错——它没在&quot;形状&quot;上报错，而在你完全没想到的 dtype 上炸。</p>
+<p>旧 API 的相关不一致：<code>np.random.rand(2, 3)</code> 维度是<strong>分开的参数</strong>，而 <code>np.random.random((2,3))</code> / <code>rng.random((2,3))</code> 维度是<strong>元组</strong>。</p>
+<h3>5. ⚠️ 最容易绕晕的点：种子是&quot;起点&quot;不是&quot;锁定&quot;，状态会前进</h3>
+<p>我最初的困惑：「我每次运行代码生成的随机数都一样，为什么说状态会往前走？」——把<strong>两个时间尺度</strong>混了：</p>
+<p>+ <strong>同一次运行之内</strong>：seed 一次后连抽两个数是<strong>不同</strong>的，因为每抽一次状态前进一步。<br>+ <strong>重新运行整个脚本</strong>：脚本顶部的 <code>seed(...)</code> 会<strong>重新执行</strong>，把状态硬拨回起点，于是后面整串又从同一个数开始 → 所以&quot;每次运行结果都一样&quot;。</p>
+<p>已验证：</p>
+<pre><code class="language-python">np.random.seed(0)
+np.random.rand()   # 0.5488135
+np.random.rand()   # 0.7151894   &lt;- 同一次运行内,第二个和第一个不同(状态前进了)
+
+np.random.seed(0)
+np.random.rand()   # 0.5488135   &lt;- 重新 seed 拨回起点,又是第一个数</code></pre>
+<p><strong>字典类比</strong>：<code>seed(0)</code> = 翻到第 0 页；每读一个数书签就往后挪一格。同一次运行连读两次 → 相邻两格 → 不同；下次重跑又执行 <code>seed(0)</code> → 书签拨回第 0 页 → 重新从头读 → 和上次相同。</p>
+<p>什么时候能亲眼看到状态在前进？在 Jupyter 里第一个 cell 写 <code>seed(0)</code>，第二个 cell 写 <code>rand()</code>，<strong>只反复运行第二个 cell</strong>（不重跑第一个），每次输出都不同——因为没重新拨书签。这个现象坑过无数人。</p>
+<p>想让&quot;第二次抽取&quot;等于&quot;第一次抽取&quot;，必须在第二次之前<strong>重新 seed</strong>：</p>
+<pre><code class="language-python">np.random.seed(0); np.random.rand()   # 0.5488135
+np.random.seed(0); np.random.rand()   # 0.5488135  再次相同</code></pre>
+<h3>6. ⚠️ np 和 torch 是两套完全独立的随机状态</h3>
+<p><code>np.random.seed</code> 管不到 <code>torch.randn</code>，反之亦然。混用却只 seed 一个 → 实验不可复现。</p>
+<pre><code class="language-python"># 错误指望:用 numpy 种子让 torch 复现
+np.random.seed(123); a = torch.randn(3)
+np.random.seed(123); b = torch.randn(3)
+torch.equal(a, b)   # False! torch 用自己的状态在持续前进
+
+# 正确:seed torch 自己的
+torch.manual_seed(0); torch.randn(5)
+torch.manual_seed(0); torch.randn(5)   # 这两串才相同</code></pre>
+<p><code>torch.randn</code> 标准用法是位置参数 <code>torch.randn(5)</code>；写 <code>torch.randn(size=(5,))</code> 若你的版本跑通了就没问题，但本质接收的是位置形状参数，换环境若报 TypeError 记得改回位置参数。M5 上还有一层：<code>manual_seed</code> 管 CPU；用到 MPS（苹果 GPU 后端）时设备随机性另算，今天先记&quot;np 和 torch 各管各的种子&quot;。</p>
+<h3>7. ⚠️ permutation vs shuffle（小批量里会用到）</h3>
+<pre><code class="language-python">rng = np.random.default_rng(1)
+a = np.arange(5)
+rng.permutation(a)   # 返回打乱的新数组, 原 a 不变
+rng.shuffle(a)       # 原地打乱 a, 返回 None!</code></pre>
+<p>手滑写成 <code>perm = rng.shuffle(arr)</code> 会得到 <code>perm=None</code>，后面 <code>perm[...]</code> 报&quot;None 不能索引&quot;。要可切片的编号清单用 <code>permutation</code>；只想就地洗乱、不要返回值才用 <code>shuffle</code>。</p>
+<p>---</p>
+<h2>三、用 NumPy 手写线性回归（不用任何 ML 库）</h2>
+<h3>1. 完整代码（已验证收敛）</h3>
+<p>用 d2l 经典合成数据：真实 <code>w=[2,-3.4]</code>，<code>b=4.2</code>。</p>
+<pre><code class="language-python">import numpy as np
+
+rng = np.random.default_rng(42)
+n, d = 1000, 2
+true_w = np.array([2.0, -3.4]); true_b = 4.2
+
+X = rng.normal(0, 1, size=(n, d))        # (n, d)
+y = X @ true_w + true_b + rng.normal(0, 0.01, size=n)   # (n,) 一维
+
+w = rng.normal(0, 0.01, size=d)          # (d,)
+b = 0.0
+lr = 0.05; epochs = 1000
+
+for ep in range(epochs):
+    y_hat = X @ w + b                    # (n,)
+    err = y_hat - y                      # (n,)
+    loss = np.mean(err ** 2)             # 标量 MSE
+    dw = (2 / n) * (X.T @ err)           # (d,)
+    db = (2 / n) * np.sum(err)           # 标量
+    w -= lr * dw
+    b -= lr * db</code></pre>
+<p>结果：loss 从 ~32 降到 ~0.0001，<code>w≈[2.0000, -3.4002]</code>，<code>b≈4.2003</code>。</p>
+<h3>2. 形状管理是灵魂（线代帮不上的部分）</h3>
+<p>+ <strong>全程保持一维 </strong><code><strong>(n,)</strong></code> 是刻意的：<code>X@w</code> 是 <code>(n,d)@(d,)=(n,)</code>，<code>y</code> 也是 <code>(n,)</code>，相减干净对齐。<br>+ 梯度 <code>X.T @ err</code> 是 <code>(d,n)@(n,)=(d,)</code>，正好和 <code>w</code> 同形状才能 <code>w -= lr*dw</code>。<br>+ <code>w -= lr*dw</code> 是<strong>原地修改</strong>，要求 dtype 兼容：若把 <code>w</code> 初始化成整数会报错或被截断 → <strong>初始化务必是 float</strong>。<br>+ loss 用 <code>mean</code> 还是 <code>sum</code> 改变梯度尺度，进而改变需要的学习率（用 sum 梯度大 n 倍，同 lr 会发散）。</p>
+<h3>3. 梯度推导（从链式法则到矩阵形式）</h3>
+<p>符号：<code>X</code> 是 <code>(n,d)</code>，元素 <code>Xᵢⱼ</code>；预测 <code>ŷᵢ = Σⱼ Xᵢⱼ wⱼ + b</code>；残差 <code>eᵢ = ŷᵢ − yᵢ</code>；损失 <code>L = (1/n) Σᵢ eᵢ²</code>。</p>
+<p>wⱼ 影响 L 是一条复合链：<code>改 wⱼ → 改每个 ŷᵢ → 改每个 eᵢ → 改每个 eᵢ² → 加和成 L</code>。</p>
+<p><strong>对 wⱼ 求导：</strong></p>
+<pre><code class="language-plain">∂L/∂wⱼ = (1/n) Σᵢ ∂(eᵢ²)/∂wⱼ
+       = (1/n) Σᵢ 2eᵢ · (∂eᵢ/∂wⱼ)        # 平方的链式</code></pre>
+<p><code>eᵢ = (Xᵢ₁w₁ + … + Xᵢⱼwⱼ + … ) + b − yᵢ</code>，对 wⱼ 求导只剩含 wⱼ 的那项，系数是 <code>Xᵢⱼ</code>，即 <code>∂eᵢ/∂wⱼ = Xᵢⱼ</code>。代回：</p>
+<pre><code class="language-plain">∂L/∂wⱼ = (2/n) Σᵢ Xᵢⱼ eᵢ</code></pre>
+<p><strong>为什么这就是 </strong><code><strong>X.T @ err</strong></code><strong>：</strong> 由转置定义 <code>(Xᵀ)ⱼᵢ = Xᵢⱼ</code>，所以 <code>(Xᵀ e)ⱼ = Σᵢ (Xᵀ)ⱼᵢ eᵢ = Σᵢ Xᵢⱼ eᵢ</code>，正是上式。全部 j 合起来：</p>
+<pre><code class="language-plain">∂L/∂w = (2/n) · Xᵀ e          # dw = (2/n)*(X.T @ err)</code></pre>
+<p>转置不是修饰，是形状逼出来的：要 <code>(d,)</code> 才能减 <code>w</code>，<code>X.T</code> 是 <code>(d,n)</code>，<code>(d,n)@(n,)=(d,)</code>。写成 <code>X @ err</code> 会形状不匹配报错。</p>
+<p><strong>对 b 求导：</strong><code>∂eᵢ/∂b = 1</code>，所以</p>
+<pre><code class="language-plain">∂L/∂b = (2/n) Σᵢ eᵢ          # db = (2/n)*np.sum(err)</code></pre>
+<p><strong>直觉：</strong><code>dw</code> 是&quot;每个特征与残差的相关性&quot;（特征 j 偏大处恰好预测也偏高，就把 wⱼ 调小）；<code>db</code> 是&quot;平均残差&quot;（整体预测偏高就把 b 调小）。</p>
+<p><strong>那个 2：</strong> 来自平方求导。实践中常把它吸进学习率，或把损失定义成 <code>(1/2n)Σeᵢ²</code> 让 2 抵消，梯度变干净的 <code>(1/n)Xᵀe</code>。不影响方向，只改等效步长。</p>
+<h3>4. 数值梯度检验（验证推导 + 实用调试技能）</h3>
+<p>中心差分：<code>(f(w+ε) − f(w−ε)) / (2ε)</code> 应约等于解析梯度。已验证解析梯度与数值梯度在 1e-10 量级吻合。</p>
+<pre><code class="language-python">eps = 1e-6
+# 对参数某分量加减 eps,看 loss 变化率,与解析 dw 对比
+# 误差 &lt; 1e-7 基本就稳;差很多说明推导或代码错了</code></pre>
+<p>以后学 <code>autograd</code> 时要明白：它替你做的就是&quot;自动、精确地算出我们手推的这个梯度&quot;。手推过一遍，就不会把它当黑盒。</p>
+<p>---</p>
+<h2>四、小批量梯度下降（mini-batch GD）</h2>
+<h3>1. 全批量 vs 小批量</h3>
+<p>+ <strong>全批量</strong>：一个 epoch = <strong>1 次更新</strong>（用全部 n 个样本算一个梯度）。<br>+ <strong>小批量</strong>：一个 epoch = <strong>很多次更新</strong>（把 n 个样本切成 batch_size 一批，每批更新一次）。1000/32 ≈ 31 次更新/epoch，所以用更少 epoch 就到位。</p>
+<h3>2. perm 是什么 / permutation 的作用</h3>
+<p><code>perm = train_rng.permutation(n)</code> 做一件事：<strong>把编号 </strong><code><strong>[0,1,…,n−1]</strong></code><strong> 随机打乱，返回一个新数组</strong>（传整数 n 时对 <code>arange(n)</code> 打乱；传数组时返回其打乱副本）。它是&quot;接下来按什么顺序访问样本&quot;的<strong>编号清单</strong>，不是数据本身。</p>
+<p><strong>为什么要打乱</strong>：小批量是一小撮一小撮喂数据。固定顺序分批会让每个 epoch 的批次组合完全相同；若数据本身带顺序（前半猫后半狗），梯度方向来回拉扯不稳。每轮重新打乱 → 批次成为对全体的随机采样 → 梯度更无偏、训练更稳。</p>
+<h3>3. 内层 for 循环在干什么</h3>
+<pre><code class="language-python">for start in range(0, n, batch_size):    # start = 0, batch_size, 2*bs, ... 是每批起点
+    idx = perm[start:start+batch_size]   # 从打乱清单切出这一批的编号
+    Xb, yb = X[idx], y[idx]              # 花式索引,取出这一批样本
+    m = len(idx)                         # 这一批实际大小
+    err = (Xb @ w + b) - yb
+    w -= lr * (2/m) * (Xb.T @ err)       # 每批更新一次
+    b -= lr * (2/m) * np.sum(err)</code></pre>
+<p>具体跟踪（n=10, batch_size=3, <code>perm=[8 0 7 1 3 6 2 4 5 9]</code>）：</p>
+<pre><code class="language-plain">start=0: idx=perm[0:3]=[8 0 7]   (3 个)
+start=3: idx=perm[3:6]=[1 3 6]   (3 个)
+start=6: idx=perm[6:9]=[2 4 5]   (3 个)
+start=9: idx=perm[9:12]=[9]      (1 个,最后一批不满!)</code></pre>
+<p>内层跑完一圈 = 一个 epoch = 把全部样本各用一次（不重不漏）。</p>
+<h3>4. 两层循环的角色</h3>
+<p>+ <strong>内层</strong><code>for start</code>：走完打乱清单一遍，每批更新一次。<br>+ <strong>外层</strong><code>for ep</code>：决定整体扫描重复多少遍，且每轮开头重新 <code>permutation</code> 打乱一次。</p>
+<h3>5. 每轮 perm 是否不同？（呼应&quot;状态前进 vs 重跑复现&quot;）</h3>
+<p>+ <strong>同一次运行内</strong>：每个 epoch 的 perm <strong>都不同</strong>，因为 <code>train_rng</code> 每被调用一次状态就前进一步。这正是我们要的——每轮重新洗牌。<br>+ <strong>跨运行（重跑脚本）</strong>：只要 <code>train_rng</code> 用同一种子起步，<strong>整串洗牌序列原样复现</strong>（第 0 轮永远是同一个排列，第 1 轮永远是另一个……）。</p>
+<p>所以&quot;把打乱用的随机源纳入 seed 管理&quot;= 管住种子就管住了从第 0 轮到最后一轮的全部洗牌 → 训练可复现。<strong>这就是第 4 题真正的考点。</strong></p>
+<h3>6. 完整代码（已验证收敛）</h3>
+<pre><code class="language-python">import numpy as np
+
+# 两个独立随机源:数据生成 与 训练打乱 分开,互不污染
+data_rng  = np.random.default_rng(0)   # 只造数据
+train_rng = np.random.default_rng(1)   # 只管初始化 + 每轮打乱
+
+n, d = 1000, 5
+true_w = np.array([1.1, -2.2, 3.3, -4.4, 5.5]); true_b = 8.8
+X = data_rng.normal(0, 1, (n, d))
+y = X @ true_w + true_b + data_rng.normal(0, 0.01, n)
+
+w = train_rng.normal(0, 0.01, d); b = 0.0   # 权重初始化也消耗 train_rng
+lr = 0.05; epochs = 30; batch_size = 32
+
+for ep in range(epochs):
+    perm = train_rng.permutation(n)          # 每个 epoch 重新打乱
+    for start in range(0, n, batch_size):
+        idx = perm[start:start + batch_size]
+        Xb, yb = X[idx], y[idx]
+        m = len(idx)
+        err = (Xb @ w + b) - yb
+        w -= lr * (2 / m) * (Xb.T @ err)
+        b -= lr * (2 / m) * np.sum(err)
+    if ep % 5 == 0:
+        full_loss = np.mean(((X @ w + b) - y) ** 2)
+        print(f&quot;epoch {ep:3d}  full_loss={full_loss:.6f}&quot;)</code></pre>
+<h3>7. 小批量四个坑</h3>
+<p>1. <strong>梯度除以 </strong><code><strong>m</strong></code><strong> 不是 </strong><code><strong>n</strong></code>：算的是这一批 m 个样本的平均梯度，照抄 <code>2/n</code> 等于把步长缩小 n/m 倍，几乎不动。<br>2. <strong>最后一批通常不满</strong>：1000÷32 余 8，用 <code>m = len(idx)</code> 动态取大小才稳；硬写 <code>/batch_size</code> 最后一批会偏。<br>3. <strong>打乱随机源属于复现性版图</strong>：洗牌消耗随机数，想可复现就必须 seed 它。<br>4. <strong>用两个独立生成器</strong>：造数据和打乱若共用一个全局源会耦合——改一行数据生成会让后面所有 epoch 的洗牌全变。分开后各自独立可控。</p>
+<p>---</p>
+<h2>五、今天踩过 / 纠正过的坑（速查表）</h2>
+<p>| # | 坑 | 真相 | 防御 |<br>| --- | --- | --- | --- |<br>| 1 | <code>a.mean(axis=1)</code>&lt;br/&gt; 的形状 | <code>(2,3)</code>&lt;br/&gt; 的它是 <code>(2,)</code>&lt;br/&gt;,不是 <code>(3,)</code>&lt;br/&gt;(我一开始说错) | 记&quot;被点名的轴消失&quot; |<br>| 2 | 忘 keepdims 的后果 | 非方阵<strong>报错</strong>(能发现);方阵<strong>静默错</strong>(发现不了) | 一律加 <code>keepdims=True</code>&lt;br/&gt; 得 <code>(行数,1)</code> |<br>| 3 | np 和 torch 的 <code>std</code>&lt;br/&gt; 默认 | np 除以 N,torch 除以 N−1,<strong>默认就不一样且不报错</strong> | 显式写 <code>ddof</code>&lt;br/&gt; / <code>correction</code> |<br>| 4 | <code>torch.mean</code>&lt;br/&gt; 遇整数 | 直接 RuntimeError | 先 <code>.float()</code> |<br>| 5 | <code>argmax</code>&lt;br/&gt; 并列 | np 确定取第一个,torch 不保证 | 别依赖 torch 并列落点 |<br>| 6 | 种子的含义 | 是&quot;起点&quot;不是&quot;锁定&quot;;run 内状态前进,重跑才重置 | 想复现某次抽取就在抽之前重新 seed |<br>| 7 | np vs torch 随机状态 | 两套完全独立,互不影响 | 各 seed 各的(<code>np.random.seed</code>&lt;br/&gt; / <code>torch.manual_seed</code>&lt;br/&gt;) |<br>| 8 | <code>rng.random(2,3)</code> | TypeError(3 被当 dtype) | 用 <code>random((2,3))</code>&lt;br/&gt; 或 <code>random(size=(2,3))</code> |<br>| 9 | <code>rand(2,3)</code>&lt;br/&gt; vs <code>random((2,3))</code> | 旧 rand 分开参数,新 random 用元组 | 看清是不是元组 |<br>| 10 | 线性回归 <code>(n,1)</code>&lt;br/&gt; vs <code>(n,)</code> | 相减静默广播成 <code>(n,n)</code>&lt;br/&gt;,loss 错;报错却在更新 w 那行(离病根四行远) | 全程统一 <code>(n,)</code>&lt;br/&gt;,每个张量心里标形状 |<br>| 11 | <code>.shape(-1,1)</code>&lt;br/&gt; 笔误 | <code>.shape</code>&lt;br/&gt; 是属性(元组)不是方法,调用它报&quot;tuple not callable&quot; | 是 <code>.reshape(-1,1)</code> |<br>| 12 | <code>w -= lr*dw</code>&lt;br/&gt; 原地更新 | w 是整数会报错/截断 | 初始化成 float |<br>| 13 | <code>X @ err</code>&lt;br/&gt; 写反转置 | 形状不匹配报错(d≠n 时) | 梯度对 w 是 <code>X.T @ err</code>&lt;br/&gt; → <code>(d,)</code> |<br>| 14 | <code>permutation</code>&lt;br/&gt; vs <code>shuffle</code> | 前者返回新数组,后者原地改返回 None | 要清单用 permutation |<br>| 15 | 小批量梯度分母 | 是 <code>/m</code>&lt;br/&gt; 不是 <code>/n</code>&lt;br/&gt;;最后一批不满用 <code>len(idx)</code> | 动态取 m |<br>| 16 | <code>torch.randn(size=(5,))</code> | 标准是位置参数 <code>torch.randn(5)</code> | 换环境报错就改位置参数 |</p>
+<p>---</p>
+<h2>六、可以自己再做的小实验</h2>
+<p>1. 把第一个 keepdims 例子换成方阵 <code>(3,3)</code>，亲眼看&quot;静默减错方向&quot;。<br>2. Jupyter 里 seed 放一个 cell、<code>rand()</code> 放另一个 cell，只反复跑 <code>rand()</code> 那个 cell，看数字每次变。<br>3. 小批量里把 <code>train_rng</code> 种子换个数再跑：中间 loss 不同但最终都收敛到同一组 w（凸问题路径不同、终点相同）；再设回相同种子，确认中间 loss 逐一致 → 验证&quot;打乱随机源 ∈ 复现性&quot;。<br>4. 把 <code>perm = train_rng.permutation(n)</code> 移到外层循环之外（只洗一次牌），观察和每轮重洗的差别。<br>5. 给手写线性回归加一遍数值梯度检验，确认解析梯度误差 &lt; 1e-7。</p></div></article>
+<nav class="note-pagination"><a href="./day-4-学习笔记-数组运算-矩阵乘法-转置-广播.html">← Day 4 学习笔记：数组运算 · 矩阵乘法 · 转置 · 广播</a><a href="./day-6-学习笔记-matplotlib学习.html">Day 6 学习笔记：matplotlib学习 →</a></nav>
+  </main>
+</body>
+</html>
