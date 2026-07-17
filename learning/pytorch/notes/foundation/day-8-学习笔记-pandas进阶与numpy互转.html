@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101c">
+  <title>Day 8 学习笔记： pandas进阶与numpy互转 · SNOWSTORM</title>
+  <link rel="stylesheet" href="../../../../assets/library.css">
+</head>
+<body class="library-page">
+  <main class="library-shell">
+    <a class="library-brand" href="../../../../index.html">SNOWSTORM / ARCHIVE</a>
+    <p class="library-eyebrow">基础阶段</p>
+    <nav class="breadcrumbs"><a href="../../../index.html">学习</a><span>/</span><a href="../../index.html">PyTorch</a><span>/</span><span>基础阶段</span></nav>
+<article class="note-article"><h1>Day 8 学习笔记： pandas进阶与numpy互转</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+<p>参考书：《动手学深度学习》PyTorch 版</p>
+<p>本阶段重点：框架本身的行为和坑（视图/拷贝、共享状态、API 差异、静默错误），数据处理的纯数学/统计概念不再赘述。环境：MacBook Air M5 ｜ Miniconda 虚拟环境 <code>pytorch_env</code></p>
+<p>今天主线：Pandas 进阶 + 与 NumPy 互转，这是数据预处理阶段天天会用到的操作。四块内容——<code>map</code>/<code>apply</code>/<code>applymap</code>（按元素/按行处理）、<code>merge</code>（按键值匹配的表连接）、<code>concat</code>（按位置/索引对齐的堆叠拼接）、DataFrame ↔ NumPy 互转（流水线出口、对接 PyTorch）。今天的核心心智模型与 Day 5、6、7 一脉相承：<strong>视图 vs 拷贝、共享状态、API 差异、静默错误</strong>——并在此基础上新增一条独立主线：<strong>「看起来像循环但其实是循环」vs「真正的向量化」</strong>，这是 <code>apply</code>/<code>map</code> 系列最容易踩的反模式（能用，但慢到爆炸）。下面把主线知识、追问后才弄清的点、以及踩过的坑都记下来。</p>
+<p>关联笔记：前置 <span class="wiki-link">NumPy 数组基础</span> 与 <span class="wiki-link">DataFrame 核心操作</span>；后续在 <span class="wiki-link">Titanic 综合实战</span>中完成数据流水线，并衔接 <span class="wiki-link">Tensor 基本操作</span>。</p>
+<p>今天有一个非常重要的方法论收获：<strong>关于 </strong><code><strong>category</strong></code><strong> 列转 NumPy 的拉齐规则，我（讲解方）连续两次判断被实测数据纠正</strong>——第一次把规则讲得过于绝对，第二次靠跑代码才定位到真正决定结果的变量。完整记录见第八章，结构仿照 Day 7「取反 NaN 被纠正」那段，留作&quot;听起来合理的推论 ≠ 真相，唯一标准是实测&quot;的案例。</p>
+<p>---</p>
+<h2>〇、贯穿全天的三条心智主线（先立住）</h2>
+<h3>1. 默认不可变（immutable-by-default）：算出新值再赋回，永不依赖原地修改</h3>
+<p>延续 Day 7〇.1 那条「只用 <code>df[&#39;列名&#39;] = df[&#39;列名&#39;].方法()</code>」。今天 <code>map</code>/<code>apply</code> 系列同样适用，<strong>没有例外</strong>：</p>
+<pre><code class="language-python">df[&#39;Sex&#39;].map({&#39;male&#39;: 0, &#39;female&#39;: 1})          # ❌ 只算出新 Series 然后丢掉，df 原封不动
+df[&#39;Sex&#39;] = df[&#39;Sex&#39;].map({&#39;male&#39;: 0, &#39;female&#39;: 1})  # ✅ 显式赋值回去才生效</code></pre>
+<p><code>map</code>/<code>apply</code>/<code>fillna</code>/<code>astype</code> 这一整族&quot;看起来在处理某一列&quot;的方法，<strong>默认都返回新对象、不改原表</strong>，这是 Pandas 统一的设计哲学。<code>map</code> 不像 <code>list.sort()</code> 那种会改原对象的方法，它的行为模式更接近 <code>df[&#39;Age&#39;] * 2</code>——算个新东西返回给你，原数据纹丝不动。要落地必须自己赋值回去。</p>
+<h3>2. 标签 vs 位置（loc/iloc/索引对齐的总根源），今天换了两个新场景重现</h3>
+<p>Day 7 立的&quot;标签不重排、位置每次重数&quot;这条主线，今天在两个新地方原样复现：</p>
+<p>+ <code>concat(axis=0)</code> 默认<strong>不重置索引</strong> → 拼接后出现重复标签（两个 <code>0</code>、两个 <code>1</code>），<code>loc[0]</code> 静默返回多行。<br>+ <code>concat(axis=1)</code> 是<strong>按索引对齐</strong>（不是按位置硬拼）→ 两表索引恰好都是 <code>0,1,2</code> 时看起来像位置拼接，是巧合；索引一旦经筛选/排序错开，立刻分家、静默填 NaN 或张冠李戴。</p>
+<h3>3. 【新】「看起来像循环但其实是循环」vs「真正的向量化」</h3>
+<p><code>map</code>/<code>apply</code>/<code>applymap</code> 写起来很像&quot;对每个值做点什么&quot;的人类思维，但底层是<strong>逐元素/逐行调用 Python 函数</strong>，本质是 Pandas 接口包了一层 <code>for</code> 循环，<strong>不是</strong> NumPy 那种底层 C 实现的向量化：</p>
+<pre><code class="language-python">df[&#39;Age&#39;] * 2                      # ✅ 真向量化，C 层一次性处理整列，快
+df[&#39;Age&#39;].apply(lambda x: x * 2)   # ⚠️ 看着差不多，逐元素调 Python 函数，慢几十倍
+df[&#39;Name&#39;].str.upper()             # ✅ .str 方法族是向量化的，优先用它而非 apply(lambda x: x.upper())</code></pre>
+<p><strong>原则：能用纯 Pandas/NumPy 运算（加减乘除、比较、</strong><code><strong>.str</strong></code><strong> 方法族）表达的，永远优先向量化；</strong><code><strong>apply</strong></code><strong> 只留给&quot;逻辑复杂到没法用现成向量化方法表达&quot;的场景。</strong> Titanic 891 行感觉不到差异，处理几十万行时这个选择差出几十倍速度。</p>
+<p>---</p>
+<h2>一、<code>map</code> / <code>apply</code> / <code>applymap</code>：三个名字像、作用域完全不同</h2>
+<p>这三个<strong>不是同一家族的三个变体，而是作用对象不同</strong>导致语义不同。记混的根源是没分清&quot;我现在操作的是 Series 还是 DataFrame&quot;。命名混乱属于历史遗留（几个方法改过名、有重叠又有区别）。</p>
+<h3>1. 四个方法的作用域对照</h3>
+<pre><code class="language-python">df[&#39;Age&#39;].map(func)      # Series 方法：逐元素处理
+df[&#39;Age&#39;].apply(func)    # Series 方法：逐元素处理（看起来和 map 一样！）
+df.apply(func)           # DataFrame 方法：默认对每一整列（Series）传入 func
+df.map(func)             # DataFrame 方法（新版才有，老版叫 applymap）：逐个单元格处理</code></pre>
+<p><strong>关键区分</strong>：<code>Series.map</code> 和 <code>Series.apply</code> 在「逐元素」上效果几乎一样（历史遗留：<code>map</code> 最早专为&quot;逐元素替换/映射&quot;设计、尤其搭配字典查表，<code>apply</code> 设计更通用、能访问索引）。但 <code>df.apply(func)</code>（DataFrame 上调用）完全是另一回事：<strong>默认把每一整列当参数传进 func，不是每个单元格</strong>。同一个 <code>apply</code> 名字，在 Series 上是&quot;逐元素&quot;，在 DataFrame 上默认是&quot;逐列&quot;。</p>
+<h3>2. <code>Series.map</code>：最适合&quot;查表替换&quot;</h3>
+<pre><code class="language-python">df[&#39;Sex&#39;].map({&#39;male&#39;: 0, &#39;female&#39;: 1})           # 字典查表
+df[&#39;Age&#39;].map(lambda x: x * 2)                     # 函数逐元素
+df[&#39;Pclass&#39;].map(df_lookup[&#39;Pclass&#39;].to_dict())   # 另一个 Series 转字典做映射</code></pre>
+<p>⚠️ <strong>最大的坑：字典/Series 里查不到的 key 静默变 NaN，不报错</strong>：</p>
+<pre><code class="language-python">df[&#39;Sex&#39;].map({&#39;male&#39;: 0})   # &#39;female&#39; 查不到 → 变 NaN，无任何警告</code></pre>
+<p>典型&quot;静默错误&quot;——你以为映射全做完了，结果一半数据悄悄变缺失值，代码层面什么都不抛。</p>
+<h3>3. <code>DataFrame.apply</code>：默认逐列（axis=0），axis=1 才是逐行</h3>
+<pre><code class="language-python">df[[&#39;Age&#39;,&#39;Fare&#39;]].apply(lambda col: col.max() - col.min())        # 默认 axis=0：每列算一个值（极差）
+df[[&#39;Age&#39;,&#39;Fare&#39;]].apply(lambda row: row[&#39;Age&#39;] + row[&#39;Fare&#39;], axis=1)  # axis=1：每行算一个值</code></pre>
+<p><code>axis=0</code>（默认）传进 func 的是<strong>一整列</strong>（Series，长度=行数）；<code>axis=1</code> 传进 func 的是<strong>一整行</strong>（Series，长度=列数）。⚠️ 参数名是坑：直觉以为 <code>axis=1</code> 是&quot;沿列方向&quot;，实际 Pandas 里 <code>axis=1</code> = &quot;操作沿列展开、结果按行收缩&quot; = &quot;逐行处理&quot;。和 NumPy 的 <code>axis</code> 语义一致（axis=0 跨行压缩、axis=1 跨列压缩），但初学者易凭直觉读反。</p>
+<h3>4. <code>DataFrame.map</code>（新名）/ <code>applymap</code>（旧名）：真正的逐元素</h3>
+<pre><code class="language-python">df[[&#39;Age&#39;,&#39;Fare&#39;]].map(lambda x: round(x, 1))      # 新版：每个单元格都跑一遍
+df[[&#39;Age&#39;,&#39;Fare&#39;]].applymap(lambda x: round(x, 1)) # 旧版写法，新版已弹 FutureWarning / 逐步弃用</code></pre>
+<p>唯一&quot;DataFrame 上调用、但真的逐个单元格处理&quot;的方法。要对整表/某几列每一格做同样转换（四舍五入、统一大小写），这才是对的工具——用 <code>apply(axis=1)</code> 再手写内部循环逐格处理是常见误用，性能和可读性都更差。</p>
+<h3>陷阱题（已答对，核心已 get）</h3>
+<pre><code class="language-python">df[&#39;Pclass_str&#39;] = df[&#39;Pclass&#39;].astype(str)
+mapping = {&#39;1&#39;: &#39;一等舱&#39;, &#39;2&#39;: &#39;二等舱&#39;}
+df[&#39;Pclass_name&#39;] = df[&#39;Pclass_str&#39;].map(mapping)
+print(df[&#39;Pclass_name&#39;].isna().sum())</code></pre>
+<p><code>Pclass</code> 有 1/2/3 三种取值，<code>mapping</code> 只写了 <code>&#39;1&#39;</code>/<code>&#39;2&#39;</code>。问：会报错吗？三等舱乘客变成什么？为何实际项目里特别危险？</p>
+<p><strong>我的解答</strong>：不会报错，但会把三等舱变成 NaN，导致数据缺失。</p>
+<p><strong>补充（讲解时延伸的两层）</strong>：</p>
+<p>+ <strong>比一般缺失更隐蔽</strong>：Titanic 原始的 Age/Embarked 缺失是采集时就没有、<code>info()</code> 能查到源头；这里的 NaN 是<strong>自己的代码在干净数据上凭空制造</strong>的（Pclass 原本一行不缺），不回头检查极易误判成&quot;上游数据问题&quot;去排查错方向。<br>+ <strong>对模型训练特别危险</strong>：三等舱样本最多，若静默喂出 NaN，下游要么<strong>丢掉大部分训练数据没人察觉</strong>，要么把 NaN 当成无意义的&quot;未知舱位&quot;类别污染特征空间。错误不在这一行报出，而在几步之后模型效果异常时才暴露。<br>+ <strong>防御写法</strong>：映射前 <code>set</code> 对一下两边取值有没有缺口，或映射后立刻 <code>isna().sum()</code> 校验「新列缺失数 == 原列缺失数」：</p>
+<pre><code class="language-python">before = df[&#39;Pclass_str&#39;].isna().sum()
+df[&#39;Pclass_name&#39;] = df[&#39;Pclass_str&#39;].map(mapping)
+assert df[&#39;Pclass_name&#39;].isna().sum() == before, &quot;map 引入了字典没覆盖的取值！&quot;</code></pre>
+<p>---</p>
+<h2>二、<code>merge</code>：SQL 风格的表连接（按键值匹配）</h2>
+<p><strong>心智定位</strong>：<code>merge</code> 关心&quot;键值匹配&quot;——两表里某字段值相等的行拼一起；它<strong>只认键值、不关心谁前谁后</strong>。（与 <code>concat</code> 的本质区别见第三章末对比表。）</p>
+<h3>1. 基本用法和四种 how</h3>
+<pre><code class="language-python">pd.merge(df1, df2, on=&#39;PassengerId&#39;, how=&#39;inner&#39;)   # 默认 inner：两表都有的键（交集）
+pd.merge(df1, df2, on=&#39;PassengerId&#39;, how=&#39;left&#39;)    # 保留左表全部行，右表没匹配上的列填 NaN
+pd.merge(df1, df2, on=&#39;PassengerId&#39;, how=&#39;right&#39;)   # 反过来
+pd.merge(df1, df2, on=&#39;PassengerId&#39;, how=&#39;outer&#39;)   # 两表所有键都保留（并集），没匹配上一律 NaN</code></pre>
+<p><code>inner</code> 是<strong>双向过滤</strong>：左表没匹配上的丢、右表没匹配上的也丢。</p>
+<h3>2. ⚠️ 键有重复值 → 行数&quot;爆炸&quot;（笛卡尔积）</h3>
+<pre><code class="language-python"># 左表 3 行 cust_id=1，右表 2 行 cust_id=1
+pd.merge(df1, df2, on=&#39;cust_id&#39;, how=&#39;inner&#39;)   # 不是 3+2=5，是 3×2=6 行！</code></pre>
+<p>键重复时做的是<strong>笛卡尔积</strong>——左表键为某值的每一行，和右表键为该值的每一行各配对一次。若以为&quot;合并后行数大致等于原表行数&quot;，在键不唯一的真实数据里这个假设彻底失效，且<strong>不报错不警告</strong>，只是数据莫名变多。 <strong>防御</strong>：merge 前查 <code>df1[&#39;key&#39;].is_unique</code>，或 merge 后对比 <code>len(merged)</code> 与 <code>len(df1)/len(df2)</code> 是否符合预期。</p>
+<h3>3. ⚠️ 同名非键列 → 自动加 <code>_x</code>/<code>_y</code> 后缀，静默改名</h3>
+<pre><code class="language-python"># df1、df2 都有列 &#39;Age&#39;
+merged = pd.merge(df1, df2, on=&#39;PassengerId&#39;)
+merged.columns       # &#39;Age&#39; 变成 &#39;Age_x&#39;、&#39;Age_y&#39;，原名 &#39;Age&#39; 不存在了
+merged[&#39;Age&#39;]        # ❌ KeyError</code></pre>
+<p>又一个&quot;自动化背后悄悄做决定&quot;——检测到列名冲突自动加后缀避免覆盖，<strong>逻辑是好心，但完全不报警告</strong>。后续仍用 <code>merged[&#39;Age&#39;]</code> 会直接 KeyError，排查时第一反应常是&quot;这列丢了&quot;而非&quot;被偷偷改名了&quot;。 <strong>防御</strong>：<code>suffixes=(&#39;_old&#39;,&#39;_new&#39;)</code> 自定义后缀让歧义清楚，或 merge 前手动 <code>rename</code>。</p>
+<h3>4. <code>left_on</code> / <code>right_on</code>：两表键名不同时</h3>
+<pre><code class="language-python">pd.merge(df1, df2, left_on=&#39;PassengerId&#39;, right_on=&#39;ID&#39;)</code></pre>
+<p>两表键列名本来就不同（很常见，不同系统导出）时分别指定，而非先改名再用 <code>on</code>。⚠️ 合并后<strong>两个键列都保留</strong>（PassengerId 和 ID 都在、值一样），想要干净结果通常要手动 <code>drop</code> 掉多余那列。</p>
+<h3>陷阱题（核心答对，&quot;几行&quot;需纠正）</h3>
+<pre><code class="language-python">orders = pd.DataFrame({&#39;cust_id&#39;: [1, 1, 2], &#39;amount&#39;: [100, 200, 50]})
+customers = pd.DataFrame({&#39;cust_id&#39;: [1, 2, 3], &#39;name&#39;: [&#39;A&#39;, &#39;B&#39;, &#39;C&#39;]})
+result = pd.merge(orders, customers, on=&#39;cust_id&#39;, how=&#39;left&#39;)</code></pre>
+<p>问：result 几行？客户 C（cust_id=3）会出现吗？</p>
+<p><strong>我的解答</strong>：~~4 行~~（实测是 <strong>3 行</strong>，下方纠正）；客户 C 不会出现，因为 <code>how=&#39;left&#39;</code> 以左表为准，左表 orders 里没有 cust_id=3。</p>
+<p><strong>纠正与补充</strong>：</p>
+<p>+ <strong>行数 = 3，不是 4</strong>：<code>left</code> 决定&quot;骨架&quot;是左表 orders（3 行）；右表 customers 的 cust_id 无重复，每条订单最多匹配右表一行，所以不发生笛卡尔积膨胀，结果行数 = 左表行数 = 3。<strong>踩中&quot;merge 行数直觉&quot;这条线</strong>：别凭感觉猜数字，先确认&quot;骨架表是谁、骨架表本身有没有重复键、被引用的另一表有没有重复键&quot;。<br>+ <strong>客户 C 不出现的真相</strong>：<code>how=&#39;left&#39;</code> 这个词容易误解成&quot;两表左半边信息都保留&quot;，实际只保证&quot;<strong>左表的所有行</strong>都保留&quot;，跟左表压根没提到的右表内容（哪怕客观存在）无关。要找&quot;customers 里从没下过单的客户&quot;，得把 customers 放左边做 left，或用 outer 再筛 amount 为 NaN 的行。</p>
+<p>---</p>
+<h2>三、<code>concat</code>：堆叠拼接（按位置/索引对齐）</h2>
+<p><strong>心智定位</strong>：<code>concat</code> 完全不看值，只看&quot;位置/索引怎么对齐&quot;，单纯堆叠。一个是&quot;找对象拼&quot;（merge），一个是&quot;摞起来拼&quot;（concat）。</p>
+<h3>1. <code>axis=0</code>：纵向堆叠（最常用）</h3>
+<pre><code class="language-python">pd.concat([df_jan, df_feb], axis=0)   # 默认 axis=0，上下接起来，列名须大致一致，行数=两表之和</code></pre>
+<p>最典型场景：分批读取的数据（按月分文件存的日志/订单），读完每月 DataFrame 后纵向拼回完整表。</p>
+<h3>2. ⚠️ 默认不重置索引 → 索引重复，loc 静默返回多行</h3>
+<pre><code class="language-python">result = pd.concat([df_jan, df_feb], axis=0)
+result.index    # [0,1,0,1]！两表各自原索引原样保留，没重新编号
+result.loc[0]   # 返回的不是一行，是两行的 DataFrame（df_jan第0行 + df_feb第0行），且不报错</code></pre>
+<p>延续 Day 7&quot;筛选/排序后标签不重排&quot;主线——<code>concat</code> 拼接后默认连索引都不重排，新表出现两个 <code>0</code>、两个 <code>1</code>，<code>loc[0]</code> 不报错但静默返回多行。 <strong>防御（固定动作，非可选）</strong>：</p>
+<pre><code class="language-python">result = pd.concat([df_jan, df_feb], axis=0, ignore_index=True)   # ✅ 重新从0连续编号</code></pre>
+<h3>3. <code>axis=1</code>：横向拼接（按索引对齐，不是按位置硬拼）</h3>
+<pre><code class="language-python">pd.concat([df_info, df_score], axis=1)</code></pre>
+<p>&quot;按索引对齐&quot;是关键词——看的是两表<strong>行索引（label）</strong><strong>是否一致，</strong><strong>不是看两表恰好都 3 行就并排贴上</strong><strong>。两表索引都是默认 </strong><code><strong>0,1,2</strong></code><strong> 时结果看着像&quot;按位置对齐&quot;，但这只是</strong><strong>索引恰好长得跟位置一样</strong>的巧合，和 Day 7&quot;Titanic 默认索引和位置数值一样、筛选后才分家&quot;是同一陷阱模式。</p>
+<h3>4. ⚠️ 索引对不齐 → 静默插 NaN（不报错，也不是按位置硬拼）</h3>
+<pre><code class="language-python">df_a = pd.DataFrame({&#39;x&#39;: [1,2,3]}, index=[0,1,2])
+df_b = pd.DataFrame({&#39;y&#39;: [10,20,30]}, index=[1,2,3])   # 故意错开一位
+pd.concat([df_a, df_b], axis=1)</code></pre>
+<p>结果不是简单并排粘起来，而是<strong>先取两边索引的并集（0,1,2,3），再按索引对号入座，对不上的位置填 NaN</strong>：</p>
+<pre><code class="language-plain">x     y
+0  1.0   NaN     # df_a有索引0，df_b没有 → NaN
+1  2.0   10.0    # 对齐成功
+2  3.0   20.0
+3  NaN   30.0    # df_b有索引3，df_a没有 → NaN</code></pre>
+<p>和&quot;两表都 3 行就并排成 3 行&quot;的直觉完全不同——<strong>实际变 4 行、多出的全是 NaN，且无警告</strong>。两表若分别处理/排序/筛选过（索引乱了或不连续），直接 <code>axis=1</code> 极易在此中招：表面&quot;两表行数都对得上&quot;，实际对齐的是索引、不是行数。 <strong>防御</strong>：横向拼接前确认两表索引是否真对应同一批数据、同一种顺序；必要时先 <code>reset_index(drop=True)</code>（前提是确认两表&quot;第几行&quot;本就该对应同一条记录），或改用 <code>merge</code>（按共同键字段对齐，不依赖索引）。</p>
+<h3>5. <code>merge</code> vs <code>concat</code> 本质区别（一句话收尾）</h3>
+<p>| | 依据 | 典型场景 | 行数变化 |<br>| --- | --- | --- | --- |<br>| <code>merge</code> | 按某列的<strong>值</strong>匹配 | 两表语义不同（订单表+客户表），靠键字段关联 | 可能膨胀（键重复）、可能减少（inner 丢不匹配的） |<br>| <code>concat (axis=0)</code> | 按<strong>位置</strong>堆叠 | 两表语义相同（同结构、不同批次），单纯接长 | 严格等于两表行数之和 |<br>| <code>concat (axis=1)</code> | 按<strong>索引</strong>对齐 | 两表语义不同但行行对应（同批样本的不同特征来源） | 索引取并集，可能比任一表都长 |</p>
+<p><code>concat</code> 从不检查&quot;两表某列值是否相等&quot;，只认索引/位置；<code>merge</code> 从不关心&quot;谁前谁后&quot;，只认键值匹配。</p>
+<h3>陷阱题（核心答对，NaN 位置需精确化）</h3>
+<pre><code class="language-python">df_features = pd.DataFrame({&#39;Age&#39;: [22, 38, 26]})           # index 默认 0,1,2
+df_labels = df_features[df_features[&#39;Age&#39;] &gt; 25][[&#39;Age&#39;]].copy()
+df_labels[&#39;Survived&#39;] = [0, 1]
+combined = pd.concat([df_features, df_labels.rename(columns={&#39;Age&#39;: &#39;Age2&#39;})], axis=1)</code></pre>
+<p>问：combined 几行？哪些位置 NaN？这个序列暴露什么风险？</p>
+<p><strong>我的解答</strong>：df_labels 2 行（筛 Age&gt;25 剩 38、26），索引是 1,2；combined 3 行；NaN 在 ~~Age2 列第一行、Survived 列第一行~~（精确说是<strong>索引为 0 的那一行</strong>，Age2 和 Survived 两列都 NaN）；有些数据被筛掉，拼接后出现 NaN。</p>
+<pre><code class="language-plain">Age   Age2  Survived
+0   22    NaN     NaN     ← df_labels 没有索引0，两列都 NaN
+1   38   38.0     0.0
+2   26   26.0     1.0</code></pre>
+<p><strong>补充（这道题真正想暴露的、比&quot;会有 NaN&quot;更危险的点）</strong>：</p>
+<p>+ <strong>真正的风险是数据错位，不只是缺失</strong>。设想更隐蔽版本：若 df_labels 在筛选后又被 <code>sort_values</code> 排序、或中间又做过别的筛选/拼接导致索引不连续/不按原顺序，<code>axis=1</code> 拼出来的结果里<strong>每行的 Age 和 Survived 可能根本不是同一个样本的</strong>，但因为索引&quot;恰好都存在、能对上号&quot;，Pandas 不报任何错。你拿到一张行数对、没有 NaN 的&quot;完整&quot;表，内容却张冠李戴——比出现 NaN 危险得多（NaN 至少 <code>isna().sum()</code> 能看到；索引错位但凑巧对齐是<strong>完全无声的数据污染</strong>）。在 ML 场景下相当于喂了系统性错配的特征-标签对，模型照样收敛但毫无意义、查不出原因。<br>+ <strong>根因</strong>：<code>concat axis=1</code> 隐含假设&quot;两表索引代表同一意义体系下的同一批对象&quot;，一旦其中一表索引经过独立的筛选/重排，假设悄悄失效而代码毫无察觉。<br>+ <strong>安全做法</strong>：合并不同来源的特征/标签时优先 <code>merge</code> + 明确主键（如 PassengerId），别依赖索引隐式对齐；或 concat 前显式检查 <code>df_features.index.equals(df_labels.index)</code>。</p>
+<p>---</p>
+<h2>四、DataFrame ↔ NumPy 互转（流水线出口、对接 PyTorch）</h2>
+<p>离 PyTorch 最近的一块——Day 7 末尾预告的&quot;清洗好的 DataFrame 转成纯数值 Tensor&quot;，这一节就是那条流水线的最后一段。</p>
+<h3>1. <code>.values</code> vs <code>.to_numpy()</code>：新旧 API</h3>
+<pre><code class="language-python">df[[&#39;Age&#39;,&#39;Fare&#39;]].values        # 老写法，能用，官方建议逐步淘汰
+df[[&#39;Age&#39;,&#39;Fare&#39;]].to_numpy()    # 新写法，官方推荐
+df[[&#39;Age&#39;,&#39;Fare&#39;]].to_numpy(dtype=&#39;float32&#39;)   # 可直接指定输出类型，PyTorch 常用 float32</code></pre>
+<p><code>to_numpy()</code> 是后加的更明确接口，解决 <code>.values</code> 在带时区时间/稀疏数组等特殊类型上行为模糊、版本不一致的历史包袱。<strong>新代码优先 </strong><code><strong>.to_numpy()</strong></code>，读老代码要认得 <code>.values</code> 是同一回事。<code>dtype=&#39;float32&#39;</code> 提前打预防针：PyTorch Tensor 默认 float32，而 Pandas/NumPy 默认推断常是 float64，下面专门讲这个落差。</p>
+<h3>2. ⚠️ 混合 dtype 一起转 → 拉齐成&quot;能装下所有列取值的最窄类型&quot;</h3>
+<p><strong>核心规则（被我两次讲错后、靠实测定下的最终版，见第八章）</strong>：</p>
+<p>Pandas 找&quot;能装下所有列<strong>实际取值</strong>的最窄类型；判断标准是<strong>取值的本质</strong>，不是类型标签的名字<strong>。</strong>只要有一列取值本质上不是数字（不管标签叫 object 还是 category），就退到 object；只要所有列取值本质上都是数字（即使某列标签是 category），就能拉齐成数值类型。**</p>
+<p>按&quot;宽容程度&quot;从严格到宽松：</p>
+<p>1. 全部列同一数值类型（全 int64 / 全 float64）→ 保持该类型<br>2. int64 + float64 → 拉齐成 <strong>float64</strong>（float 能表示 int 的所有值，反之不行）<br>3. 数值列 + category（底层类别本身是数字，如 Pclass=1/2/3）→ 拉齐成对应<strong>数值类型（int64）</strong>【实测确认】<br>4. 数值列 + category（底层类别是字符串，如 Sex=&#39;male&#39;/&#39;female&#39;）→ 退化成 <strong>object</strong>【实测确认】<br>5. 数值列 + 普通字符串列（非 category）→ 退化成 <strong>object</strong></p>
+<p>⚠️ 第 5 种最常见也最狠：只要有一列字符串，<strong>整个数组退化成 object</strong>，原本是数字的列在新数组里也变 Python 对象（看着是数字、已不是真正数值数组），后续做矩阵运算或喂 PyTorch 直接类型报错，而<strong>转换这一步本身不报错不警告</strong>，错误推迟到下游毫不相干处才爆。<strong>这就是&quot;类型转换/分类编码&quot;必须排在&quot;转 NumPy/Tensor&quot;之前的原因</strong>——喂模型前所有列必须先变统一数值类型，字符串/分类列先编码成数字。</p>
+<p>⚠️ <strong>额外关键点</strong>：<code>category</code> 列直接 <code>to_numpy()</code> 拿到的是<strong>显示值（原始类别）</strong>，不是 <code>.cat.codes</code>（真正的整数编号）。数字型 category（Pclass）显示值就是 3/1/2，看着正常但语义是&quot;舱位等级本身&quot;而非&quot;字典序编码 0/1/2&quot;；要真正的整数编码必须显式：</p>
+<pre><code class="language-python">df[&#39;Pclass&#39;].cat.codes.to_numpy()   # 得到 [2,0,1]（按类别字典序编号），而非 [3,1,2]</code></pre>
+<h3>3. ⚠️ 转出来是拷贝还是视图？——今天最后一个&quot;视图 vs 拷贝&quot;考点</h3>
+<pre><code class="language-python">df = pd.DataFrame({&#39;Age&#39;: [22, 38, 26]})
+arr = df.to_numpy()
+arr[0] = 999
+df[&#39;Age&#39;]   # 有没有被改？—— 不一定！</code></pre>
+<p><strong>不保证</strong>：有时拷贝（改 arr 不影响 df），有时视图（改 arr 连带改 df），官方说法是&quot;尽量返回视图但不保证&quot;。单一 dtype、内存连续的简单情况常返回视图（共享内存省一次拷贝）；一旦涉及&quot;类型拉齐&quot;（如 int64+float64→float64）必然发生类型转换计算，这种情况<strong>几乎一定是拷贝</strong>（原始数据从未以统一类型连续存在过，必须重新生成）。 <strong>不能靠猜，唯一安全做法是显式控制</strong>：</p>
+<pre><code class="language-python">arr_safe = df.to_numpy(copy=True)   # ✅ 显式要求拷贝，明确不共享内存</code></pre>
+<p>这正是 Day 7〇.1 主线的最终落点——&quot;任何要修改的场合，一律用一步到位、不依赖默认行为的写法&quot;，今天搬到&quot;转 NumPy 后还要不要继续改这个数组&quot;的新场景。</p>
+<h3>4. 与 PyTorch 的直接衔接（提前打预防针）</h3>
+<pre><code class="language-python">import torch
+arr = df[[&#39;Age&#39;,&#39;Fare&#39;]].to_numpy(dtype=&#39;float32&#39;, copy=True)
+tensor = torch.from_numpy(arr)    # NumPy → Tensor，⚠️ from_numpy 默认共享内存（视图）！</code></pre>
+<p><code>torch.from_numpy()</code><strong>默认共享内存</strong>（文档明确，不是不确定行为），改 tensor 连带改 arr。想要独立 Tensor（PyTorch 那边操作不意外影响 NumPy 这边）用 <code>torch.tensor(arr)</code>（拷贝）而非 <code>from_numpy</code>。和今天 <code>to_numpy(copy=...)</code> 是同一条&quot;视图 vs 拷贝&quot;主线一路贯穿到底，Day 9/10 正式展开。</p>
+<h3>陷阱题（关键纠正：连续两次被实测纠正，详见第八章）</h3>
+<pre><code class="language-python">df = pd.DataFrame({&#39;Age&#39;: [22, 38, 26], &#39;Pclass&#39;: [3, 1, 2]})
+df[&#39;Pclass&#39;] = df[&#39;Pclass&#39;].astype(&#39;category&#39;)
+arr = df.to_numpy()
+print(arr.dtype)   # 我先说 object，实测是 int64
+print(arr)         # [[22 3] [38 1] [26 2]]</code></pre>
+<p>问：arr.dtype 是什么？Pclass 列存的值长得像编码（0/1/2）还是原始值（3/1/2）？对&quot;先 category 编码、再转 NumPy 喂模型&quot;意味什么风险？</p>
+<p><strong>最终正确答案（实测确认）</strong>：dtype 是 <strong>int64</strong>（不是 object）；Pclass 列存的是<strong>原始值 3/1/2</strong>（显示值，不是 cat.codes 的 0/1/2）。因为 Pclass 的底层类别本身就是整数 3/1/2，能安全装进 int64，所以没被迫退到 object。 <strong>风险</strong>：风险不在&quot;category 永远拖累成 object&quot;，而在<strong>你以为 category 列里存的是编码（如以为 male/female 已变 0/1），但 </strong><code><strong>to_numpy()</strong></code><strong> 默认拿到的是显示值（原始类别）</strong>。数字型 category（Pclass）这个误解不会立刻暴露（显示值看着就是数字），反而最危险——表面相安无事，需自己确认拿到的是&quot;原始类别值（1/2/3 表等级本身）&quot;还是期望的&quot;整数编码索引（0/1/2 表字典序）&quot;，两者语义不同，用错喂模型导致特征语义和你以为的不一致。字符串型 category（Sex）反而安全，因为退化成 object 会在转换那刻直接暴露、报错链路清晰。</p>
+<p>---</p>
+<h2>五、四块串起来的完整流水线骨架（清洗探索 → 模型输入）</h2>
+<p>今天四块的实际位置，在&quot;原始杂乱表格 → 模型能吃的纯数字矩阵&quot;这条流水线上：</p>
+<pre><code class="language-python">import pandas as pd, numpy as np, torch
+
+# 0. 读取（Day 7）
+df = pd.read_csv(&#39;titanic.csv&#39;)
+
+# 1. 多表整合（今天）：merge 按键关联不同来源 / concat 堆叠分批数据
+#    df = pd.merge(df_main, df_extra, on=&#39;PassengerId&#39;, how=&#39;left&#39;)
+#    df = pd.concat([df_2023, df_2024], axis=0, ignore_index=True)
+
+# 2. 缺失处理（Day 7）+ 派生特征（今天的 map/apply）
+df[&#39;Age&#39;] = df.groupby(&#39;Pclass&#39;)[&#39;Age&#39;].transform(lambda x: x.fillna(x.median()))
+df[&#39;FareLevel&#39;] = df[&#39;Fare&#39;].apply(lambda x: &#39;high&#39; if x &gt; 50 else &#39;low&#39;)   # 复杂逻辑用 apply
+df[&#39;Title&#39;] = df[&#39;Name&#39;].str.extract(r&#39;,\s*([^\.]+)\.&#39;)                      # 能向量化的用 .str
+
+# 3. 分类编码（Day 7 category / 今天 map 查表）→ 必须先变数字，否则第4步退化成 object
+df[&#39;Sex&#39;] = df[&#39;Sex&#39;].map({&#39;male&#39;: 0, &#39;female&#39;: 1})       # 字典查表（先确认覆盖全部取值！）
+df[&#39;Embarked&#39;] = df[&#39;Embarked&#39;].astype(&#39;category&#39;).cat.codes  # category 取真正的整数编码
+
+# 4. 出口到 NumPy/Tensor（今天）：全数值后才能转，显式 dtype + copy
+features = df[[&#39;Age&#39;, &#39;Fare&#39;, &#39;Sex&#39;, &#39;Embarked&#39;]].to_numpy(dtype=&#39;float32&#39;, copy=True)
+X = torch.tensor(features)   # 独立 Tensor（不共享内存）</code></pre>
+<p><strong>串联记忆</strong>：merge/concat 解决&quot;多个表合一张&quot;；map/apply 解决&quot;按需派生/转换列&quot;；类型转换+编码解决&quot;字符串变数字&quot;；to_numpy 解决&quot;DataFrame 变矩阵&quot;。前三步任何一步留下非数值列或意外 NaN，第 4 步都不会报错，问题一路带到训练阶段。</p>
+<p>---</p>
+<h2>六、今天踩过 / 纠正过的坑（速查表）</h2>
+<p>| # | 坑 | 真相 | 防御 |<br>| --- | --- | --- | --- |<br>| 1 | <code>df[&#39;col&#39;].map({...})</code>&lt;br/&gt; 不生效 | map 默认返回新对象、不改原表，没赋值就丢了 | <code>df[&#39;col&#39;] = df[&#39;col&#39;].map({...})</code> |<br>| 2 | <code>map</code>&lt;br/&gt; 字典没覆盖全 → 静默 NaN | 查不到的 key 静默变 NaN，不报错 | 映射后 <code>isna().sum()</code>&lt;br/&gt; 校验缺失数不变；或先 <code>set</code>&lt;br/&gt; 对取值 |<br>| 3 | <code>df.apply</code>&lt;br/&gt; 以为逐元素 | DataFrame 上 apply 默认逐<strong>列</strong>（传整列 Series），不是逐格 | 逐格用 <code>df.map()</code>&lt;br/&gt;(原 applymap)；逐行用 <code>apply(axis=1)</code> |<br>| 4 | <code>axis=1</code>&lt;br/&gt; 方向读反 | axis=1 = 逐<strong>行</strong>处理（结果按行收缩），不是&quot;沿列&quot; | 记死：axis=0 逐列、axis=1 逐行；和 NumPy 一致 |<br>| 5 | 用 <code>apply(lambda)</code>&lt;br/&gt; 做能向量化的事 | apply 是隐藏 Python 循环，比向量化慢几十倍 | 加减乘除/比较/<code>.str</code>&lt;br/&gt; 方法族优先向量化，apply 留给复杂逻辑 |<br>| 6 | merge 行数&quot;爆炸&quot; | 键重复时做笛卡尔积（左m×右n），不报错 | merge 前查 <code>key.is_unique</code>&lt;br/&gt;；后对比 len 是否符合预期 |<br>| 7 | merge 后 <code>df[&#39;Age&#39;]</code>&lt;br/&gt; KeyError | 同名非键列被自动加 <code>_x</code>&lt;br/&gt;/<code>_y</code>&lt;br/&gt; 后缀，静默改名 | <code>suffixes=(...)</code>&lt;br/&gt; 自定义；或 merge 前手动 rename |<br>| 8 | <code>left_on/right_on</code>&lt;br/&gt; 后多一列 | 两个键列都保留（值一样） | 手动 <code>drop</code>&lt;br/&gt; 多余的那列 |<br>| 9 | 猜 merge 行数（如猜 4 实为 3） | 行数由&quot;骨架表 + 双方键是否重复&quot;共同决定，非凭感觉 | 先确认骨架是谁、骨架/对方表有无重复键 |<br>| 10 | 以为 <code>how=&#39;left&#39;</code>&lt;br/&gt; 保留两表左半 | left 只保证&quot;左表全部行&quot;在，与左表没提到的右表内容无关 | 找&quot;右表中无匹配&quot;的，把右表放左做 left 或用 outer |<br>| 11 | concat 后索引重复 | <code>axis=0</code>&lt;br/&gt; 默认不重置索引，出现两个 0、两个 1 | <code>ignore_index=True</code>&lt;br/&gt; 重新从 0 连续编号 |<br>| 12 | concat 后 <code>loc[0]</code>&lt;br/&gt; 返回多行 | 标签 0 重复 → loc 静默返回 DataFrame 而非一行 | 同上，拼接即加 <code>ignore_index=True</code> |<br>| 13 | <code>concat(axis=1)</code>&lt;br/&gt; 索引错开静默 NaN | 按索引取并集对齐，对不上填 NaN；不是按位置硬拼 | 拼前确认索引一致；不一致先 reset_index 或改用 merge |<br>| 14 | <code>concat(axis=1)</code>&lt;br/&gt; 数据张冠李戴 | 索引&quot;凑巧都存在&quot;会对齐成错配的行，完全无声 | 用 merge+主键；或 <code>df1.index.equals(df2.index)</code>&lt;br/&gt; 检查 |<br>| 15 | <code>category</code>&lt;br/&gt; 转 NumPy 拉齐成什么 | 看底层类别取值本质：数字→数值类型(int64)，字符串→object（<strong>我连两次讲错，见八章</strong>） | 别看类型标签名，看类别实际是数字还是字符串；实测确认 |<br>| 16 | <code>category</code>&lt;br/&gt; 转 NumPy 拿到原始值非编码 | to_numpy 取显示值（3/1/2），不是 cat.codes（0/1/2） | 要整数编码显式 <code>.cat.codes.to_numpy()</code> |<br>| 17 | 字符串列混入转 NumPy → object | NumPy 全员同类型，有一列非数值整体退 object，不报错 | 喂模型前所有列先转数值（astype/map/cat.codes） |<br>| 18 | <code>to_numpy()</code>&lt;br/&gt; 是视图还是拷贝 | 不保证；类型拉齐时几乎是拷贝，单一 dtype 连续时常是视图 | 永远显式 <code>to_numpy(copy=True)</code>&lt;br/&gt;，不靠猜 |<br>| 19 | <code>to_numpy(dtype=&#39;int&#39;)</code>&lt;br/&gt; 遇 NaN | 整数类型不支持 NaN → 报错保护（同 Day7 astype(int)） | 先 fillna 再转 int；含 NaN 的列默认已是 float64 |<br>| 20 | <code>torch.from_numpy</code>&lt;br/&gt; 改一个连带改另一个 | from_numpy 默认共享内存（视图），文档明确 | 要独立用 <code>torch.tensor(arr)</code>&lt;br/&gt;（拷贝） |</p>
+<p>---</p>
+<h2>七、可以自己再做的小实验</h2>
+<p>1. 同一个&quot;转大写&quot;任务，分别用 <code>df[&#39;Name&#39;].apply(lambda x: x.upper())</code> 和 <code>df[&#39;Name&#39;].str.upper()</code>，确认结果一样；再用 <code>%timeit</code> 对比一个放大到几万行的列上两者耗时差几十倍。<br>2. <code>df.apply(func)</code> 不加 axis（逐列）、加 <code>axis=1</code>（逐行），各打印一次结果和 <code>type()</code>，亲眼看&quot;逐列结果索引是列名 / 逐行结果索引是行号&quot;。<br>3. 造两个键有重复的小表跑 <code>merge</code>，手算笛卡尔积行数（左m×右n）再和 <code>len(merged)</code> 对，验证&quot;爆炸&quot;。<br>4. 两表都有同名列做 merge，打印 <code>merged.columns</code> 看 <code>_x</code>/<code>_y</code>，再用 <code>suffixes</code> 换成有意义的后缀。<br>5. <code>concat(axis=0)</code> 不加/加 <code>ignore_index=True</code> 各跑一次，打印 <code>.index</code>，再试 <code>loc[0]</code> 看返回一行还是多行。<br>6. 造两个索引故意错开（<code>index=[0,1,2]</code> vs <code>index=[1,2,3]</code>）的表做 <code>concat(axis=1)</code>，验证结果变 4 行且对角填 NaN。<br>7. 同一列 <code>astype(&#39;category&#39;)</code> 后，分别用 <code>to_numpy()</code> 和 <code>.cat.codes.to_numpy()</code>，对比拿到&quot;原始值&quot;还是&quot;整数编码&quot;；再把类别换成字符串（如 Sex）重测 <code>to_numpy().dtype</code> 看变 object。<br>8. <code>df.to_numpy()</code> 后改第一个元素，回头打印原 df 看有没有连带变（视图/拷贝）；再加 <code>copy=True</code> 重测，确认独立。</p>
+<p>---</p>
+<h2>八、本日重要纠错记录：<code>category</code> 转 NumPy 的拉齐规则（连续两次被实测纠正）</h2>
+<p>仿照 Day 7「取反 NaN 被实测纠正」的格式，单独存档——这是今天最有价值的方法论案例。</p>
+<p><strong>背景</strong>：陷阱题问 <code>Age(int64) + Pclass(category，类别是数字3/1/2)</code> 一起 <code>to_numpy()</code> 的 dtype。</p>
+<p><strong>第一次讲错</strong>：我断言&quot;混合 int64 和 category 会被拉齐成 <strong>object</strong>&quot;。 → 用户实测截图：dtype 是 <strong>int64</strong>，值是 <code>[[22 3] [38 1] [26 2]]</code>。我的判断被当场推翻。</p>
+<p><strong>第一次纠错时我的反思</strong>：错误在于把&quot;category 类型本身不是数值类型&quot;这个事实，<strong>过度泛化</strong>成&quot;所以混入数值列必然变成 object&quot;——这步推导跳得太快。真正决定拉齐结果的，不是 category 这个<strong>类型标签</strong>，而是它<strong>底层类别的实际取值</strong>能不能被数值类型安全表示。这里类别恰好是整数 1/2/3，能装进 int64，所以没退到 object。</p>
+<p><strong>修正后我提出的假设</strong>：若 category 包的是字符串（如 Sex=&#39;male&#39;/&#39;female&#39;），才会退到 object。并请用户实测情况 B 验证。 → 用户第二次实测截图：情况 A（数字型 category）输出 <code>int64</code>，情况 B（字符串型 category）输出 <code>object</code>。<strong>修正后的判断被实测完全验证。</strong></p>
+<p><strong>最终定论（经两次实测确认）</strong>：</p>
+<p><code>to_numpy()</code> 始终找&quot;能装下所有列<strong>实际取值</strong>的最窄类型；判断标准是<strong>取值的本质</strong>，不是类型标签的名字<strong>。</strong>只要有一列取值本质上不是数字（不管标签叫 object 还是 category），就退到 object；只要所有列取值本质上都是数字（即使某列标签是 category），就能拉齐成数值类型。**</p>
+<p><strong>方法论收获</strong>（这才是这条记录的真正价值）：</p>
+<p>+ 和 Day 7「取反 NaN」的纠错<strong>结构完全一样</strong>：都是&quot;听起来很合理的推论，实际跳过了一个关键变量没考虑&quot;——上次漏了&quot;NaN 比较返回 False&quot;，这次漏了&quot;决定因素是底层取值不是类型标签&quot;。<br>+ 唯一能确认真相的方式是<strong>跑代码实测</strong>，不是靠&quot;听起来对不对&quot;判断。我作为讲解方也会犯这种&quot;过度泛化&quot;的错，<strong>对任何&quot;静默行为&quot;类的结论，最终都要以你自己环境的实测为准</strong>。<br>+ 引申出一条更通用的分类习惯：<strong>要分清&quot;哪些操作是报错保护你、哪些是悄悄给你错误结果&quot;</strong>——今天 <code>to_numpy(dtype=&#39;int&#39;)</code> 遇 NaN 报错是前者（同 Day 7 的 astype(int)），而 map/merge/concat/to_numpy 一堆静默坑是后者，两类要分开记、分开防。</p></div></article>
+<nav class="note-pagination"><a href="./day-7-学习笔记-dataframe学习.html">← Day 7 学习笔记：DataFrame学习</a><a href="./day-9-学习笔记-titanic-综合实战-完整数据分析项目.html">Day 9 学习笔记：Titanic 综合实战 —— 完整数据分析项目 →</a></nav>
+  </main>
+</body>
+</html>
