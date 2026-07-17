@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101c">
+  <title>Day 4 学习笔记：模型保存加载与可视化 · SNOWSTORM</title>
+  <link rel="stylesheet" href="../../../../assets/library.css">
+</head>
+<body class="library-page">
+  <main class="library-shell">
+    <a class="library-brand" href="../../../../index.html">SNOWSTORM / ARCHIVE</a>
+    <p class="library-eyebrow">模型与训练闭环</p>
+    <nav class="breadcrumbs"><a href="../../../index.html">学习</a><span>/</span><a href="../../index.html">PyTorch</a><span>/</span><span>模型与训练闭环</span></nav>
+<article class="note-article"><h1>Day 4 学习笔记：模型保存加载与可视化</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+<p>参考书：《动手学深度学习》PyTorch 版，PyTorch 官方文档，Matplotlib 官方文档</p>
+<p>本阶段重点：在 <span class="wiki-link">Day 1 学习笔记：nn.Module 与常用层入门</span> 中已经把参数、层和优化器交给 <code>nn.Module</code> 管理；在 <span class="wiki-link">Day 2 学习笔记：MLP 多层感知机与正则化</span> 中已经完成 Fashion-MNIST 的 MLP 训练；在 <span class="wiki-link">Day 3 学习笔记：自定义 Dataset 与 DataLoader 深入</span> 中已经理解数据如何按 batch 进入训练循环。今天把三者组织成一个完整工程闭环：<strong>可训练、可观察、可保存、可恢复、可复用。</strong></p>
+<p>今天主线：<code>模型保存/加载 + checkpoint + 可视化</code>。核心心智模型是：<strong>模型结构代码定义“模型长什么样”；<code>state_dict</code> 记录“训练后参数是多少”；checkpoint 记录“训练进行到哪里”；曲线记录“训练过程实际发生了什么”。</strong></p>
+<p>本笔记对应 <span class="wiki-link">PyTorch 暑期详细学习计划</span> 中第 4 周 Day 4。</p>
+<p>---</p>
+<h2>〇、贯穿全天的九条心智主线</h2>
+<h3>1. 保存的不是 accuracy，而是模型学到的状态</h3>
+<p>第 3 周 <span class="wiki-link">纯 Tensor 手写线性回归</span> 与 <span class="wiki-link">纯 Tensor 手写 Softmax 分类</span> 中，真正被训练的是手写参数：</p>
+<pre><code class="language-python">w = w - lr * w.grad
+b = b - lr * b.grad</code></pre>
+<p>若程序结束，内存中的 <code>w</code>、<code>b</code> 消失；只记录“accuracy = 86%”无法恢复模型。</p>
+<p>现在参数被 <code>nn.Module</code> 统一管理：</p>
+<pre><code class="language-python">model = nn.Sequential(
+    nn.Flatten(),
+    nn.Linear(28 * 28, 256),
+    nn.ReLU(),
+    nn.Dropout(0.2),
+    nn.Linear(256, 10),
+)</code></pre>
+<p>本质对应关系：</p>
+<pre><code class="language-plain">纯 Tensor 版本：自己保存 w、b
+nn.Module 版本：保存 model 管理的参数状态</code></pre>
+<p>保存不会自动提高 accuracy。它只让已经得到的实验结果能被预测、比较、恢复与复现。</p>
+<h3>2. <code>state_dict</code> 是“带名字的模型状态表”</h3>
+<pre><code class="language-python">state_dict = model.state_dict()</code></pre>
+<p><code>state_dict()</code> 是方法；调用后得到一个类似 Python 字典的对象：键是参数名称，值是 Tensor。</p>
+<p>对一个 <code>nn.Sequential</code> 模型：</p>
+<pre><code class="language-python">model = nn.Sequential(
+    nn.Flatten(),
+    nn.Linear(4, 3),
+    nn.ReLU(),
+    nn.Linear(3, 2),
+)</code></pre>
+<p>可将其理解为：</p>
+<pre><code class="language-python">{
+    &quot;1.weight&quot;: ...,  # shape: (3, 4)
+    &quot;1.bias&quot;:   ...,  # shape: (3,)
+    &quot;3.weight&quot;: ...,  # shape: (2, 3)
+    &quot;3.bias&quot;:   ...,  # shape: (2,)
+}</code></pre>
+<p><code>Flatten</code>、<code>ReLU</code>、<code>Dropout</code> 没有可学习参数，所以通常不会像 <code>Linear.weight</code> 一样出现在其中。</p>
+<pre><code class="language-plain">state_dict 包含：可学习参数 + 必要的持久 buffer
+state_dict 不包含：模型结构代码、forward 代码、optimizer 状态、epoch、loss、DataLoader、当前 train/eval 模式</code></pre>
+<p>未来使用 BatchNorm 时，运行均值、运行方差也属于需要保存的持久状态；这也是它们会进入 <code>state_dict</code> 的原因。</p>
+<h3>3. “创建结构”与“装入参数”是两个动作</h3>
+<p><code>create_model()</code> <strong>不是 PyTorch 内置 API</strong>，只是我们自己起的普通 Python 函数名。它可以叫 <code>build_model()</code>，职责是集中定义模型结构：</p>
+<pre><code class="language-python">def create_model():
+    return nn.Sequential(
+        nn.Flatten(),
+        nn.Linear(28 * 28, 256),
+        nn.ReLU(),
+        nn.Dropout(0.2),
+        nn.Linear(256, 10),
+    )</code></pre>
+<p>调用：</p>
+<pre><code class="language-python">model = create_model()</code></pre>
+<p>会新建一个同结构模型，并随机初始化参数；它不读取旧模型文件。</p>
+<pre><code class="language-plain">create_model()
+-&gt; 创建“空的同款机器”：结构正确，参数随机
+
+model.load_state_dict(state_dict)
+-&gt; 将保存的训练后参数装进这台机器</code></pre>
+<p>因此，训练与加载必须共用同一份 <code>create_model()</code>。若训练时是 <code>Linear(784, 256)</code>，加载时误写为 <code>Linear(784, 128)</code>，权重 shape 不匹配，PyTorch 会报错；不要用 <code>strict=False</code> 掩盖这种结构错误。</p>
+<h3>4. 三个核心保存 API 各自只做一件事</h3>
+<pre><code class="language-python">torch.save(model.state_dict(), path)</code></pre>
+<pre><code class="language-plain">model.state_dict()  -&gt; 从模型取出状态字典
+torch.save(...)     -&gt; 将一个 Python 对象序列化并写入文件
+torch.load(...)     -&gt; 从文件读回对象
+load_state_dict(...) -&gt; 将状态字典复制进已创建模型</code></pre>
+<p>推荐的“只为预测或最终测试加载模型”流程：</p>
+<pre><code class="language-python">best_model = create_model().to(device)
+
+best_state_dict = torch.load(
+    best_model_path,
+    weights_only=True,
+    map_location=device,
+)
+
+best_model.load_state_dict(best_state_dict)</code></pre>
+<p>注意：下面是错误写法：</p>
+<pre><code class="language-python">model.load_state_dict(&quot;best_model.pth&quot;)</code></pre>
+<p>因为 <code>load_state_dict()</code> 要的是已经读回内存的字典，而不是路径字符串。</p>
+<h3>5. 模型权重文件与 checkpoint 的用途不同</h3>
+<pre><code class="language-plain">best_model.pth
+-&gt; 验证集表现最好的模型参数
+-&gt; 用于最终测试、预测、部署
+
+last_checkpoint.pth
+-&gt; 最近一次完整训练状态
+-&gt; 用于中断后继续训练</code></pre>
+<p>checkpoint 通常保存字典：</p>
+<pre><code class="language-python">torch.save(
+    {
+        &quot;epoch&quot;: epoch,
+        &quot;model_state_dict&quot;: model.state_dict(),
+        &quot;optimizer_state_dict&quot;: optimizer.state_dict(),
+        &quot;history&quot;: history,
+        &quot;best_val_acc&quot;: best_val_acc,
+    },
+    last_checkpoint_path,
+)</code></pre>
+<p>其中：</p>
+<pre><code class="language-plain">model_state_dict      恢复模型参数，必需
+optimizer_state_dict  恢复 optimizer 内部历史，续训时必需
+epoch                 知道从第几轮接着训练，必需
+history               恢复完整曲线，推荐
+best_val_acc          不误覆盖历史最佳模型，推荐</code></pre>
+<p>optimizer 不能随便重新开始：SGD 的 momentum、Adam 的一阶/二阶累计状态都会影响下一次 <code>optimizer.step()</code>。只恢复模型参数而不恢复 optimizer，不是严格意义上的无缝续训。</p>
+<h3>6. <code>model.train()</code> / <code>model.eval()</code> 决定前向行为，不决定保存格式</h3>
+<p>这是本次最容易混淆的边界：</p>
+<pre><code class="language-plain">state_dict / save / load
+-&gt; 搬运模型状态
+
+train / eval
+-&gt; 决定下一次 model(X) 如何运行</code></pre>
+<p>保存、加载本身不要求先切换模式：</p>
+<pre><code class="language-python">model.train()
+torch.save(model.state_dict(), path)  # 可以
+
+model.eval()
+torch.save(model.state_dict(), path)  # 也可以</code></pre>
+<p>对当前 MLP，<code>Dropout</code> 是模式差异的核心：</p>
+<pre><code class="language-plain">model.train()  -&gt; Dropout 随机屏蔽部分神经元
+model.eval()   -&gt; Dropout 停止随机屏蔽，输出稳定</code></pre>
+<p>因此应按<strong>下一次前向计算的用途</strong>切换：</p>
+<pre><code class="language-python">def train_one_epoch(...):
+    model.train()
+    ...
+
+def evaluate(...):
+    model.eval()
+    with torch.no_grad():
+        ...</code></pre>
+<pre><code class="language-python"># 加载后要继续训练
+model.load_state_dict(...)
+model.train()
+
+# 加载后要验证、测试、预测
+model.load_state_dict(...)
+model.eval()</code></pre>
+<p><code>model.eval()</code> 与 <code>torch.no_grad()</code> 也不是一回事：</p>
+<pre><code class="language-plain">model.eval()       改变 Dropout、BatchNorm 等层的行为
+torch.no_grad()    关闭梯度记录，节省评估/推理开销</code></pre>
+<p>验证、测试、预测通常应同时使用二者。</p>
+<h3>7. 用验证集选择最佳模型，test 集只做最终评估</h3>
+<p>典型情况：</p>
+<pre><code class="language-plain">epoch 8:  train acc 90.1%, val acc 86.4%
+epoch 10: train acc 93.0%, val acc 85.1%</code></pre>
+<p>最后一轮训练集更好，不代表泛化更好。应当在每次验证后按同一规则保存：</p>
+<pre><code class="language-python">best_val_acc = -float(&quot;inf&quot;)
+
+if val_acc &gt; best_val_acc:
+    best_val_acc = val_acc
+    torch.save(model.state_dict(), best_model_path)</code></pre>
+<p><code>-float(&quot;inf&quot;)</code> 是负无穷，任何正常准确率都会比它大，因此第一轮必然成为当前最佳。</p>
+<pre><code class="language-plain">train 集：用于参数更新
+val 集：用于选超参数、选最佳模型、判断过拟合
+test 集：训练全部结束后，用最佳模型评估一次</code></pre>
+<p>不要用 test accuracy 挑选最佳 epoch；否则 test 集已经参与模型选择，不能再视为独立的最终评估。</p>
+<h3>8. 曲线记录的是训练证据，不会让模型自动变好</h3>
+<p>每个 epoch 不应只记最后一个 batch 的指标，而应汇总整个 DataLoader：</p>
+<pre><code class="language-python">total_loss = 0.0
+total_correct = 0
+total_samples = 0
+
+for X, y in data_loader:
+    logits = model(X)                 # shape: (B, 10)
+    loss = criterion(logits, y)       # 标量
+
+    batch_size = y.size(0)
+    total_loss += loss.item() * batch_size
+    total_correct += (logits.argmax(dim=1) == y).sum().item()
+    total_samples += batch_size
+
+average_loss = total_loss / total_samples
+accuracy = total_correct / total_samples</code></pre>
+<p><code>CrossEntropyLoss</code> 默认返回一个 batch 的平均 loss，因此要先乘回 <code>batch_size</code>，最后除以总样本数，才能正确处理最后一个较小 batch。</p>
+<p>记录四条历史：</p>
+<pre><code class="language-python">history = {
+    &quot;train_loss&quot;: [],
+    &quot;val_loss&quot;: [],
+    &quot;train_acc&quot;: [],
+    &quot;val_acc&quot;: [],
+}</code></pre>
+<p>每轮结束后追加：</p>
+<pre><code class="language-python">history[&quot;train_loss&quot;].append(train_loss)
+history[&quot;val_loss&quot;].append(val_loss)
+history[&quot;train_acc&quot;].append(train_acc)
+history[&quot;val_acc&quot;].append(val_acc)</code></pre>
+<h3>9. 曲线用于诊断，但结论必须来自实际趋势</h3>
+<pre><code class="language-plain">欠拟合：train / val 都不好，差距通常不大
+过拟合：train 持续变好，val loss 后期上升或 val acc 停滞/下降，差距扩大
+训练稳定：指标总体向好，允许有小幅波动
+训练不稳定：loss 大幅震荡、发散，或出现 nan / inf</code></pre>
+<p>单次验证准确率小幅下降不等于过拟合。应看连续趋势，并结合 loss、正则化、训练轮数与对照实验；不能因为用了保存、DataLoader 或画图，就默认效果一定更好。</p>
+<p>---</p>
+<h2>一、Day 2、Day 3、Day 4 如何拼成一个完整训练闭环</h2>
+<pre><code class="language-plain">Day 3：Dataset / DataLoader
+    -&gt; 每个 batch 提供 X, y
+
+Day 2：MLP / CrossEntropyLoss / optimizer
+    -&gt; 前向、loss、反向传播、参数更新
+
+Day 4：history / best model / checkpoint / curves
+    -&gt; 记录、选择、保存、恢复、观察</code></pre>
+<p>Fashion-MNIST 的必要 shape：</p>
+<pre><code class="language-plain">DataLoader 输出：X.shape = (B, 1, 28, 28), y.shape = (B,)
+nn.Flatten 后：X.shape = (B, 784)
+MLP 输出：logits.shape = (B, 10)
+argmax(dim=1) 后：预测类别 shape = (B,)</code></pre>
+<p>最小模型工厂：</p>
+<pre><code class="language-python">def create_model():
+    return nn.Sequential(
+        nn.Flatten(),
+        nn.Linear(28 * 28, 256),
+        nn.ReLU(),
+        nn.Dropout(0.2),
+        nn.Linear(256, 10),
+    )</code></pre>
+<p>训练函数与评估函数都接收 DataLoader；这正延续了 <span class="wiki-link">Day 3 学习笔记：自定义 Dataset 与 DataLoader 深入</span> 中“Dataset 返回一条样本、DataLoader 编排 batch”的分工。</p>
+<p>---</p>
+<h2>二、完整训练项目的关键代码骨架</h2>
+<h3>1. 设备与模型</h3>
+<pre><code class="language-python">if torch.backends.mps.is_available():
+    device = torch.device(&quot;mps&quot;)
+elif torch.cuda.is_available():
+    device = torch.device(&quot;cuda&quot;)
+else:
+    device = torch.device(&quot;cpu&quot;)
+
+model = create_model().to(device)
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(
+    model.parameters(),
+    lr=1e-3,
+    weight_decay=1e-4,
+)</code></pre>
+<p><code>model</code>、输入 <code>X</code>、标签 <code>y</code> 必须位于同一个 device。</p>
+<h3>2. 保存目录与路径</h3>
+<pre><code class="language-python">from pathlib import Path
+
+checkpoint_dir = Path(&quot;checkpoints&quot;)
+checkpoint_dir.mkdir(exist_ok=True)
+
+best_model_path = checkpoint_dir / &quot;best_model.pth&quot;
+last_checkpoint_path = checkpoint_dir / &quot;last_checkpoint.pth&quot;</code></pre>
+<p>这两个是相对路径，默认相对于<strong>当前工作目录</strong>：</p>
+<pre><code class="language-python">print(Path.cwd())</code></pre>
+<p>若只想保存到“运行 Python 时的工作目录”，原写法已经正确，不必硬编码绝对路径。</p>
+<p>若想无论从哪里运行命令，都将文件保存到 <code>.py</code> 脚本所在目录旁边，则在普通 <code>.py</code> 脚本中使用：</p>
+<pre><code class="language-python">project_dir = Path(__file__).resolve().parent
+checkpoint_dir = project_dir / &quot;checkpoints&quot;
+checkpoint_dir.mkdir(exist_ok=True)</code></pre>
+<p><code>__file__</code> 指的是当前脚本文件路径；在 notebook 或交互式解释器中不一定可用。</p>
+<h3>3. 主训练循环</h3>
+<pre><code class="language-python">for epoch in range(num_epochs):
+    train_loss, train_acc = train_one_epoch(
+        model, train_loader, optimizer, criterion, device
+    )
+
+    val_loss, val_acc = evaluate(
+        model, val_loader, criterion, device
+    )
+
+    history[&quot;train_loss&quot;].append(train_loss)
+    history[&quot;val_loss&quot;].append(val_loss)
+    history[&quot;train_acc&quot;].append(train_acc)
+    history[&quot;val_acc&quot;].append(val_acc)
+
+    if val_acc &gt; best_val_acc:
+        best_val_acc = val_acc
+        torch.save(model.state_dict(), best_model_path)
+
+    torch.save(
+        {
+            &quot;epoch&quot;: epoch,
+            &quot;model_state_dict&quot;: model.state_dict(),
+            &quot;optimizer_state_dict&quot;: optimizer.state_dict(),
+            &quot;history&quot;: history,
+            &quot;best_val_acc&quot;: best_val_acc,
+        },
+        last_checkpoint_path,
+    )</code></pre>
+<p>保存时即使 <code>evaluate()</code> 刚把模型设为 <code>eval()</code> 也没有问题。下一轮 <code>train_one_epoch()</code> 自己调用 <code>model.train()</code>，模式由下一次前向计算的目的决定。</p>
+<h3>4. 中断后继续训练</h3>
+<pre><code class="language-python">model = create_model().to(device)
+optimizer = torch.optim.Adam(
+    model.parameters(),
+    lr=1e-3,
+    weight_decay=1e-4,
+)
+
+checkpoint = torch.load(
+    last_checkpoint_path,
+    weights_only=True,
+    map_location=device,
+)
+
+model.load_state_dict(checkpoint[&quot;model_state_dict&quot;])
+optimizer.load_state_dict(checkpoint[&quot;optimizer_state_dict&quot;])
+
+start_epoch = checkpoint[&quot;epoch&quot;] + 1
+history = checkpoint[&quot;history&quot;]
+best_val_acc = checkpoint[&quot;best_val_acc&quot;]
+model.train()</code></pre>
+<p>若 checkpoint 中保存 <code>epoch = 11</code>，表示编号为 11 的 epoch 已完成，恢复时从 <code>12</code> 开始，不能重复训练第 11 轮。</p>
+<h3>5. 加载最佳模型并做最终测试</h3>
+<pre><code class="language-python">best_model = create_model().to(device)
+
+best_state_dict = torch.load(
+    best_model_path,
+    weights_only=True,
+    map_location=device,
+)
+
+best_model.load_state_dict(best_state_dict)
+
+test_loss, test_acc = evaluate(
+    best_model, test_loader, criterion, device
+)</code></pre>
+<p>这里故意新建 <code>best_model</code>，以验证“重新创建结构 + 读取参数文件”的加载流程确实成立，而不是依赖训练结束后仍在内存中的 <code>model</code>。</p>
+<p>---</p>
+<h2>三、本次真实报错：MPS 输入与 CPU 权重不在同一设备</h2>
+<p>测试集评估时遇到：</p>
+<pre><code class="language-plain">RuntimeError: Tensor for argument weight is on cpu but expected on mps</code></pre>
+<p>根因是测试用模型最初写成：</p>
+<pre><code class="language-python">best_model = create_model()</code></pre>
+<p>此时：</p>
+<pre><code class="language-plain">test_loader 的 X -&gt; MPS
+best_model.weight -&gt; CPU
+model(X) -&gt; 设备不一致，报错</code></pre>
+<p>修复是：</p>
+<pre><code class="language-python">best_model = create_model().to(device)</code></pre>
+<p><code>map_location=device</code> 负责控制从文件反序列化得到的 Tensor 放在哪里；它<strong>不会自动移动已创建的模型对象</strong>。因此模型本身仍需要 <code>.to(device)</code>。</p>
+<p>这个错误与 <span class="wiki-link">Day 2 学习笔记：MLP 多层感知机与正则化</span> 中训练时的规则完全相同：每次前向计算前，模型、输入、标签必须在同一设备。</p>
+<p>---</p>
+<h2>四、绘制与保存训练曲线</h2>
+<pre><code class="language-python">import matplotlib.pyplot as plt
+
+epochs = range(1, len(history[&quot;train_loss&quot;]) + 1)
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+axes[0].plot(epochs, history[&quot;train_loss&quot;], label=&quot;train loss&quot;)
+axes[0].plot(epochs, history[&quot;val_loss&quot;], label=&quot;val loss&quot;)
+axes[0].set_xlabel(&quot;epoch&quot;)
+axes[0].set_ylabel(&quot;loss&quot;)
+axes[0].set_title(&quot;Loss curve&quot;)
+axes[0].legend()
+axes[0].grid()
+
+axes[1].plot(epochs, history[&quot;train_acc&quot;], label=&quot;train accuracy&quot;)
+axes[1].plot(epochs, history[&quot;val_acc&quot;], label=&quot;val accuracy&quot;)
+axes[1].set_xlabel(&quot;epoch&quot;)
+axes[1].set_ylabel(&quot;accuracy&quot;)
+axes[1].set_title(&quot;Accuracy curve&quot;)
+axes[1].legend()
+axes[1].grid()
+
+fig.tight_layout()
+fig.savefig(checkpoint_dir / &quot;training_curves.png&quot;, dpi=150)
+plt.show()</code></pre>
+<p>对象分工：</p>
+<pre><code class="language-plain">fig      整张画布
+axes[0]  左侧 loss 坐标图
+axes[1]  右侧 accuracy 坐标图
+plot     画一条曲线
+label    给曲线命名
+legend   显示曲线名称
+savefig  将图写入图片文件</code></pre>
+<p><code>history</code> 是普通 Python 数值列表；画图不训练模型、不更新参数、不改变 checkpoint。</p>
+<p>---</p>
+<h2>五、常见错误与排查顺序</h2>
+<h3>1. 模型结构不一致</h3>
+<p>症状：</p>
+<pre><code class="language-plain">Missing key(s)
+Unexpected key(s)
+size mismatch</code></pre>
+<p>检查：训练与加载是否使用同一个 <code>create_model()</code>；层顺序、层宽度、命名是否一致。</p>
+<h3>2. device 不一致</h3>
+<p>症状：</p>
+<pre><code class="language-plain">Expected all tensors to be on the same device
+Tensor for argument weight is on cpu but expected on mps</code></pre>
+<p>检查：</p>
+<pre><code class="language-python">model = model.to(device)
+X = X.to(device)
+y = y.to(device)</code></pre>
+<h3>3. 忘记模式切换</h3>
+<p>症状：验证、测试或预测输出不稳定；或继续训练时 Dropout 一直关闭。</p>
+<p>检查：</p>
+<pre><code class="language-python">train_one_epoch()  开头调用 model.train()
+evaluate()         开头调用 model.eval()</code></pre>
+<h3>4. 路径错误</h3>
+<p>症状：</p>
+<pre><code class="language-plain">FileNotFoundError</code></pre>
+<p>检查当前工作目录：</p>
+<pre><code class="language-python">print(Path.cwd())
+print(best_model_path)</code></pre>
+<p>父目录不存在时，先：</p>
+<pre><code class="language-python">checkpoint_dir.mkdir(exist_ok=True)</code></pre>
+<h3>5. 续训时漏掉 optimizer / history</h3>
+<p>症状：参数虽然恢复，但优化器状态被重置；或曲线从恢复点断开。</p>
+<p>检查 checkpoint 是否同时保存、加载：</p>
+<pre><code class="language-plain">optimizer_state_dict
+history
+epoch
+best_val_acc</code></pre>
+<p>---</p>
+<h2>六、结果展示</h2>
+<pre><code class="language-python">from pathlib import Path
+
+import torch
+from torch import nn
+from torch.utils.data import DataLoader, random_split
+from torchvision import datasets, transforms
+import matplotlib.pyplot as plt
+
+# 设备准备
+if torch.backends.mps.is_available():
+    device = torch.device(&quot;mps&quot;)
+elif torch.cuda.is_available():
+    device = torch.device(&quot;cuda&quot;)
+else:
+    device = torch.device(&quot;cpu&quot;)
+print(&quot;device:&quot;, device)
+
+# 数据准备
+transform = transforms.ToTensor()
+data_dir = Path(__file__).resolve().parent.parent / &quot;data&quot;
+train_val_dataset = datasets.FashionMNIST(
+    root=data_dir,
+    train=True,
+    download=True,
+    transform=transform,
+)
+test_dataset = datasets.FashionMNIST(
+    root=data_dir,
+    train=False,
+    download=True,
+    transform=transform,
+)
+train_size = int(0.9 * len(train_val_dataset))
+val_size = len(train_val_dataset) - train_size
+train_dataset, val_dataset = random_split(
+    train_val_dataset,
+    [train_size, val_size],
+    generator=torch.Generator().manual_seed(42),
+)
+batch_size = 128
+train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+# 模型准备
+def create_model():
+    return nn.Sequential(
+        nn.Flatten(),
+        nn.Linear(28 * 28, 256),
+        nn.ReLU(),
+        nn.Dropout(0.2),
+        nn.Linear(256, 10),
+    )
+
+# 训练一个 epoch
+def train_one_epoch(model, data_loader, optimizer, criterion, device):
+    model.train()
+    total_loss = 0.0
+    total_correct = 0.0
+    total_samples = 0.0
+
+    for X, y in data_loader:
+        X = X.to(device)
+        y = y.to(device)
+        logits = model(X)
+        loss = criterion(logits, y)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        batch_size = y.size(0)
+        total_loss += loss.item() * batch_size
+        total_correct += (logits.argmax(dim=1) == y).sum().item()
+        total_samples += batch_size
+
+    average_loss = total_loss / total_samples
+    accuracy = total_correct / total_samples
+    return average_loss, accuracy
+
+# 评估
+def evaluate(model, data_loader, criterion, device):
+    model.eval()
+    total_loss = 0.0
+    total_correct = 0.0
+    total_samples = 0.0
+
+    with torch.no_grad():
+        for X, y in data_loader:
+            X = X.to(device)
+            y = y.to(device)
+            logits = model(X)
+            loss = criterion(logits, y)
+            batch_size = y.size(0)
+            total_loss += loss.item() * batch_size
+            total_correct += (logits.argmax(dim=1) == y).sum().item()
+            total_samples += batch_size
+
+    average_loss = total_loss / total_samples
+    accuracy = total_correct / total_samples
+    return average_loss, accuracy
+
+# 创建模型/损失函数/optimizer
+model = create_model().to(device)
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(
+    model.parameters(),
+    lr=1e-3,
+    weight_decay=1e-4,
+)
+
+# 创建保存目录与文件路径
+project_dir = Path(__file__).resolve().parent
+checkpoint_dir = project_dir / &quot;checkpoints&quot;
+checkpoint_dir.mkdir(exist_ok=True)
+best_model_path = checkpoint_dir / &quot;best_model.pth&quot;
+last_checkpoint_path = checkpoint_dir / &quot;last_checkpoint.pth&quot;
+
+# 初始化训练
+num_epochs = 20
+history = {
+    &quot;train_loss&quot;: [],
+    &quot;val_loss&quot;: [],
+    &quot;train_acc&quot;: [],
+    &quot;val_acc&quot;: [],
+}
+best_val_acc = -float(&quot;inf&quot;)
+
+for epoch in range(num_epochs):
+    train_loss, train_acc = train_one_epoch(
+        model,
+        train_loader,
+        optimizer,
+        criterion,
+        device,
+    )
+    val_loss, val_acc = evaluate(
+        model,
+        val_loader,
+        criterion,
+        device,
+    )
+    history[&quot;train_loss&quot;].append(train_loss)
+    history[&quot;val_loss&quot;].append(val_loss)
+    history[&quot;train_acc&quot;].append(train_acc)
+    history[&quot;val_acc&quot;].append(val_acc)
+
+    if val_acc &gt; best_val_acc:
+        best_val_acc = val_acc
+        torch.save(model.state_dict(), best_model_path)
+
+    torch.save(
+        {
+            &quot;epoch&quot;: epoch,
+            &quot;model_state_dict&quot;: model.state_dict(),
+            &quot;optimizer_state_dict&quot;: optimizer.state_dict(),
+            &quot;history&quot;: history,
+            &quot;best_val_acc&quot;: best_val_acc,
+        },
+        last_checkpoint_path,
+    )
+    print(
+        f&quot;epoch {epoch + 1:02d}/{num_epochs} | &quot;
+        f&quot;train loss: {train_loss:.4f}, train acc: {train_acc:.4f} | &quot;
+        f&quot;val loss: {val_loss:.4f}, val acc: {val_acc:.4f}&quot;
+    )
+
+# 创建同结构模型，加载验证集最佳参数
+best_model = create_model().to(device)
+best_state_dict = torch.load(
+    best_model_path,
+    weights_only=True,
+    map_location=device,
+)
+best_model.load_state_dict(best_state_dict)
+
+# 对测试集做评估
+test_loss, test_acc = evaluate(
+    best_model,
+    test_loader,
+    criterion,
+    device,
+)
+print(f&quot;best model test loss: {test_loss:.4f}&quot;)
+print(f&quot;best model test acc: {test_acc:.4f}&quot;)
+
+# 绘制并保存训练曲线
+epochs = range(1, len(history[&quot;train_loss&quot;]) + 1)
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+axes[0].plot(epochs, history[&quot;train_loss&quot;], label=&quot;train loss&quot;)
+axes[0].plot(epochs, history[&quot;val_loss&quot;], label=&quot;val loss&quot;)
+axes[0].set_xlabel(&quot;epoch&quot;)
+axes[0].set_ylabel(&quot;loss&quot;)
+axes[0].set_title(&quot;Loss curve&quot;)
+axes[0].legend()
+axes[0].grid()
+axes[1].plot(epochs, history[&quot;train_acc&quot;], label=&quot;train accuracy&quot;)
+axes[1].plot(epochs, history[&quot;val_acc&quot;], label=&quot;val accuracy&quot;)
+axes[1].set_xlabel(&quot;epoch&quot;)
+axes[1].set_ylabel(&quot;accuracy&quot;)
+axes[1].set_title(&quot;Accuracy curve&quot;)
+axes[1].legend()
+axes[1].grid()
+fig.tight_layout()
+curve_path = checkpoint_dir / &quot;training_curves.png&quot;
+fig.savefig(curve_path, dpi=150)
+plt.show()
+print(f&quot;curves saved to: {curve_path}&quot;)</code></pre>
+<p><img src="../../assets/stage-2/Pasted%20image%2020260711131522.png" alt="Pasted image 20260711131522"></p>
+<h2>七、今天最值得记住的对应关系</h2>
+<pre><code class="language-plain">第 3 周手写 w / b
+&lt;-&gt; model.state_dict() 中的参数 Tensor
+
+第 3 周手写参数更新
+&lt;-&gt; optimizer.step() 与 optimizer.state_dict()
+
+Day 2 的 MLP + Dropout
+&lt;-&gt; train() / eval() 下不同的前向行为
+
+Day 3 的 DataLoader batch
+&lt;-&gt; train_one_epoch() / evaluate() 的 X, y 输入
+
+训练过程的每轮指标
+&lt;-&gt; history 列表与训练曲线</code></pre>
+<p>---</p>
+<h2>八、掌握清单</h2>
+<ul><li>[x] 能解释为什么保存 accuracy 不能恢复模型，保存参数才可以。</li><li>[x] 能说清 <code>state_dict</code> 保存什么、不保存什么。</li><li>[x] 能区分 <code>create_model()</code>、<code>torch.save()</code>、<code>torch.load()</code>、<code>load_state_dict()</code> 的职责。</li><li>[x] 能区分 <code>best_model.pth</code> 与 <code>last_checkpoint.pth</code>。</li><li>[x] 能解释为什么恢复训练还需要 optimizer 状态和 epoch。</li><li>[x] 能说清 <code>train()</code> / <code>eval()</code> 改变前向行为，不是保存/加载的前置条件。</li><li>[x] 能用验证集而不是测试集选择最佳模型。</li><li>[x] 能记录整轮 train/val loss 与 accuracy，并画出曲线。</li><li>[x] 能从 train/val 曲线趋势判断欠拟合、过拟合与不稳定的线索。</li><li>[x] 能定位并修复模型在 CPU、输入在 MPS 的设备不一致错误。</li><li>[ ] 重新运行修复后的完整脚本，确认打印最终 test loss/test acc 且生成曲线图片。</li></ul>
+<h2>九、下一步</h2>
+<p>先完成最后一项运行验证：确认 <code>best_model.pth</code> 能在 MPS 上被加载并完成 test 集评估。之后进入第 5 周前，可将本项目作为基线：更换模型、学习率、Dropout、weight decay 时，都使用同样的 <code>history + best model + checkpoint</code> 结构做公平比较。</p></div></article>
+<nav class="note-pagination"><a href="./day-3-学习笔记-自定义-dataset-与-dataloader-深入.html">← Day 3 学习笔记：自定义 Dataset 与 DataLoader 深入</a><a href="./day-5-学习笔记-mnist-综合复盘实验.html">Day 5 学习笔记：MNIST 综合复盘实验 →</a></nav>
+  </main>
+</body>
+</html>
