@@ -89,6 +89,102 @@
       color: rgba(255,255,255,.93);
     }
 
+    .header-identity {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .profile-widget { position: relative; }
+
+    .profile-toggle {
+      position: relative;
+      display: block;
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.34);
+      border-radius: 50%;
+      background: #08101d;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(0,0,0,.22);
+    }
+
+    .profile-toggle img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .profile-toggle:focus-visible {
+      outline: 2px solid rgba(239,194,139,.9);
+      outline-offset: 3px;
+    }
+
+    .profile-audio-ring {
+      position: absolute;
+      inset: 3px;
+      border: 1px solid transparent;
+      border-radius: inherit;
+    }
+
+    .profile-widget.is-playing .profile-audio-ring {
+      border-color: rgba(239,194,139,.78);
+      animation: profile-orbit 9s linear infinite;
+    }
+
+    .profile-card {
+      position: absolute;
+      top: calc(100% + 14px);
+      left: 0;
+      z-index: 2;
+      width: min(390px, calc(100vw - 28px));
+      padding: 22px;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 18px;
+      background: rgba(5,13,27,.68);
+      box-shadow: 0 18px 48px rgba(0,0,0,.24);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      opacity: 0;
+      pointer-events: none;
+      translate: 0 -8px;
+      transition: opacity .28s ease, translate .28s ease;
+    }
+
+    .profile-widget.is-open .profile-card {
+      opacity: 1;
+      pointer-events: auto;
+      translate: 0 0;
+    }
+
+    .profile-kicker,
+    .education-period {
+      margin: 0;
+      color: rgba(235,239,246,.58);
+      font-size: 9px;
+      font-weight: 650;
+      letter-spacing: .16em;
+    }
+
+    .education-entry { margin-top: 17px; }
+
+    .education-entry p:not(.education-period) {
+      margin: 6px 0 0;
+      color: rgba(247,249,252,.9);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .profile-audio-status {
+      margin: 19px 0 0;
+      color: rgba(225,231,242,.48);
+      font-size: 10px;
+      letter-spacing: .05em;
+    }
+
     .site-nav {
       display: flex;
       align-items: center;
@@ -484,6 +580,7 @@
 
     @keyframes blink { 50% { opacity: 0; } }
     @keyframes scan { 0% { transform: translateX(-100%); } 55%, 100% { transform: translateX(110%); } }
+    @keyframes profile-orbit { to { rotate: 1turn; } }
 
     @media (max-width: 1020px) {
       .archive-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -492,6 +589,9 @@
 
     @media (max-width: 720px) {
       .site-header { height: 62px; }
+      .header-identity { gap: 8px; }
+      .profile-toggle { width: 34px; height: 34px; }
+      .profile-card { left: -8px; padding: 18px; }
       .site-nav { gap: 16px; }
       .site-nav a { font-size: 0; }
       .site-nav a::before { content: attr(data-short); font-size: 9px; }
@@ -516,7 +616,7 @@
 
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
-      .caret, .scroll-line::after { animation: none; }
+      .caret, .scroll-line::after, .profile-widget.is-playing .profile-audio-ring { animation: none; }
       .archive-card,
       [data-reveal],
       .card-media img,
@@ -530,7 +630,29 @@
   <div class="page-backdrop" aria-hidden="true"></div>
 
   <header class="site-header">
-    <a class="brand" href="#hero">SNOWSTORM / PERSONAL ARCHIVE</a>
+    <div class="header-identity">
+      <a class="brand" href="#hero">SNOWSTORM / PERSONAL ARCHIVE</a>
+      <div class="profile-widget" id="profile-widget">
+        <button class="profile-toggle" id="profile-toggle" type="button" aria-controls="profile-card" aria-expanded="false" aria-pressed="false" aria-label="Open profile and play ambient sound">
+          <img src="./assets/homepage/profile-coast-backview.png" alt="">
+          <span class="profile-audio-ring" aria-hidden="true"></span>
+        </button>
+        <aside class="profile-card" id="profile-card" aria-hidden="true" aria-label="Profile and education">
+          <p class="profile-kicker">PROFILE / EDUCATION</p>
+          <section class="education-entry">
+            <p class="education-period">2022—2026 · ARTIFICIAL INTELLIGENCE</p>
+            <p>School of Artificial Intelligence</p>
+            <p>China University of Petroleum (Beijing)</p>
+          </section>
+          <section class="education-entry">
+            <p class="education-period">2026—NOW · ARTIFICIAL INTELLIGENCE</p>
+            <p>School of Artificial Intelligence and Automation</p>
+            <p>Huazhong University of Science and Technology</p>
+          </section>
+          <p class="profile-audio-status" id="profile-audio-status" aria-live="polite">Click the portrait to play ambience.</p>
+        </aside>
+      </div>
+    </div>
     <nav class="site-nav" aria-label="主页分区">
       <a href="./learning/" data-short="01">星野问津</a>
       <a href="./living/" data-short="02">人间照影</a>
@@ -616,6 +738,131 @@
   </section>
 
   <script>
+    const profileWidget = document.querySelector("#profile-widget");
+    const profileToggle = document.querySelector("#profile-toggle");
+    const profileCard = document.querySelector("#profile-card");
+    const profileStatus = document.querySelector("#profile-audio-status");
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    let profileAudioContext;
+    let profileMasterGain;
+    let profileNoteTimer;
+    let profileStopTimer;
+    let profileSources = [];
+
+    function setProfileOpen() {
+      profileWidget.classList.add("is-open");
+      profileToggle.setAttribute("aria-expanded", "true");
+      profileCard.setAttribute("aria-hidden", "false");
+    }
+
+    function stopProfileSources() {
+      profileSources.forEach((source) => {
+        try { source.stop(); } catch {}
+      });
+      profileSources = [];
+    }
+
+    function createProfileTone(frequency, gainValue, duration) {
+      const now = profileAudioContext.currentTime;
+      const oscillator = profileAudioContext.createOscillator();
+      const gain = profileAudioContext.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, now);
+      gain.gain.setValueAtTime(.0001, now);
+      gain.gain.exponentialRampToValueAtTime(gainValue, now + .3);
+      gain.gain.exponentialRampToValueAtTime(.0001, now + duration);
+      oscillator.connect(gain).connect(profileMasterGain);
+      oscillator.start(now);
+      oscillator.stop(now + duration + .05);
+      profileSources.push(oscillator);
+      oscillator.addEventListener("ended", () => {
+        profileSources = profileSources.filter((source) => source !== oscillator);
+      });
+    }
+
+    function createProfileWind() {
+      const buffer = profileAudioContext.createBuffer(1, profileAudioContext.sampleRate * 4, profileAudioContext.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let index = 0; index < data.length; index += 1) data[index] = Math.random() * 2 - 1;
+      const source = profileAudioContext.createBufferSource();
+      const filter = profileAudioContext.createBiquadFilter();
+      const gain = profileAudioContext.createGain();
+      source.buffer = buffer;
+      source.loop = true;
+      filter.type = "lowpass";
+      filter.frequency.value = 620;
+      gain.gain.value = .0018;
+      source.connect(filter).connect(gain).connect(profileMasterGain);
+      source.start();
+      profileSources.push(source);
+    }
+
+    async function startProfileAudio() {
+      if (!AudioContextClass) {
+        profileStatus.textContent = "Ambient sound is unavailable in this browser.";
+        return false;
+      }
+
+      try {
+        window.clearTimeout(profileStopTimer);
+        stopProfileSources();
+        profileAudioContext ??= new AudioContextClass();
+        await profileAudioContext.resume();
+        profileMasterGain ??= profileAudioContext.createGain();
+        profileMasterGain.connect(profileAudioContext.destination);
+        const now = profileAudioContext.currentTime;
+        profileMasterGain.gain.cancelScheduledValues(now);
+        profileMasterGain.gain.setValueAtTime(.0001, now);
+        profileMasterGain.gain.exponentialRampToValueAtTime(.055, now + .45);
+        createProfileTone(110, .014, 7);
+        createProfileTone(164.81, .009, 7);
+        createProfileWind();
+        const notes = [220, 246.94, 293.66, 329.63];
+        let noteIndex = 0;
+        window.clearInterval(profileNoteTimer);
+        profileNoteTimer = window.setInterval(() => {
+          createProfileTone(notes[noteIndex++ % notes.length], .026, 2.8);
+        }, 3400);
+        profileStatus.textContent = "Ambient sound is playing. Click the portrait to pause.";
+        return true;
+      } catch {
+        profileStatus.textContent = "Ambient sound is unavailable in this browser.";
+        return false;
+      }
+    }
+
+    function fadeOutProfileAudio(duration) {
+      window.clearInterval(profileNoteTimer);
+      profileNoteTimer = undefined;
+      if (!profileAudioContext || !profileMasterGain) return;
+      const now = profileAudioContext.currentTime;
+      profileMasterGain.gain.cancelScheduledValues(now);
+      profileMasterGain.gain.setValueAtTime(Math.max(profileMasterGain.gain.value, .0001), now);
+      profileMasterGain.gain.exponentialRampToValueAtTime(.0001, now + duration / 1000);
+      window.clearTimeout(profileStopTimer);
+      profileStopTimer = window.setTimeout(stopProfileSources, duration + 20);
+    }
+
+    async function toggleProfileAudio() {
+      setProfileOpen();
+      if (profileWidget.classList.contains("is-playing")) {
+        fadeOutProfileAudio(350);
+        profileWidget.classList.remove("is-playing");
+        profileToggle.setAttribute("aria-pressed", "false");
+        profileToggle.setAttribute("aria-label", "Open profile and play ambient sound");
+        profileStatus.textContent = "Ambient sound is paused. Click the portrait to play.";
+        return;
+      }
+
+      if (await startProfileAudio()) {
+        profileWidget.classList.add("is-playing");
+        profileToggle.setAttribute("aria-pressed", "true");
+        profileToggle.setAttribute("aria-label", "Pause ambient sound");
+      }
+    }
+
+    profileToggle.addEventListener("click", toggleProfileAudio);
+
     const phrases = [
       { tone: "NOTES ON LIFE", lines: ["人生并不总在向前，", "许多看似停滞的时刻，也在悄然校正方向。"] },
       { tone: "KEEP MOVING", lines: ["真正的勇气，不是忽略代价，", "而是在看清代价之后，仍愿意承担。"] },
