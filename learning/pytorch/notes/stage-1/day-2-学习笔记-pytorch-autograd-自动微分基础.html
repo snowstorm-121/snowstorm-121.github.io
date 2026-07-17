@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101c">
+  <title>Day 2 学习笔记：PyTorch Autograd 自动微分基础 · SNOWSTORM</title>
+  <link rel="stylesheet" href="../../../../assets/library.css">
+</head>
+<body class="library-page">
+  <main class="library-shell">
+    <a class="library-brand" href="../../../../index.html">SNOWSTORM / ARCHIVE</a>
+    <p class="library-eyebrow">Tensor 与自动微分</p>
+    <nav class="breadcrumbs"><a href="../../../index.html">学习</a><span>/</span><a href="../../index.html">PyTorch</a><span>/</span><span>Tensor 与自动微分</span></nav>
+<article class="note-article"><h1>Day 2 学习笔记：PyTorch Autograd 自动微分基础</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+<p>参考书：《动手学深度学习》PyTorch 版 2.5 自动微分</p>
+<p>本阶段重点：在 <span class="wiki-link">Tensor 基本操作</span> 的基础上理解 PyTorch 的自动求导机制，为后面的 <span class="wiki-link">手写线性回归</span>、手写训练循环和 <span class="wiki-link">nn.Module 训练流程</span>打地基。今天不追求背底层实现，而是先把 Autograd 的使用规则、计算图心智模型、梯度累加、<code>detach()</code> / <code>no_grad()</code>、Python 控制流求导这些高频概念吃透。</p>
+<p>今天主线：Autograd 自动微分。核心心智模型是：<strong>你写前向计算，PyTorch 记录实际发生过的 Tensor 运算，最后通过 <code>backward()</code> 沿计算图反向计算梯度。</strong> 今天最重要的不是“会调用 <code>backward()</code>”，而是知道 <code>.grad</code> 里到底存了什么、为什么梯度会累加、什么时候该断开计算图、什么时候该关闭梯度记录。</p>
+<p>---</p>
+<h2>〇、贯穿全天的三条心智主线（先立住）</h2>
+<h3>1. 前向计算建图，反向传播求梯度</h3>
+<p>PyTorch 的 Autograd 是动态计算图机制。意思是：</p>
+<pre><code class="language-text">代码实际执行了哪些 Tensor 运算，PyTorch 就记录哪些运算。</code></pre>
+<p>例如：</p>
+<pre><code class="language-text">import torch
+
+x = torch.tensor(3.0, requires_grad=True)
+y = x ** 2 + 2 * x + 1</code></pre>
+<p>这里不只是算出了 <code>y</code> 的数值，PyTorch 还记录了：</p>
+<pre><code class="language-text">x -&gt; x ** 2
+x -&gt; 2 * x
+x ** 2 + 2 * x + 1 -&gt; y</code></pre>
+<p>后面执行：</p>
+<pre><code class="language-text">y.backward()</code></pre>
+<p>PyTorch 就会沿着这条计算图反向计算：</p>
+<pre><code class="language-text">dy/dx</code></pre>
+<p>结果保存在：</p>
+<pre><code class="language-text">x.grad</code></pre>
+<h3>2. <code>.grad</code> 是“梯度容器”，不是临时返回值</h3>
+<p><code>backward()</code> 不会直接 <code>return</code> 梯度，而是把梯度写进叶子张量的 <code>.grad</code> 属性中。</p>
+<pre><code class="language-text">x = torch.tensor(3.0, requires_grad=True)
+
+y = x ** 2 + 2 * x + 1
+y.backward()
+
+print(x.grad)</code></pre>
+<p>手算：</p>
+<pre><code class="language-text">y = x^2 + 2x + 1
+dy/dx = 2x + 2
+x = 3
+dy/dx = 8</code></pre>
+<p>输出：</p>
+<pre><code class="language-text">tensor(8.)</code></pre>
+<p>这点和 NumPy/Pandas 很不一样：不是“函数返回结果”，而是“把结果存进对象的属性里”。</p>
+<h3>3. Autograd 是为训练服务的</h3>
+<p>后面训练模型时，核心流程永远是：</p>
+<pre><code class="language-text">前向计算 -&gt; 计算 loss -&gt; backward() 求梯度 -&gt; 更新参数 -&gt; 清空梯度</code></pre>
+<p>一个最小版本：</p>
+<pre><code class="language-text">import torch
+
+x = torch.tensor([1.0, 2.0, 3.0])
+y_true = torch.tensor([2.0, 4.0, 6.0])
+
+w = torch.tensor(0.0, requires_grad=True)
+
+y_pred = w * x
+loss = ((y_pred - y_true) ** 2).mean()
+
+loss.backward()
+
+with torch.no_grad():
+    w -= 0.1 * w.grad
+    w.grad.zero_()</code></pre>
+<p>今天所有概念，最后都会落到这几行代码上。</p>
+<p>---</p>
+<h2>一、<code>requires_grad=True</code>：告诉 PyTorch “我要对它求梯度”</h2>
+<h3>1. 基本用法</h3>
+<pre><code class="language-text">import torch
+
+x = torch.tensor(3.0, requires_grad=True)
+y = x ** 2</code></pre>
+<p>检查：</p>
+<pre><code class="language-text">print(x.requires_grad)  # True
+print(y.requires_grad)  # True</code></pre>
+<p><code>x.requires_grad=True</code> 表示：我希望 PyTorch 追踪 <code>x</code> 参与的计算。</p>
+<p><code>y.requires_grad=True</code> 是因为：<code>y</code> 是由需要梯度的 <code>x</code> 算出来的，所以 <code>y</code> 也在计算图里。</p>
+<h3>2. 不是所有 Tensor 都需要梯度</h3>
+<p>普通数据一般不需要梯度：</p>
+<pre><code class="language-text">X = torch.tensor([[1.0, 2.0], [3.0, 4.0]])</code></pre>
+<p>模型参数才需要梯度：</p>
+<pre><code class="language-text">w = torch.randn(2, requires_grad=True)
+b = torch.zeros(1, requires_grad=True)</code></pre>
+<p>心智区分：</p>
+<pre><code class="language-text">数据：通常不需要 requires_grad
+参数：通常需要 requires_grad
+loss：由参数算出来，所以自动在计算图里</code></pre>
+<p>---</p>
+<h2>二、<code>backward()</code> 和 <code>.grad</code>：自动求导的核心接口</h2>
+<h3>1. 标量输出可以直接 backward</h3>
+<pre><code class="language-text">x = torch.tensor(3.0, requires_grad=True)
+
+y = x ** 2 + 2 * x + 1
+y.backward()
+
+print(x.grad)</code></pre>
+<p>手算：</p>
+<pre><code class="language-text">y = x^2 + 2x + 1
+dy/dx = 2x + 2
+x = 3
+dy/dx = 8</code></pre>
+<p>所以：</p>
+<pre><code class="language-text">x.grad = tensor(8.)</code></pre>
+<h3>2. 多元素输入也可以求梯度</h3>
+<pre><code class="language-text">x = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
+
+y = (x ** 2).sum()
+y.backward()
+
+print(x.grad)</code></pre>
+<p>把 <code>x</code> 拆开：</p>
+<pre><code class="language-text">x = [x1, x2, x3]</code></pre>
+<p>那么：</p>
+<pre><code class="language-text">y = x1^2 + x2^2 + x3^2</code></pre>
+<p>分别求导：</p>
+<pre><code class="language-text">dy/dx1 = 2x1 = 2
+dy/dx2 = 2x2 = 4
+dy/dx3 = 2x3 = 6</code></pre>
+<p>输出：</p>
+<pre><code class="language-text">tensor([2., 4., 6.])</code></pre>
+<p><strong>结论</strong>：</p>
+<pre><code class="language-text">x 是什么形状，x.grad 通常也是什么形状。</code></pre>
+<p>---</p>
+<h2>三、实验 3b：多变量梯度</h2>
+<p>实验代码：</p>
+<pre><code class="language-text">import torch
+
+x = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
+y = (x ** 2).sum()
+
+y.backward()
+
+print(x.grad)</code></pre>
+<h3>1. 前向过程</h3>
+<pre><code class="language-text">x = [1, 2, 3]
+x ** 2 = [1, 4, 9]
+y = 1 + 4 + 9 = 14</code></pre>
+<h3>2. 数学形式</h3>
+<pre><code class="language-text">y = x1^2 + x2^2 + x3^2</code></pre>
+<h3>3. 梯度</h3>
+<pre><code class="language-text">dy/dx = [2x1, 2x2, 2x3]
+      = [2, 4, 6]</code></pre>
+<p>所以：</p>
+<pre><code class="language-text">x.grad = tensor([2., 4., 6.])</code></pre>
+<h3>4. 这段代码真正想训练的能力</h3>
+<p>不是让你记住输出 <code>[2, 4, 6]</code>，而是让你意识到：</p>
+<pre><code class="language-text">向量 x 里的每个元素都可以看成一个独立变量。
+PyTorch 会分别计算输出 y 对每个元素的梯度。</code></pre>
+<p>---</p>
+<h2>四、实验 3c：<code>mean()</code> 对梯度的影响</h2>
+<p>实验代码：</p>
+<pre><code class="language-text">import torch
+
+x = torch.randn(3, requires_grad=True)
+y = x * 2
+z = y.mean()
+
+z.backward()
+
+print(x.grad)</code></pre>
+<h3>1. 把 x 拆开</h3>
+<pre><code class="language-text">x = [x1, x2, x3]</code></pre>
+<p>那么：</p>
+<pre><code class="language-text">y = [2x1, 2x2, 2x3]</code></pre>
+<p>因为：</p>
+<pre><code class="language-text">z = y.mean()</code></pre>
+<p>所以：</p>
+<pre><code class="language-text">z = (2x1 + 2x2 + 2x3) / 3</code></pre>
+<p>也就是：</p>
+<pre><code class="language-text">z = 2/3 * x1 + 2/3 * x2 + 2/3 * x3</code></pre>
+<p>因此：</p>
+<pre><code class="language-text">dz/dx1 = 2/3
+dz/dx2 = 2/3
+dz/dx3 = 2/3</code></pre>
+<p>输出大概是：</p>
+<pre><code class="language-text">tensor([0.6667, 0.6667, 0.6667])</code></pre>
+<h3>2. 为什么不是 2</h3>
+<p>如果只有：</p>
+<pre><code class="language-text">y = x * 2</code></pre>
+<p>那每个元素的梯度确实是 <code>2</code>。</p>
+<p>但后面还有：</p>
+<pre><code class="language-text">z = y.mean()</code></pre>
+<p><code>mean()</code> 会除以元素个数 <code>3</code>，所以梯度也会被平均分摊：</p>
+<pre><code class="language-text">2 -&gt; 2 / 3</code></pre>
+<p>核心结论：</p>
+<pre><code class="language-text">乘以 2 带来梯度 2。
+求 mean 带来梯度 1/3。
+合起来就是 2/3。</code></pre>
+<p>---</p>
+<h2>五、梯度为什么会累加</h2>
+<p>这是今天最重要的坑之一。</p>
+<h3>1. 现象</h3>
+<pre><code class="language-text">import torch
+
+x = torch.tensor(2.0, requires_grad=True)
+
+y = x ** 2
+y.backward()
+print(x.grad)  # tensor(4.)
+
+z = x ** 3
+z.backward()
+print(x.grad)  # tensor(16.)</code></pre>
+<p>第二次输出不是 <code>12</code>，而是 <code>16</code>。</p>
+<h3>2. 原因</h3>
+<p>第一次：</p>
+<pre><code class="language-text">y = x^2
+dy/dx = 2x = 4
+x.grad = 4</code></pre>
+<p>第二次：</p>
+<pre><code class="language-text">z = x^3
+dz/dx = 3x^2 = 12</code></pre>
+<p>但是 PyTorch 默认不是覆盖旧梯度，而是累加：</p>
+<pre><code class="language-text">x.grad = 4 + 12 = 16</code></pre>
+<p>也就是说，<code>backward()</code> 的行为更像：</p>
+<pre><code class="language-text">x.grad += 新梯度</code></pre>
+<p>而不是：</p>
+<pre><code class="language-text">x.grad = 新梯度</code></pre>
+<h3>3. 为什么要这么设计</h3>
+<p>因为有些训练场景确实需要多次累积梯度，再统一更新参数。</p>
+<p>但普通训练中，我们通常希望每一轮只用当前 batch 的梯度，所以必须清空旧梯度。</p>
+<p>常见写法：</p>
+<pre><code class="language-text">optimizer.zero_grad()
+loss.backward()
+optimizer.step()</code></pre>
+<p>手写版本：</p>
+<pre><code class="language-text">loss.backward()
+
+with torch.no_grad():
+    w -= lr * w.grad
+    b -= lr * b.grad
+    w.grad.zero_()
+    b.grad.zero_()</code></pre>
+<h3>4. 心智模型</h3>
+<pre><code class="language-text">.grad 像一个桶。
+每次 backward() 都往桶里倒梯度。
+如果不清空，下一次梯度会和旧梯度混在一起。</code></pre>
+<p>---</p>
+<h2>六、<code>torch.no_grad()</code>：让一段代码不进入计算图</h2>
+<h3>1. 基本用法</h3>
+<pre><code class="language-text">x = torch.tensor(3.0, requires_grad=True)
+
+with torch.no_grad():
+    y = x * 2
+
+print(y.requires_grad)  # False</code></pre>
+<p>虽然 <code>x.requires_grad=True</code>，但是在 <code>no_grad()</code> 代码块里产生的新结果不会被 PyTorch 记录进计算图。</p>
+<h3>2. 常见用途</h3>
+<pre><code class="language-text">1. 手动更新参数
+2. 模型推理
+3. 验证集评估
+4. 节省显存和计算开销</code></pre>
+<h3>3. 为什么参数更新要放在 <code>no_grad()</code> 里</h3>
+<pre><code class="language-text">with torch.no_grad():
+    w -= lr * w.grad</code></pre>
+<p>原因：</p>
+<pre><code class="language-text">参数更新不是模型的前向计算，不应该被 Autograd 继续追踪。</code></pre>
+<p>如果不关闭梯度记录，PyTorch 可能把“更新参数”这件事也加入计算图，导致后续计算图越来越复杂，也不符合训练逻辑。</p>
+<p>---</p>
+<h2>七、<code>detach()</code>：保留数值，但切断梯度路径</h2>
+<h3>1. 基本用法</h3>
+<pre><code class="language-text">x = torch.tensor(2.0, requires_grad=True)
+
+y = x ** 2
+u = y.detach()
+z = u * x
+
+z.backward()
+
+print(x.grad)</code></pre>
+<h3>2. 分析</h3>
+<p>前向数值：</p>
+<pre><code class="language-text">x = 2
+y = x^2 = 4
+u = y.detach() = 4
+z = u * x = 4x</code></pre>
+<p>关键点：</p>
+<pre><code class="language-text">u 的数值和 y 一样。
+但 u 已经从计算图中分离出来，不再记录自己来自 x。</code></pre>
+<p>所以反向传播时：</p>
+<pre><code class="language-text">z = 4x
+dz/dx = 4</code></pre>
+<p>输出：</p>
+<pre><code class="language-text">tensor(4.)</code></pre>
+<h3>3. 如果不 detach</h3>
+<pre><code class="language-text">x = torch.tensor(2.0, requires_grad=True)
+
+y = x ** 2
+z = y * x
+
+z.backward()
+
+print(x.grad)</code></pre>
+<p>这时：</p>
+<pre><code class="language-text">z = x^2 * x = x^3
+dz/dx = 3x^2 = 12</code></pre>
+<p>输出：</p>
+<pre><code class="language-text">tensor(12.)</code></pre>
+<h3>4. 核心结论</h3>
+<pre><code class="language-text">detach() 保留当前数值，但切断这个张量之前的梯度路径。</code></pre>
+<p>换句话说：</p>
+<pre><code class="language-text">我想用这个值继续算，但不想让梯度通过它往前传。</code></pre>
+<p>---</p>
+<h2>八、<code>detach()</code> 和 <code>no_grad()</code> 的区别</h2>
+<p>这两个都和“不追踪梯度”有关，但作用范围不同。</p>
+<h3>1. <code>detach()</code> 是对一个张量生效</h3>
+<pre><code class="language-text">x = torch.tensor(2.0, requires_grad=True)
+
+y = x ** 2
+u = y.detach()</code></pre>
+<p>含义：</p>
+<pre><code class="language-text">先正常计算 y。
+再把 y 这个结果从已有计算图里拿出来。</code></pre>
+<p>它像是在已经接好的计算图里，把某个张量和历史断开。</p>
+<h3>2. <code>no_grad()</code> 是对一段代码生效</h3>
+<pre><code class="language-text">x = torch.tensor(2.0, requires_grad=True)
+
+with torch.no_grad():
+    y = x ** 2</code></pre>
+<p>含义：</p>
+<pre><code class="language-text">这段代码里的新计算从一开始就不建立计算图。</code></pre>
+<h3>3. 对比表</h3>
+<p>|工具|作用对象|发生时机|核心含义|<br>|---|---|---|---|<br>|<code>detach()</code>|某个 Tensor|已经算出来之后|保留数值，切断历史|<br>|<code>torch.no_grad()</code>|一段代码|计算发生之前|这段计算不建图|</p>
+<p>一句话记忆：</p>
+<pre><code class="language-text">detach()：剪断已经存在的计算图连接。
+no_grad()：从一开始就不建立计算图。</code></pre>
+<p>---</p>
+<h2>九、非标量输出的 backward</h2>
+<h3>1. 标量输出可以直接 backward</h3>
+<pre><code class="language-text">x = torch.tensor(2.0, requires_grad=True)
+y = x ** 2
+
+y.backward()</code></pre>
+<p>因为 <code>y</code> 是一个标量。</p>
+<h3>2. 非标量输出不能直接 backward</h3>
+<pre><code class="language-text">x = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
+y = x * 2
+
+y.backward()  # 会报错</code></pre>
+<p>因为 <code>y</code> 是一个向量：</p>
+<pre><code class="language-text">y = [2, 4, 6]</code></pre>
+<p>PyTorch 不知道你想对哪个方向求导，或者想怎么把这个向量变成标量。</p>
+<h3>3. 需要传入同形状的外部梯度</h3>
+<pre><code class="language-text">x = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
+y = x * 2
+
+y.backward(torch.ones_like(y))
+
+print(x.grad)</code></pre>
+<p>这相当于对：</p>
+<pre><code class="language-text">y1 + y2 + y3</code></pre>
+<p>求梯度。</p>
+<p>因为：</p>
+<pre><code class="language-text">y1 + y2 + y3 = 2x1 + 2x2 + 2x3</code></pre>
+<p>所以：</p>
+<pre><code class="language-text">dy/dx = [2, 2, 2]</code></pre>
+<p>输出：</p>
+<pre><code class="language-text">tensor([2., 2., 2.])</code></pre>
+<p>先记住简化版：</p>
+<pre><code class="language-text">标量输出可以直接 backward。
+非标量输出需要传入同形状的 gradient 参数。</code></pre>
+<p>---</p>
+<h2>十、叶子张量和非叶子张量</h2>
+<h3>1. 什么是叶子张量</h3>
+<p>手动创建，并且设置了 <code>requires_grad=True</code> 的张量，一般是叶子张量。</p>
+<pre><code class="language-text">x = torch.tensor(2.0, requires_grad=True)
+y = x * 3
+
+print(x.is_leaf)  # True
+print(y.is_leaf)  # False</code></pre>
+<p><code>x</code> 是叶子张量，因为它是我们直接创建的。</p>
+<p><code>y</code> 不是叶子张量，因为它是由 <code>x</code> 计算出来的中间结果。</p>
+<h3>2. 默认只有叶子张量保存 <code>.grad</code></h3>
+<pre><code class="language-text">x = torch.tensor(2.0, requires_grad=True)
+y = x * 3
+z = y ** 2
+
+z.backward()
+
+print(x.grad)  # 有值
+print(y.grad)  # 通常是 None</code></pre>
+<p>这是 PyTorch 的默认行为：为了节省内存，中间变量的梯度默认不保存。</p>
+<h3>3. 如果想看中间变量梯度，用 <code>retain_grad()</code></h3>
+<pre><code class="language-text">x = torch.tensor(2.0, requires_grad=True)
+
+y = x * 3
+y.retain_grad()
+
+z = y ** 2
+z.backward()
+
+print(x.grad)
+print(y.grad)</code></pre>
+<p>平时训练模型时，大多数情况下只关心参数的梯度，也就是叶子张量的 <code>.grad</code>。</p>
+<p>---</p>
+<h2>十一、Python 控制流中的梯度计算</h2>
+<p>PyTorch 是动态计算图，所以 <code>if</code>、<code>for</code>、<code>while</code> 不会天然妨碍求梯度。</p>
+<h3>1. 示例</h3>
+<pre><code class="language-text">import torch
+
+def f(x):
+    if x.item() &gt; 1:
+        y = x ** 2
+    else:
+        y = 3 * x
+    return y
+
+x = torch.tensor(2.0, requires_grad=True)
+
+z = f(x)
+z.backward()
+
+print(x.grad)</code></pre>
+<p>因为这次：</p>
+<pre><code class="language-text">x = 2 &gt; 1</code></pre>
+<p>所以实际执行：</p>
+<pre><code class="language-text">y = x^2</code></pre>
+<p>梯度：</p>
+<pre><code class="language-text">dy/dx = 2x = 4</code></pre>
+<p>输出：</p>
+<pre><code class="language-text">tensor(4.)</code></pre>
+<p>如果换成：</p>
+<pre><code class="language-text">x = torch.tensor(0.5, requires_grad=True)</code></pre>
+<p>实际执行：</p>
+<pre><code class="language-text">y = 3x</code></pre>
+<p>梯度就是：</p>
+<pre><code class="language-text">3</code></pre>
+<h3>2. 关键点</h3>
+<p>PyTorch 不是对所有可能分支求导，而是：</p>
+<pre><code class="language-text">只对当前这次实际执行过的路径求导。</code></pre>
+<p>没执行到的分支，不在本次计算图里。</p>
+<p>---</p>
+<h2>十二、今天踩过 / 容易踩的坑（速查表）</h2>
+<p>|#|坑|真相|防御|<br>|---|---|---|---|<br>|1|以为 <code>backward()</code> 返回梯度|<code>backward()</code> 不返回梯度，而是写入 <code>.grad</code>|调用后看 <code>x.grad</code>|<br>|2|以为 <code>.grad</code> 会自动覆盖|<code>.grad</code> 默认累加|每轮训练前后清零|<br>|3|忘记清空梯度|新旧梯度混在一起，参数更新错误|<code>optimizer.zero_grad()</code> 或 <code>.grad.zero_()</code>|<br>|4|以为 <code>mean()</code> 不影响梯度|<code>mean()</code> 会除以元素个数，梯度也会被平均|手写展开公式|<br>|5|以为 <code>detach()</code> 会改变数值|<code>detach()</code> 不改数值，只断梯度路径|对比有无 detach 的梯度|<br>|6|混淆 <code>detach()</code> 和 <code>no_grad()</code>|前者作用于张量，后者作用于代码块|<code>detach</code> 是剪断，<code>no_grad</code> 是不建图|<br>|7|参数更新不加 <code>no_grad()</code>|更新过程可能被记录进计算图|手写更新固定放进 <code>with torch.no_grad()</code>|<br>|8|以为非标量能直接 backward|非标量输出需要传入同形状 gradient|<code>y.backward(torch.ones_like(y))</code>|<br>|9|以为中间变量默认有 <code>.grad</code>|默认只保存叶子张量的 <code>.grad</code>|中间变量要 <code>retain_grad()</code>|<br>|10|以为 <code>if/while</code> 不能求导|PyTorch 是动态图，只记录实际路径|关注当前输入走了哪条分支|</p>
+<p>---</p>
+<h2>十三、Autograd 在训练中的最小模板</h2>
+<p>下面这段是今天内容最终要服务的训练骨架：</p>
+<pre><code class="language-text">import torch
+
+# 1. 准备数据
+X = torch.tensor([[1.0, 2.0],
+                  [2.0, 3.0],
+                  [3.0, 4.0]])
+y = torch.tensor([5.0, 8.0, 11.0])
+
+# 2. 初始化参数
+w = torch.randn(2, requires_grad=True)
+b = torch.zeros(1, requires_grad=True)
+
+# 3. 前向计算
+y_hat = X @ w + b
+
+# 4. 计算 loss
+loss = ((y_hat - y) ** 2).mean()
+
+# 5. 反向传播
+loss.backward()
+
+# 6. 手动更新参数，并清空梯度
+lr = 0.01
+with torch.no_grad():
+    w -= lr * w.grad
+    b -= lr * b.grad
+    w.grad.zero_()
+    b.grad.zero_()</code></pre>
+<p>对应心智模型：</p>
+<pre><code class="language-text">X @ w + b：前向预测
+loss：衡量预测错多少
+loss.backward()：算 w 和 b 应该往哪个方向改
+w -= lr * w.grad：沿着降低 loss 的方向更新参数
+zero_()：清空旧梯度，准备下一轮</code></pre>
+<p>---</p>
+<h2>十四、今日自测题</h2>
+<h3>题 1：梯度累加</h3>
+<pre><code class="language-text">x = torch.tensor(2.0, requires_grad=True)
+
+y = x ** 2
+y.backward()
+
+z = x ** 3
+z.backward()
+
+print(x.grad)</code></pre>
+<p>答案：</p>
+<pre><code class="language-text">16</code></pre>
+<p>原因：</p>
+<pre><code class="language-text">第一次梯度 4。
+第二次梯度 12。
+PyTorch 默认累加，所以 4 + 12 = 16。</code></pre>
+<h3>题 2：mean 的梯度</h3>
+<pre><code class="language-text">x = torch.tensor([1.0, 2.0, 3.0], requires_grad=True)
+
+y = x * 2
+z = y.mean()
+
+z.backward()
+
+print(x.grad)</code></pre>
+<p>答案：</p>
+<pre><code class="language-text">[2/3, 2/3, 2/3]</code></pre>
+<p>原因：</p>
+<pre><code class="language-text">z = (2x1 + 2x2 + 2x3) / 3
+所以每个元素梯度都是 2/3。</code></pre>
+<h3>题 3：detach</h3>
+<pre><code class="language-text">x = torch.tensor(2.0, requires_grad=True)
+
+y = x ** 2
+z = y.detach() * x
+
+z.backward()
+
+print(x.grad)</code></pre>
+<p>答案：</p>
+<pre><code class="language-text">4</code></pre>
+<p>原因：</p>
+<pre><code class="language-text">y.detach() 数值是 4，但被当成常数。
+z = 4x
+dz/dx = 4</code></pre>
+<h3>题 4：Python 控制流</h3>
+<pre><code class="language-text">def f(x):
+    if x.item() &gt; 1:
+        return x ** 2
+    else:
+        return 3 * x
+
+x = torch.tensor(0.5, requires_grad=True)
+y = f(x)
+y.backward()
+
+print(x.grad)</code></pre>
+<p>答案：</p>
+<pre><code class="language-text">3</code></pre>
+<p>原因：</p>
+<pre><code class="language-text">x = 0.5，不满足 x &gt; 1。
+实际执行 y = 3x。
+梯度是 3。</code></pre>
+<p>---</p>
+<h2>十五、今日总结</h2>
+<p>今天 Autograd 的核心知识点：</p>
+<p>1. <code>requires_grad=True</code>：让 PyTorch 追踪这个张量参与的计算。<br>2. <code>backward()</code>：沿计算图反向传播，计算梯度。<br>3. <code>.grad</code>：保存梯度的位置。<br>4. 梯度默认累加，不会自动覆盖。<br>5. 每轮训练都要清空梯度。<br>6. <code>torch.no_grad()</code>：让一段代码不建立计算图。<br>7. <code>detach()</code>：保留数值，但切断某个张量的历史计算图。<br>8. 标量输出可以直接 <code>backward()</code>，非标量输出需要传入同形状 gradient。<br>9. 叶子张量默认保存 <code>.grad</code>，中间张量默认不保存。<br>10. Python 控制流不妨碍求导，PyTorch 只对当前实际执行路径求梯度。</p>
+<p>最重要的一句话：</p>
+<pre><code class="language-text">Autograd 的本质是：你写前向计算，PyTorch 记录计算图；你调用 backward()，PyTorch 沿计算图反向计算梯度。</code></pre>
+<p>今天真正要过关的不是 API 背诵，而是看到下面这段代码时能完全知道每一步在干什么：</p>
+<pre><code class="language-text">loss.backward()
+
+with torch.no_grad():
+    w -= lr * w.grad
+    b -= lr * b.grad
+    w.grad.zero_()
+    b.grad.zero_()</code></pre></div></article>
+<nav class="note-pagination"><a href="./day-1-学习笔记-tensor基本操作.html">← Day 1 学习笔记：Tensor基本操作</a><a href="./day-3-学习笔记-手写线性回归-纯-tensor-实现.html">Day 3 学习笔记：手写线性回归（纯 Tensor 实现） →</a></nav>
+  </main>
+</body>
+</html>
