@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101c">
+  <title>Day 1 学习笔记：卷积操作基础——shape 与参数量 · SNOWSTORM</title>
+  <link rel="stylesheet" href="../../../../assets/library.css">
+</head>
+<body class="library-page">
+  <main class="library-shell">
+    <a class="library-brand" href="../../../../index.html">SNOWSTORM / ARCHIVE</a>
+    <p class="library-eyebrow">卷积网络</p>
+    <nav class="breadcrumbs"><a href="../../../index.html">学习</a><span>/</span><a href="../../index.html">PyTorch</a><span>/</span><span>卷积网络</span></nav>
+<article class="note-article"><h1>Day 1 学习笔记：卷积操作基础——shape 与参数量</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+<p>参考书：《动手学深度学习》PyTorch 版 6.1–6.2，PyTorch 官方文档 <code>torch.nn.functional.conv2d</code> 与 <code>torch.nn.Conv2d</code></p>
+<p>本阶段重点：此前已在 <span class="wiki-link">Day 1 学习笔记：nn.Module 与常用层入门</span> 中使用 <code>nn.Linear</code> 与 <code>model.parameters()</code>，在 <span class="wiki-link">Day 2 学习笔记：MLP 多层感知机与正则化</span> 中完成 MLP 数据流。本日进入 CNN：不再把图像立刻展平，而是在 <code>[N, C, H, W]</code> 的空间结构上使用 <code>F.conv2d</code> 和 <code>nn.Conv2d</code>。</p>
+<p>今天主线：<code>输入/卷积核/权重的 shape 合同 -&gt; F.conv2d 与 nn.Conv2d 的职责 -&gt; Linear 与 Conv2d 的参数量 -&gt; 参数共享</code>。本日重点不是重新学习卷积数学原理，而是把已有原理准确翻译成 PyTorch 代码对象与 shape。</p>
+<p>本笔记对应 <span class="wiki-link">PyTorch 暑期详细学习计划</span> 中第 5 周 Day 1。</p>
+<p>---</p>
+<h2>〇、今天完成了什么</h2>
+<p>1. 能根据 <code>kernel_size</code>、<code>stride</code>、<code>padding</code> 推导二维卷积输出高宽。<br>2. 理解并检查了 <code>F.conv2d</code> 输入和 kernel 的 shape 合同。<br>3. 区分了固定 Sobel 核使用 <code>F.conv2d</code> 与训练卷积层使用 <code>nn.Conv2d</code> 的场景。<br>4. 实际运行并验证：<code>nn.Linear(1024, 16)</code> 有 16400 个参数；<code>nn.Conv2d(1, 16, kernel_size=3, padding=1)</code> 有 160 个参数。<br>5. 澄清了参数共享：它减少参数量和模型存储，但不表示输入变大时计算量不会增加。<br>6. 完成选做：比较四组 <code>stride/padding</code> 的输出 shape，并理解连续卷积层感受野如何扩大。</p>
+<p>---</p>
+<h2>一、CNN 中最重要的 shape 合同</h2>
+<h3>1. 图像输入</h3>
+<p>二维卷积在 PyTorch 中接收：</p>
+<pre><code class="language-text">[N, Cin, H, W]</code></pre>
+<p>| 维度 | 含义 | 示例 <code>[8, 1, 28, 28]</code> |<br>| --- | --- | --- |<br>| <code>N</code> | batch size | 一次处理 8 张图片 |<br>| <code>Cin</code> | 输入通道数 | 灰度图为 1 |<br>| <code>H, W</code> | 图片高、宽 | 28×28 |</p>
+<p><code>N</code> 不写进 <code>nn.Conv2d</code>；它只是当前 batch 中并行处理的样本数，会原样保留到输出中。</p>
+<h3>2. <code>F.conv2d</code> 的卷积核</h3>
+<p>函数式卷积的接口为：</p>
+<pre><code class="language-python">out = F.conv2d(input, weight, bias=None, stride=1, padding=0)</code></pre>
+<p>其中：</p>
+<pre><code class="language-text">input.shape  = [N, Cin, H, W]
+weight.shape = [Cout, Cin, Kh, Kw]
+out.shape    = [N, Cout, Hout, Wout]</code></pre>
+<p><code>weight</code> 的第二维 <code>Cin</code> 必须与 <code>input</code> 的第二维 <code>Cin</code> 相等。例如一个灰度 Sobel 核：</p>
+<pre><code class="language-text">input:  [1, 1, 5, 5]
+kernel: [1, 1, 3, 3]</code></pre>
+<p>第一个 <code>1</code> 表示只有一个输出通道（一个卷积核），第二个 <code>1</code> 表示它处理单通道输入。</p>
+<h3>3. 输出高宽</h3>
+<p>不考虑 dilation 时：</p>
+<pre><code class="language-text">Hout = floor((H + 2P - K) / S) + 1
+Wout = floor((W + 2P - K) / S) + 1</code></pre>
+<p>其中 <code>K</code> 是卷积核大小、<code>S</code> 是 stride、<code>P</code> 是 padding。</p>
+<pre><code class="language-python">nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1)</code></pre>
+<p>若输入是 <code>[8, 1, 28, 28]</code>，输出为 <code>[8, 16, 28, 28]</code>。<code>3×3</code>、<code>stride=1</code>、<code>padding=1</code> 保持空间高宽不变。</p>
+<p>另一个检查：</p>
+<pre><code class="language-python">nn.Conv2d(16, 32, kernel_size=3, stride=2, padding=1)</code></pre>
+<p>将 <code>[8, 16, 28, 28]</code> 变为 <code>[8, 32, 14, 14]</code>。<code>out_channels=32</code> 决定第二维；<code>stride=2</code> 将空间高宽减半。</p>
+<p>---</p>
+<h2>二、<code>F.conv2d</code> 与 <code>nn.Conv2d</code>：概念如何变成代码</h2>
+<h3>1. <code>F.conv2d</code>：手动提供固定卷积核</h3>
+<pre><code class="language-python">import torch.nn.functional as F
+
+out = F.conv2d(X, kernel, padding=1)</code></pre>
+<p><code>F</code> 是 <code>torch.nn.functional</code> 的常用别名。这里的 <code>kernel</code> 由代码显式传入；例如 Sobel 核是固定的边缘检测规则，不会自动成为可训练参数。</p>
+<p>本日用于理解 shape 的 Sobel 实验：</p>
+<pre><code class="language-python">X = torch.arange(25, dtype=torch.float32).reshape(1, 1, 5, 5)
+kernel = torch.tensor([[[[1., 0., -1.],
+                         [2., 0., -2.],
+                         [1., 0., -1.]]]])
+
+out = F.conv2d(X, kernel, padding=1)</code></pre>
+<p>此处未显式写 <code>stride</code>，所以使用默认 <code>stride=1</code>。<code>padding=1</code> 使 <code>5×5</code> 输入在 <code>3×3</code> 核下保持输出空间大小为 <code>5×5</code>。</p>
+<h3>2. <code>nn.Conv2d</code>：创建可训练卷积层</h3>
+<pre><code class="language-python">conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0)</code></pre>
+<p>它与此前 <code>nn.Linear</code> 的关系：两者都会在内部创建可训练 <code>weight</code> 与可选 <code>bias</code>；区别是卷积权重保留输入通道和局部空间维度。</p>
+<pre><code class="language-python">conv = nn.Conv2d(1, 16, kernel_size=3, padding=1)
+
+print(conv.weight.shape)  # torch.Size([16, 1, 3, 3])
+print(conv.bias.shape)    # torch.Size([16])</code></pre>
+<p>对应规则：</p>
+<pre><code class="language-text">nn.Conv2d(Cin, Cout, kernel_size=K)
+-&gt; conv.weight.shape = [Cout, Cin, K, K]
+-&gt; conv.bias.shape   = [Cout]</code></pre>
+<p>例如：</p>
+<pre><code class="language-text">nn.Conv2d(16, 32, kernel_size=3)
+-&gt; weight.shape = [32, 16, 3, 3]</code></pre>
+<p>连续卷积层必须满足：</p>
+<pre><code class="language-text">上一层的 out_channels = 下一层的 in_channels</code></pre>
+<p>---</p>
+<h2>三、参数量：直接从 <code>weight</code> 与 <code>bias</code> 读出来</h2>
+<p>本日使用之前已掌握的 <code>parameters()</code> 与 <code>numel()</code> 验证：</p>
+<pre><code class="language-python">sum(p.numel() for p in layer.parameters())</code></pre>
+<h3>1. Linear</h3>
+<pre><code class="language-python">linear = nn.Linear(1024, 16)
+
+print(linear.weight.shape)  # torch.Size([16, 1024])
+print(linear.bias.shape)    # torch.Size([16])</code></pre>
+<pre><code class="language-text">参数量 = 16 × 1024 + 16 = 16400</code></pre>
+<h3>2. Conv2d</h3>
+<pre><code class="language-python">conv = nn.Conv2d(1, 16, kernel_size=3, padding=1)
+
+print(conv.weight.shape)  # torch.Size([16, 1, 3, 3])
+print(conv.bias.shape)    # torch.Size([16])</code></pre>
+<pre><code class="language-text">参数量 = 16 × 1 × 3 × 3 + 16 = 160</code></pre>
+<p><code>padding</code> 和 <code>stride</code> 改变的是卷积核滑动后得到的输出 shape，不改变 <code>weight</code>、<code>bias</code> 的 shape，因此不改变参数量。</p>
+<p>---</p>
+<h2>四、参数共享在代码里的真实含义</h2>
+<p><code>conv.weight</code> 只有一份：</p>
+<pre><code class="language-text">conv.weight.shape = [16, 1, 3, 3]</code></pre>
+<p>前向计算时，同一份 <code>conv.weight</code> 会被应用到输入图像的左上、中央、右下等所有局部位置。图像从 <code>32×32</code> 变成 <code>64×64</code> 时，卷积输出的位置更多、卷积计算次数更多，但权重仍只有这一份，参数量不增加。</p>
+<p>因此必须区分：</p>
+<p>| 说法                 | 是否正确           |<br>| ------------------ | -------------- |<br>| 参数共享减少参数量与模型存储     | 是              |<br>| 参数共享使输入变大时计算量不增加   | 否；位置变多，计算量仍会增加 |<br>| 同一个核可检测任意位置的相同局部模式 | 是              |</p>
+<p>这正适合图像：同一类边缘、纹理或角点可能出现在任意位置。卷积核不需要为“左上角的竖直边缘”和“右下角的竖直边缘”分别学习两套参数。</p>
+<p>与 <span class="wiki-link">纯 Tensor 手写 Softmax 分类</span> 和 MLP 的差别是：MLP 在 <code>Flatten</code> 后为每个像素位置建立独立的全连接权重；CNN 在保留空间结构的前提下，用局部窗口和共享卷积核提取特征。</p>
+<p>---</p>
+<h2>五、选做：不同 stride / padding 与感受野</h2>
+<h3>1. 四组 shape 实验</h3>
+<p>以 <code>[1, 1, 28, 28]</code> 输入、<code>3×3</code> 卷积核为例，实际运行：</p>
+<pre><code class="language-python">x = torch.randn(1, 1, 28, 28)
+
+configs = [
+    {&quot;stride&quot;: 1, &quot;padding&quot;: 0},
+    {&quot;stride&quot;: 1, &quot;padding&quot;: 1},
+    {&quot;stride&quot;: 2, &quot;padding&quot;: 0},
+    {&quot;stride&quot;: 2, &quot;padding&quot;: 1},
+]
+
+for config in configs:
+    conv = nn.Conv2d(1, 1, kernel_size=3, bias=False, **config)
+    print(config, &quot;-&gt;&quot;, conv(x).shape)</code></pre>
+<p>实际输出：</p>
+<pre><code class="language-text">{&#39;stride&#39;: 1, &#39;padding&#39;: 0} -&gt; torch.Size([1, 1, 26, 26])
+{&#39;stride&#39;: 1, &#39;padding&#39;: 1} -&gt; torch.Size([1, 1, 28, 28])
+{&#39;stride&#39;: 2, &#39;padding&#39;: 0} -&gt; torch.Size([1, 1, 13, 13])
+{&#39;stride&#39;: 2, &#39;padding&#39;: 1} -&gt; torch.Size([1, 1, 14, 14])</code></pre>
+<p>代码中的 <code>**config</code> 会把字典中的 <code>stride</code>、<code>padding</code> 作为命名参数传入 <code>nn.Conv2d</code>。<code>bias=False</code> 只是不为这个 shape 实验创建 bias，不影响输出 shape。</p>
+<p>实践结论：</p>
+<pre><code class="language-text">3×3, stride=1, padding=1
+-&gt; 保持空间高宽，适合先提取特征
+
+3×3, stride=2, padding=1
+-&gt; 空间高宽约减半，适合在提取特征的同时下采样</code></pre>
+<h3>2. 感受野：一个特征位置最终能看到原图多大区域</h3>
+<p>感受野不是卷积核本身的大小，而是某层输出中一个位置所依赖的原始输入区域。</p>
+<p>连续堆叠 <code>3×3, stride=1</code> 卷积时：</p>
+<pre><code class="language-text">输入单个像素：感受野 1×1
+第 1 层输出一个位置：3×3
+第 2 层输出一个位置：5×5
+第 3 层输出一个位置：7×7</code></pre>
+<p>每增加一层 <code>3×3, stride=1</code> 卷积，感受野边长增加 2，而不是直接加 3；原因是前一层相邻卷积窗口在原图上会重叠。</p>
+<p><code>padding=1</code> 让 <code>3×3, stride=1</code> 卷积保持输出高宽，但不会阻止感受野扩大。边缘位置的窗口会包含补进去的 0，因此它实际看到的原图信息会少于中心位置。</p>
+<p>当某层使用 <code>stride=2</code> 时，后续层在原图上的相邻位置间隔更大，感受野扩张会更快。简化递推为：</p>
+<pre><code class="language-text">新感受野 = 旧感受野 + (kernel_size - 1) × 旧步距
+新步距   = 旧步距 × stride</code></pre>
+<p>本次检查：连续三层 <code>3×3, stride=1, padding=1</code> 卷积，输出空间高宽保持不变，最后一层一个位置的感受野为 <code>7×7</code>。</p>
+<p>---</p>
+<h2>六、今天最容易混淆的点</h2>
+<p>1. <code>Cin</code> 与 <code>Cout</code>：输入的第二维必须匹配 <code>in_channels</code>；输出的第二维由 <code>out_channels</code> 决定。<br>2. <code>F.conv2d</code> 与 <code>nn.Conv2d</code>：前者接收手动给定的 <code>weight</code>；后者内部创建并训练 <code>weight</code>。<br>3. <code>stride</code>：<code>F.conv2d</code> 未显式传入时默认是 <code>1</code>。<br>4. <code>padding</code>：影响输出高宽，不增加可训练参数。<br>5. 参数量与计算量：卷积参数共享显著减少参数量；输入空间变大仍会让卷积位置和计算量增加。</p>
+<p>---</p>
+<h2>七、掌握检查</h2>
+<ul><li>[x] 能写出输入 <code>[N, Cin, H, W]</code>、卷积核 <code>[Cout, Cin, Kh, Kw]</code>、输出 <code>[N, Cout, Hout, Wout]</code>。</li><li>[x] 能从 <code>nn.Conv2d(16, 32, kernel_size=3)</code> 推出 <code>weight.shape = [32, 16, 3, 3]</code>。</li><li>[x] 能解释 <code>F.conv2d</code> 用于固定 Sobel 核，<code>nn.Conv2d</code> 用于可训练卷积层。</li><li>[x] 已实际验证：<code>Linear(1024, 16)</code> 为 16400 个参数，<code>Conv2d(1, 16, 3, padding=1)</code> 为 160 个参数。</li><li>[x] 能准确说明参数共享和图像局部模式之间的关系。</li><li>[x] 已实际验证四组 <code>stride/padding</code> 对输出 shape 的影响。</li><li>[x] 能说明连续三层 <code>3×3, stride=1, padding=1</code> 卷积保持高宽、感受野扩大到 <code>7×7</code>。</li></ul>
+<h2>下一步</h2>
+<p>第 5 周 Day 2 将进入 LeNet，重点阅读“卷积/池化 -&gt; 展平 -&gt; 分类器”的完整数据流，并把本日的 <code>Conv2d</code> shape 合同接到真实 CNN 模型中。</p></div></article>
+<nav class="note-pagination"><span></span><a href="./day-2-学习笔记-经典-cnn-lenet.html">Day 2 学习笔记：经典 CNN——LeNet →</a></nav>
+  </main>
+</body>
+</html>
