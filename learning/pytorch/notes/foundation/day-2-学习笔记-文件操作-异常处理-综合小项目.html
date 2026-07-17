@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101c">
+  <title>Day 2 学习笔记：文件操作 + 异常处理 + 综合小项目 · SNOWSTORM</title>
+  <link rel="stylesheet" href="../../../../assets/library.css">
+</head>
+<body class="library-page">
+  <main class="library-shell">
+    <a class="library-brand" href="../../../../index.html">SNOWSTORM / ARCHIVE</a>
+    <p class="library-eyebrow">基础阶段</p>
+    <nav class="breadcrumbs"><a href="../../../index.html">学习</a><span>/</span><a href="../../index.html">PyTorch</a><span>/</span><span>基础阶段</span></nav>
+<article class="note-article"><h1>Day 2 学习笔记：文件操作 + 异常处理 + 综合小项目</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+<p>参考书：Python 官方文档（文件 I/O、异常处理与 <code>pathlib</code>）</p>
+<p>本阶段重点：掌握真实项目中最常见的“读文件、写文件、处理路径、处理异常”闭环，为后续数据集读取和训练日志管理打基础。</p>
+<p>今天主线：文件读写、<code>pathlib</code> 路径处理、异常处理，以及 CSV 数据集管理器这个小型综合项目。</p>
+<p>关联笔记：前置 <span class="wiki-link">Python 进阶语法</span>；后续 <span class="wiki-link">NumPy 数组基础</span>。</p>
+<p>---</p>
+<h2>一、文件操作</h2>
+<h3>1.1 基础读写</h3>
+<pre><code class="language-python"># 写文件
+with open(&quot;data.txt&quot;, &quot;w&quot;, encoding=&quot;utf-8&quot;) as f:
+    f.write(&quot;第一行\n&quot;)
+    f.write(&quot;第二行\n&quot;)
+
+# 读全部
+with open(&quot;data.txt&quot;, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
+    content = f.read()
+
+# 逐行读（推荐，省内存）
+with open(&quot;data.txt&quot;, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
+    for line in f:
+        print(line.strip())</code></pre>
+<p><strong>要点：</strong></p>
+<p>+ 永远用 <code>with open(...)</code>，会自动关闭文件，不要手动 <code>f = open(...)</code><br>+ 永远指定 <code>encoding=&quot;utf-8&quot;</code>，避免中文乱码<br>+ <code>.strip()</code> 去掉字符串两端的空白字符（空格、<code>\n</code>、<code>\t</code>） <br>    - <code>.lstrip()</code> 只去左边，<code>.rstrip()</code> 只去右边</p>
+<p><strong>文件模式：</strong></p>
+<p>| 模式 | 含义 |<br>| --- | --- |<br>| <code>&quot;r&quot;</code> | 只读（默认） |<br>| <code>&quot;w&quot;</code> | 覆盖写 |<br>| <code>&quot;a&quot;</code> | 追加写 |<br>| <code>&quot;r+&quot;</code> | 读写 |</p>
+<h3>1.2 给每行加行号</h3>
+<pre><code class="language-python">with open(&quot;output/notes.txt&quot;, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
+    for i, line in enumerate(f, start=1):
+        print(f&quot;{i}. {line.strip()}&quot;)</code></pre>
+<p><code>enumerate(f, start=1)</code> 同时返回索引和值，<code>start=1</code> 表示从 1 开始计数。</p>
+<h3>1.3 路径处理（pathlib）</h3>
+<pre><code class="language-python">from pathlib import Path
+
+p = Path(&quot;datasets&quot;) / &quot;mnist&quot; / &quot;train.csv&quot;
+
+print(p.parent)   # datasets/mnist    所在目录
+print(p.name)     # train.csv         文件名（含后缀）
+print(p.stem)     # train             文件名（不含后缀）
+print(p.suffix)   # .csv              后缀
+
+print(p.exists())   # 是否存在
+print(p.is_file())  # 是否是文件
+print(p.is_dir())   # 是否是目录
+
+# 创建多层目录
+Path(&quot;output/logs/2024&quot;).mkdir(parents=True, exist_ok=True)
+#   parents=True  → 中间缺失的目录一起创建
+#   exist_ok=True → 已存在时不报错
+
+# 遍历目录下的文件
+for f in Path(&quot;datasets&quot;).glob(&quot;*.csv&quot;):     # 当前目录
+    print(f)
+for f in Path(&quot;datasets&quot;).glob(&quot;**/*.csv&quot;):  # 所有子目录（** 任意层级）
+    print(f)</code></pre>
+<p><strong>要点：</strong></p>
+<p>+ 用 <code>Path</code> 而非字符串拼路径，跨平台安全（Mac/Linux 用 <code>/</code>，Windows 用 <code>\</code>）<br>+ <code>/</code> 运算符被重载用于拼路径，结果仍是 <code>Path</code> 对象<br>+ <code>open()</code> 直接接受 <code>Path</code> 对象，无需转字符串<br>+ <code>mkdir</code> 创建的是<strong>目录</strong>，不要用在文件路径上</p>
+<p>---</p>
+<h2>二、异常处理</h2>
+<h3>2.1 基本结构</h3>
+<pre><code class="language-python">try:
+    # 可能出错的代码
+    result = 10 / 0
+except ZeroDivisionError as e:
+    # 出错后处理，e 是异常对象
+    print(f&quot;捕获到错误：{e}&quot;)
+else:
+    # try 里没出错才执行
+    print(f&quot;结果是 {result}&quot;)
+finally:
+    # 无论如何都执行，常用于释放资源
+    print(&quot;执行完毕&quot;)</code></pre>
+<p>各块职责：</p>
+<p>| 块 | 放什么 |<br>| --- | --- |<br>| <code>try</code> | 可能出错的代码 |<br>| <code>except</code> | 出错后怎么办 |<br>| <code>else</code> | 没出错时的后续逻辑 |<br>| <code>finally</code> | 无论如何都要做的收尾 |</p>
+<p><code>else</code> 和 <code>finally</code> 可选，最精简写法只需 <code>try</code> + <code>except</code>。</p>
+<h3>2.2 except 的几种写法</h3>
+<pre><code class="language-python"># 捕获具体类型 + 拿到异常对象
+try:
+    x = int(&quot;abc&quot;)
+except ValueError as e:
+    print(e)
+
+# 同时捕获多种异常
+except (IndexError, ZeroDivisionError) as e:
+    print(f&quot;出错了：{e}&quot;)
+
+# 分开捕获，分别处理
+try:
+    with open(&quot;data.txt&quot;, &quot;r&quot;) as f:
+        content = f.read()
+    result = int(content)
+except FileNotFoundError:
+    print(&quot;文件不存在&quot;)
+except ValueError:
+    print(&quot;文件内容不是数字&quot;)</code></pre>
+<h3>2.3 异常继承层级</h3>
+<pre><code class="language-plain">BaseException
+└── Exception              ← 普通异常的根
+    ├── ValueError          ← 值不合法
+    ├── TypeError           ← 类型不对
+    ├── FileNotFoundError   ← 文件不存在
+    ├── IndexError          ← 下标越界
+    ├── KeyError            ← 字典 key 不存在
+    └── ZeroDivisionError   ← 除以零</code></pre>
+<p><strong>要点：</strong></p>
+<p>+ 捕获父类会同时捕获所有子类<br>+ 多个 <code>except</code> 时，<strong>子类要写在父类前面</strong>，否则父类先匹配，子类永远轮不到<br>+ 不要裸写 <code>except:</code> 或滥用 <code>except Exception</code>，会吞掉真正的 bug</p>
+<h3>2.4 raise 主动抛出</h3>
+<pre><code class="language-python"># 主动抛出
+def load_data(path):
+    if not Path(path).exists():
+        raise FileNotFoundError(f&quot;找不到数据文件：{path}&quot;)
+
+# 原样重新抛出
+try:
+    result = 10 / 0
+except ZeroDivisionError as e:
+    print(&quot;记录一下这个错误&quot;)
+    raise   # 不加参数，原样抛出</code></pre>
+<h3>2.5 自定义异常</h3>
+<pre><code class="language-python">class DatasetError(Exception):
+    &quot;&quot;&quot;数据集相关错误的基类&quot;&quot;&quot;
+    pass
+
+class DatasetNotFoundError(DatasetError):
+    def __init__(self, name: str):
+        self.name = name
+        super().__init__(f&quot;数据集 &#39;{name}&#39; 不存在&quot;)
+
+# 使用
+try:
+    raise DatasetNotFoundError(&quot;ImageNet&quot;)
+except DatasetNotFoundError as e:
+    print(e)        # 数据集 &#39;ImageNet&#39; 不存在
+    print(e.name)   # ImageNet  还能访问自定义属性</code></pre>
+<p><code>super().__init__(...)</code> 调用父类 <code>Exception</code> 的初始化方法传入错误信息，<code>print(e)</code> 才能显示文字。</p>
+<p>---</p>
+<h2>三、综合项目：CSV 数据集管理器</h2>
+<p>模拟 AI 项目中管理实验数据的场景：读取 CSV → 统计类别 → 写出报告，全程有异常处理。</p>
+<pre><code class="language-python">import csv
+from pathlib import Path
+from collections import Counter
+
+
+# ---------- 自定义异常 ----------
+class CSVError(Exception):
+    pass
+
+
+class EmptyDatasetError(CSVError):
+    def __init__(self, path):
+        super().__init__(f&quot;数据集为空：{path}&quot;)
+
+
+# ---------- 核心函数 ----------
+def load_csv(path: str) -&gt; list[dict]:
+    &quot;&quot;&quot;读取 CSV 文件，返回字典列表，每行一个字典，key 为列名。&quot;&quot;&quot;
+    rows = []
+    try:
+        with open(path, &quot;r&quot;, encoding=&quot;utf-8&quot;, newline=&quot;&quot;) as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                rows.append(dict(row))
+    except FileNotFoundError:
+        raise FileNotFoundError(f&quot;找不到数据文件：{path}&quot;)
+    except csv.Error as e:
+        raise CSVError(f&quot;CSV 解析失败：{e}&quot;)
+
+    if not rows:
+        raise EmptyDatasetError(path)
+    return rows
+
+
+def analyze_labels(rows: list[dict], label_col: str = &quot;label&quot;) -&gt; dict:
+    &quot;&quot;&quot;统计各类别样本数，返回 {label: count} 字典。&quot;&quot;&quot;
+    if label_col not in rows[0]:
+        raise KeyError(f&quot;找不到列 &#39;{label_col}&#39;，可用列：{list(rows[0].keys())}&quot;)
+
+    labels = [row[label_col] for row in rows]
+    return dict(Counter(labels))
+
+
+def save_report(stats: dict, output_path: str) -&gt; None:
+    &quot;&quot;&quot;将统计结果写入报告文件。&quot;&quot;&quot;
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+
+    total = sum(stats.values())
+    with open(output_path, &quot;w&quot;, encoding=&quot;utf-8&quot;) as f:
+        f.write(&quot;=== 数据集统计报告 ===\n\n&quot;)
+        f.write(f&quot;总样本数：{total}\n&quot;)
+        f.write(f&quot;类别数量：{len(stats)}\n\n&quot;)
+        f.write(f&quot;{&#39;类别&#39;:&lt;12} {&#39;数量&#39;:&gt;6} {&#39;占比&#39;:&gt;8}\n&quot;)
+        f.write(&quot;-&quot; * 30 + &quot;\n&quot;)
+        for label, count in sorted(stats.items()):
+            pct = count / total * 100
+            f.write(f&quot;{label:&lt;12} {count:&gt;6} {pct:&gt;7.1f}%\n&quot;)
+
+    print(f&quot;报告已保存至：{output_path}&quot;)</code></pre>
+<p><strong>关键工具：</strong></p>
+<p>| 工具 | 作用 |<br>| --- | --- |<br>| <code>csv.DictReader</code> | CSV 每行读成字典，key 是列名 |<br>| <code>csv.DictWriter</code> | 字典列表写成 CSV，自动按列名排序 |<br>| <code>writeheader()</code> | 写表头 |<br>| <code>Counter</code> | 列表元素计数，<code>Counter([&quot;a&quot;,&quot;a&quot;,&quot;b&quot;])</code>&lt;br/&gt; → <code>{&quot;a&quot;:2,&quot;b&quot;:1}</code> |<br>| <code>f&quot;{x:&lt;12}&quot;</code> | 格式化左对齐占 12 位；<code>&gt;</code>&lt;br/&gt; 右对齐；<code>.1f</code>&lt;br/&gt; 保留 1 位小数 |<br>| <code>newline=&quot;&quot;</code> | 写读 CSV 的固定参数，避免 Windows 多空行 |</p>
+<p><strong>注意：</strong> CSV 读出来的值都是<strong>字符串</strong>，CSV 本身没有类型信息。</p>
+<p>---</p>
+<h2>四、挑战题：分层切割数据集</h2>
+<p>把数据按比例分成训练集和测试集，且每个类别比例基本一致（分层采样简化版）。</p>
+<p><strong>核心思路：</strong> 先按类别分组 → 每组单独打乱 → 每组各切 80% → 合并</p>
+<pre><code class="language-python">import csv
+import random
+from pathlib import Path
+
+
+def split_dataset(rows: list[dict], train_ratio: float = 0.8):
+    # 第一步：按类别分组
+    groups = {}
+    for row in rows:
+        label = row[&quot;label&quot;]
+        if label not in groups:
+            groups[label] = []
+        groups[label].append(row)
+
+    # 第二步：每组打乱后按比例切割
+    train = []
+    test = []
+    for label, group in groups.items():
+        random.shuffle(group)               # 原地打乱
+        cut = int(len(group) * train_ratio) # 切割点（向下取整）
+        train += group[:cut]                # 前 cut 条进训练集
+        test += group[cut:]                 # 剩余进测试集
+
+    # 第三步：写入 CSV
+    fieldnames = list(rows[0].keys())
+
+    with open(&quot;output/train.csv&quot;, &quot;w&quot;, encoding=&quot;utf-8&quot;, newline=&quot;&quot;) as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(train)
+
+    with open(&quot;output/test.csv&quot;, &quot;w&quot;, encoding=&quot;utf-8&quot;, newline=&quot;&quot;) as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(test)
+
+    print(&quot;train.csv 和 test.csv 已保存至 output/&quot;)
+    return train, test</code></pre>
+<p><strong>延伸：</strong> 这就是机器学习中常见的分层采样，<code>sklearn</code> 的 <code>train_test_split(stratify=...)</code> 做的就是这件事，后面会经常用到。</p>
+<p><strong>小注意：</strong> 数据量小时 <code>int()</code> 向下取整会有误差（8 条按 0.8 切可能得到 5+3 而非 6+2），数据量大后可忽略。</p>
+<p>---</p>
+<h2>五、易错点回顾</h2>
+<p>1. <code><strong>mkdir</strong></code><strong> 用在文件路径上</strong> —— <code>mkdir</code> 创建目录，应作用于目录路径（<code>Path(&quot;output&quot;)</code>），不是文件路径（<code>Path(&quot;output/notes.txt&quot;)</code>）。<br>2. <code><strong>FileExistsError</strong></code><strong> vs </strong><code><strong>FileNotFoundError</strong></code> —— 名字相近语义相反。前者是&quot;文件已存在&quot;，后者才是&quot;文件找不到&quot;。<br>3. <code><strong>list(line.strip())</strong></code><strong> 把字符串拆成单字符</strong> —— <code>list(&quot;hello&quot;)</code> 得到 <code>[&#39;h&#39;,&#39;e&#39;,&#39;l&#39;,&#39;l&#39;,&#39;o&#39;]</code>。逐行存储直接 <code>append(line.strip())</code> 即可。<br>4. <strong>读写路径不一致</strong> —— 写到 <code>output/notes.txt</code> 就要从 <code>output/notes.txt</code> 读，别建了目录却没写进去。<br>5. <strong>代码结构混乱</strong> —— 写文件的逻辑不要混进生成数据的代码块里，每个功能职责分清。</p>
+<p>---</p>
+<h2>标准文件结尾写法</h2>
+<pre><code class="language-python">if __name__ == &quot;__main__&quot;:
+    main()</code></pre>
+<p>+ 直接运行该文件：<code>__name__ == &quot;__main__&quot;</code>，执行 <code>main()</code><br>+ 被其他文件 <code>import</code>：不执行 <code>main()</code></p>
+<p>这样文件既能独立运行，又能被安全导入。</p></div></article>
+<nav class="note-pagination"><a href="./day-1-学习笔记-python-进阶语法.html">← Day 1 学习笔记：Python 进阶语法</a><a href="./day-3-学习笔记-numpy-数组基础.html">Day 3 学习笔记：NumPy 数组基础 →</a></nav>
+  </main>
+</body>
+</html>
