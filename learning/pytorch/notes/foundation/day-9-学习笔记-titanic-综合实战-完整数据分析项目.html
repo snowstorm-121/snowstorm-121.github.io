@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101c">
+  <title>Day 9 学习笔记：Titanic 综合实战 —— 完整数据分析项目 · SNOWSTORM</title>
+  <link rel="stylesheet" href="../../../../assets/library.css">
+</head>
+<body class="library-page">
+  <main class="library-shell">
+    <a class="library-brand" href="../../../../index.html">SNOWSTORM / ARCHIVE</a>
+    <p class="library-eyebrow">基础阶段</p>
+    <nav class="breadcrumbs"><a href="../../../index.html">学习</a><span>/</span><a href="../../index.html">PyTorch</a><span>/</span><span>基础阶段</span></nav>
+<article class="note-article"><h1>Day 9 学习笔记：Titanic 综合实战 —— 完整数据分析项目</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+<p>参考书：Pandas、NumPy 与 Matplotlib 官方文档；Titanic 数据分析实践</p>
+<p>本阶段重点：把前 8 天的 Python、NumPy、Matplotlib、Pandas 串成真实的数据分析闭环；重点不在新增零散 API，而在理解每个数据与建模决策为什么这样选。</p>
+<p>今天主线：数据清洗 → 特征分析 → 可视化 → 特征工程 → 用 NumPy 手写分类预测，完成一个可解释的 Titanic 综合项目。</p>
+<p>---</p>
+<p>主题：把前 8 天的 Python / NumPy / Matplotlib / Pandas 全流程串起来，走一遍真实数据分析项目： <strong>数据清洗 → 特征分析 → 可视化 → 用 NumPy 手写分类预测</strong>。 重点不在学零散新知识，而在&quot;全流程串联&quot;+&quot;关键决策点为什么这么选&quot;（面试高频追问）。</p>
+<p>关联笔记：整合 <span class="wiki-link">手写线性回归</span>、<span class="wiki-link">数据可视化</span>、<span class="wiki-link">DataFrame</span> 与 <span class="wiki-link">数据预处理流水线</span>；后续由 <span class="wiki-link">PyTorch 预习</span>衔接到框架阶段。</p>
+<p>---</p>
+<h2>〇、项目全流程框架（先建立整体地图）</h2>
+<p>&lt;!-- 这是一张图片，ocr 内容为：阶段0明确目标 预测SURVIVED/评估指标/ 切分策略/模型路径 阶段1数据清洗 分层切分防泄露填充 阶段2特征分析 GROUPBY分组存活率 识别混杂与共线 阶段3可视化 验证非线性/共线性/ 样本量 阶段4特征工程 分桶独热编码码一化 拼成数值矩阵 阶段5手写分类预测 规则阈值法(基线)+ 简化逻辑回归(正式模型) 对比/读权重/验证收敛 --&gt;<br>![](https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874425306-b615b54c-57f6-47c9-98b1-355cfb3ba47c.png)</p>
+<p><strong>关键设计意图（为什么这样分阶段）：</strong></p>
+<p>| 设计 | 原因 |<br>| --- | --- |<br>| 阶段0 单独放最前 | &quot;分类预测&quot;有多种实现路径，先定路径才知道后面要准备什么特征、写什么代码 |<br>| 阶段1 清洗 ≠ Day7 重复 | Day7 目标是&quot;练熟 API&quot;，今天标准是&quot;这样处理对最终预测有没有副作用（泄露）&quot; |<br>| 阶段4 单列出来 | 这是&quot;探索思维&quot;和&quot;建模思维&quot;的分界线：阶段1产出好看的 DataFrame，阶段4要压成清一色数字矩阵 |<br>| 可视化与特征分析分两阶段 | 统计数字（groupby+mean）只能看&quot;差异大不大&quot;，<strong>看不出关系的形状</strong>（线性/非线性、被极端值带偏），这是图表独有的价值 |</p>
+<p>---</p>
+<h2>一、阶段0：明确目标（动手前先把决策点定死）</h2>
+<h3>1.1 决策清单</h3>
+<p>| 决策点 | 结论 | 理由要点 |<br>| --- | --- | --- |<br>| 预测目标 | <code>Survived</code>&lt;br/&gt;（二分类 0/1） | — |<br>| 模型路径 | A 规则阈值法（基线）+ B 简化逻辑回归（正式模型），对比 | 见下 |<br>| 评估指标 | 准确率 accuracy | Titanic 生死比 ≈ 38:62，不极端失衡，准确率靠得住 |<br>| 切分比例 | 80% 训练 / 20% 测试，<code>seed=42</code>&lt;br/&gt; 固定 | 见 §3.1 |<br>| 切分方式 | <strong>分层抽样</strong>（按 Survived 分组，组内各自 80/20） | 见 §3.2 |<br>| 切分时机 | <strong>先切分，再用训练集统计量填充</strong> | 防数据泄露，见 §3.3 |</p>
+<h3>1.2 两条模型路径的取舍（面试：&quot;为什么选这个模型&quot;）</h3>
+<p>&lt;!-- 这是一张图片，ocr 内容为：路径B简化逻辑回归(正式) 优点: 缺点: 复用DAY5梯度框架/引出分 ZWX+B SIGMOID&gt; 新增SIGMOID+交叉熵/需归一 类VS回归本质/是PYTORCH前 交叉熵梯度下降 化/调试更复杂 身 路径A规则阈值法(基线) 缺点: 优点: GROUPBY(SEX,PCLASS)算组内 零新数学/极可解释/是真实B 无训练/无梯度/与DAY5不衔 存活率 查表&gt;0.5判存活 接 ASELINE --&gt;<br>![](https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874456260-ad93367e-bfce-4ca3-8bba-48108017f2d0.png)</p>
+<p><strong>结论：两条都做。</strong> 先用 A 拿一个&quot;哪怕最笨也有多准&quot;的基线，再用 B 做正式模型与之对比。</p>
+<p>真实数据科学流程的标准动作：<strong>任何模型上线前都要有 baseline 撑底</strong>，否则不知道模型到底学到了东西，还是连瞎猜都不如。</p>
+<h3>1.3 分类 vs 回归的本质区别（贯穿全程）</h3>
+<p>| | 回归（Day5） | 分类（今天） |<br>| --- | --- | --- |<br>| 预测值 | 连续值（房价/温度） | 离散类别（活/死） |<br>| 衡量标准 | &quot;差多少&quot;（均方误差） | &quot;对不对&quot;（准确率 + 交叉熵） |<br>| 特征-标签关系看法 | 相关系数 | 分组存活率差异 |<br>| 输出处理 | <code>z</code>&lt;br/&gt; 直接当预测 | <code>z</code>&lt;br/&gt; 要经 sigmoid 压成概率再二值化 |</p>
+<p>---</p>
+<h2>二、阶段1：数据清洗</h2>
+<h3>2.1 分层抽样切分（采纳&quot;先分组再组内切分&quot;）</h3>
+<p>&lt;!-- 这是一张图片，ocr 内容为：原始891行 按SURVIVED分组 存活组342人 死亡组549人 独立打乱 独立打乱 RNG.PERMUTATION(549) RNG.PERMUTATION(342) ILOC重排后切80/20 ILOC重排后切80/20 训练273+测试69 训练439+测试110 CONCAT训练组练组2人 CONCAT测试组179人 IGNORE INDEXTRUE 验证:712+179891V 两组存活率都38% --&gt;<br>![](https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874496359-e9aa7774-f1a6-4a42-99d1-62d1eeddf292.png)</p>
+<p><strong>核心代码骨架：</strong></p>
+<pre><code class="language-python">rng = np.random.default_rng(42)
+df_survived = df[df[&#39;Survived&#39;] == 1]
+df_died     = df[df[&#39;Survived&#39;] == 0]
+
+# 每组分别独立打乱（关键：不要打乱一次共用同一组索引位置）
+perm_survived = rng.permutation(len(df_survived))
+perm_died     = rng.permutation(len(df_died))
+df_survived = df_survived.iloc[perm_survived]   # 用 iloc（位置），不能用 loc（标签）
+df_died     = df_died.iloc[perm_died]
+
+split_s = int(len(df_survived) * 0.8)           # int() 是截断，不是四舍五入
+split_d = int(len(df_died) * 0.8)
+df_train = pd.concat([df_survived.iloc[:split_s], df_died.iloc[:split_d]], axis=0, ignore_index=True)
+df_test  = pd.concat([df_survived.iloc[split_s:], df_died.iloc[split_d:]], axis=0, ignore_index=True)</code></pre>
+<p><strong>分层抽样的价值（面试点）：</strong></p>
+<p>+ 普通随机切分在 891 这种规模下，&quot;全是一类&quot;概率极低（≈ 0.62¹⁷⁸，天文数字级小），<strong>真正常见的问题是比例轻微偏移</strong>（38% 切成 32% 或 45%）。<br>+ 分层抽样不是防极端，而是<strong>让训练/测试集存活比例都锚定在 38% 附近</strong>，减少&quot;评估被抽样运气影响&quot;的噪声。<br>+ 小成本、稳收益的工程习惯，没理由不用。</p>
+<h3>2.2 防泄露的填充（今天 ≠ Day7 的核心区别）</h3>
+<p>&lt;!-- 这是一张图片，ocr 内容为：同一统计量填训练集 只在训练集算统计量 先切分 中位数/众数/MEAN/STD 同一统计量填测试集 --&gt;<br>![](https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874523893-8c3d6963-d69b-4848-a6ba-80f96e6714cb.png)</p>
+<p><strong>Age（按 Pclass 分组填，更精细）：</strong></p>
+<pre><code class="language-python">age_median_by_pclass = df_train.groupby(&#39;Pclass&#39;)[&#39;Age&#39;].median()   # 只从训练集算的&quot;一张3行小表&quot;
+df_train[&#39;Age&#39;] = df_train[&#39;Age&#39;].fillna(df_train[&#39;Pclass&#39;].map(age_median_by_pclass))
+df_test[&#39;Age&#39;]  = df_test[&#39;Age&#39;].fillna(df_test[&#39;Pclass&#39;].map(age_median_by_pclass))  # 测试集套用同一张表
+assert df_train[&#39;Age&#39;].isna().sum() == 0   # 填完立刻断言
+assert df_test[&#39;Age&#39;].isna().sum() == 0</code></pre>
+<p><strong>Embarked（缺失才 2 个 → 全局众数即可，不必分组）：</strong></p>
+<p>决策原则：<strong>过度工程 vs 够用就好</strong>。Age 分组的理由是&quot;不同舱位年龄分布明显不同，全局填会失真&quot;；Embarked 缺失率极低，分组的精细化收益极小，不值得多写代码。</p>
+<p><strong>Cabin（缺失 687/891 太多 → 整列丢弃）：</strong></p>
+<pre><code class="language-python">df_train = df_train.drop(columns=[&#39;Cabin&#39;])   # 明确写列名，不用 dropna(axis=1)（见踩坑 §6）
+df_test  = df_test.drop(columns=[&#39;Cabin&#39;])
+print(df_train.columns.equals(df_test.columns))   # 收尾必检：必须 True</code></pre>
+<p>---</p>
+<h2>三、阶段2：特征分析</h2>
+<h3>3.1 核心方法：看&quot;分组存活率的跨度&quot;</h3>
+<p>判断标准：<strong>组间存活率跨度越大（max组 − min组），该特征对&quot;区分活死&quot;的信息量越大。</strong></p>
+<p>| 特征 | 跨度 / 差异 | 判断 | 阶段4倾向 |<br>| --- | --- | --- | --- |<br>| <strong>Sex</strong> | female 74.8% vs male 18.6% → <strong>56%</strong> | 强、独立、无混杂嫌疑 | ✅ 进 |<br>| <strong>Pclass</strong> | 61.8% → 48.7% → 23.9%（单调）→ <strong>38%</strong> | 强、独立、是其他特征的&quot;幕后真因&quot; | ✅ 进 |<br>| Embarked | C 58.3% / Q 35% / S 33.7% → 24.7% | 混杂明显 | ⚠️ 待定 |<br>| Fare | 存活组均值 47.4 vs 死亡组 22.0 | 与 Pclass 高度共线 | ⚠️ 待定 |<br>| Age | 死 29.8 vs 活 28.2（几乎无差） | 怀疑均值掩盖非线性 | ⚠️ 等可视化 |<br>| FamilySize | 中间高两头低，极端值样本量个位数 | 需分桶 | ✅ 进（分桶） |</p>
+<h3>3.2 三个关键统计概念</h3>
+<p><strong>① 混杂效应（confounding）—— Embarked</strong></p>
+<p>+ 一个变量看起来和结果相关，实际是因为它和另一个<strong>真正起作用</strong>的变量相关。<br>+ 验证：<code>df_train.groupby(&#39;Embarked&#39;)[&#39;Pclass&#39;].value_counts(normalize=True)</code><br>+ 发现：Q 港 93.3% 是 3 等舱（几乎单一构成），C 港 50.8% 是头等舱 → <strong>Embarked 的表现是借了 Pclass 的光</strong>。<br>+ 更复杂：C 港三等舱 36.4% vs S 港三等舱 54.8%（方向还反过来）→ 控制 Pclass 后内部仍有差异，但方向不单一，可能混着 Sex/Age 等没分析到的因素。</p>
+<p><strong>② 多重共线性（multicollinearity）—— Fare vs Pclass</strong></p>
+<p>+ 两个特征高度相关、讲同一件事。验证：<code>df_train.groupby(&#39;Pclass&#39;)[&#39;Fare&#39;].mean()</code> → 头等舱 81.2 / 二等 20.4 / 三等 14.1（<strong>近 6 倍价差对应 3 个舱位</strong>）。<br>+ 对线性模型的危害：两个相关特征同时进，<strong>回归系数变得不稳定、难解释</strong>（模型分不清权重该算谁头上）。</p>
+<p><strong>③ 均值掩盖非线性 —— Age</strong></p>
+<p>+ 死活两组 Age 均值只差 1.6 岁，但这是<strong>均值这个汇总统计量太粗糙</strong>：两端效应（幼儿高、青壮年低）互相抵消。<br>+ 教训：<strong>两组均值接近时要留心 —— 是真没差异，还是差异藏在分布形状里，均值量不出来。</strong></p>
+<p>---</p>
+<h2>四、阶段3：可视化（验证统计数字看不出的&quot;形状&quot;）</h2>
+<p>&lt;!-- 这是一张图片，ocr 内容为：阶段2留下3个待定 AGE直方图 FARE箱线图 FAMILYSIZE 柱状图 (左右子图,DENSITYTRUE, (3个PCLASS并排) (柱高存活率,标注样本量N) 统一X/Y轴) 发现:N85人,N1116人 发现:幼儿小凸起+ 发现:3箱体几乎不重叠+ 0%存活率是小样本噪声, 头等舱长尾异常值(510) 20-25岁死亡尖峰 非线性坐实,AGE该分桶 共线性坐实 不可信 --&gt;<br>![](https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874549796-6fc8c2b2-fa16-4d07-9d96-060794a31090.png)</p>
+<h3>4.1 三张图各自验证了什么</h3>
+<p>| 图 | 验证问题 | 结论 |<br>| --- | --- | --- |<br>| Age 直方图（左右子图） | 均值无差是否掩盖非线性 | <strong>是</strong>：幼儿存活率高、20-25 岁死亡尖峰，均值看不出 |<br>| Fare 箱线图（三舱并排） | Fare 是否与 Pclass 共线 | <strong>是</strong>：三箱体几乎不重叠，Fare 是 Pclass 的数值化身 |<br>| FamilySize 柱状图 | &quot;中间高两头低&quot;是否可靠 | 中段（n=25~418）可信；两端（n=5~12）的 0% 是噪声 |</p>
+<h3>4.2 可视化笔记要点</h3>
+<p>+ <strong>直方图对比两组形状</strong> → 用左右子图（不被遮挡、不被人数多的一组压制），加 <code>density=True</code>（人数不等时按密度比形状才公平），<strong>手动统一 x/y 轴范围</strong>（<code>range</code> 参数 + <code>set_ylim</code>）。<br>+ <strong>更严谨</strong>：两边共用同一组 bin 边界 <code>np.linspace(...)</code>，而非 <code>bins=&#39;auto&#39;</code>（auto 会让两边柱宽不一致）。<br>+ <strong>箱线图读法</strong>：箱子 = Q1~Q3（中间 50% 数据），中间线 = 中位数，须线延伸到非异常值边界，散点 = 异常值。能并排比&quot;中位数高低 + 离散程度&quot;。<br>+ <strong>柱状图标注 n</strong>：<code>ax.text(bar.get_x()+bar.get_width()/2, height, f&#39;n={count}&#39;, ha=&#39;center&#39;, va=&#39;bottom&#39;)</code> —— 柱中心 = 左边缘 + 半宽。</p>
+<p>---</p>
+<h2>五、阶段4：特征工程到数值矩阵</h2>
+<h3>5.1 特征拍板汇总</h3>
+<p>| 特征 | 决定 | 处理方式 |<br>| --- | --- | --- |<br>| Sex | 进 | 独热（→ <code>Sex_male</code>&lt;br/&gt; 一列） |<br>| Pclass | 进 | <strong>直接用数值 1/2/3</strong>（见 §5.4） |<br>| Embarked | <strong>不进</strong> | 混杂、信号不纯净 |<br>| Fare | <strong>不进</strong> | 与 Pclass 共线 |<br>| Age | 进，<strong>分桶</strong> | <code>child/teen/young_adult/middle_age/senior</code> |<br>| FamilySize | 进，<strong>分桶</strong> | <code>alone(1) / small(2-4) / large(5+)</code> |</p>
+<h3>5.2 分桶（binning）—— 处理非线性 + 合并稀疏极端值</h3>
+<p><strong>Age（固定常识边界）：</strong></p>
+<pre><code class="language-python">bins = [0, 12, 18, 35, 60, 100]
+labels = [&#39;child&#39;, &#39;teen&#39;, &#39;young_adult&#39;, &#39;middle_age&#39;, &#39;senior&#39;]
+df_train[&#39;AgeGroup&#39;] = pd.cut(df_train[&#39;Age&#39;], bins=bins, labels=labels)
+df_test[&#39;AgeGroup&#39;]  = pd.cut(df_test[&#39;Age&#39;], bins=bins, labels=labels)   # 两边用同一套固定边界</code></pre>
+<p><strong>FamilySize（按图的转折点切，我自己定的分法）：</strong></p>
+<p>+ <code>1人 → alone</code>，<code>2-4人 → small</code>，<code>5+人 → large</code><br>+ 理由：① 转折点踩准（峰值在 4 人，5 人后断崖）；② 5+ 合并后 n=53，比单看 8 人的 5 个样本可靠得多。<br>+ 价值：<strong>精度 vs 可靠性的权衡</strong> —— 不是说 5 人和 11 人风险一样，而是样本太少时合并换一个更可信的整体估计。</p>
+<h3>5.3 ⚠️ 分桶边界会不会造成数据泄露？（我问的关键问题）</h3>
+<p>&lt;!-- 这是一张图片，ocr 内容为：分桶边界数字从哪来? 是从训练集数据 算出来的吗? 否:人类常识 是:QUANTILE分位数 0,12,18,35,60,100 依赖这批数据的分布 换任何数据集都成立 有泄露风险 不泄露 (只要还偷看测试集去调边界 从没&#39;看&#39;过任何具体数据 --&gt;<br>![](https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874577908-26b5002c-ddbe-4ab6-8fc6-a8e83fa0b18c.png)</p>
+<p><strong>核心判断标准：泄露的关键不在&quot;数字是不是固定的&quot;，而在&quot;这个数字的来源有没有偷看了不该看的数据&quot;。</strong></p>
+<p>+ 固定常识/行业惯例边界 → 不依赖具体数据 → 天然不泄露。<br>+ &quot;Age 中位数必须只从训练集算&quot; vs &quot;分桶边界可用常识固定&quot; —— <strong>是两类不同层次的决定</strong>：前者是&quot;算这个值时能不能偷看测试集&quot;，后者是&quot;要不要用数据算出一个值&quot;。</p>
+<h3>5.4 独热编码（one-hot encoding）</h3>
+<p>&lt;!-- 这是一张图片，ocr 内容为：分类变量/数值特征 取值与目标 是无序类别吗? 是单调关系吗? AGEGROUP(幼儿高/青壮年尖 是:SEX(MALE/FEMALE无大小) 是:PCLASS(等级越低越危险) 可直接用数值 必须独热编码 模型学一个斜率即可 每类一个独立权重 --&gt;<br>![](https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874598402-630d402b-564d-4461-9f2b-54f4b79c1b71.png)</p>
+<p><strong>为什么不能简单编号（child=0,...,senior=4）？</strong></p>
+<p>+ 线性模型会把编号当成<strong>有大小、有距离意义</strong>的真实数值：以为 senior 比 child&quot;大 4 倍&quot;，且&quot;child→teen&quot;和&quot;middle_age→senior&quot;的&quot;+1&quot;变化等量级 —— 全是人为编号造成的假象。<br>+ 这跟 Day7 的 <code>.cat.codes</code>（只为省内存/提速，不参与数值运算）语境不同：这里编号要<strong>直接乘权重参与计算</strong>，大小会被误读成信息。</p>
+<p><strong>独热编码做法 + 防对齐坑（4 步法）：</strong></p>
+<pre><code class="language-python"># ① 固定完整类别清单（基于业务/数据了解，不从数据现算）
+sex_categories = [&#39;female&#39;, &#39;male&#39;]
+df_train[&#39;Sex&#39;] = pd.Categorical(df_train[&#39;Sex&#39;], categories=sex_categories)
+df_test[&#39;Sex&#39;]  = pd.Categorical(df_test[&#39;Sex&#39;],  categories=sex_categories)
+# ② 分别独热（drop_first=True 去冗余列，防完全共线）
+sex_dummies_train = pd.get_dummies(df_train[&#39;Sex&#39;], prefix=&#39;Sex&#39;, drop_first=True)
+sex_dummies_test  = pd.get_dummies(df_test[&#39;Sex&#39;],  prefix=&#39;Sex&#39;, drop_first=True)
+# ③ 检查列名一致（永远不能省）
+assert sex_dummies_train.columns.equals(sex_dummies_test.columns)</code></pre>
+<p>+ <strong>冗余列</strong>：5 个独热列只需看 4 个就能确定第 5 个 → 任意列可被其他列精确算出（完全共线）→ <code>drop_first=True</code> 丢一列当基准。<br>+ <strong>对齐坑</strong>：若训练集凑巧没某个取值，<code>get_dummies</code> 只按&quot;训练集出现过的类别&quot;生成列 → 测试集多一列 → 列数不一致没法用同一组权重预测。解法：先用 <code>pd.Categorical(..., categories=完整清单)</code> 锁死两边类别字典。</p>
+<h3>5.5 拼接特征矩阵（axis=1）</h3>
+<pre><code class="language-python">X_train = pd.concat([df_train[[&#39;Pclass&#39;]], sex_dummies_train, Age_dummy_train, familysize_dummy_train], axis=1)
+X_test  = pd.concat([df_test[[&#39;Pclass&#39;]],  sex_dummies_test,  Age_dummy_test,  familysize_dummy_test],  axis=1)
+y_train, y_test = df_train[&#39;Survived&#39;], df_test[&#39;Survived&#39;]
+
+# 拼完三必检
+print(X_train.shape, len(y_train))            # 行数相等
+print(X_train.isna().sum())                    # 不应有 NaN（有 → 索引没对齐）
+print(X_train.columns.equals(X_test.columns))  # 训练/测试列必须一致</code></pre>
+<p>+ <strong>axis=1 拼接的新坑</strong>：Pandas 按<strong>索引对齐</strong>配对行，索引不一致会出 NaN（不是简单按物理位置拼）。本次没事是因为独热表都从 df_train 直接派生、索引一致 —— 但这建立在&quot;前面没打乱过索引、没筛丢过行&quot;的前提上，所以必须验证。</p>
+<p>---</p>
+<h2>六、阶段5：手写分类预测</h2>
+<h3>6.1 第一部分：规则阈值法（基线）</h3>
+<pre><code class="language-python">group_survival_rate = df_train.groupby([&#39;Sex&#39;, &#39;Pclass&#39;])[&#39;Survived&#39;].mean()   # 这张表=从训练集学出的&quot;参数&quot;
+df_test[&#39;pred_proba&#39;] = df_test.set_index([&#39;Sex&#39;,&#39;Pclass&#39;]).index.map(group_survival_rate)  # 多级索引查表
+df_test[&#39;pred_baseline&#39;] = (df_test[&#39;pred_proba&#39;] &gt; 0.5).astype(int)
+accuracy_baseline = (df_test[&#39;pred_baseline&#39;] == df_test[&#39;Survived&#39;]).mean()    # ==后.mean()=准确率速算</code></pre>
+<p><strong>6 组存活率表（关键发现）：</strong></p>
+<p>| | Pclass 1 | Pclass 2 | Pclass 3 |<br>| --- | --- | --- | --- |<br>| female | 98.6% | 92.2% | <strong>50.4%</strong> |<br>| male | <strong>36.3%</strong> | 16.3% | 12.8% |</p>
+<p>+ <strong>三等舱女性(50.4%) &gt; 头等舱男性(36.3%)</strong> → Sex 的影响比 Pclass 更剧烈。<br>+ 6 组交叉后跨度 = 98.6% − 12.8% = <strong>85.8%</strong>，远超任何单一特征 → <strong>特征交互的价值</strong>。<br>+ <strong>基线准确率 = 77.1%</strong>（地板线 61.5% = 全猜死亡 = 1 − 测试集存活率 38.5%）。</p>
+<h3>6.2 第二部分：简化逻辑回归 —— 三个新概念</h3>
+<p>&lt;!-- 这是一张图片，ocr 内容为：P0.5?判存活 SIGMOID(Z) 压到(0,1)当概率 ZWX+B 特征X (任意实数) 交叉熵损失 衡量判断离谱程度 梯度下降更新W,B --&gt;<br>![](https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874625276-87274ac5-0ad6-4492-b23b-f0a3662cbef8.png)</p>
+<p><strong>① sigmoid：为什么需要它</strong></p>
+<p>+ 线性回归的 <code>z</code> 取值是整个实数轴；但概率必须在 [0,1]。<br>+ <code>sigmoid(z) = 1/(1+e^(-z))</code> 把任意实数<strong>单调地</strong>压到 (0,1)：<code>z=0→0.5</code>，<code>z=+10→≈1</code>，<code>z=-10→≈0</code>。<br>+ S 形曲线：中间陡（不确定区，特征稍变判断就翻）、两端平（已很确信）。<br>+ ⚠️ 副作用：两端梯度趋近 0（埋点，见交叉熵如何化解）。</p>
+<p><strong>② 交叉熵损失 vs 均方误差：为什么分类用交叉熵</strong></p>
+<p>&lt;!-- 这是一张图片，ocr 内容为：预测任务 输出是连续值 还是概率/类别? 连续值房价/温度 概率/分类 交叉熵 均方误差MSE 衡量&#39;判断离谱程度&#39;(自信犯 衡量&#39;差多少&#39;(对称,有上限) 错&gt;惩罚飙向无穷 配合SIGMOID:梯度公式简洁 且不在犯大错时梯度消失 --&gt;<br>![](https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874646888-e6c81923-9bb5-4ab0-96fb-f39a2da66c5a.png)</p>
+<p>+ <code>loss = -[y·log(y_pred) + (1-y)·log(1-y_pred)]</code><br>+ <code>y=1</code> 时损失 = <code>-log(y_pred)</code>：猜对(→1)损失≈0；自信猜错(→0)损失<strong>飙向无穷</strong>（MSE 此时被天花板封在 1）。<br>+ 真正决定&quot;不用 MSE&quot;的原因：MSE + sigmoid 求梯度，<strong>犯最严重错误时梯度反而趋 0、学不动</strong>（反直觉的糟糕组合）。交叉熵 + sigmoid 恰好化解。</p>
+<p><strong>③ 特征归一化：为什么要做</strong></p>
+<p>&lt;!-- 这是一张图片，ocr 内容为：特征量级不一致 PCLASS(1,2,3)VS独热(0,1) GRADWEAN(ERROR.X) X大梯度天然大 所有权重共用同一个 LEARNING_RATE 大尺度特征步子大可能震 小尺度特征步子小学得慢 矛盾: 两个特征&#39;理想步长&#39;不同 却被迫用同一学习率 归一化(Z-SCORE)拉齐尺度 可共用学习率,步伐公平 --&gt;<br>![](https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874675910-df073785-34bc-4fe3-a5df-91a7892d69c3.png)</p>
+<p>+ 一句话总结（我的复述，老师确认对）：<strong>不归一化导致每次更新步伐不一致，再叠加&quot;共用同一个学习率&quot;，就可能不收敛/收敛慢。</strong><br>+ 比喻：一只手用同样力度调两个灵敏度不同的水龙头，大龙头喷出去、小龙头没动。归一化 = 事先把两个龙头换成同样灵敏度。<br>+ 本次做法：<strong>只标准化 Pclass，独热列(0/1)保持不变</strong>（折中：真正有量级差的只有 Pclass，保住独热列的可解释性）。<br>+ ⚠️ <code>mean/std</code> 只从训练集算，套用到测试集（防泄露同款规则）。</p>
+<h3>6.3 梯度推导（链式法则 + &quot;奇迹抵消&quot;）</h3>
+<p>&lt;!-- 这是一张图片，ocr 内容为：LOSS交叉熵 D LOSS/D_YPRED Y_PRED SIGMOID(Z) 三段相乘 WJ Z-WX+B D_YPRED/D_Z 复杂项全约掉 YPRED(1-YPRED) (Y_PRED-Y.TRUE).X_J D_Z/DWJXJ --&gt;<br>![](https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874699080-ac42fdc9-5cd8-4b77-92c0-419a458e17e6.png)</p>
+<p><strong>三段链式法则：</strong></p>
+<pre><code class="language-plain">∂loss/∂w_j = (∂loss/∂y_pred) × (∂y_pred/∂z) × (∂z/∂w_j)</code></pre>
+<p>+ 第一段 <code>∂loss/∂y_pred = -[y/y_pred - (1-y)/(1-y_pred)]</code><br>+ 第二段（sigmoid 导数，用自身输出表示）<code>∂y_pred/∂z = y_pred·(1-y_pred)</code><br>+ 第三段 <code>∂z/∂w_j = x_j</code><br>+ 前两段相乘，逐项展开化简：</p>
+<pre><code class="language-plain">-y(1-y_pred) + (1-y)y_pred = -y + y·y_pred + y_pred - y·y_pred = y_pred - y</code></pre>
+<p>+ <strong>复杂的分式、sigmoid 导数全部约掉，只剩 </strong><code><strong>(y_pred - y_true)</strong></code> → 对应代码 <code>error = y_pred - y_train_np</code>。<br>+ 向量化：<code>grad_w = X.T @ error / n_samples</code>。<br>+ <strong>为什么会&quot;奇迹抵消&quot;</strong>：交叉熵的形式本就是为配合 sigmoid、让梯度化简成这个干净形式而选用的（统计上叫&quot;指数族的自然搭配&quot;），不是凑巧。</p>
+<h3>6.4 训练循环骨架</h3>
+<pre><code class="language-python">def sigmoid(z): return 1 / (1 + np.exp(-z))
+
+w = rng.normal(0, 0.01, size=n_features); b = 0.0
+learning_rate, n_epochs = 0.1, 5000
+
+for epoch in range(n_epochs):
+    z = X_train_np @ w + b
+    y_pred = sigmoid(z)
+    y_pred_c = np.clip(y_pred, 1e-15, 1 - 1e-15)          # ⚠️ 防 log(0)=-inf，见 §6.5
+    loss = -np.mean(y_train_np*np.log(y_pred_c) + (1-y_train_np)*np.log(1-y_pred_c))
+    error = y_pred - y_train_np
+    grad_w = X_train_np.T @ error / n_samples
+    grad_b = np.mean(error)
+    w -= learning_rate * grad_w
+    b -= learning_rate * grad_b</code></pre>
+<p>+ <strong>健全性检查</strong>：<code>epoch 0</code> 的 loss ≈ 0.693 = <code>-log(0.5)</code>（权重≈0 时 sigmoid 输出≈0.5）→ 说明初始化和 loss 计算逻辑正确。<br>+ <strong>收敛判断</strong>：看最后几百轮降幅是否 &lt; 0.001~0.005 量级（前 100 轮降 0.19，后 800 轮才降 0.068 = 典型收敛形状，不是&quot;下降不明显&quot;）。</p>
+<h3>6.5 ⚠️ 数值稳定性：log(0) = -inf 的 nan 雪崩</h3>
+<p>&lt;!-- 这是一张图片，ocr 内容为：Z很负SIGMOID(Z) 浮点下溢成0.0 NP.LOG(0)-INF(不报错!) 含INF LOSS NP.MEAN INF/NAN GRAD_W被污染成NAN W-LR*GRAD_W变NAN NAN传染:任何运算含NAN 结果必NAN 后续所有W/B/LOSS永久NAN 但程序不崩, 面无表情跑完所有轮 解法:NP.CLIP(Y_PRED,1E-15, 1-1E-15) --&gt;<br>![](https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874739163-c01cac98-96f7-4bbf-b873-baee45bccde9.png)</p>
+<p>+ 这是&quot;静默错误&quot;在数值计算领域的典型表现：不报错、看似运行、实际早已失效。<br>+ <code>epsilon=1e-15</code> 小到不影响 loss 实际意义，但保证 log 永不算出 -inf。</p>
+<h3>6.6 模型对比 + 读权重</h3>
+<p>| 模型 | 准确率 | 特点 |<br>| --- | --- | --- |<br>| 地板线（全猜死亡） | 61.5% | 什么都没学到的参照 |<br>| 规则阈值法（基线） | 77.1% | 能捕捉 Sex×Pclass 交互，但只用 2 特征 |<br>| 简化逻辑回归 | <strong>79.3%</strong> | 用 8 特征，但纯线性、<strong>无交互项</strong> |<br>| sklearn LogisticRegression | 79.3% | 同份数据收敛到的解（凸优化，有唯一最优） |</p>
+<p><strong>逻辑回归权重（5000 轮，已收敛）：</strong></p>
+<pre><code class="language-plain">Pclass: -0.96   Sex_male: -2.81   (绝对值最大=最强特征, 与Sex 56%跨度吻合)
+Agegroup_teen: -0.89   young_adult: -0.81   middle_age: -1.63   senior: -1.26
+FamilyGroup_small: +0.38 (比alone安全)   large: -1.70 (比alone危险)
+b: +2.12  (基准: female+child+alone, 倾向预测存活, 符合直觉)</code></pre>
+<p>+ 权重符号方向几乎全部符合阶段2/3 的分析发现 → &quot;可解释性优先&quot;的收获：<strong>能对每个权重讲出&quot;为什么是这个符号、这个大小&quot;</strong>。</p>
+<h3>6.7 为什么逻辑回归只比基线高 2.2%（面试有力回答）</h3>
+<p>+ 逻辑回归是<strong>纯线性组合</strong>，只能学&quot;Pclass 越大越危险&quot;+&quot;是男性越危险&quot;两条独立趋势，<strong>学不到基线天生具备的 Sex×Pclass 交互</strong>（如&quot;三等舱里性别影响幅度 ≠ 一等舱里&quot;）。<br>+ 没败给基线（远高于地板线 61.5%）→ 确实学到了东西；没显著超越 → 缺交互信息。<br>+ <strong>不是模型没调好，是模型结构（无交互项）有信息天花板，恰好离基线不远。</strong><br>+ 第二原因：AgeGroup/FamilyGroup 这些非线性局部效应，分桶后给线性模型的增益本来就有限（边际贡献小）。</p>
+<p>---</p>
+<h2>七、值得记录的关键问题（我主动追问的）</h2>
+<p>| 我的问题 | 关键答案（精确表述） |<br>| --- | --- |<br>| 随机切分会不会切出全是某一类？ | 891 规模下概率极低；真正常见的是<strong>比例轻微偏移</strong> → 引出<strong>分层抽样</strong>（不是防极端，是锚定 38%） |<br>| 为什么同一 rng 连续调用两次 permutation 是独立的？ | <strong>不是&quot;无关&quot;，是&quot;确定但统计独立&quot;</strong>：内部状态确定性推进，但 PCG64 保证输出在统计上不可预测/不相关 |<br>| 固定常识边界分桶会不会数据泄露？ | <strong>不会</strong>。泄露关键不在&quot;数字固不固定&quot;，而在&quot;来源有没有偷看不该看的数据&quot;；常识边界从没看过任何数据 |<br>| 为什么要特征归一化？ | 量级不一致 → 梯度天然不等 → 共用同一学习率 → 步伐不公平 → 不收敛/慢。归一化拉齐尺度 |<br>| 梯度公式怎么来的（不要直接给公式）？ | 链式法则三段相乘，交叉熵导数 × sigmoid 导数复杂项<strong>全约掉</strong>，只剩 <code>(y_pred - y_true)·x_j</code> |<br>| 80/20 还是 70/30？ | 数据量小 → 保训练集优先；数据量大 → 可多分给测试集。Titanic 小 → 80/20 |</p>
+<p>---</p>
+<h2>八、踩坑记录（静默错误为主）</h2>
+<p>| # | 坑 | 现象 | 正确做法 |<br>| --- | --- | --- | --- |<br>| 1 | <code>df[:n]</code>&lt;br/&gt; 切片当成按标签切 | 实际是<strong>按位置</strong>切（Day7 坑的延伸，<code>[]</code>&lt;br/&gt; 行为不对称） | 显式写 <code>df.iloc[:n]</code>&lt;br/&gt;，意图明确永不错 |<br>| 2 | <code>(int)(x)</code>&lt;br/&gt; C 风格写法 | 能跑但是多余括号 | Python 用 <code>int(x)</code> |<br>| 3 | <code>dropna(axis=1)</code>&lt;br/&gt; 各自丢列 | 训练/测试若某列缺失情况不同 → <strong>列对不齐</strong>（本次侥幸一致） | 明确 <code>drop(columns=[&#39;Cabin&#39;])</code> |<br>| 4 | <code>pd.Categorical</code>&lt;br/&gt; 变量名写错（<code>FamilySize</code>&lt;br/&gt; 写成本该是 <code>FamilyGroup</code>&lt;br/&gt;） | categories 是字符串、列是数字 → 全部<strong>静默变 NaN</strong>，警告但不报错；原始列还被覆盖污染 | 操作 <code>FamilyGroup</code>&lt;br/&gt;；被污染列需 <code>SibSp+Parch+1</code>&lt;br/&gt; 复原 |<br>| 5 | 712 vs 713 | 以为丢了 1 人 | <code>int()</code>&lt;br/&gt; 是<strong>截断</strong>非四舍五入；712+179=891 完全正确，是我的预估数不精确 |<br>| 6 | <code>map</code>&lt;br/&gt; 查表查不到 key | 训练/测试分布不对齐时<strong>静默变 NaN</strong>，<code>fillna(NaN)</code>&lt;br/&gt; 等于没填 | 填后 <code>assert isna().sum()==0</code> |<br>| 7 | 独热编码训练/测试列对不齐 | 某取值只在一边出现 → 列数不同 | 先 <code>pd.Categorical(..., categories=完整清单)</code>&lt;br/&gt; 锁死 |<br>| 8 | <code>log(0) = -inf</code>&lt;br/&gt; 的 nan 雪崩 | loss/grad/w 全部静默变 nan，程序不崩跑完所有轮 | <code>np.clip(y_pred, 1e-15, 1-1e-15)</code> |<br>| 9 | <code>conda install sklearn</code>&lt;br/&gt; 失败 | 包名不对（PyPI/conda 名 ≠ import 名） | <code>conda install scikit-learn</code>&lt;br/&gt; / <code>pip install scikit-learn</code> |<br>| 10 | &quot;准确率完全相同&quot;假象 | 手写权重 ≠ sklearn 权重，但准确率小数点后 16 位相同 | 测试集仅 179 人，<strong>权重不同但决策边界在这些人身上偶然给出相同 0/1</strong> |<br>| 11 | 1000 轮没收敛 | AgeGroup 权重还是接近 0 的小正数，<strong>符号都是错的</strong>（看着像&quot;teen 更安全&quot;） | 加到 5000 轮，权重朝 sklearn 方向移动、符号反转、与阶段3发现接轨 |</p>
+<p>---</p>
+<h2>九、本次最大认知升级：权重收敛 ≠ 预测稳定</h2>
+<p>&lt;!-- 这是一张图片，ocr 内容为：1000轮 VS 5000轮 权重大幅变化 (AGEGROUP符号都反了) 为什么? 权重变化只有让样本(跨过0. 5 才改变最终0/1判断 AGEGROUP权重的调整被SEX /PCLASS主导力压过 准确率完全不变 概率0.62-0.58, 0.7932960893854749 没人跨过0.5 结论:权重是否收敛与 预测准确率是否变 可完全脱钩 --&gt;<br>![](https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874768122-b3ae60c5-2af4-47b8-8a21-b51f32995c0f.png)</p>
+<p><strong>实战指导意义：</strong></p>
+<p>+ <strong>只关心分类准确率</strong> → 不必练到权重完全收敛（1000 轮的&quot;准确率&quot;已可用）。<br>+ <strong>要拿权重做解释</strong>（特征重要性、写报告）→ <strong>必须练到权重真正稳定</strong>，否则会得出&quot;teen 更安全&quot;这种被训练不充分误导的错误结论。<br>+ <strong>判断&quot;训练够没够&quot;</strong>：光看&quot;loss 不再下降&quot;不够全面 —— loss 平缓只说明强特征主导的部分收敛了，<strong>还要看权重本身是否还在显著变化</strong>。</p>
+<p>---</p>
+<h2>十、练习</h2>
+<h3>练习1：Embarked / Fare 对比实验</h3>
+<p>加 Embarked（独热）、Fare（标准化）、两者都加，各跑 5000 轮，对比准确率与权重符号。</p>
+<p>关注点不是&quot;准确率涨没涨&quot;，而是<strong>验证理论预判</strong>：加了边际收益有限（混杂/共线）。若 Fare 权重大但准确率几乎不变 → 共线性导致权重不稳的直接证据。</p>
+<h3>练习2：sklearn 验证（已完成）</h3>
+<p><code>LogisticRegression().fit(X_train_np, y_train_np).score(...)</code> → 与手写 79.3% 对比；<code>model.coef_</code> 与手写 <code>w</code> 对比（5000 轮后已很接近，凸优化收敛到同一最优）。</p>
+<h3>练习3：学习率敏感性</h3>
+<p><code>lr ∈ {0.01, 1, 10}</code> 各跑 1000 轮看 loss：</p>
+<p>+ <code>0.01</code> 收敛极慢；<code>1</code> 仍收敛（归一化后容错大）；<code>10</code> 很可能震荡甚至 nan。<br>+ 进阶：注释掉归一化再跑一遍，对比&quot;归一化前后对学习率的敏感度&quot;。</p>
+<h3>练习4：让线性模型捕捉交互效应（思路题）</h3>
+<p><strong>手动构造交叉特征列</strong>：</p>
+<pre><code class="language-python">X_train[&#39;Sex_male_x_Pclass&#39;] = X_train[&#39;Sex_male&#39;] * X_train[&#39;Pclass&#39;]</code></pre>
+<p>+ 原理：线性模型只能学&quot;各特征独立贡献&quot;；提前算好两特征<strong>乘积</strong>当新列喂进去，模型给这列一个权重 = 间接学到交互效应。模型仍线性，但因一列是非线性（乘法）构造的，变相获得捕捉交互的能力。<br>+ 与基线查表法趋同：查表是交互的&quot;完全版&quot;（6 组各自独立），乘积列是&quot;简化版&quot;（只能表达乘法型交互）。<br>+ <strong>伏笔</strong>：决策树/随机森林通过&quot;先按 Sex 分支、再按 Pclass 分支&quot;<strong>自动捕捉任意交互</strong>，无需手动构造交叉列 —— 这是树模型相对线性模型的核心优势（后面学到时回看）。</p>
+<p>---</p>
+<h2>十一、全知识点思维导图</h2>
+<p>&lt;!-- 这是一张图片，ocr 内容为：CATEGORICAL锁死类别防对齐 坑 不能简单编号 只标准化PCLASS DROP_FIRST去冗余 独热编码 处理非线性 归一化 基线77VS 模型79 常识边界不泄露 准确率速算 分桶BINNING 无交互项有天花板 特征工程 评估与认知 合并稀疏极喘值 步伐一致性 先切分后填充 读权重要练到收敛 SIGMOID压到0到1 测试集套用同一统计量 权重收敛不等于预测稳定 梯度链式法则奇迹抵消 交叉熵指数级惩罚 防数据泄露 统计量只从训练集算 逻辑回归正式 DAY9 TITANIC实战 LOGO负无穷 CLIP截断 按标签分组 数据准备 模型 ILOC按位置重排 规则阈值法基线 地板线61.5 分层抽样 可视化 GROUPBY查表 多亚共线性FARE VS PCLASS 混杂效应EMBARKED 组内独立打乱PERMUTATION 箱线图比中位数与离散 特征分析 柱状图标注样本量N CONCAT合并IGNORE INDEX 直方图比形状 GROUPBY分组存活率看跨度 子图加DENSITY 均值掩盖非线性AGE两端 --&gt;<br>![](https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874795717-9968f736-1354-4051-a619-762860ea89d0.png)</p>
+<p>---</p>
+<p><strong>Day 9 小结</strong>：今天最大的收获不是某个新 API，而是把&quot;先想为什么、再看数据、用代码验证&quot;这条链路在一个真实项目里完整走了一遍 —— 从分层抽样防泄露，到识别混杂/共线，到可视化验证非线性，到手推梯度，再到亲手挖出&quot;权重收敛 ≠ 预测稳定&quot;的洞察。这些&quot;对比出来的判断&quot;和&quot;踩出来的坑&quot;，比准确率数字本身更值得带进面试。</p></div></article>
+<nav class="note-pagination"><a href="./day-8-学习笔记-pandas进阶与numpy互转.html">← Day 8 学习笔记： pandas进阶与numpy互转</a><a href="./day-10-学习笔记-查漏补缺-pytorch-预习.html">Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习 →</a></nav>
+  </main>
+</body>
+</html>
