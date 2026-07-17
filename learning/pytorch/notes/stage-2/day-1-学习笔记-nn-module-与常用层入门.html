@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101c">
+  <title>Day 1 学习笔记：nn.Module 与常用层入门 · SNOWSTORM</title>
+  <link rel="stylesheet" href="../../../../assets/library.css">
+</head>
+<body class="library-page">
+  <main class="library-shell">
+    <a class="library-brand" href="../../../../index.html">SNOWSTORM / ARCHIVE</a>
+    <p class="library-eyebrow">模型与训练闭环</p>
+    <nav class="breadcrumbs"><a href="../../../index.html">学习</a><span>/</span><a href="../../index.html">PyTorch</a><span>/</span><span>模型与训练闭环</span></nav>
+<article class="note-article"><h1>Day 1 学习笔记：nn.Module 与常用层入门</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+<p>参考书：《动手学深度学习》PyTorch 版，PyTorch 官方文档</p>
+<p>本阶段重点：从第 3 周的 <span class="wiki-link">纯 Tensor 手写线性回归</span> 与 <span class="wiki-link">手写 Softmax 分类</span>，过渡到 PyTorch 的 <code>nn.Module</code>、常用层、官方 loss 和 optimizer。今天不是为了“只会调 API”，而是理解：手写的 <code>w / b / forward / loss / backward / SGD / zero_grad</code>，在 <code>nn</code> 模块体系里分别被封装成了什么。</p>
+<p>今天主线：<code>nn.Module + 常用层</code>。核心心智模型是：<strong><code>nn.Module</code> 不是替你跳过底层，而是把你已经手写过的参数、前向计算、梯度计算和参数更新组织成工程上更可维护的结构。</strong></p>
+<p>---</p>
+<h2>〇、贯穿全天的五条心智主线</h2>
+<h3>1. <code>nn.Module</code> 解决的是模型组织问题</h3>
+<p>第 3 周 <span class="wiki-link">手写线性回归</span>时，模型大概是：</p>
+<pre><code class="language-python">w = torch.normal(0, 0.01, size=(num_inputs, 1), requires_grad=True)
+b = torch.zeros(1, requires_grad=True)
+
+def net(X):
+    return X @ w + b</code></pre>
+<p>这里有三个核心部分：</p>
+<pre><code class="language-plain">参数：w, b
+前向计算：X @ w + b
+训练时要更新的对象：[w, b]</code></pre>
+<p>模型小时，这样写非常清楚。模型一复杂，比如变成：</p>
+<pre><code class="language-plain">X -&gt; Linear1 -&gt; ReLU -&gt; Linear2 -&gt; output</code></pre>
+<p>如果继续手写，就要自己维护：</p>
+<pre><code class="language-plain">W1, b1, W2, b2
+params = [W1, b1, W2, b2]</code></pre>
+<p>参数多了以后容易漏，结构也分散。</p>
+<p><code>nn.Module</code> 的作用就是把这些东西组织起来：</p>
+<pre><code class="language-plain">nn.Module = 参数容器 + 前向计算规则 + 子层管理系统</code></pre>
+<p>它不改变训练本质，只是把训练流程工程化。</p>
+<h3>2. <code>__init__</code> 定义“有什么层”，<code>forward</code> 定义“数据怎么走”</h3>
+<p>最小模型类：</p>
+<pre><code class="language-python">import torch
+from torch import nn
+
+
+class LinearRegression(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.linear = nn.Linear(2, 1)
+
+    def forward(self, X):
+        return self.linear(X)</code></pre>
+<p>这里的分工是：</p>
+<pre><code class="language-plain">__init__：创建层、参数、模型组件
+forward：描述输入数据如何经过这些组件</code></pre>
+<p>这句话非常重要：</p>
+<pre><code class="language-plain">可学习层应该在 __init__ 里创建一次
+forward 里只使用这些层做计算</code></pre>
+<p>不要在 <code>forward</code> 里新建 <code>nn.Linear</code>，否则每次前向传播都会重新随机初始化一组参数，训练就失去意义。</p>
+<h3>3. <code>nn.Linear</code> 封装的是线性变换</h3>
+<p><code>nn.Linear(in_features, out_features)</code> 本质上做的是：</p>
+<pre><code class="language-plain">Y = X @ weight.T + bias</code></pre>
+<p>如果：</p>
+<pre><code class="language-python">linear = nn.Linear(2, 1)</code></pre>
+<p>那么：</p>
+<pre><code class="language-plain">linear.weight.shape = (1, 2)
+linear.bias.shape   = (1,)</code></pre>
+<p>注意：<code>nn.Linear</code> 的 <code>weight</code> 形状是：</p>
+<pre><code class="language-plain">(out_features, in_features)</code></pre>
+<p>而第 3 周手写线性回归时，常写成：</p>
+<pre><code class="language-plain">w.shape = (in_features, out_features)</code></pre>
+<p>所以官方层内部使用的是：</p>
+<pre><code class="language-plain">X @ linear.weight.T + linear.bias</code></pre>
+<p>这不是新数学，只是参数保存的方向不同。</p>
+<h3>4. <code>model.parameters()</code> 自动收集可学习参数</h3>
+<p>手写版本：</p>
+<pre><code class="language-python">params = [w, b]</code></pre>
+<p><code>nn.Module</code> 版本：</p>
+<pre><code class="language-python">model.parameters()</code></pre>
+<p>原因是：</p>
+<pre><code class="language-python">self.linear = nn.Linear(2, 1)</code></pre>
+<p>把 <code>linear</code> 挂到了 <code>self</code> 上。PyTorch 会自动把它登记为模型的子模块，并递归找到里面的：</p>
+<pre><code class="language-plain">linear.weight
+linear.bias</code></pre>
+<p>学习时建议多用：</p>
+<pre><code class="language-python">for name, param in model.named_parameters():
+    print(name, param.shape, param.requires_grad)</code></pre>
+<p>它可以检查：</p>
+<pre><code class="language-plain">哪些参数被注册了
+参数 shape 是否正确
+requires_grad 是否为 True
+有没有层没有被 optimizer 管到</code></pre>
+<h3>5. 官方训练循环仍然是原来的训练本质</h3>
+<p>手写训练循环的核心是：</p>
+<pre><code class="language-plain">前向计算
+算 loss
+backward 得到 grad
+用 no_grad 更新参数
+清空 grad</code></pre>
+<p>官方写法变成：</p>
+<pre><code class="language-python">optimizer.zero_grad()
+loss.backward()
+optimizer.step()</code></pre>
+<p>三句话的含义：</p>
+<pre><code class="language-plain">optimizer.zero_grad()  清空旧梯度
+loss.backward()        计算当前 batch 的梯度
+optimizer.step()       根据 param.grad 更新参数</code></pre>
+<p><code>optimizer</code> 不负责算梯度，梯度仍然来自 <span class="wiki-link">Autograd</span>。</p>
+<p>---</p>
+<h2>一、为什么需要 <code>nn.Module</code></h2>
+<h3>1. 手写版本的问题</h3>
+<p>手写线性回归：</p>
+<pre><code class="language-python">w = torch.normal(0, 0.01, size=(2, 1), requires_grad=True)
+b = torch.zeros(1, requires_grad=True)
+
+def linreg(X):
+    return X @ w + b</code></pre>
+<p>这个版本适合学习底层，但参数和计算逻辑是分散的：</p>
+<pre><code class="language-plain">w / b 在函数外面
+forward 逻辑在函数里面
+训练循环还要手动知道 params = [w, b]</code></pre>
+<p>如果模型变成多层网络，手动维护会越来越容易出错。</p>
+<h3>2. <code>nn.Module</code> 的心智模型</h3>
+<p><code>nn.Module</code> 可以理解为：</p>
+<pre><code class="language-plain">一个会管理参数和子层的 Python 对象</code></pre>
+<p>它让模型拥有统一入口：</p>
+<pre><code class="language-plain">model(X)              前向计算
+model.parameters()    获取参数
+model.train()         切换训练模式
+model.eval()          切换评估模式
+model.state_dict()    保存参数状态</code></pre>
+<p>今天重点先掌握：</p>
+<pre><code class="language-plain">model(X)
+model.parameters()</code></pre>
+<p>---</p>
+<h2>二、<code>nn.Linear</code> 和手写 <code>X @ w + b</code></h2>
+<h3>1. <code>nn.Linear</code> 的输入输出</h3>
+<pre><code class="language-python">linear = nn.Linear(in_features=2, out_features=1)
+
+X = torch.tensor([
+    [1.0, 2.0],
+    [3.0, 4.0],
+])
+
+y_hat = linear(X)</code></pre>
+<p>shape 对应：</p>
+<pre><code class="language-plain">X.shape      = (2, 2)
+y_hat.shape  = (2, 1)</code></pre>
+<p>其中：</p>
+<pre><code class="language-plain">第一个维度 2：batch_size
+第二个维度 1：每个样本输出 1 个值</code></pre>
+<h3>2. 参数 shape</h3>
+<pre><code class="language-python">print(linear.weight.shape)
+print(linear.bias.shape)</code></pre>
+<p>结果：</p>
+<pre><code class="language-plain">torch.Size([1, 2])
+torch.Size([1])</code></pre>
+<p><code>nn.Linear(784, 10)</code> 时：</p>
+<pre><code class="language-plain">weight.shape = (10, 784)
+bias.shape   = (10,)</code></pre>
+<p>可以理解成：</p>
+<pre><code class="language-plain">10 个输出神经元
+每个输出神经元都有 784 个输入权重</code></pre>
+<h3>3. 手写验证</h3>
+<pre><code class="language-python">linear = nn.Linear(2, 1)
+
+with torch.no_grad():
+    linear.weight[:] = torch.tensor([[2.0, 3.0]])
+    linear.bias[:] = torch.tensor([1.0])
+
+X = torch.tensor([
+    [10.0, 20.0],
+    [30.0, 40.0],
+])
+
+y1 = linear(X)
+y2 = X @ linear.weight.T + linear.bias</code></pre>
+<p><code>y1</code> 和 <code>y2</code> 一样。</p>
+<p>第一行手算：</p>
+<pre><code class="language-plain">10 * 2 + 20 * 3 + 1 = 81</code></pre>
+<p>说明：</p>
+<pre><code class="language-plain">nn.Linear 只是帮我们保存 weight / bias，并在 forward 时做线性变换</code></pre>
+<p>---</p>
+<h2>三、最小 <code>nn.Module</code> 写法</h2>
+<h3>1. 模型类模板</h3>
+<pre><code class="language-python">class MyModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.layer = ...
+
+    def forward(self, X):
+        return self.layer(X)</code></pre>
+<p>固定理解：</p>
+<pre><code class="language-plain">__init__ 里定义模型组件
+forward 里定义计算流程</code></pre>
+<h3>2. <code>super().__init__()</code> 的作用</h3>
+<pre><code class="language-python">super().__init__()</code></pre>
+<p>表示先初始化 <code>nn.Module</code> 的基础能力。</p>
+<p>如果漏写，可能导致：</p>
+<pre><code class="language-plain">子层无法正常注册
+model.parameters() 拿不到参数
+模型状态管理出问题</code></pre>
+<p>所以写自定义模型时，先形成习惯：</p>
+<pre><code class="language-python">class Net(nn.Module):
+    def __init__(self):
+        super().__init__()</code></pre>
+<h3>3. 为什么写 <code>model(X)</code>，不是 <code>model.forward(X)</code></h3>
+<p>通常写：</p>
+<pre><code class="language-python">y_hat = model(X)</code></pre>
+<p>而不是：</p>
+<pre><code class="language-python">y_hat = model.forward(X)</code></pre>
+<p>因为 <code>model(X)</code> 会走 <code>nn.Module</code> 的调用流程，再进入 <code>forward</code>。这中间 PyTorch 可以处理 hook、训练/推理相关机制等框架能力。</p>
+<p>日常训练中遵守：</p>
+<pre><code class="language-plain">调用模型：model(X)
+定义逻辑：forward(self, X)</code></pre>
+<p>---</p>
+<h2>四、<code>model.parameters()</code> 与 optimizer</h2>
+<h3>1. 查看模型参数</h3>
+<pre><code class="language-python">model = LinearRegression()
+
+for name, param in model.named_parameters():
+    print(name, param.shape, param.requires_grad)</code></pre>
+<p>可能输出：</p>
+<pre><code class="language-plain">linear.weight torch.Size([1, 2]) True
+linear.bias   torch.Size([1])    True</code></pre>
+<p>含义：</p>
+<pre><code class="language-plain">linear.weight / linear.bias 是模型参数
+requires_grad=True，说明会被 Autograd 计算梯度</code></pre>
+<h3>2. optimizer 的角色</h3>
+<pre><code class="language-python">optimizer = torch.optim.SGD(model.parameters(), lr=0.03)</code></pre>
+<p><code>optimizer</code> 保存的是参数引用。</p>
+<p>训练时：</p>
+<pre><code class="language-python">loss.backward()
+optimizer.step()</code></pre>
+<p><code>loss.backward()</code> 会把梯度写到：</p>
+<pre><code class="language-plain">model.linear.weight.grad
+model.linear.bias.grad</code></pre>
+<p><code>optimizer.step()</code> 使用这些 <code>.grad</code> 更新参数。</p>
+<h3>3. 和手写 SGD 的对应关系</h3>
+<p>手写版本：</p>
+<pre><code class="language-python">with torch.no_grad():
+    for param in params:
+        param -= lr * param.grad
+        param.grad.zero_()</code></pre>
+<p>官方版本：</p>
+<pre><code class="language-python">optimizer.zero_grad()
+loss.backward()
+optimizer.step()</code></pre>
+<p>对应关系：</p>
+<pre><code class="language-plain">params = [w, b]       -&gt; model.parameters()
+param.grad.zero_()    -&gt; optimizer.zero_grad()
+param -= lr * grad    -&gt; optimizer.step()</code></pre>
+<p>---</p>
+<h2>五、用官方封装跑线性回归闭环</h2>
+<h3>1. 数据与模型</h3>
+<pre><code class="language-python">from torch.utils.data import DataLoader, TensorDataset
+
+
+def synthetic_data(w, b, num_examples):
+    X = torch.normal(0, 1, size=(num_examples, len(w)))
+    y = X @ w + b
+    y += torch.normal(0, 0.01, y.shape)
+    return X, y.reshape(-1, 1)
+
+
+true_w = torch.tensor([2.0, -3.4])
+true_b = 4.2
+
+features, labels = synthetic_data(true_w, true_b, 1000)
+
+dataset = TensorDataset(features, labels)
+data_iter = DataLoader(dataset, batch_size=10, shuffle=True)</code></pre>
+<p>模型：</p>
+<pre><code class="language-python">class LinearRegression(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.linear = nn.Linear(2, 1)
+
+    def forward(self, X):
+        return self.linear(X)
+
+
+model = LinearRegression()</code></pre>
+<h3>2. loss 和 optimizer</h3>
+<pre><code class="language-python">loss_fn = nn.MSELoss()
+optimizer = torch.optim.SGD(model.parameters(), lr=0.03)</code></pre>
+<p>注意：</p>
+<pre><code class="language-plain">nn.MSELoss() 默认 reduction=&quot;mean&quot;</code></pre>
+<p>所以 <code>loss</code> 本身已经是标量平均损失，通常直接：</p>
+<pre><code class="language-python">loss.backward()</code></pre>
+<p>不需要再写：</p>
+<pre><code class="language-python">loss.sum().backward()</code></pre>
+<h3>3. 训练循环</h3>
+<pre><code class="language-python">for epoch in range(num_epochs):
+    for X, y in data_iter:
+        y_hat = model(X)
+        loss = loss_fn(y_hat, y)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()</code></pre>
+<p>翻译：</p>
+<pre><code class="language-plain">拿一个 batch
+前向预测
+计算损失
+清空旧梯度
+反向传播得到新梯度
+更新参数</code></pre>
+<p>训练后：</p>
+<pre><code class="language-python">print(model.linear.weight.detach())
+print(model.linear.bias.detach())</code></pre>
+<p>应接近：</p>
+<pre><code class="language-plain">weight ≈ [[2.0, -3.4]]
+bias   ≈ [4.2]</code></pre>
+<p>---</p>
+<h2>六、<code>nn.Sequential</code> 与 <code>nn.ReLU</code></h2>
+<h3>1. <code>Sequential</code> 的作用</h3>
+<p>如果模型只是简单地一层接一层，可以写：</p>
+<pre><code class="language-python">model = nn.Sequential(
+    nn.Linear(784, 256),
+    nn.ReLU(),
+    nn.Linear(256, 10)
+)</code></pre>
+<p>它表示：</p>
+<pre><code class="language-plain">X -&gt; Linear(784, 256) -&gt; ReLU -&gt; Linear(256, 10) -&gt; output</code></pre>
+<p><code>nn.Sequential</code> 本身也是 <code>nn.Module</code>，所以支持：</p>
+<pre><code class="language-plain">model(X)
+model.parameters()
+model.named_parameters()
+model.train()
+model.eval()</code></pre>
+<h3>2. 哪些层有参数</h3>
+<pre><code class="language-python">for name, param in model.named_parameters():
+    print(name, param.shape)</code></pre>
+<p>可能输出：</p>
+<pre><code class="language-plain">0.weight torch.Size([256, 784])
+0.bias   torch.Size([256])
+2.weight torch.Size([10, 256])
+2.bias   torch.Size([10])</code></pre>
+<p>没有 <code>1.weight</code>，因为第 1 层是：</p>
+<pre><code class="language-python">nn.ReLU()</code></pre>
+<p><code>ReLU</code> 没有可学习参数。</p>
+<h3>3. ReLU 的意义</h3>
+<p><code>ReLU</code> 定义：</p>
+<pre><code class="language-plain">ReLU(x) = max(0, x)</code></pre>
+<p>负数变 0，正数保持不变。</p>
+<p>如果只堆：</p>
+<pre><code class="language-plain">Linear -&gt; Linear -&gt; Linear</code></pre>
+<p>整体仍然等价于一个线性层。</p>
+<p>加入 <code>ReLU</code> 后：</p>
+<pre><code class="language-plain">Linear -&gt; ReLU -&gt; Linear</code></pre>
+<p>模型才有能力拟合更复杂的非线性关系。</p>
+<p>---</p>
+<h2>七、分类任务中的 <code>CrossEntropyLoss</code></h2>
+<h3>1. 官方 loss 接收 logits</h3>
+<p>分类模型最后一层通常输出：</p>
+<pre><code class="language-plain">logits.shape = (batch_size, num_classes)</code></pre>
+<p>例如 Fashion-MNIST：</p>
+<pre><code class="language-plain">logits.shape = (batch_size, 10)
+y.shape      = (batch_size,)</code></pre>
+<p>训练时：</p>
+<pre><code class="language-python">loss_fn = nn.CrossEntropyLoss()
+loss = loss_fn(logits, y)</code></pre>
+<p>不要先写：</p>
+<pre><code class="language-python">probs = torch.softmax(logits, dim=1)
+loss = loss_fn(probs, y)</code></pre>
+<p>因为 <code>nn.CrossEntropyLoss</code> 内部已经包含：</p>
+<pre><code class="language-plain">log_softmax + NLLLoss</code></pre>
+<p>也就是把 softmax 和交叉熵相关步骤合在一起了。</p>
+<h3>2. 标签是类别索引，不是 one-hot</h3>
+<p>正确：</p>
+<pre><code class="language-python">y = torch.tensor([0, 2, 1, 9])</code></pre>
+<p>表示：</p>
+<pre><code class="language-plain">第 1 个样本类别 0
+第 2 个样本类别 2
+第 3 个样本类别 1
+第 4 个样本类别 9</code></pre>
+<p>常见输入：</p>
+<pre><code class="language-plain">logits: (batch_size, num_classes)
+y:      (batch_size,)</code></pre>
+<h3>3. accuracy 不需要 softmax</h3>
+<p>预测类别：</p>
+<pre><code class="language-python">pred = logits.argmax(dim=1)</code></pre>
+<p>准确率：</p>
+<pre><code class="language-python">acc = (pred == y).float().mean()</code></pre>
+<p>不需要先 softmax，因为 softmax 不改变每行最大值所在的位置。</p>
+<p>注意：</p>
+<pre><code class="language-plain">argmax(dim=1)：对每个样本，在类别维度上找最大分数
+argmax(dim=0)：跨 batch 比较，不是分类预测想要的语义</code></pre>
+<p>---</p>
+<h2>八、分类训练骨架</h2>
+<h3>1. Fashion-MNIST MLP 模型骨架</h3>
+<pre><code class="language-python">model = nn.Sequential(
+    nn.Flatten(),
+    nn.Linear(784, 256),
+    nn.ReLU(),
+    nn.Linear(256, 10)
+)</code></pre>
+<p>shape 流动：</p>
+<pre><code class="language-plain">X:              (batch_size, 1, 28, 28)
+Flatten:        (batch_size, 784)
+Linear 1:       (batch_size, 256)
+ReLU:           (batch_size, 256)
+Linear 2:       (batch_size, 10)</code></pre>
+<p>最后输出：</p>
+<pre><code class="language-plain">logits: (batch_size, 10)</code></pre>
+<h3>2. 单个 batch 训练步骤</h3>
+<pre><code class="language-python">logits = model(X)
+loss = loss_fn(logits, y)
+
+optimizer.zero_grad()
+loss.backward()
+optimizer.step()</code></pre>
+<h3>3. 一个 epoch 的训练骨架</h3>
+<pre><code class="language-python">for epoch in range(num_epochs):
+    model.train()
+
+    for X, y in train_iter:
+        logits = model(X)
+        loss = loss_fn(logits, y)
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()</code></pre>
+<h3>4. 评估骨架</h3>
+<pre><code class="language-python">model.eval()
+
+correct = 0
+total = 0
+
+with torch.no_grad():
+    for X, y in test_iter:
+        logits = model(X)
+        pred = logits.argmax(dim=1)
+
+        correct += (pred == y).sum().item()
+        total += y.numel()
+
+test_acc = correct / total</code></pre>
+<p>注意：</p>
+<pre><code class="language-plain">model.eval()：切换评估模式，影响 Dropout / BatchNorm 等层
+torch.no_grad()：关闭梯度记录，节省内存和计算</code></pre>
+<p>二者不是一回事，正式评估时通常一起使用。</p>
+<p>---</p>
+<h2>九、今天容易踩的坑</h2>
+<h3>1. 忘记 <code>super().__init__()</code></h3>
+<p>自定义 <code>nn.Module</code> 时要写：</p>
+<pre><code class="language-python">super().__init__()</code></pre>
+<p>否则子层和参数注册可能出问题。</p>
+<h3>2. 在 <code>forward</code> 里新建层</h3>
+<p>错误写法：</p>
+<pre><code class="language-python">def forward(self, X):
+    linear = nn.Linear(2, 1)
+    return linear(X)</code></pre>
+<p>问题：</p>
+<pre><code class="language-plain">每次 forward 都创建新参数
+optimizer 管不到稳定的一组参数
+训练无法正常收敛</code></pre>
+<p>正确做法：</p>
+<pre><code class="language-python">def __init__(self):
+    super().__init__()
+    self.linear = nn.Linear(2, 1)
+
+def forward(self, X):
+    return self.linear(X)</code></pre>
+<h3>3. 层没有挂到 <code>self</code> 上</h3>
+<p>错误：</p>
+<pre><code class="language-python">linear = nn.Linear(2, 1)</code></pre>
+<p>如果没有 <code>self.linear</code>，PyTorch 不会把它登记为模型子层。</p>
+<h3>4. 给 <code>CrossEntropyLoss</code> 提前 softmax</h3>
+<p>错误：</p>
+<pre><code class="language-python">probs = torch.softmax(logits, dim=1)
+loss = nn.CrossEntropyLoss()(probs, y)</code></pre>
+<p>正确：</p>
+<pre><code class="language-python">loss = nn.CrossEntropyLoss()(logits, y)</code></pre>
+<h3>5. 标签 shape 写错</h3>
+<p><code>CrossEntropyLoss</code> 常见输入：</p>
+<pre><code class="language-plain">logits: (batch_size, num_classes)
+y:      (batch_size,)</code></pre>
+<p>标签通常是类别索引，不是 one-hot。</p>
+<h3>6. <code>argmax</code> 维度写错</h3>
+<p>分类预测：</p>
+<pre><code class="language-python">pred = logits.argmax(dim=1)</code></pre>
+<p>不是：</p>
+<pre><code class="language-python">pred = logits.argmax(dim=0)</code></pre>
+<h3>7. 混淆 <code>model.eval()</code> 和 <code>torch.no_grad()</code></h3>
+<pre><code class="language-plain">model.eval() 改变模型中某些层的行为
+torch.no_grad() 关闭梯度记录</code></pre>
+<p>它们解决的问题不同。</p>
+<p>---</p>
+<h2>十、今天的核心对应关系</h2>
+<pre><code class="language-plain">手写 w / b
+-&gt; nn.Linear 内部的 weight / bias</code></pre>
+<pre><code class="language-plain">手写 net(X, w, b)
+-&gt; forward / model(X)</code></pre>
+<pre><code class="language-plain">手写 params = [w, b]
+-&gt; model.parameters()</code></pre>
+<pre><code class="language-plain">手写 squared_loss
+-&gt; nn.MSELoss()</code></pre>
+<pre><code class="language-plain">手写 softmax + cross entropy
+-&gt; nn.CrossEntropyLoss()</code></pre>
+<pre><code class="language-plain">手写 SGD
+-&gt; torch.optim.SGD</code></pre>
+<pre><code class="language-plain">手写 param.grad.zero_()
+-&gt; optimizer.zero_grad()</code></pre>
+<p>---</p>
+<h2>十一、Day 1 结束时应掌握</h2>
+<p>今天结束后，应该能回答：</p>
+<pre><code class="language-plain">nn.Module 到底封装了什么？
+__init__ 和 forward 分别负责什么？
+nn.Linear 和手写 X @ w + b 是什么关系？
+为什么 nn.Linear.weight 是 (out_features, in_features)？
+model.parameters() 为什么能自动拿到参数？
+optimizer.step() 对应手写训练里的哪一步？
+nn.Sequential 适合什么场景？
+ReLU 为什么能让 MLP 不只是线性模型？
+CrossEntropyLoss 为什么接收 logits，而不是 softmax 后的概率？</code></pre>
+<p>今天最重要的结论：</p>
+<pre><code class="language-plain">PyTorch 的 nn 模块不是让人忘掉底层，而是把底层训练流程封装成更适合真实项目的结构。</code></pre></div></article>
+<nav class="note-pagination"><span></span><a href="./day-2-学习笔记-mlp-多层感知机与正则化.html">Day 2 学习笔记：MLP 多层感知机与正则化 →</a></nav>
+  </main>
+</body>
+</html>
