@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101c">
+  <title>Day 6 学习笔记：matplotlib学习 · SNOWSTORM</title>
+  <link rel="stylesheet" href="../../../../assets/library.css">
+</head>
+<body class="library-page">
+  <main class="library-shell">
+    <a class="library-brand" href="../../../../index.html">SNOWSTORM / ARCHIVE</a>
+    <p class="library-eyebrow">基础阶段</p>
+    <nav class="breadcrumbs"><a href="../../../index.html">学习</a><span>/</span><a href="../../index.html">PyTorch</a><span>/</span><span>基础阶段</span></nav>
+<article class="note-article"><h1>Day 6 学习笔记：matplotlib学习</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+<p>参考书：《动手学深度学习》PyTorch 版</p>
+<p>本阶段重点：框架本身的行为和坑（视图/拷贝、共享状态、API 差异、静默错误），线代纯数学概念不再赘述。环境：MacBook Air M5 ｜ Miniconda 虚拟环境 <code>pytorch_env</code></p>
+<p>今天主线：Matplotlib 可视化。五块内容——两套接口（状态机 vs 面向对象）、折线图与 loss 曲线、散点图、直方图、子图布局，最后把 Day 5 手写的线性回归完整可视化（loss 曲线 + 预测散点 + 残差直方图）。下面把主线知识、追问后才弄清的点、以及踩过的坑都记下来。今天的核心心智模型与 Day 5 一脉相承：<strong>全局可变共享状态是坑，要用显式独立对象</strong>——昨天是 <code>np.random</code> vs <code>default_rng</code>，今天是 <code>plt.*</code> vs <code>fig, ax</code>。</p>
+<p>关联笔记：前置 <span class="wiki-link">手写线性回归</span>；后续在 <span class="wiki-link">Titanic 综合实战</span>中复用数据可视化。</p>
+<p>---</p>
+<h2>〇、环境准备：装库的坑</h2>
+<h3>1. matplotlib / scipy 都要单独装</h3>
+<p>跑 <code>import matplotlib.pyplot as plt</code> 报 <code>ModuleNotFoundError: No module named &#39;matplotlib&#39;</code>，跑 <code>from scipy import stats</code> 报 <code>No module named &#39;scipy&#39;</code>——都是没装库。装法：</p>
+<pre><code class="language-bash">conda install matplotlib
+conda install scipy
+# 或者用 pip，但务必带 python -m
+python -m pip install matplotlib
+python -m pip install scipy</code></pre>
+<h3>2. ⚠️ 为什么强调 <code>python -m pip</code> 而不是裸 <code>pip</code></h3>
+<p>这是和 Day 5「<code>python -u Day6.py</code> 用的是哪个 python」同一根线的坑：系统里常常存在好几个 <code>pip</code>（系统自带、其他环境、Homebrew 的），即使提示符显示 <code>(pytorch_env)</code> 已激活，裸 <code>pip</code><strong>未必指向当前环境的 Python</strong>。它可能把包装到别的地方，然后你回到 <code>pytorch_env</code> 跑代码照样 <code>ModuleNotFoundError</code>，<strong>不报任何错，一脸懵</strong>。<code>python -m pip</code> 的意思是「用我现在这个 python 去执行它自带的 pip 模块」，从而保证装到的环境和运行代码的环境是同一个。</p>
+<p>验证装进了当前环境：</p>
+<pre><code class="language-bash">python -c &quot;import matplotlib; print(matplotlib.__version__)&quot;</code></pre>
+<h3>3. M 系列 Mac 的后端坑（先记，迟早遇到）</h3>
+<p>Matplotlib 在 Mac 上的默认后端（backend）有时是 <code>MacOSX</code>，在纯终端跑脚本、SSH、后台线程画图等场景会弹不出窗口或报后端相关错误。应急办法在最开头加：</p>
+<pre><code class="language-python">import matplotlib
+matplotlib.use(&quot;Agg&quot;)   # 无界面后端：只能 savefig 存文件，不能 plt.show() 弹窗
+import matplotlib.pyplot as plt</code></pre>
+<p>今天没撞上，等真遇到「图弹不出来/后端报错」再回来用。</p>
+<p>---</p>
+<h2>一、两套接口：状态机 vs 面向对象（今天所有坑的总根源）</h2>
+<h3>1. 核心：fig 和 ax 是俩什么东西</h3>
+<p>先把名词全扔掉，只问「fig 和 ax 是什么」。它们是两个<strong>实体对象</strong>，有上下层级的包含关系，用画画类比：</p>
+<p>+ <code><strong>fig</strong></code><strong>（Figure）= 整张画纸 / 一个窗口</strong>。最外层容器，管「整张图多大、背景什么色、最后存成文件」这种<strong>整体</strong>的事。它本身<strong>不画任何线</strong>。<br>+ <code><strong>ax</strong></code><strong>（Axes）= 画纸上真正用来画图的那块「绘图区」</strong>。折线、散点、x 轴 y 轴的刻度、网格线——<strong>全都画在 </strong><code><strong>ax</strong></code><strong> 里面</strong>。</p>
+<p>一句话：<strong>真正的图画在 </strong><code><strong>ax</strong></code><strong> 里，</strong><code><strong>fig</strong></code><strong> 只是装 </strong><code><strong>ax</strong></code><strong> 的外壳。</strong> 一张 <code>fig</code> 上可以摆好几个 <code>ax</code>，那就是「子图」。</p>
+<p>⚠️ 命名坑：<strong>Axes（绘图区）不是 axis（坐标轴）</strong>。一个 <code>ax</code> 内部含两条 axis（x 轴和 y 轴）。</p>
+<h3>2. 两套接口的对应（直接套用 Day 5 的记忆）</h3>
+<p>+ <strong>状态机接口（</strong><code><strong>plt.</strong>*</code><strong>）</strong>：Matplotlib 内部藏着一个隐藏的「当前 figure / 当前 axes」指针。每次调 <code>plt.plot(...)</code>，它偷偷去找这个隐藏指针，在它指向的那个 ax 上画。<strong>你完全不知道那个指针现在指向谁。</strong> 这就是 Day 5 笔记里说的「全局共享的 <code>np.random</code>」结构——内部藏着唯一一个全局对象，任何一行 <code>plt.xxx</code> 都作用在它身上。<br>+ <strong>面向对象接口（OO）</strong>：<code>fig, ax = plt.subplots()</code> 让你拿到实打实的对象，想在哪个 ax 上画就明确告诉它。这正对应 Day 5 的 <code>rng = np.random.default_rng(0)</code>——状态封装进独立对象，谁的归谁。</p>
+<pre><code class="language-python"># 状态机：靠隐藏指针，不知道画到哪个 ax 上
+plt.plot([1, 2, 3])
+plt.title(&quot;标题&quot;)
+
+# OO：我手里拿着 ax，明确告诉它画在这里
+fig, ax = plt.subplots()   # 同时拿到外壳(fig)和画图区(ax)
+ax.plot([1, 2, 3])
+ax.set_title(&quot;标题&quot;)</code></pre>
+<p>| 状态机（隐藏全局） | 面向对象（显式对象） |<br>| --- | --- |<br>| <code>plt.plot(...)</code> | <code>ax.plot(...)</code> |<br>| <code>plt.title(...)</code> | <code>ax.set_title(...)</code> |<br>| <code>plt.xlabel(...)</code> | <code>ax.set_xlabel(...)</code> |<br>| <code>plt.xlim(...)</code> | <code>ax.set_xlim(...)</code> |</p>
+<p>⚠️ <strong>命名坑</strong>：状态机是 <code>plt.xlabel</code>，OO 却是 <code>ax.set_xlabel</code>（多了 <code>set_</code> 前缀）。<code>title/xlabel/ylabel/xlim/ylim/xticks</code> 切到 <code>ax.</code> 时几乎都要加 <code>set_</code>。这跟 Day 5「NumPy 的 axis/keepdims 切到 PyTorch 的 dim/keepdim」是同类问题。</p>
+<p>揭开隐藏指针：<code>plt.gca()</code> = get current axes，<code>plt.gcf()</code> = get current figure。<code>plt.plot(...)</code> 约等于 <code>plt.gca().plot(...)</code>。理解了「<code>plt.*</code> = 在 gca() 上操作」就理解了状态机的全部行为。新建 figure、新建 subplots、或 <code>plt.sca(ax)</code> 时，「当前」指针会被挪走。</p>
+<h3>3. 实践结论</h3>
+<p><strong>任何超过「一条线随手画一下」的图，一律用 OO 接口。</strong> 尤其是：画子图、在函数里画图、在循环里画图——这三种场景下「当前 axes 是谁」几乎一定会坑你。<code>plt.*</code> 只适合 Jupyter 里快速瞟一眼单张图。</p>
+<h3>4. ⚠️ 经典陷阱：标题画到了错误的子图（已亲手踩过）</h3>
+<pre><code class="language-python">fig, (ax1, ax2) = plt.subplots(1, 2)   # 左右两个子图
+ax1.plot([1, 2, 3])                     # 在左图画线
+plt.title(&quot;左图的标题&quot;)                  # 想给左图加标题
+plt.show()</code></pre>
+<p>结果：标题出现在<strong>右图（ax2）</strong>上，不是左图。因为 <code>plt.subplots(1, 2)</code> 创建两个 ax 后，<strong>最后一个被创建的 ax2 成了隐藏指针指向的「当前 ax」</strong>，<code>plt.title</code> 作用在 gca()=ax2 上。这是个不报错的静默错误。</p>
+<p>修复：明确说清楚，用 OO。</p>
+<pre><code class="language-python">ax1.set_title(&quot;左图的标题&quot;)   # 我就是要画在 ax1 上</code></pre>
+<p>---</p>
+<h2>二、中文乱码 / 负号方块</h2>
+<h3>1. 现象与原因</h3>
+<p>中文标题、标签显示成方块（□□□），是因为 Matplotlib 默认字体不含中文字符。</p>
+<h3>2. 解法（Mac 自带字体，无需安装）</h3>
+<pre><code class="language-python">import matplotlib
+matplotlib.rcParams[&#39;font.family&#39;] = &#39;Arial Unicode MS&#39;   # macOS 自带
+matplotlib.rcParams[&#39;axes.unicode_minus&#39;] = False          # 防止负号也变方块</code></pre>
+<p>设置之后，<strong>后面所有 title / set_xlabel / 图例文字全自动用这个字体</strong>，不用每次单独指定。第二行专修「设中文字体后负号 <code>-</code> 跟着乱码」的连带问题。</p>
+<h3>3. ⚠️ 必须写在 import pyplot 之前</h3>
+<p>这两行 <code>rcParams</code> 要写在 <code>import matplotlib.pyplot as plt</code><strong>之前</strong>才稳定生效。如果设了还乱码，先检查是不是写在了 <code>import pyplot</code> 之后。（曾经残差直方图的 y 轴「概率密度」显示成竖排乱码，就是顺序问题。）</p>
+<p>---</p>
+<h2>三、子图布局 subplots</h2>
+<p><code>plt.subplots(行, 列)</code> 做一件事：<strong>在一张 fig 上按行列数摆好若干个 ax，把它们全交给你。</strong></p>
+<h3>1. ⚠️ 三种返回值形状会静默变（最大的坑）</h3>
+<p>第二个返回值的形状随参数变，这是新手翻车重灾区：</p>
+<pre><code class="language-python"># 情况一：1×1，返回单个 ax 对象
+fig, ax = plt.subplots()        # 或 subplots(1, 1)
+ax.plot([1, 2, 3])              # 直接用
+
+# 情况二：1行多列 / 多行1列，返回一维数组 (N,)
+fig, axes = plt.subplots(1, 3)
+axes[0].plot(...); axes[1].plot(...); axes[2].plot(...)
+
+# 情况三：多行多列，返回二维数组 (行, 列)
+fig, axes = plt.subplots(2, 3)
+axes[0][0].plot(...)   # 要两个下标
+axes[1][2].plot(...)</code></pre>
+<p>快捷写法——解包直接拿每个 ax（等价于 axes[0]、axes[1]，但更直观）：</p>
+<pre><code class="language-python">fig, (ax1, ax2) = plt.subplots(1, 2)</code></pre>
+<h3>2. ⚠️ 静默坑：二维数组用一个下标</h3>
+<pre><code class="language-python">fig, axes = plt.subplots(2, 3)
+axes[0].plot(...)     # ❌ axes[0] 是「第0行整排3个ax」的数组，不是单个 ax</code></pre>
+<p>在数组上调 <code>.plot()</code> 不报语法错，但什么也画不出或报看不懂的错。<strong>一劳永逸的解法是 </strong><code><strong>flatten()</strong></code>：</p>
+<pre><code class="language-python">fig, axes = plt.subplots(2, 3, figsize=(12, 6))
+axes = axes.flatten()   # 把 (2,3) 压成 (6,) 一维
+axes[0].plot(...)       # 不管几行几列，永远一个下标取
+axes[5].plot(...)</code></pre>
+<h3>3. figsize</h3>
+<pre><code class="language-python">fig, axes = plt.subplots(1, 2, figsize=(10, 4))   # (宽, 高)，单位英寸</code></pre>
+<p>默认 <code>(6.4, 4.8)</code>，多子图常太挤。横排一般把宽乘子图数：两列 <code>(10,4)</code>，三列 <code>(14,4)</code>。</p>
+<h3>4. ⚠️ 陷阱题（已答对）</h3>
+<pre><code class="language-python">fig, axes = plt.subplots(2, 2)
+for i in range(4):
+    axes[i].set_title(f&quot;子图 {i}&quot;)   # ❌ axes 是 (2,2)，axes[i] 取的是整行</code></pre>
+<p>会报错。修法：<code>axes = axes.flatten()</code> 后再用单下标。</p>
+<p>---</p>
+<h2>四、折线图与 loss 曲线（重点：实际训练才遇到的坑）</h2>
+<h3>1. 基本用法</h3>
+<pre><code class="language-python">fig, ax = plt.subplots(figsize=(8, 4))
+ax.plot(x, y,
+    color=&#39;steelblue&#39;,
+    linewidth=2,
+    linestyle=&#39;--&#39;,      # &#39;-&#39; 实线 &#39;--&#39; 虚线 &#39;:&#39; 点线
+    label=&#39;train loss&#39;,  # 图例标签（要配 ax.legend() 才显示）
+    marker=&#39;o&#39;,          # 每个数据点画标记
+)
+ax.set_xlabel(&#39;epoch&#39;); ax.set_ylabel(&#39;loss&#39;); ax.set_title(&#39;训练 loss 曲线&#39;)
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()</code></pre>
+<h3>2. 横坐标可以省略（追问澄清）</h3>
+<p>只传 <code>y</code> 时，Matplotlib <strong>自动用下标 0,1,2,… 作为横坐标</strong>。</p>
+<pre><code class="language-python">ax.plot(loss_history)   # 1600 个元素，横坐标自动是 0..1599，正好是 batch 编号</code></pre>
+<p>⚠️ 但 x 有跳跃/间隔/非均匀时<strong>必须显式传</strong>，否则静默画错：</p>
+<pre><code class="language-python">epochs_recorded = [0, 2, 4, 6, 8]
+loss_recorded   = [32.1, 5.3, 0.8, 0.12, 0.10]
+ax.plot(loss_recorded)                   # ❌ 横坐标变 0,1,2,3,4，看起来间隔1，实际间隔2
+ax.plot(epochs_recorded, loss_recorded)  # ✅ 真实 epoch 编号</code></pre>
+<p>规则：x 是连续整数 0,1,2… 可省；有跳跃/时间戳等非均匀序列必须显式传。</p>
+<h3>3. ⚠️ 最重要的坑：loss 曲线几乎必须用对数纵轴</h3>
+<p>Day 5 的 loss 从 ~32 降到 ~0.0001，跨近 6 个数量级。线性纵轴下：前几个 epoch 占满整张图高度，后面被压成一条贴 x 轴的平线，<strong>看不出后期是否还在降</strong>。解法一行：</p>
+<pre><code class="language-python">ax.set_yscale(&#39;log&#39;)   # 纵轴改对数刻度：10⁰,10⁻¹,10⁻²...，每个数量级占同样视觉高度</code></pre>
+<p><strong>规律：loss 的最大值与最小值相差超过 2 个数量级，就用对数纵轴。</strong> 变化范围很小（如 0.5→0.3）时反而用线性轴更清楚。</p>
+<h3>4. 训练循环里记录 loss 的正确方式</h3>
+<pre><code class="language-python">loss_history = []                 # 循环外初始化
+for ep in range(epochs):
+    # ...训练...
+    loss_history.append(full_loss)  # 每轮（或每 batch）追加
+
+# 训练结束后再画
+ax.plot(loss_history)
+plt.show()                        # ✅ 在循环外</code></pre>
+<p>⚠️ 错误写法：在循环里反复 <code>plt.show()</code> → 每个 epoch 弹一个新窗口、每次从头重画整条曲线、内存一直涨。<code>plt.show()</code> 必须放循环外。</p>
+<h3>5. ⚠️ 按 epoch 记录 vs 按 batch 记录（重要踩坑 + 收获）</h3>
+<p>调试时发现：<code>epochs=5</code>、<code>scale=10.0</code> 初始化后，<strong>epoch 0 的 loss 已经是 0.000103</strong>，看不到下降过程。原因不是初始化没生效，而是：<strong>数据 n=10000、batch_size=32，一个 epoch 更新约 312 次，早在第一个 epoch 结束前模型就收敛了</strong>。按 epoch 记录，下降过程全发生在第一个记录点之前，所以看不到。</p>
+<p>解法：<strong>按 batch 记录 loss</strong>，横轴改 batch 编号：</p>
+<pre><code class="language-python">for ep in range(epochs):
+    perm = train_rng.permutation(n)
+    for start in range(0, n, batch_size):
+        idx = perm[start:start+batch_size]
+        Xb, yb = X[idx], y[idx]
+        m = len(idx)
+        err = Xb @ w + b - yb
+        w -= lr*(2/m)*(Xb.T @ err)
+        b -= lr*(2/m)*np.sum(err)
+        loss_history.append(np.mean(err**2))   # ← 每个 batch 记一次
+
+ax.plot(loss_history); ax.set_yscale(&#39;log&#39;)</code></pre>
+<p>这样画出完整曲线：<strong>前 ~100 个 batch 从 10² 急速跌到 10⁻⁴（跨 6 个数量级），之后在 10⁻⁴ 附近噪声抖动</strong>。抖动是小批量 GD 的正常现象（每 batch 只看 32 条，梯度方向有随机性，在最优解附近随机游走）。对数轴在此完全必要，否则前 100 个 batch 占满全图、后 1500 个被压平。</p>
+<p><strong>结论：按 epoch 记录适合训练慢、epoch 多的情况；按 batch 记录适合想看收敛细节、或轮数少但数据量大的情况。</strong></p>
+<h3>6. ⚠️ 调试时连环踩的三个 bug（很有代表性）</h3>
+<p>复现训练时一张抖动剧烈、有竖线扎下去的怪图，病根有三处：</p>
+<p>1. <strong>MSE 漏了平方</strong>：<code>full_loss = np.mean(X@w + b - y)</code> ❌，正确是 <code>np.mean((X@w + b - y)**2)</code>。漏平方算的是「残差均值」，残差有正有负互相抵消接近 0；对数轴上接近 0 的数跑向负无穷 → 看到垂直扎下去的竖线，且某些 epoch 正负恰好抵消多就「坠崖」。<br>2. <strong>两个随机源用了同一种子</strong>：<code>train_rng = default_rng(0)</code> 和 <code>data_rng = default_rng(0)</code> 种子相同。种子相同不代表同一对象（仍互相独立），但呼应 Day 5「造数据和打乱要用两个独立生成器」。<br>3. <strong>权重初始化用错了生成器</strong>：<code>w = data_rng.normal(...)</code> ❌，应该用 <code>train_rng</code>。用 data_rng 会「偷走」数据生成的随机状态，把数据源和训练源耦合在一起。</p>
+<p>修正：种子不同（data 用 0、train 用 1）；<code>w = train_rng.normal(...)</code>；loss 补上 <code>**2</code>。</p>
+<h3>7. ⚠️ 想看到经典下降曲线的两个办法（要同时用）</h3>
+<p>收敛后只能看到底部 2% 的小幅震荡，看不到下降。想看「从高 loss 急速下降」要<strong>同时</strong>：</p>
+<pre><code class="language-python">w = train_rng.normal(scale=10.0, size=d)   # 故意把初始权重设差（scale 默认1，改大）
+# 且 按 batch 记录（见 5），否则一个 epoch 内就降完了</code></pre>
+<p>只改其一无效——曾经只改 epochs=5 没改 scale，结果初始 loss 仍很小，没有下降过程可看。</p>
+<p>---</p>
+<h2>五、散点图 scatter</h2>
+<p>线性回归里两大用途：看<strong>预测值 vs 真实值</strong>的吻合、看<strong>残差分布</strong>。</p>
+<h3>1. 基本用法</h3>
+<pre><code class="language-python">ax.scatter(x, y,
+    s=10,               # 点大小（面积），默认36，数据多时调小
+    alpha=0.3,          # 透明度，数据密集时必须加，否则点全叠在一起
+    color=&#39;steelblue&#39;,
+    edgecolors=&#39;none&#39;,  # 去掉点边框，数据多时边框糊成一片
+)</code></pre>
+<h3>2. 最重要用途：预测值 vs 真实值</h3>
+<pre><code class="language-python">y_pred = X @ w + b
+fig, ax = plt.subplots(figsize=(6, 6))
+ax.scatter(y, y_pred, s=5, alpha=0.2, color=&#39;steelblue&#39;, edgecolors=&#39;none&#39;)
+
+y_min, y_max = y.min(), y.max()
+ax.plot([y_min, y_max], [y_min, y_max], color=&#39;red&#39;, linestyle=&#39;--&#39;, label=&#39;完美预测线&#39;)
+ax.set_xlabel(&#39;真实值&#39;); ax.set_ylabel(&#39;预测值&#39;); ax.legend()</code></pre>
+<p>读图：点越贴红色对角线 y=x，拟合越好；系统偏上/偏下说明有偏差；扇形散开说明某值域误差更大。</p>
+<h3>3. ⚠️ scatter vs plot(&#39;o&#39;) 的关键区别</h3>
+<pre><code class="language-python">ax.plot(x, y, &#39;o&#39;)   # 本质是折线图，会按 x 顺序处理；只想要点要加 linestyle=&#39;none&#39;
+ax.scatter(x, y)      # 天生散点，不连线</code></pre>
+<p><code>scatter</code> 独有价值：<strong>每个点可有独立颜色和大小</strong>，<code>plot(&#39;o&#39;)</code> 做不到。</p>
+<pre><code class="language-python">residuals = np.abs(y_pred - y)
+ax.scatter(y, y_pred, s=5, c=residuals, cmap=&#39;Reds&#39;, alpha=0.5)   # 颜色映射残差大小
+plt.colorbar(ax.collections[0], ax=ax, label=&#39;残差绝对值&#39;)</code></pre>
+<h3>4. ⚠️ 陷阱题（已答对）：对角线用固定坐标看不见</h3>
+<pre><code class="language-python">ax.plot([0, 1], [0, 1], color=&#39;red&#39;, linestyle=&#39;--&#39;)   # ❌</code></pre>
+<p><code>[0,1]</code> 是固定坐标，而 y 值域可能是几到几十，对角线画在 0~1 范围根本不在散点区，看不见。必须动态取范围：<code>y_min, y_max = y.min(), y.max()</code>，画 <code>[y_min,y_max],[y_min,y_max]</code>。</p>
+<p>---</p>
+<h2>六、直方图 hist（看残差分布是否近似正态）</h2>
+<h3>1. 基本用法</h3>
+<pre><code class="language-python">residuals = y_pred - y
+ax.hist(residuals, bins=50, color=&#39;steelblue&#39;, edgecolor=&#39;none&#39;, alpha=0.7)
+ax.set_xlabel(&#39;残差&#39;); ax.set_ylabel(&#39;频数&#39;)</code></pre>
+<h3>2. ⚠️ bins 的坑</h3>
+<p><code>bins</code> 控制分成多少区间。太少（如 5）→ 全压进几个大格，看不出形状；太多（如 1000）→ 每格几个点，噪声淹没形状。</p>
+<p><strong>实践规则</strong>：几千到一万数据 <code>bins=50</code> 通常合适；十万以上可用 <code>bins=100</code>。或让 numpy 自动算：<code>ax.hist(residuals, bins=&#39;auto&#39;)</code>。</p>
+<h3>3. ⚠️ density=True 的真正含义（面试常考）</h3>
+<p>很多人以为 <code>density=True</code> 是「纵轴改成百分比」——<strong>不是</strong>。它把纵轴改成<strong>概率密度</strong>：柱高 = 频数 /（总数 × 组距）。</p>
+<p>含义：<strong>所有柱子的面积加起来 = 1</strong>，于是能和概率密度函数（PDF）叠在同一张图比较。<strong>纵轴值可以大于 1</strong>，因为它是密度不是概率。</p>
+<p>⚠️ 由此推出陷阱题答案：<code>density=True</code> 时 <code>ylabel</code> 写「概率」<strong>错</strong>，应写「<strong>概率密度</strong>」。记牢：<strong>密度 × 组距 = 概率，密度本身不是概率</strong>。只想看「每区间多少点」用默认 <code>density=False</code>（频数）即可。</p>
+<h3>4. 叠加理论正态曲线（逐句拆解）</h3>
+<pre><code class="language-python">from scipy import stats
+import numpy as np
+
+ax.hist(residuals, bins=50, density=True, alpha=0.6, color=&#39;steelblue&#39;)
+
+x_range = np.linspace(residuals.min(), residuals.max(), 200)  # 在残差范围内均匀取200个点（为画平滑曲线）
+mu, sigma = residuals.mean(), residuals.std()                  # 正态由均值(中心)和标准差(胖瘦)完全决定
+ax.plot(x_range, stats.norm.pdf(x_range, mu, sigma),           # 算每个x点上的正态密度值，连成钟形曲线
+        color=&#39;red&#39;, linewidth=2, label=f&#39;正态分布 μ={mu:.4f} σ={sigma:.4f}&#39;)
+ax.legend()</code></pre>
+<p>逻辑：直方图画「实际残差分布」，红线画「理论上正态应有的样子」。<strong>两者越接近 → 残差越符合正态 → 模型越健康。</strong> 实测残差 μ≈0.0002（接近0）、σ≈0.0102，和造数据时加的噪声 0.01 完全吻合——模型把能学的都学到了，剩下的残差就是当初的噪声。</p>
+<p>---</p>
+<h2>七、综合实战：1×3 完整可视化 + 收尾细节</h2>
+<h3>1. legend 是什么（追问澄清）</h3>
+<p><code>legend</code> = 图例，图上那个标注「线/点代表什么」的小框。<strong>两步缺一不可</strong>：</p>
+<pre><code class="language-python">ax.plot(x, y, label=&#39;训练 loss&#39;)   # 第一步：画线时加 label
+ax.legend()                         # 第二步：调用 legend() 让标签显示</code></pre>
+<p>只写 label 不调 legend() → 不显示；只调 legend() 无 label → 空框。常用参数：<code>loc=&#39;best&#39;</code>（默认，自动找空白处）、<code>fontsize</code>、<code>framealpha</code>（背景透明度）。</p>
+<h3>2. suptitle 与 tight_layout（追问澄清）</h3>
+<p>+ <code>plt.suptitle(&#39;总标题&#39;)</code> = super title，给<strong>整张 fig</strong> 加总标题（高于 <code>ax.set_title</code> 的单子图标题）。<br>+ <code>plt.tight_layout()</code> 自动调整子图间距防止标签/标题互相遮挡。但它不知道顶部有 suptitle，子图会排到最顶把总标题盖住。<br>+ <code>rect=[left, bottom, right, top]</code>（0~1 比例）告诉它子图只能排在这个矩形内：</p>
+<pre><code class="language-python">plt.suptitle(&#39;线性回归训练可视化&#39;, fontsize=14)
+plt.tight_layout(rect=[0, 0, 1, 0.95])   # 顶部留 5% 给 suptitle
+plt.show()</code></pre>
+<p>⚠️ <strong>坑</strong>：<code>tight_layout</code> 不要调用两次。第二次不带 rect 会把第一次留的空间撤销，总标题又被遮。只在 suptitle 之后调一次、带 rect。</p>
+<h3>3. 完整代码骨架（1×3）</h3>
+<pre><code class="language-python">import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+from scipy import stats
+
+matplotlib.rcParams[&#39;font.family&#39;] = &#39;Arial Unicode MS&#39;
+matplotlib.rcParams[&#39;axes.unicode_minus&#39;] = False
+
+data_rng  = np.random.default_rng(0)   # 只造数据
+train_rng = np.random.default_rng(1)   # 只管初始化 + 打乱
+
+n, d = 10000, 3
+true_w = np.array([1.1, -3.3, 6.6]); true_b = 8.8
+X = data_rng.normal(size=(n, d))
+y = X @ true_w + true_b + data_rng.normal(0, 0.01, n)
+
+w = train_rng.normal(scale=10.0, size=d); b = 0.0
+lr, epochs, batch_size = 0.05, 5, 32
+loss_history = []
+for ep in range(epochs):
+    perm = train_rng.permutation(n)
+    for start in range(0, n, batch_size):
+        idx = perm[start:start+batch_size]
+        Xb, yb = X[idx], y[idx]; m = len(idx)
+        err = Xb @ w + b - yb
+        w -= lr*(2/m)*(Xb.T @ err)
+        b -= lr*(2/m)*np.sum(err)
+        loss_history.append(np.mean(err**2))   # 按 batch 记
+
+y_pred = X @ w + b
+residuals = y_pred - y
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+axes = axes.flatten()
+
+# 子图1：loss 曲线（对数轴）
+ax = axes[0]
+ax.plot(loss_history, color=&#39;steelblue&#39;, linewidth=0.8)
+ax.set_yscale(&#39;log&#39;)
+ax.set_xlabel(&#39;batch&#39;); ax.set_ylabel(&#39;loss（log scale）&#39;)
+ax.set_title(&#39;训练 loss 曲线&#39;); ax.grid(True, alpha=0.3)
+
+# 子图2：预测 vs 真实
+ax = axes[1]
+ax.scatter(y, y_pred, s=3, alpha=0.15, color=&#39;steelblue&#39;, edgecolors=&#39;none&#39;)
+ymin, ymax = y.min(), y.max()
+ax.plot([ymin, ymax], [ymin, ymax], color=&#39;red&#39;, linestyle=&#39;--&#39;, label=&#39;完美预测线&#39;)
+ax.set_xlabel(&#39;真实值&#39;); ax.set_ylabel(&#39;预测值&#39;)
+ax.set_title(&#39;预测值 vs 真实值&#39;); ax.legend()
+
+# 子图3：残差直方图 + 正态曲线
+ax = axes[2]
+ax.hist(residuals, bins=50, density=True, alpha=0.6, color=&#39;steelblue&#39;, edgecolor=&#39;none&#39;)
+xr = np.linspace(residuals.min(), residuals.max(), 200)
+mu, sigma = residuals.mean(), residuals.std()
+ax.plot(xr, stats.norm.pdf(xr, mu, sigma), color=&#39;red&#39;, linewidth=2,
+        label=f&#39;正态分布 μ={mu:.4f} σ={sigma:.4f}&#39;)
+ax.set_xlabel(&#39;残差&#39;); ax.set_ylabel(&#39;概率密度&#39;)
+ax.set_title(&#39;残差分布&#39;); ax.legend()
+
+plt.suptitle(&#39;线性回归训练可视化&#39;, fontsize=14)
+plt.tight_layout(rect=[0, 0, 1, 0.95])
+plt.show()</code></pre>
+<p>读图：左图 loss 干净收敛；中图散点与对角线几乎重合（拟合极好）；右图残差标准钟形、μ≈0、σ≈0.01（=噪声水平）。</p>
+<p>---</p>
+<h2>八、练习收获：学习率对比实验</h2>
+<p>用<strong>同一份数据</strong>（X、y 只造一份），<strong>两份 w 分开初始化</strong>，分别用 lr=0.05 与 lr=0.5 训练，两条 loss 曲线画在同一个 ax。关键写法：</p>
+<pre><code class="language-python">data_rng = np.random.default_rng(0); train_rng = np.random.default_rng(1)
+X = data_rng.normal(size=(n, d))
+y = X @ true_w + true_b + data_rng.normal(0, 0.01, n)
+w_small = train_rng.normal(scale=10.0, size=d)   # 两份 w 各初始化一次
+w_big   = train_rng.normal(scale=10.0, size=d)
+# 两个训练循环都读同一个 X[idx], y[idx]</code></pre>
+<h3>⚠️ 观察结论（修正后的准确版）</h3>
+<p>最初以为「学习率大只是下降更快」，不准确。准确结论：</p>
+<p>+ <strong>学习率过大不一定发散</strong>（线性回归是凸问题，需要 lr 大到一定程度才真正发散，可试 lr=5.0 看 loss 飙到 inf）。<br>+ 但 lr 过大会导致<strong>收敛后震荡幅度更大、底部 loss 更高、无法精细收敛</strong>——步子太大，每次更新越过最优点跳到对面再跳回，在最优解附近来回震荡。lr 小步子小，能稳稳停在底部。<br>+ 两条线起点高度不同（lr=0.5 起点更高）是因为两份 w 初始化消耗了 train_rng 的不同状态、初始权重不同，属正常现象，与学习率无关。</p>
+<p>---</p>
+<h2>九、今天踩过 / 纠正过的坑（速查表）</h2>
+<p>| # | 坑 | 真相 | 防御 |<br>| --- | --- | --- | --- |<br>| 1 | <code>pip install</code>&lt;br/&gt; 装了没用 | 裸 pip 未必指向当前环境的 python，静默装到别处 | 用 <code>python -m pip install</code>&lt;br/&gt;；装完 <code>python -c &quot;import x&quot;</code>&lt;br/&gt; 验证 |<br>| 2 | <code>plt.*</code>&lt;br/&gt; 画到了错的地方 | 状态机靠隐藏「当前 ax」指针，subplots 后当前=最后创建的 ax | 非简单图一律用 OO（<code>fig, ax</code>&lt;br/&gt;），明确 <code>ax.xxx</code> |<br>| 3 | <code>plt.title</code>&lt;br/&gt; 加到右图 | gca() 是 ax2（最后创建） | 用 <code>ax1.set_title(...)</code> |<br>| 4 | OO 方法名 | 状态机 <code>plt.xlabel</code>&lt;br/&gt;，OO 要 <code>ax.set_xlabel</code>&lt;br/&gt;（加 set_） | title/xlabel/xlim/xticks 切 ax 都加 set_ |<br>| 5 | 中文显示成方块 | 默认字体无中文 | 设 <code>font.family=&#39;Arial Unicode MS&#39;</code>&lt;br/&gt;，<strong>写在 import pyplot 之前</strong> |<br>| 6 | 负号变方块 | 设中文字体的连带问题 | <code>axes.unicode_minus=False</code> |<br>| 7 | subplots 返回值形状 | 1×1单对象 / 1行N列一维 / M×N二维，静默变 | 一律 <code>axes = axes.flatten()</code>&lt;br/&gt; 后用单下标 |<br>| 8 | <code>axes[i]</code>&lt;br/&gt; 取二维 | 取的是整行数组不是单个 ax，调 .plot 不报错也不画 | flatten 后再索引 |<br>| 9 | loss 曲线压成平线 | 跨多个数量级时线性轴看不出后期 | 差 &gt;2 个数量级就 <code>ax.set_yscale(&#39;log&#39;)</code> |<br>| 10 | 循环里 plt.show() | 每轮弹新窗口、重画、内存涨 | show() 放循环外，先 append 再统一画 |<br>| 11 | 按 epoch 记看不到下降 | 一个 epoch 312 次更新，第一个记录点前已收敛 | 想看细节按 batch 记录 |<br>| 12 | MSE 漏平方 | <code>mean(err)</code>&lt;br/&gt; 残差正负抵消≈0，对数轴扎向负无穷成竖线 | 必须 <code>mean(err**2)</code> |<br>| 13 | 两随机源同种子 | 仍互相独立，但耦合隐患 | data 用 0、train 用 1，分开 |<br>| 14 | w 用 data_rng 初始化 | 偷走数据生成状态，数据源与训练源耦合 | 初始化用 train_rng |<br>| 15 | 只改 epochs 没改 scale | 初始 loss 仍很小，无下降过程 | 看下降要 scale=10 + 按 batch 记，两者同时 |<br>| 16 | <code>plot(&#39;o&#39;)</code>&lt;br/&gt; 当散点 | 本质折线图会按序处理；不能逐点上色 | 真散点 + 逐点颜色用 <code>scatter</code>&lt;br/&gt;(c=, cmap=) |<br>| 17 | 对角线 <code>[0,1],[0,1]</code> | 固定坐标不在散点值域，看不见 | 用 <code>y.min(), y.max()</code>&lt;br/&gt; 动态取 |<br>| 18 | bins 太少/太多 | 太少看不出形状，太多噪声淹没 | 几千~万用 50；或 <code>bins=&#39;auto&#39;</code> |<br>| 19 | density 的纵轴写「概率」 | 是概率密度（可&gt;1），面积和=1才是概率 | ylabel 写「概率密度」；密度×组距=概率 |<br>| 20 | x 整数轴出现小数刻度 | 点少时自动插刻度 | <code>ax.xaxis.set_major_locator(plt.MaxNLocator(integer=True))</code> |<br>| 21 | suptitle 被子图遮 | tight_layout 不知顶部有总标题 | suptitle 后调一次 <code>tight_layout(rect=[0,0,1,0.95])</code> |<br>| 22 | tight_layout 调两次 | 第二次无 rect 撤销了留白 | 只调一次、带 rect、放 suptitle 之后 |<br>| 23 | plot 省略横坐标 | 自动用 0,1,2… 下标 | x 非均匀（有跳跃/时间戳）必须显式传 |<br>| 24 | 学习率大=下降快？ | 凸问题未必发散，但震荡更大、底部更高、收敛更粗 | 区分「更快」与「更稳」；试 lr=5.0 看发散 |</p>
+<p>---</p>
+<h2>十、可以自己再做的小实验</h2>
+<p>1. 把同一张图分别用 <code>set_yscale(&#39;log&#39;)</code> 和线性轴各画一次，直观感受对数轴对跨数量级数据的必要性。<br>2. 故意写 <code>fig, axes = plt.subplots(2, 2)</code> 后用 <code>axes[3]</code>，亲眼看报错；再 <code>flatten()</code> 后跑通。<br>3. 把 lr 调到 5.0 重跑，观察 loss 一路飙到 inf（真正发散），和 lr=0.5 的「震荡但不发散」对比。<br>4. 残差直方图分别用 <code>bins=5</code>、<code>bins=50</code>、<code>bins=1000</code>，看 bin 数对分布形状的影响。<br>5. 把 <code>scatter</code> 换成 <code>plot(y, y_pred, &#39;o&#39;)</code> 不加 <code>linestyle=&#39;none&#39;</code>，观察被按序连线的怪图，理解 scatter 与 plot 的本质区别。<br>6. 残差直方图加 <code>density=True</code> 后读纵轴最大值，确认它大于 1（密度不是概率）。</p>
+<p>---</p>
+<h2>衔接 Day 7</h2>
+<p>明天 Day 7（PyTorch 基础）会把今天手写的线性回归用 PyTorch 重写，届时 <code>autograd</code> 会自动算出 Day 5 手推的那个梯度——手推过一遍，就不会把它当黑盒。今天的 loss 曲线 / 预测散点 / 残差直方图三件套，到时候可以直接复用来可视化 PyTorch 版的训练过程。</p></div></article>
+<nav class="note-pagination"><a href="./day-5-学习笔记-统计函数-random-模块-手写线性回归.html">← Day 5 学习笔记：统计函数 _ random 模块 _ 手写线性回归</a><a href="./day-7-学习笔记-dataframe学习.html">Day 7 学习笔记：DataFrame学习 →</a></nav>
+  </main>
+</body>
+</html>
