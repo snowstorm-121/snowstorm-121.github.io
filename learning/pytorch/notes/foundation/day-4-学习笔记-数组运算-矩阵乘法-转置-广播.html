@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101c">
+  <title>Day 4 学习笔记：数组运算 · 矩阵乘法 · 转置 · 广播 · SNOWSTORM</title>
+  <link rel="stylesheet" href="../../../../assets/library.css">
+</head>
+<body class="library-page">
+  <main class="library-shell">
+    <a class="library-brand" href="../../../../index.html">SNOWSTORM / ARCHIVE</a>
+    <p class="library-eyebrow">基础阶段</p>
+    <nav class="breadcrumbs"><a href="../../../index.html">学习</a><span>/</span><a href="../../index.html">PyTorch</a><span>/</span><span>基础阶段</span></nav>
+<article class="note-article"><h1>Day 4 学习笔记：数组运算 · 矩阵乘法 · 转置 · 广播</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+<p>参考书：《动手学深度学习》PyTorch 版，NumPy 官方文档</p>
+<p>本阶段重点：在 NumPy 中打牢逐元素运算、广播、矩阵乘法和转置；这些规则会直接决定后续 PyTorch Tensor 运算、线性层前向传播和偏置相加是否正确。</p>
+<p>今天主线：逐元素运算、广播机制、矩阵乘法 <code>@</code> 与转置 <code>.T</code>。目标是看懂神经网络前向传播中加减乘除、加偏置、缩放和层间矩阵相乘的底层规则。</p>
+<p>---</p>
+<p><strong>主题</strong>：逐元素运算 · 广播机制 · 矩阵乘法 <code>@</code> · 转置 <code>.T</code></p>
+<p><strong>定位</strong>：这是「数组运算」的完整两段。上半段（一、二）在 NumPy 里打地基，下半段（三、四、五）在 PyTorch 里讲真正打通张量运算的三块关键拼图。 </p>
+<p><strong>参考书</strong>：《动手学深度学习》PyTorch 版 </p>
+<p><strong>一句话目标</strong>：理解了这几样，神经网络前向传播里的加减乘除、加偏置、做缩放、层与层之间的矩阵相乘，你就看得懂底层在干什么了。</p>
+<p>关联笔记：前置 <span class="wiki-link">NumPy 数组基础</span>；后续 <span class="wiki-link">统计函数、随机模块与手写线性回归</span>，并对应 <span class="wiki-link">Tensor 基本操作</span>中的张量运算。</p>
+<p>开头照例导入：</p>
+<pre><code class="language-python">import numpy as np
+import torch</code></pre>
+<p>---</p>
+<h2>〇、先回答一个疑问：为什么 NumPy 学了又要学 PyTorch？</h2>
+<p>学到这里你会发现：基础数组操作上，<strong>NumPy 和 PyTorch 的 API 几乎一模一样</strong>。这是 PyTorch 故意模仿 NumPy 的结果，目的就是让会 NumPy 的人无缝上手。所以前面学的 95% 都能直接迁移过来，没白学。</p>
+<p>但「用法一样」不代表「能力一样」。PyTorch 有三样 NumPy 给不了的东西，而这三样恰好是深度学习的命根子：</p>
+<p>| 能力 | NumPy | PyTorch | 为什么关键 |<br>| --- | --- | --- | --- |<br>| 基础数组操作 | ✅ | ✅（API 照搬 NumPy） | 思维相通，本笔记的地基部分 |<br>| <strong>自动求导</strong> | ❌ | ✅ | 训练网络 = 自动算梯度，不用手推导数 |<br>| <strong>GPU / MPS 加速</strong> | ❌（只能 CPU） | ✅（一行挪到加速设备） | 海量矩阵运算，CPU 跑几小时，GPU 跑几分钟 |<br>| <strong>深度学习工具箱</strong> | ❌ | ✅（<code>nn</code>&lt;br/&gt;/<code>optim</code>&lt;br/&gt;/<code>DataLoader</code>&lt;br/&gt;） | 网络层、优化器、数据加载现成可用 |</p>
+<p><strong>结论</strong>：不是「不用 NumPy」，而是「基础操作用谁都行，但一旦要训练模型，只能用 PyTorch」。现在学的这些基础操作，可以理解成在用 PyTorch 的「NumPy 模式」打地基。</p>
+<p>两者还能一行互转，实际项目里常常「NumPy 处理数据 → 转成 Tensor 喂模型 → 输出转回 NumPy 画图」：</p>
+<pre><code class="language-python">arr = np.array([1, 2, 3])
+t = torch.from_numpy(arr)   # numpy -&gt; tensor
+back = t.numpy()            # tensor -&gt; numpy</code></pre>
+<p>---</p>
+<h2>一、逐元素运算（element-wise）</h2>
+<p>数组运算默认<strong>对每个元素分别进行</strong>，不需要写循环。这是它比纯 Python 列表快、也好用得多的核心原因。（下面用 NumPy 演示，PyTorch 把 <code>np.array</code> 换成 <code>torch.tensor</code> 即可，行为完全一致。）</p>
+<h3>1. 数组 和 标量</h3>
+<p>标量会作用到数组的每一个元素上：</p>
+<pre><code class="language-python">a = np.array([1, 2, 3, 4])
+
+a + 10      # [11 12 13 14]
+a - 1       # [0 1 2 3]
+a * 2       # [2 4 6 8]
+a / 2       # [0.5 1.  1.5 2. ]      注意：除法结果自动变成浮点
+a ** 2      # [1 4 9 16]             幂运算
+a % 2       # [1 0 1 0]              取余</code></pre>
+<h3>2. 数组 和 数组（形状相同）</h3>
+<p>形状相同的两个数组，按<strong>对应位置</strong>逐个运算：</p>
+<pre><code class="language-python">a = np.array([1, 2, 3, 4])
+b = np.array([10, 20, 30, 40])
+
+a + b       # [11 22 33 44]
+a - b       # [-9 -18 -27 -36]
+a * b       # [10 40 90 160]
+a / b       # [0.1 0.1 0.1 0.1]</code></pre>
+<h3>3. ★ 第一大坑：<code>*</code> 是逐元素乘，不是矩阵乘法</h3>
+<p>新手最容易搞错的地方，务必刻在脑子里：</p>
+<pre><code class="language-python">a = np.array([1, 2, 3])
+b = np.array([10, 20, 30])
+
+a * b       # [10 40 90]   ← 对应位置相乘，这叫&quot;逐元素乘法&quot;</code></pre>
+<p><code>a * b</code><strong>不是</strong>数学上的矩阵乘法（行乘列）。真正的矩阵乘法要用 <code>@</code> 或 <code>matmul</code>——见第三节。</p>
+<p>记忆口诀：<code>***<strong></code></strong> 永远是逐元素，矩阵乘法用 <strong><code></strong>@<strong></code></strong>。**</p>
+<h3>4. 常用通用函数（ufunc）</h3>
+<p>这一类函数也是<strong>逐元素</strong>作用：传一个数组进去，返回同样形状的数组：</p>
+<pre><code class="language-python">a = np.array([1, 4, 9, 16])
+
+np.sqrt(a)   # [1. 2. 3. 4.]      开方
+np.exp(a)    # e 的 x 次方
+np.log(a)    # 自然对数 ln
+np.abs(np.array([-1, -2, 3]))   # [1 2 3]   绝对值</code></pre>
+<p><strong>和深度学习的联系</strong>：<code>exp</code> 你很快会反复见到——sigmoid、softmax 这些激活函数的公式里都是它。这些函数能直接作用在整个数组上，正是神经网络能高效批量计算的基础。</p>
+<p>---</p>
+<h2>二、广播机制入门（broadcasting）</h2>
+<h3>1. 广播解决什么问题</h3>
+<p>广播让<strong>形状不同的两个数组也能直接运算</strong>：自动把较小的那个「拉伸 / 复制」到能和较大的对齐，再逐元素运算。整个过程不会真的占用额外内存去复制，只是逻辑上等效于复制。</p>
+<p>⚠️ 广播是 <strong>逐元素运算</strong>（<code>+ - * /</code>、比较等）的规则，和第三节的矩阵乘法 <code>@</code> 是两回事，别混。</p>
+<h3>2. 其实你早就在用了：标量广播</h3>
+<p><code>a + 10</code> 里的 <code>10</code> 就是被广播的——标量被「扩展」成和 <code>a</code> 一样的形状，再逐位相加：</p>
+<pre><code class="language-python">a = np.array([1, 2, 3, 4])
+a + 10      # 等效于 a + [10, 10, 10, 10] = [11 12 13 14]</code></pre>
+<h3>3. 二维数组 + 一维向量（最典型的场景）</h3>
+<pre><code class="language-python">m = np.array([[1, 2, 3],
+              [4, 5, 6],
+              [7, 8, 9]])     # shape (3, 3)
+v = np.array([10, 20, 30])    # shape (3,)
+
+m + v
+# [[11 22 33]
+#  [14 25 36]
+#  [17 28 39]]</code></pre>
+<p><strong>发生了什么</strong>：<code>v</code> 这一行被自动复制到 <code>m</code> 的每一行，再逐元素相加：</p>
+<pre><code class="language-plain">原始 v：           [10, 20, 30]            shape (3,)
+
+广播复制成 3 行：   [[10, 20, 30],
+                    [10, 20, 30],          等效 shape (3, 3)
+                    [10, 20, 30]]
+
+然后和 m 逐元素相加</code></pre>
+<h3>4. ★ 广播失败的例子（理解规则的关键）</h3>
+<pre><code class="language-python">np.array([1, 2, 3]) + np.array([10, 20])</code></pre>
+<p>这会<strong>报错</strong>。<code>(3,)</code> 和 <code>(2,)</code> 从右往左比较时：<code>3</code> 和 <code>2</code> 既不相等、又都不是 <code>1</code>，于是抛出：</p>
+<pre><code class="language-plain">ValueError: operands could not be broadcast together with shapes (3,) (2,)</code></pre>
+<p><strong>这个报错你一定会反复遇到，学会读它非常重要</strong>：</p>
+<p>+ 看到 <code>could not be broadcast together</code>，就知道是两个数组<strong>形状没对齐</strong>。<br>+ 报错信息末尾会直接列出冲突的两个形状（这里是 <code>(3,) (2,)</code>）。<br>+ 第一反应：分别打印两个数组的 <code>.shape</code>，对照规则看哪一维对不上，问题马上定位。</p>
+<p>（完整三条规则在第五节展开。）</p>
+<p>---</p>
+<h2>三、矩阵乘法 <code>@</code></h2>
+<p>从这里开始换成 PyTorch。先把今天的环境跑通：</p>
+<pre><code class="language-python">print(torch.__version__)   # 确认能跑起来</code></pre>
+<h3>1. 先分清两种「乘法」</h3>
+<p>新手最容易混 <code>*</code> 和 <code>@</code>：</p>
+<pre><code class="language-python">a = torch.tensor([[1, 2],
+                  [3, 4]])
+b = torch.tensor([[10, 20],
+                  [30, 40]])
+
+print(a * b)    # 逐元素乘法（对应位置相乘）
+print(a @ b)    # 矩阵乘法（线性代数那种）</code></pre>
+<p>输出：</p>
+<pre><code class="language-plain"># a * b  ——  对应位置各乘各的
+tensor([[ 10,  40],
+        [ 90, 160]])
+
+# a @ b  ——  行 × 列 求和
+tensor([[ 70, 100],
+        [150, 220]])</code></pre>
+<p><code>a @ b</code> 的第一个元素 70 怎么来的？是 <code>a</code> 的<strong>第一行</strong><code>[1,2]</code> 和 <code>b</code> 的<strong>第一列</strong><code>[10,30]</code> 对应相乘再求和：<code>1×10 + 2×30 = 70</code>。这就是矩阵乘法的核心动作：<strong>左边一行 · 右边一列</strong>。</p>
+<h3>2. 维度规则（最重要，先背下来）</h3>
+<p>矩阵乘法要求「内维相等，外维保留」：</p>
+<pre><code class="language-plain">(m, n) @ (n, p)  -&gt;  (m, p)
+      ↑____↑              这两个 n 必须相等
+   ↑              ↑       结果取这两头</code></pre>
+<p>记忆口诀：<strong>前面的列数，必须等于后面的行数。</strong> 否则直接报错：</p>
+<pre><code class="language-python">x = torch.randn(2, 3)
+y = torch.randn(4, 5)
+x @ y
+# RuntimeError: mat1 and mat2 shapes cannot be multiplied (2x3 and 4x5)</code></pre>
+<p>报错里的 <code>2x3 and 4x5</code> 就是在告诉你：中间的 <code>3</code> 和 <code>4</code> 对不上。这个报错以后会见无数次，看到就知道是维度没对齐。</p>
+<p>正确的例子：</p>
+<pre><code class="language-python">x = torch.randn(2, 3)
+y = torch.randn(3, 5)
+print((x @ y).shape)   # torch.Size([2, 5])</code></pre>
+<h3>3. <code>@</code>、<code>torch.matmul</code>、<code>torch.mm</code> 的关系</h3>
+<pre><code class="language-python">x = torch.randn(2, 3)
+y = torch.randn(3, 5)
+
+torch.equal(x @ y, torch.matmul(x, y))   # True
+torch.equal(x @ y, torch.mm(x, y))       # True（仅二维时）</code></pre>
+<p>+ <code>@</code> 是运算符，底层就是 <code>torch.matmul</code>，写起来最简洁，<strong>平时优先用它</strong>。<br>+ <code>torch.matmul</code> 功能最全：能处理一维、二维、还能处理「批量」和广播。<br>+ <code>torch.mm</code><strong>只能处理严格的二维矩阵</strong>，不支持广播。维度不对它直接报错，所以有人用它来「强制确认自己确实在做二维乘法」。</p>
+<h3>4. 向量参与的三种情况（d2l 里会用到）</h3>
+<p><code>matmul</code> 对一维向量有特殊处理，理解它能省很多 <code>reshape</code>。<strong>注意维度要配对</strong>：</p>
+<pre><code class="language-python">v = torch.tensor([1., 2., 3.])        # (3,)
+M = torch.arange(12.).reshape(3, 4)   # (3, 4)
+N = torch.arange(12.).reshape(4, 3)   # (4, 3) ← 最后一维=3，才能右乘 v
+
+# (a) 向量 · 向量 = 点积，得到标量
+print(v @ v)          # tensor(14.)  = 1+4+9
+
+# (b) 向量 · 矩阵：v 被当成 (1,3) 行向量，(1,3)@(3,4)=(1,4)，压回一维
+print((v @ M).shape)  # torch.Size([4])
+
+# (c) 矩阵 · 向量：v 被当成 (3,1) 列向量，(4,3)@(3,1)=(4,1)，压回一维
+print((N @ v).shape)  # torch.Size([4])</code></pre>
+<p>📌 <strong>易错点（今天实际踩过的坑）</strong>：想算「矩阵 · 向量」<code>M @ v</code> 时，要求 <strong>M 的最后一维 == 向量长度</strong>。如果写成 <code>(3,4) @ (3,)</code>，最后一维 4 ≠ 向量长 3，会报 <code>RuntimeError: mat1 and mat2 shapes cannot be multiplied (3x4 and 3x1)</code>。 所以上面 (c) 特意换成了 <code>N=(4,3)</code>。</p>
+<p>关键点：一维向量在乘法里会被「临时补成」二维参与计算，算完再把补出来的那个维度去掉。这是便利特性，但也容易让你对 shape 产生误判——<strong>不确定就 </strong><code><strong>print(.shape)</strong></code>。</p>
+<h3>5. 批量矩阵乘法（先有印象即可）</h3>
+<p>以后处理「一批数据」时（比如 32 张图片一起算），<code>matmul</code> 会自动对最前面的维度做批处理：</p>
+<pre><code class="language-python">batch = torch.randn(32, 2, 3)   # 32 个 2×3 矩阵
+w = torch.randn(3, 5)
+print((batch @ w).shape)        # torch.Size([32, 2, 5])</code></pre>
+<p>它把后两维 <code>(2,3)@(3,5)</code> 当矩阵乘，前面的 <code>32</code> 当成「批量个数」逐个处理。背后用的就是广播——衔接第五节。</p>
+<p>---</p>
+<h2>四、转置 <code>.T</code></h2>
+<h3>1. 二维：行列互换</h3>
+<pre><code class="language-python">A = torch.arange(6).reshape(2, 3)
+print(A)
+print(A.T)
+print(A.shape, A.T.shape)   # (2,3) -&gt; (3,2)</code></pre>
+<pre><code class="language-plain">A:                A.T:
+tensor([[0,1,2],  tensor([[0,3],
+        [3,4,5]])         [1,4],
+                          [2,5]])</code></pre>
+<p>原来第 <code>i</code> 行第 <code>j</code> 列，转置后跑到第 <code>j</code> 行第 <code>i</code> 列。<code>A[0,2]</code> 是 2，<code>A.T[2,0]</code> 也是 2。</p>
+<h3>2. ★ 关键细节：转置是「视图」，不是拷贝</h3>
+<pre><code class="language-python">A = torch.arange(6).reshape(2, 3)
+B = A.T
+B[0, 0] = 999
+print(A[0, 0])   # 也变成了 999!</code></pre>
+<p><code>.T</code> 没有真的搬动内存里的数据，它只是换了一种「读取方式」（改了步长/索引规则），和原张量<strong>共享同一块内存</strong>。改 <code>B</code> 会影响 <code>A</code>。如果需要一份独立的转置数据，要 <code>A.T.clone()</code> 或 <code>A.T.contiguous()</code>。这个坑在你后面调试「为什么张量莫名其妙被改了」时会救你一命。</p>
+<h3>3. <code>.T</code> / <code>.t()</code> / <code>transpose()</code> / <code>permute()</code> 四兄弟</h3>
+<p>| 写法 | 适用维度 | 作用 |<br>| --- | --- | --- |<br>| <code>.T</code> | 推荐只用于二维 | 反转所有维度 |<br>| <code>.t()</code> | 仅 ≤2 维 | 二维转置，超过会报错 |<br>| <code>.transpose(d0, d1)</code> | 任意 | 交换<strong>指定的两个</strong>维度 |<br>| <code>.permute(...)</code> | 任意 | <strong>重排所有</strong>维度，最灵活 |</p>
+<pre><code class="language-python">x = torch.randn(2, 3, 4)        # 三维
+
+print(x.transpose(0, 2).shape)  # 交换第0维和第2维 -&gt; torch.Size([4, 3, 2])
+print(x.permute(2, 1, 0).shape) # 重排 -&gt; torch.Size([4, 3, 2])
+print(x.permute(0, 2, 1).shape) # torch.Size([2, 4, 3])</code></pre>
+<p><code>permute(2,1,0)</code> 读作：「新的第 0 维 = 旧的第 2 维，新的第 1 维 = 旧的第 1 维，新的第 2 维 = 旧的第 0 维」。</p>
+<h3>4. 高维别用 <code>.T</code>（新版 PyTorch 会警告）</h3>
+<p>在高维张量上用 <code>.T</code> 会反转<strong>全部</strong>维度，行为常常不是你想要的，新版 PyTorch 已标为不推荐（给 UserWarning）。处理「一批矩阵、只想转置后两维」时，正确做法是 <code>.mT</code>：</p>
+<pre><code class="language-python">batch = torch.randn(32, 2, 3)
+print(batch.mT.shape)    # torch.Size([32, 3, 2]) —— 只转最后两维，批量维不动</code></pre>
+<p><strong>小结记法</strong>：二维转置用 <code>.T</code>；要转一批矩阵的后两维用 <code>.mT</code>；需要精确控制就用 <code>transpose</code> / <code>permute</code>。</p>
+<p>---</p>
+<h2>五、完整广播规则</h2>
+<p>第二节讲的是直觉，这里给出<strong>判断能不能广播的完整流程</strong>（适用逐元素运算 <code>+ - * /</code>、比较等，不适用 <code>@</code>）。</p>
+<h3>1. 三条规则（今天最该吃透的）</h3>
+<p>按顺序走这三步：</p>
+<p>1. <strong>从右往左对齐。</strong> 把两个 shape 右对齐（像列竖式那样末位对齐）。<br>2. <strong>每一维要么相等，要么其中一个是 1。</strong> 满足就兼容；是 1 的那一维会被「复制拉伸」到和对方一样大。<br>3. <strong>维度数不够的，在左边补 1。</strong> 短的那个 shape 前面自动补 <code>1</code>，补到和长的一样长。</p>
+<p>任何一维两个数既不相等、又都不是 1，就广播失败、报错。</p>
+<h3>2. 一步步看例子</h3>
+<p><strong>例 A：行向量 + 列向量（d2l 经典）</strong></p>
+<pre><code class="language-python">a = torch.arange(3).reshape(3, 1)   # (3,1)
+b = torch.arange(2).reshape(1, 2)   # (1,2)
+print(a + b)</code></pre>
+<pre><code class="language-plain">a:  (3, 1)
+b:  (1, 2)
+    ----
+3 vs 1 -&gt; 3（b 的 1 被拉伸）
+1 vs 2 -&gt; 2（a 的 1 被拉伸）
+结果: (3, 2)</code></pre>
+<pre><code class="language-plain">tensor([[0, 1],
+        [1, 2],
+        [2, 3]])</code></pre>
+<p><code>a</code> 横向复制成 3×2，<code>b</code> 纵向复制成 3×2，再逐元素相加。这种「行 × 列 撑成网格」很常用。</p>
+<p><strong>例 B：维度数不一样（加偏置的标准操作）</strong></p>
+<pre><code class="language-python">M = torch.ones(3, 4)              # (3, 4)
+v = torch.tensor([1, 2, 3, 4])    # (4,)
+print((M + v).shape)              # (3, 4)</code></pre>
+<pre><code class="language-plain">M: (3, 4)
+v:    (4)  -&gt; 规则三：左边补 1 -&gt; (1, 4)
+   3 vs 1 -&gt; 3
+   4 vs 4 -&gt; 4
+结果 (3, 4)  ✓</code></pre>
+<p><code>v</code> 这一行被复制到 <code>M</code> 的每一行。这就是给一批样本「加同一个偏置向量」，神经网络里到处都是。</p>
+<p><strong>例 C：广播失败</strong></p>
+<pre><code class="language-python">x = torch.ones(3, 4)
+y = torch.ones(3)        # (3,) -&gt; 补成 (1,3)
+x + y
+# RuntimeError: ... size of tensor a (4) must match ... b (3) ...</code></pre>
+<pre><code class="language-plain">x: (3, 4)
+y:    (3) -&gt; (1, 3)
+3 vs 1 -&gt; 3 ✓
+4 vs 3 -&gt; 既不等、又都不是 1 ✗  报错!</code></pre>
+<p>很多人以为 <code>(3,4)</code> 和 <code>(3,)</code> 能加（因为「看起来都有 3」），但广播是<strong>从右对齐</strong>的，右边对上的是 4 和 3，对不上。要成立，<code>y</code> 得是 <code>(4,)</code>（按列加）或 <code>(3,1)</code>（按行加）。</p>
+<h3>3. 一张「心算流程图」</h3>
+<pre><code class="language-plain">两个 shape 右对齐
+        │
+   短的左边补 1 补齐
+        │
+逐位检查: 相等? 或 有一个是 1?
+        │              │
+       都满足          有一位不满足
+        │              │
+   ✓ 取每位较大值     ✗ 报错</code></pre>
+<h3>4. ★ 广播虽好，警惕「静默错误」</h3>
+<p>广播是双刃剑：维度对不上会报错（好事，至少你知道错了）；但<strong>有时它「成功」算出你根本不想要的结果，而且不报错</strong>：</p>
+<pre><code class="language-python">a = torch.arange(3).reshape(3, 1)
+b = torch.arange(3).reshape(1, 3)
+print((a + b).shape)   # (3, 3) —— 你也许只想要一个 (3,) 的结果!</code></pre>
+<p>本想做 <code>(3,) + (3,)</code> 得长度 3 的向量，结果一个是列、一个是行，被撑成 3×3，程序不报错但答案全错。<strong>防御办法</strong>：关键运算前后都 <code>print(.shape)</code> 确认。这个 bug 在实际训练里极其常见，养成检查习惯能省下大量调试时间。</p>
+<p>---</p>
+<h2>六、速查表（快速回忆用）</h2>
+<pre><code class="language-python"># —— 逐元素运算（数组 与 标量 / 同形状数组）——
+a + 10   a - 1   a * 2   a / 2   a ** 2   a % 2
+a + b    a - b   a * b   a / b
+# ★ * 是逐元素乘，矩阵乘法用 @
+
+# —— 通用函数 ufunc（逐元素）——
+np.sqrt(a)   np.exp(a)   np.log(a)   np.abs(a)     # torch.* 同理
+
+# —— 矩阵乘法 ——
+A @ B                  # (m,n)@(n,p)=(m,p)，内维必须相等
+torch.matmul(A, B)     # 功能最全，支持一维/批量/广播
+torch.mm(A, B)         # 仅严格二维，不支持广播
+batch @ w              # 批量：前置维当 batch，后两维做矩阵乘
+
+# —— 转置 ——
+A.T                    # 二维转置（共享内存的视图！改它会改原数据）
+batch.mT               # 高维：只转最后两维
+x.transpose(d0, d1)    # 交换指定两维
+x.permute(2, 1, 0)     # 重排所有维度
+A.T.clone()            # 需要独立副本时
+
+# —— 广播 ——
+# 规则：① 右对齐 ② 每位相等或有一个为1 ③ 短的左边补1；否则报错
+M + v                  # (3,4)+(4,)：v 复制到每一行（加偏置）
+a + b                  # (3,1)+(1,2) -&gt; (3,2)：行×列撑成网格
+
+# —— debug 习惯 ——
+print(x.shape)         # 不确定就打印！静默错误全靠它发现</code></pre>
+<p>---</p>
+<h2>七、要重点记住的事</h2>
+<p>1. <code>*</code> 是<strong>逐元素乘</strong>，<code>@</code> 是<strong>矩阵乘法</strong>（千万别混）。<br>2. 矩阵乘法 <code>@</code> 要求 <code>(m,n)@(n,p)</code>，<strong>内维相等，外维保留</strong>。<code>@</code>≈<code>matmul</code>（功能全）；<code>mm</code> 只做严格二维。<br>3. <code>.T</code> 是二维转置，且是<strong>共享内存的视图</strong>（改它会改原数据）；高维用 <code>.mT</code> 或 <code>permute</code>。<br>4. 广播三规则：<strong>右对齐 → 短的左边补 1 → 每位相等或有一个是 1</strong>，否则报错；它只管逐元素运算，不管 <code>@</code>。<br>5. 广播能「静默」算出错误结果——<strong>贯穿始终的习惯：不确定就 </strong><code><strong>print(.shape)</strong></code>。<br>6. NumPy 与 PyTorch 基础操作几乎一样；要训练模型（自动求导、GPU、工具箱）才非 PyTorch 不可。</p>
+<p>---</p>
+<h2>八、练习题与解答（含描述精度的打磨）</h2>
+<p><strong>题 1</strong>：<code>A = torch.randn(4, 5)</code>，<code>B = torch.randn(5, 3)</code>，先口算 <code>A @ B</code> 的 shape 再验证。</p>
+<pre><code class="language-python"># 口算：(4,5)@(5,3)，内维 5=5 对上，外维取两头 -&gt; (4,3)
+A = torch.randn(4, 5)
+B = torch.randn(5, 3)
+print((A @ B).shape)   # torch.Size([4, 3])  ✓</code></pre>
+<p><strong>题 2</strong>：<code>X = torch.randn(10, 3)</code>（10 个样本、每个 3 维），<code>b = torch.randn(3)</code>，写出 <code>X + b</code> 并说明 b 复制到了哪个方向。</p>
+<pre><code class="language-python">X = torch.randn(10, 3)
+b = torch.randn(3)             # (3,) -&gt; 补成 (1,3)
+print((X + b).shape)           # torch.Size([10, 3])</code></pre>
+<p>说明（<strong>用词要精确</strong>）：<code>b</code> 先补成 <code>(1,3)</code>，其中 <strong>axis 0 这一维是 1，被沿 axis 0 复制 10 份</strong> 对齐成 <code>(10,3)</code>。 业务含义：<code>b</code> 是长度 3 的偏置向量，<strong>每个样本（每一行）都加上同一个 b</strong>——这正是全连接层「加 bias」的标准动作。</p>
+<p>💡 描述广播时，说「<strong>哪一维是 1、它被复制了几份</strong>」比说「复制到某方向」更不容易出错。</p>
+<p><strong>题 3</strong>：<code>p = torch.arange(4).reshape(4,1)</code>，<code>q = torch.arange(5).reshape(1,5)</code>，<code>p * q</code> 的 shape？生成了什么？</p>
+<pre><code class="language-python">p = torch.arange(4).reshape(4, 1)   # (4,1)
+q = torch.arange(5).reshape(1, 5)   # (1,5)
+print((p * q).shape)                # torch.Size([4, 5])
+print(p * q)
+# tensor([[ 0,  0,  0,  0,  0],
+#         [ 0,  1,  2,  3,  4],
+#         [ 0,  2,  4,  6,  8],
+#         [ 0,  3,  6,  9, 12]])</code></pre>
+<p><code>(4,1)*(1,5)</code>：p 的列方向 1 被拉成 5，q 的行方向 1 被拉成 4，结果 <code>(4,5)</code>。第 <code>i</code> 行第 <code>j</code> 列就是 <code>i*j</code>，是一张乘法口诀表。 这种「列向量 × 行向量 撑成矩阵」叫<strong>外积（outer product）</strong>，在算距离矩阵、注意力分数等场景很常用。</p></div></article>
+<nav class="note-pagination"><a href="./day-3-学习笔记-numpy-数组基础.html">← Day 3 学习笔记：NumPy 数组基础</a><a href="./day-5-学习笔记-统计函数-random-模块-手写线性回归.html">Day 5 学习笔记：统计函数 _ random 模块 _ 手写线性回归 →</a></nav>
+  </main>
+</body>
+</html>
