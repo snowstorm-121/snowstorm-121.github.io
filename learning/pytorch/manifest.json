@@ -1,0 +1,201 @@
+{
+  "stages": [
+    {
+      "key": "foundation",
+      "label": "基础阶段"
+    },
+    {
+      "key": "stage-1",
+      "label": "Tensor 与自动微分"
+    },
+    {
+      "key": "stage-2",
+      "label": "模型与训练闭环"
+    },
+    {
+      "key": "stage-3",
+      "label": "卷积网络"
+    }
+  ],
+  "notes": [
+    {
+      "stageKey": "overview",
+      "stageLabel": "学习路线",
+      "title": "PyTorch 暑期详细学习计划",
+      "slug": "pytorch-暑期详细学习计划",
+      "isOverview": true
+    },
+    {
+      "stageKey": "foundation",
+      "stageLabel": "基础阶段",
+      "title": "Day 1 学习笔记：Python 进阶语法",
+      "slug": "day-1-学习笔记-python-进阶语法"
+    },
+    {
+      "stageKey": "foundation",
+      "stageLabel": "基础阶段",
+      "title": "Day 2 学习笔记：文件操作 + 异常处理 + 综合小项目",
+      "slug": "day-2-学习笔记-文件操作-异常处理-综合小项目"
+    },
+    {
+      "stageKey": "foundation",
+      "stageLabel": "基础阶段",
+      "title": "Day 3 学习笔记：NumPy 数组基础",
+      "slug": "day-3-学习笔记-numpy-数组基础"
+    },
+    {
+      "stageKey": "foundation",
+      "stageLabel": "基础阶段",
+      "title": "Day 4 学习笔记：数组运算 · 矩阵乘法 · 转置 · 广播",
+      "slug": "day-4-学习笔记-数组运算-矩阵乘法-转置-广播"
+    },
+    {
+      "stageKey": "foundation",
+      "stageLabel": "基础阶段",
+      "title": "Day 5 学习笔记：统计函数 _ random 模块 _ 手写线性回归",
+      "slug": "day-5-学习笔记-统计函数-random-模块-手写线性回归"
+    },
+    {
+      "stageKey": "foundation",
+      "stageLabel": "基础阶段",
+      "title": "Day 6 学习笔记：matplotlib学习",
+      "slug": "day-6-学习笔记-matplotlib学习"
+    },
+    {
+      "stageKey": "foundation",
+      "stageLabel": "基础阶段",
+      "title": "Day 7 学习笔记：DataFrame学习",
+      "slug": "day-7-学习笔记-dataframe学习"
+    },
+    {
+      "stageKey": "foundation",
+      "stageLabel": "基础阶段",
+      "title": "Day 8 学习笔记： pandas进阶与numpy互转",
+      "slug": "day-8-学习笔记-pandas进阶与numpy互转"
+    },
+    {
+      "stageKey": "foundation",
+      "stageLabel": "基础阶段",
+      "title": "Day 9 学习笔记：Titanic 综合实战 —— 完整数据分析项目",
+      "slug": "day-9-学习笔记-titanic-综合实战-完整数据分析项目"
+    },
+    {
+      "stageKey": "foundation",
+      "stageLabel": "基础阶段",
+      "title": "Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习",
+      "slug": "day-10-学习笔记-查漏补缺-pytorch-预习"
+    },
+    {
+      "stageKey": "stage-1",
+      "stageLabel": "Tensor 与自动微分",
+      "title": "Day 1 学习笔记：Tensor基本操作",
+      "slug": "day-1-学习笔记-tensor基本操作"
+    },
+    {
+      "stageKey": "stage-1",
+      "stageLabel": "Tensor 与自动微分",
+      "title": "Day 2 学习笔记：PyTorch Autograd 自动微分基础",
+      "slug": "day-2-学习笔记-pytorch-autograd-自动微分基础"
+    },
+    {
+      "stageKey": "stage-1",
+      "stageLabel": "Tensor 与自动微分",
+      "title": "Day 3 学习笔记：手写线性回归（纯 Tensor 实现）",
+      "slug": "day-3-学习笔记-手写线性回归-纯-tensor-实现"
+    },
+    {
+      "stageKey": "stage-1",
+      "stageLabel": "Tensor 与自动微分",
+      "title": "Day 4 学习笔记：手写 Softmax 分类（纯 Tensor 实现）",
+      "slug": "day-4-学习笔记-手写-softmax-分类-纯-tensor-实现"
+    },
+    {
+      "stageKey": "stage-2",
+      "stageLabel": "模型与训练闭环",
+      "title": "Day 1 学习笔记：nn.Module 与常用层入门",
+      "slug": "day-1-学习笔记-nn-module-与常用层入门"
+    },
+    {
+      "stageKey": "stage-2",
+      "stageLabel": "模型与训练闭环",
+      "title": "Day 2 学习笔记：MLP 多层感知机与正则化",
+      "slug": "day-2-学习笔记-mlp-多层感知机与正则化"
+    },
+    {
+      "stageKey": "stage-2",
+      "stageLabel": "模型与训练闭环",
+      "title": "Day 3 学习笔记：自定义 Dataset 与 DataLoader 深入",
+      "slug": "day-3-学习笔记-自定义-dataset-与-dataloader-深入"
+    },
+    {
+      "stageKey": "stage-2",
+      "stageLabel": "模型与训练闭环",
+      "title": "Day 4 学习笔记：模型保存加载与可视化",
+      "slug": "day-4-学习笔记-模型保存加载与可视化"
+    },
+    {
+      "stageKey": "stage-2",
+      "stageLabel": "模型与训练闭环",
+      "title": "Day 5 学习笔记：MNIST 综合复盘实验",
+      "slug": "day-5-学习笔记-mnist-综合复盘实验"
+    },
+    {
+      "stageKey": "stage-3",
+      "stageLabel": "卷积网络",
+      "title": "Day 1 学习笔记：卷积操作基础——shape 与参数量",
+      "slug": "day-1-学习笔记-卷积操作基础-shape-与参数量"
+    },
+    {
+      "stageKey": "stage-3",
+      "stageLabel": "卷积网络",
+      "title": "Day 2 学习笔记：经典 CNN——LeNet",
+      "slug": "day-2-学习笔记-经典-cnn-lenet"
+    },
+    {
+      "stageKey": "stage-3",
+      "stageLabel": "卷积网络",
+      "title": "Day 3 学习笔记：残差网络 ResNet——残差块核心",
+      "slug": "day-3-学习笔记-残差网络-resnet-残差块核心"
+    },
+    {
+      "stageKey": "stage-3",
+      "stageLabel": "卷积网络",
+      "title": "Day 4 学习笔记：迁移学习最小实战——预训练 ResNet18",
+      "slug": "day-4-学习笔记-迁移学习最小实战-预训练-resnet18"
+    }
+  ],
+  "attachments": [
+    {
+      "stageKey": "stage-1",
+      "name": "Pasted image 20260629213515.png"
+    },
+    {
+      "stageKey": "stage-1",
+      "name": "Pasted image 20260629213537.png"
+    },
+    {
+      "stageKey": "stage-1",
+      "name": "Pasted image 20260630155424.png"
+    },
+    {
+      "stageKey": "stage-1",
+      "name": "Pasted image 20260630155530.png"
+    },
+    {
+      "stageKey": "stage-2",
+      "name": "Pasted image 20260711131522.png"
+    },
+    {
+      "stageKey": "stage-2",
+      "name": "Pasted image 20260713121044.png"
+    },
+    {
+      "stageKey": "stage-3",
+      "name": "Day2_LeNet.png"
+    },
+    {
+      "stageKey": "stage-3",
+      "name": "Day2_MLP_LeNet对比.png"
+    }
+  ]
+}
