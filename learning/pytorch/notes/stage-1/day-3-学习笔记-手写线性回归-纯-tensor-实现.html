@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101c">
+  <title>Day 3 学习笔记：手写线性回归（纯 Tensor 实现） · SNOWSTORM</title>
+  <link rel="stylesheet" href="../../../../assets/library.css">
+</head>
+<body class="library-page">
+  <main class="library-shell">
+    <a class="library-brand" href="../../../../index.html">SNOWSTORM / ARCHIVE</a>
+    <p class="library-eyebrow">Tensor 与自动微分</p>
+    <nav class="breadcrumbs"><a href="../../../index.html">学习</a><span>/</span><a href="../../index.html">PyTorch</a><span>/</span><span>Tensor 与自动微分</span></nav>
+<article class="note-article"><h1>Day 3 学习笔记：手写线性回归（纯 Tensor 实现）</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+<p>参考书：《动手学深度学习》PyTorch 版 3.1-3.2 线性回归</p>
+<p>本阶段重点：从 <span class="wiki-link">Autograd 自动微分</span>过渡到真正的训练循环。今天不使用 <code>nn.Module</code>、不使用 <code>torch.optim</code>，而是用纯 Tensor 手写线性回归，亲手理解：数据如何进入模型、前向计算如何建图、loss 如何衡量误差、<code>backward()</code> 如何计算梯度、为什么参数更新要放进 <code>torch.no_grad()</code>、为什么每个 batch 后要清空梯度。</p>
+<p>今天主线：手写线性回归。核心心智模型是：<strong>模型参数 <code>w</code>、<code>b</code> 参与前向计算，loss 因参数而变化；<code>loss.backward()</code> 只负责把梯度写入 <code>w.grad</code> / <code>b.grad</code>，真正改变参数的是我们手写的 SGD 更新。</strong></p>
+<p>---</p>
+<h2>〇、贯穿全天的四条心智主线</h2>
+<h3>1. 从 <span class="wiki-link">Autograd 实验</span>走向训练循环</h3>
+<p>Day 2 里学到的是：</p>
+<pre><code class="language-plain">x = torch.tensor(2.0, requires_grad=True)
+y = x ** 2
+y.backward()
+print(x.grad)</code></pre>
+<p>这回答的是：</p>
+<pre><code class="language-plain">给定一个计算图，PyTorch 能不能自动求导？</code></pre>
+<p>今天要解决的是：</p>
+<pre><code class="language-plain">有一组随机初始化的参数，能不能根据 loss 的梯度反复调整，让模型预测越来越准？</code></pre>
+<p>也就是从：</p>
+<pre><code class="language-plain">前向计算 -&gt; backward() -&gt; 查看梯度</code></pre>
+<p>走向：</p>
+<pre><code class="language-plain">前向计算 -&gt; 计算 loss -&gt; backward() -&gt; 手动更新参数 -&gt; 清空梯度 -&gt; 重复</code></pre>
+<h3>2. Autograd 负责算梯度，不负责更新参数</h3>
+<p>训练里最容易混的点是：</p>
+<pre><code class="language-plain">loss.backward()</code></pre>
+<p>不会自动改变 <code>w</code> 和 <code>b</code>。</p>
+<p>它只会计算：</p>
+<pre><code class="language-plain">loss 对 w 的梯度 -&gt; w.grad
+loss 对 b 的梯度 -&gt; b.grad</code></pre>
+<p>真正改变参数的是：</p>
+<pre><code class="language-plain">with torch.no_grad():
+    w -= lr * w.grad
+    b -= lr * b.grad</code></pre>
+<p>所以可以把职责分清：</p>
+<pre><code class="language-plain">Autograd：算方向
+SGD：按方向改参数
+zero_：清掉旧梯度</code></pre>
+<h3>3. 每个 batch 都会重新建一张计算图</h3>
+<p>PyTorch 是动态计算图。每次执行：</p>
+<pre><code class="language-plain">y_hat = linreg(X, w, b)
+loss = squared_loss(y_hat, y).mean()</code></pre>
+<p>都会根据当前 batch、当前参数临时搭一张图：</p>
+<pre><code class="language-plain">w, b -&gt; y_hat -&gt; loss</code></pre>
+<p>调用：</p>
+<pre><code class="language-plain">loss.backward()</code></pre>
+<p>后，这张图被用来反向计算当前 batch 的梯度。</p>
+<p>下一个 batch 会重新前向、重新建图、重新 backward。</p>
+<h3>4. shape 要统一：要么都用 <code>(n,)</code>，要么都用 <code>(n, 1)</code></h3>
+<p>今天虽然不把 shape 当主菜，但实际调试中遇到过一个很重要的坑：</p>
+<pre><code class="language-plain">(1000,) + (1000, 1) 可能广播成 (1000, 1000)</code></pre>
+<p>所以标签、预测值、噪声最好统一风格。</p>
+<p>可以走一维路线：</p>
+<pre><code class="language-plain">X @ w -&gt; (n,)
+noise -&gt; (n,)
+y -&gt; (n,)
+最后 reshape 成 (n, 1)</code></pre>
+<p>也可以走列向量路线：</p>
+<pre><code class="language-plain">X @ w.reshape(-1, 1) -&gt; (n, 1)
+noise -&gt; (n, 1)
+y -&gt; (n, 1)</code></pre>
+<p>不要混着来。</p>
+<p>---</p>
+<h2>一、线性回归的数学模型</h2>
+<h3>1. 模型形式</h3>
+<p>线性回归的模型是：</p>
+<pre><code class="language-plain">y_hat = Xw + b</code></pre>
+<p>如果有两个特征：</p>
+<pre><code class="language-plain">y_hat = x1 * w1 + x2 * w2 + b</code></pre>
+<p>其中：</p>
+<pre><code class="language-plain">X：输入特征
+w：权重参数
+b：偏置参数
+y_hat：模型预测值
+y：真实标签</code></pre>
+<p>今天真正要训练的是：</p>
+<pre><code class="language-plain">w 和 b</code></pre>
+<p>不是 <code>X</code>，也不是 <code>y</code>。</p>
+<h3>2. 真实参数和可学习参数要分清</h3>
+<p>造数据时使用：</p>
+<pre><code class="language-plain">true_w = torch.tensor([2.0, -3.4])
+true_b = 4.2</code></pre>
+<p>这两个是隐藏在数据背后的真实规律，可以理解为“标准答案”。</p>
+<p>训练时初始化：</p>
+<pre><code class="language-plain">w = torch.normal(0, 0.1, size=(len(true_w),), requires_grad=True)
+b = torch.zeros(1, requires_grad=True)</code></pre>
+<p>这两个是模型当前的“作业答案”，一开始是乱猜的，需要通过训练逐步接近 <code>true_w</code> 和 <code>true_b</code>。</p>
+<p>心智区分：</p>
+<pre><code class="language-plain">true_w / true_b：用来生成数据，不参与训练
+w / b：模型参数，需要 requires_grad=True，需要被更新</code></pre>
+<p>---</p>
+<h2>二、生成合成数据：<code>synthetic_data</code></h2>
+<h3>1. 一维版本</h3>
+<p>今天自己写的版本是：</p>
+<pre><code class="language-plain">def synthetic_data(w, b, num_examples):
+    X = torch.normal(0, 1, size=(num_examples, len(w)))
+    noise = torch.normal(0, 0.01, size=(num_examples,))
+    y = X @ w + b + noise
+    return X, y.reshape((-1, 1))</code></pre>
+<p>这里：</p>
+<pre><code class="language-plain">X.shape -&gt; (num_examples, 2)
+w.shape -&gt; (2,)
+X @ w -&gt; (num_examples,)
+noise.shape -&gt; (num_examples,)
+y.shape -&gt; (num_examples,)
+y.reshape(-1, 1) -&gt; (num_examples, 1)</code></pre>
+<p>这种写法可以运行，关键是 <code>X @ w</code> 和 <code>noise</code> 都是一维。</p>
+<h3>2. 列向量版本</h3>
+<p>也可以写成全程列向量：</p>
+<pre><code class="language-plain">def synthetic_data(w, b, num_examples):
+    X = torch.normal(0, 1, size=(num_examples, len(w)))
+    noise = torch.normal(0, 0.01, size=(num_examples, 1))
+    y = X @ w.reshape(-1, 1) + b + noise
+    return X, y</code></pre>
+<p>这里：</p>
+<pre><code class="language-plain">X @ w.reshape(-1, 1) -&gt; (num_examples, 1)
+noise -&gt; (num_examples, 1)
+y -&gt; (num_examples, 1)</code></pre>
+<p>这种写法也可以。</p>
+<h3>3. 今天踩到的广播坑</h3>
+<p>一开始容易写出这种混合版本：</p>
+<pre><code class="language-plain">noise = torch.normal(0, 0.01, size=(num_examples, 1))
+y = X @ w + b + noise</code></pre>
+<p>如果：</p>
+<pre><code class="language-plain">X @ w -&gt; (1000,)
+noise -&gt; (1000, 1)</code></pre>
+<p>那么 PyTorch 广播时可能得到：</p>
+<pre><code class="language-plain">(1000,) + (1000, 1) -&gt; (1000, 1000)</code></pre>
+<p>于是 <code>labels</code> 里会有：</p>
+<pre><code class="language-plain">1000 * 1000 = 1000000</code></pre>
+<p>个元素。</p>
+<p>后面执行：</p>
+<pre><code class="language-plain">y.reshape(y_hat.shape)</code></pre>
+<p>就会报错：</p>
+<pre><code class="language-plain">RuntimeError: shape &#39;[1000, 1]&#39; is invalid for input of size 1000000</code></pre>
+<p>这个错误的本质不是 reshape 本身，而是前面广播已经把 <code>y</code> 扩成了 <code>(1000, 1000)</code>。</p>
+<h3>4. NumPy 和 PyTorch 的 <code>size</code> 差异</h3>
+<p>NumPy 常见写法：</p>
+<pre><code class="language-plain">np.random.normal(0, 0.01, size=1000)</code></pre>
+<p>PyTorch 更常写成：</p>
+<pre><code class="language-plain">torch.normal(0, 0.01, size=(1000,))</code></pre>
+<p>一维 tuple 的逗号很重要：</p>
+<pre><code class="language-plain">(1000)  -&gt; int
+(1000,) -&gt; tuple</code></pre>
+<p>学习 PyTorch 时建议养成习惯：</p>
+<pre><code class="language-plain">size=(num_examples,)
+size=(num_examples, 1)
+size=(len(true_w),)
+size=(len(true_w), 1)</code></pre>
+<p>明确写出 shape。</p>
+<p>---</p>
+<h2>三、小批量读取数据：<code>data_iter</code></h2>
+<h3>1. 正确写法</h3>
+<pre><code class="language-plain">def data_iter(batch_size, features, labels):
+    num_examples = features.shape[0]
+    indices = torch.randperm(num_examples)
+
+    for i in range(0, num_examples, batch_size):
+        batch_indices = indices[i:min(i + batch_size, num_examples)]
+        yield features[batch_indices], labels[batch_indices]</code></pre>
+<p>这里：</p>
+<pre><code class="language-plain">features.shape[0]</code></pre>
+<p>表示样本数量，也就是有多少行。</p>
+<p>如果：</p>
+<pre><code class="language-plain">features.shape == torch.Size([1000, 2])</code></pre>
+<p>那么：</p>
+<pre><code class="language-plain">features.shape[0] == 1000
+len(features) == 1000</code></pre>
+<h3>2. <code>torch.randperm</code></h3>
+<pre><code class="language-plain">indices = torch.randperm(num_examples)</code></pre>
+<p>会生成一个随机打乱的索引 Tensor，例如：</p>
+<pre><code class="language-plain">tensor([37, 2, 891, 14, ...])</code></pre>
+<p>然后每个 batch 用这些随机索引取数据：</p>
+<pre><code class="language-plain">features[batch_indices], labels[batch_indices]</code></pre>
+<p>这样每个 epoch 的数据顺序都是随机的。</p>
+<h3>3. <code>yield</code> 的作用</h3>
+<p><code>yield</code> 表示：</p>
+<pre><code class="language-plain">吐出一个 batch，然后暂停函数；下一次 for 循环再从暂停处继续。</code></pre>
+<p>训练循环：</p>
+<pre><code class="language-plain">for X, y in data_iter(batch_size, features, labels):
+    ...</code></pre>
+<p>每次都会从 <code>data_iter</code> 里拿到一个 batch。</p>
+<p>如果 <code>num_examples=1000</code>，<code>batch_size=10</code>，那么每个 epoch 应该有：</p>
+<pre><code class="language-plain">100 个 batch</code></pre>
+<p>可以用下面代码检查：</p>
+<pre><code class="language-plain">count = 0
+for X, y in data_iter(batch_size, features, labels):
+    count += 1
+print(count)</code></pre>
+<p>正确结果应该是：</p>
+<pre><code class="language-plain">100</code></pre>
+<h3>4. 今天踩到的 <code>yield</code> 缩进坑</h3>
+<p>一开始写成了：</p>
+<pre><code class="language-plain">def data_iter(batch_size, features, labels):
+    num_examples = features.shape[0]
+    indices = torch.randperm(num_examples)
+    for i in range(0, num_examples, batch_size):
+        batch_indices = indices[i:min(i + batch_size, num_examples)]
+    yield features[batch_indices], labels[batch_indices]</code></pre>
+<p>这里 <code>yield</code> 在 <code>for</code> 外面。</p>
+<p>结果是：</p>
+<pre><code class="language-plain">for 循环先跑完，只留下最后一个 batch_indices
+最后只 yield 一次</code></pre>
+<p>也就是说每个 epoch 只训练了最后一个 batch，而不是 100 个 batch。</p>
+<p>这会导致一个现象：</p>
+<pre><code class="language-plain">模型要训练很多轮，比如 100+ 轮，才能逼近真实值</code></pre>
+<p>因为每轮只看了 10 条样本。</p>
+<p>正确缩进是：</p>
+<pre><code class="language-plain">for i in range(...):
+    batch_indices = ...
+    yield features[batch_indices], labels[batch_indices]</code></pre>
+<p><code>yield</code> 必须在 <code>for</code> 循环里面。</p>
+<h3>5. 今天遇到的 warning</h3>
+<p>如果写：</p>
+<pre><code class="language-plain">indices = torch.randperm(num_examples)
+batch_indices = torch.tensor(indices[i:min(i + batch_size, num_examples)])</code></pre>
+<p>会出现 warning：</p>
+<pre><code class="language-plain">UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.detach().clone()</code></pre>
+<p>原因是 <code>indices</code> 本身已经是 Tensor，不需要再用 <code>torch.tensor(...)</code> 包一遍。</p>
+<p>直接写：</p>
+<pre><code class="language-plain">batch_indices = indices[i:min(i + batch_size, num_examples)]</code></pre>
+<p>即可。</p>
+<p>---</p>
+<h2>四、模型函数和损失函数</h2>
+<h3>1. 线性模型</h3>
+<pre><code class="language-plain">def linreg(X, w, b):
+    return X @ w + b</code></pre>
+<p>这就是前向计算。</p>
+<p>如果 <code>w.requires_grad=True</code>，<code>b.requires_grad=True</code>，那么执行：</p>
+<pre><code class="language-plain">y_hat = linreg(X, w, b)</code></pre>
+<p>时，PyTorch 会记录：</p>
+<pre><code class="language-plain">w, b -&gt; y_hat</code></pre>
+<p>后面 loss 由 <code>y_hat</code> 算出，计算图继续延伸：</p>
+<pre><code class="language-plain">w, b -&gt; y_hat -&gt; loss</code></pre>
+<h3>2. 平方损失</h3>
+<pre><code class="language-plain">def squared_loss(y_hat, y):
+    return (y_hat - y.reshape(y_hat.shape)) ** 2 / 2</code></pre>
+<p>这里 <code>/ 2</code> 是为了让求导形式更干净：</p>
+<pre><code class="language-plain">1/2 * (y_hat - y)^2</code></pre>
+<p>对 <code>y_hat</code> 求导时，前面的 2 会被抵消。</p>
+<h3>3. <code>mean()</code> 和 <code>sum()</code> 的区别</h3>
+<p>训练时用：</p>
+<pre><code class="language-plain">loss = squared_loss(y_hat, y).mean()
+loss.backward()</code></pre>
+<p>此时 <code>param.grad</code> 已经是 batch 平均 loss 的梯度。</p>
+<p>所以 SGD 写：</p>
+<pre><code class="language-plain">param -= lr * param.grad</code></pre>
+<p>如果用：</p>
+<pre><code class="language-plain">loss = squared_loss(y_hat, y).sum()
+loss.backward()</code></pre>
+<p>那梯度是 batch 总损失的梯度，更新时才常见：</p>
+<pre><code class="language-plain">param -= lr * param.grad / batch_size</code></pre>
+<p>不要混成：</p>
+<pre><code class="language-plain">loss.mean().backward()
+param -= lr * param.grad / batch_size</code></pre>
+<p>这样会把梯度多除一次，更新步子变小，训练会慢很多。</p>
+<p>---</p>
+<h2>五、初始化可学习参数</h2>
+<h3>1. 一维参数写法</h3>
+<p>当前代码使用：</p>
+<pre><code class="language-plain">w = torch.normal(0, 0.1, size=(len(true_w),), requires_grad=True)
+b = torch.zeros(1, requires_grad=True)</code></pre>
+<p>这里：</p>
+<pre><code class="language-plain">w.shape -&gt; (2,)
+b.shape -&gt; (1,)</code></pre>
+<p>配合：</p>
+<pre><code class="language-plain">X @ w -&gt; (batch_size,)</code></pre>
+<p>是可以训练的。</p>
+<h3>2. 列向量参数写法</h3>
+<p>也可以写成：</p>
+<pre><code class="language-plain">w = torch.normal(0, 0.01, size=(len(true_w), 1), requires_grad=True)
+b = torch.zeros(1, requires_grad=True)</code></pre>
+<p>此时：</p>
+<pre><code class="language-plain">X @ w -&gt; (batch_size, 1)
+labels -&gt; (batch_size, 1)</code></pre>
+<p>shape 更统一。</p>
+<h3>3. <code>.grad</code> 一开始是 <code>None</code></h3>
+<p>初始化后：</p>
+<pre><code class="language-plain">print(w.grad)
+print(b.grad)</code></pre>
+<p>会看到：</p>
+<pre><code class="language-plain">None
+None</code></pre>
+<p>这是正常的。</p>
+<p>只有执行过：</p>
+<pre><code class="language-plain">loss.backward()</code></pre>
+<p>之后，<code>w.grad</code> 和 <code>b.grad</code> 才会有值。</p>
+<p>---</p>
+<h2>六、手写 SGD：参数更新和清空梯度</h2>
+<h3>1. 正确写法</h3>
+<pre><code class="language-plain">def sgd(params, lr):
+    with torch.no_grad():
+        for param in params:
+            param -= lr * param.grad
+            param.grad.zero_()</code></pre>
+<p>调用：</p>
+<pre><code class="language-plain">sgd([w, b], lr)</code></pre>
+<p>这里 <code>params</code> 是参数列表：</p>
+<pre><code class="language-plain">[w, b]</code></pre>
+<p>以后参数更多时，也可以写：</p>
+<pre><code class="language-plain">[w1, b1, w2, b2]</code></pre>
+<h3>2. 为什么要 <code>torch.no_grad()</code></h3>
+<p>参数更新：</p>
+<pre><code class="language-plain">param -= lr * param.grad</code></pre>
+<p>不是模型前向计算的一部分。</p>
+<p>我们希望计算图记录的是：</p>
+<pre><code class="language-plain">w, b -&gt; y_hat -&gt; loss</code></pre>
+<p>不希望记录：</p>
+<pre><code class="language-plain">用梯度修改参数这个动作</code></pre>
+<p>所以要写：</p>
+<pre><code class="language-plain">with torch.no_grad():</code></pre>
+<h3>3. 今天踩到的 <code>torch.no_grad</code> 少括号坑</h3>
+<p>错误写法：</p>
+<pre><code class="language-plain">with torch.no_grad:</code></pre>
+<p>报错：</p>
+<pre><code class="language-plain">TypeError: &#39;type&#39; object does not support the context manager protocol</code></pre>
+<p>正确写法：</p>
+<pre><code class="language-plain">with torch.no_grad():</code></pre>
+<p><code>torch.no_grad()</code> 要调用，返回一个上下文管理器对象。</p>
+<h3>4. 为什么更新后要清空梯度</h3>
+<p>PyTorch 默认梯度累加。</p>
+<p>如果连续两次：</p>
+<pre><code class="language-plain">loss1.backward()
+loss2.backward()</code></pre>
+<p>中间没有清空梯度，那么：</p>
+<pre><code class="language-plain">w.grad = loss1 的梯度 + loss2 的梯度</code></pre>
+<p>普通小批量训练时，每个 batch 更新一次，所以更新后要：</p>
+<pre><code class="language-plain">param.grad.zero_()</code></pre>
+<p>训练节奏是：</p>
+<pre><code class="language-plain">当前 batch 算梯度
+用梯度更新参数
+清空梯度
+下一个 batch 重新算</code></pre>
+<p>---</p>
+<h2>七、完整训练循环</h2>
+<h3>1. 当前可运行版本</h3>
+<pre><code class="language-plain">import torch
+import matplotlib.pyplot as plt
+
+
+def synthetic_data(w, b, num_examples):
+    X = torch.normal(0, 1, size=(num_examples, len(w)))
+    noise = torch.normal(0, 0.01, size=(num_examples,))
+    y = X @ w + b + noise
+    return X, y.reshape((-1, 1))
+
+
+def data_iter(batch_size, features, labels):
+    num_examples = features.shape[0]
+    indices = torch.randperm(num_examples)
+
+    for i in range(0, num_examples, batch_size):
+        batch_indices = indices[i:min(i + batch_size, num_examples)]
+        yield features[batch_indices], labels[batch_indices]
+
+
+def linreg(X, w, b):
+    return X @ w + b
+
+
+def squared_loss(y_hat, y):
+    return (y_hat - y.reshape(y_hat.shape)) ** 2 / 2
+
+
+def sgd(params, lr):
+    with torch.no_grad():
+        for param in params:
+            param -= lr * param.grad
+            param.grad.zero_()
+
+
+true_w = torch.tensor([2.0, -3.4])
+true_b = 4.2
+
+lr = 0.03
+num_epochs = 5
+batch_size = 10
+num_examples = 1000
+loss_history = []
+
+features, labels = synthetic_data(true_w, true_b, num_examples)
+
+w = torch.normal(0, 0.1, size=(len(true_w),), requires_grad=True)
+b = torch.zeros(1, requires_grad=True)
+
+for epoch in range(num_epochs):
+    for X, y in data_iter(batch_size, features, labels):
+        y_hat = linreg(X, w, b)
+        loss = squared_loss(y_hat, y).mean()
+        loss_history.append(loss.item())
+
+        loss.backward()
+        sgd([w, b], lr)
+
+    with torch.no_grad():
+        train_loss = squared_loss(linreg(features, w, b), labels).mean()
+
+    print(f&quot;epoch {epoch + 1}, loss {float(train_loss):f}&quot;)
+
+print(f&quot;w={w}, w 的估计误差: {true_w.reshape(w.shape) - w}&quot;)
+print(f&quot;b={b}, b 的估计误差: {true_b - b}&quot;)</code></pre>
+<h3>2. 训练循环的顺序</h3>
+<p>每个 batch 内部：</p>
+<pre><code class="language-plain">y_hat = linreg(X, w, b)
+loss = squared_loss(y_hat, y).mean()
+loss.backward()
+sgd([w, b], lr)</code></pre>
+<p>展开后是：</p>
+<pre><code class="language-plain">前向预测
+计算平均 loss
+backward 计算梯度
+no_grad 中更新参数
+清空梯度</code></pre>
+<p>这个顺序不能乱。</p>
+<h3>3. <code>loss.item()</code> 的作用</h3>
+<p>记录每个 batch 的 loss：</p>
+<pre><code class="language-plain">loss_history.append(loss.item())</code></pre>
+<p><code>loss</code> 是一个 Tensor，而且带着计算图。</p>
+<p>如果直接保存：</p>
+<pre><code class="language-plain">loss_history.append(loss)</code></pre>
+<p>可能会把计算图也保留下来，浪费内存。</p>
+<p>所以用：</p>
+<pre><code class="language-plain">loss.item()</code></pre>
+<p>把标量 Tensor 转成 Python 数字。</p>
+<p>---</p>
+<h2>八、训练过程可视化</h2>
+<h3>1. 记录每个 batch 的 loss</h3>
+<p>在训练循环前：</p>
+<pre><code class="language-plain">loss_history = []</code></pre>
+<p>在每个 batch 中：</p>
+<pre><code class="language-plain">loss_history.append(loss.item())</code></pre>
+<p>这样 <code>loss_history</code> 的长度等于：</p>
+<pre><code class="language-plain">num_epochs * 每个 epoch 的 batch 数</code></pre>
+<p>如果：</p>
+<pre><code class="language-plain">num_epochs = 5
+num_examples = 1000
+batch_size = 10</code></pre>
+<p>那么应该有：</p>
+<pre><code class="language-plain">5 * 100 = 500</code></pre>
+<p>个 batch loss。</p>
+<h3>2. loss 曲线</h3>
+<pre><code class="language-plain">fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+ax = axes[0]
+ax.plot(loss_history)
+ax.set_yscale(&#39;log&#39;)
+ax.set_xlabel(&#39;batch&#39;)
+ax.set_ylabel(&#39;loss log scale&#39;)
+ax.set_title(&#39;训练 loss 曲线&#39;)
+ax.grid(True, alpha=0.3)</code></pre>
+<p>使用 log scale 是因为训练初期 loss 可能比较大，后期很小，用对数坐标更容易看清下降趋势。</p>
+<h3>3. 预测值 vs 真实值</h3>
+<p>今天可视化时踩到一个坑：</p>
+<pre><code class="language-plain">y_pred = linreg(X, w, b)
+ax.scatter(y, y_pred)</code></pre>
+<p>这里的 <code>X, y</code> 是训练循环结束后遗留下来的最后一个 batch，不是完整训练集。</p>
+<p>所以这只画了最后 10 条样本。</p>
+<p>应该改成：</p>
+<pre><code class="language-plain">with torch.no_grad():
+    y_pred = linreg(features, w, b)</code></pre>
+<p>用完整训练集 <code>features</code> 预测。</p>
+<p>同时，因为这是评估和画图，不需要建计算图，所以放进 <code>torch.no_grad()</code>。</p>
+<h3>4. 可视化推荐代码</h3>
+<pre><code class="language-plain">fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+
+ax = axes[0]
+ax.plot(loss_history)
+ax.set_yscale(&#39;log&#39;)
+ax.set_xlabel(&#39;batch&#39;)
+ax.set_ylabel(&#39;loss log scale&#39;)
+ax.set_title(&#39;训练 loss 曲线&#39;)
+ax.grid(True, alpha=0.3)
+
+ax = axes[1]
+
+with torch.no_grad():
+    y_pred = linreg(features, w, b)
+
+y_true_plot = labels.reshape(-1)
+y_pred_plot = y_pred.reshape(-1)
+
+ax.scatter(
+    y_true_plot,
+    y_pred_plot,
+    s=3,
+    alpha=0.15,
+    color=&#39;steelblue&#39;,
+    edgecolors=&#39;none&#39;
+)
+
+y_min = min(y_true_plot.min().item(), y_pred_plot.min().item())
+y_max = max(y_true_plot.max().item(), y_pred_plot.max().item())
+
+ax.plot(
+    [y_min, y_max],
+    [y_min, y_max],
+    color=&#39;red&#39;,
+    linewidth=1.5,
+    linestyle=&#39;--&#39;,
+    label=&#39;完美预测线&#39;
+)
+
+ax.set_xlabel(&#39;真实值&#39;)
+ax.set_ylabel(&#39;预测值&#39;)
+ax.set_title(&#39;预测值 vs 真实值&#39;)
+ax.legend()
+
+plt.suptitle(&#39;线性回归训练可视化&#39;, fontsize=14)
+plt.tight_layout(rect=[0, 0, 1, 0.92])
+plt.show()</code></pre>
+<h3>5. Matplotlib 和 Tensor</h3>
+<p>画图时如果 Tensor 带梯度，可能报错：</p>
+<pre><code class="language-plain">Can&#39;t call numpy() on Tensor that requires grad</code></pre>
+<p>处理方式：</p>
+<pre><code class="language-plain">with torch.no_grad():
+    y_pred = linreg(features, w, b)</code></pre>
+<p>或者：</p>
+<pre><code class="language-plain">y_pred.detach()</code></pre>
+<p>今天这里更推荐 <code>no_grad()</code>，因为整段预测都是评估，不需要计算图。</p>
+<p>---</p>
+<h2>九、今天完整踩坑清单</h2>
+<h3>1. <code>torch.normal</code> 的 <code>size</code> 写法</h3>
+<p>PyTorch 推荐显式写 tuple：</p>
+<pre><code class="language-plain">size=(num_examples,)
+size=(num_examples, 1)</code></pre>
+<p>不要把 NumPy 的 <code>size=n</code> 习惯直接套过来。</p>
+<h3>2. <code>(n,)</code> 和 <code>(n, 1)</code> 混用导致广播爆炸</h3>
+<p>危险组合：</p>
+<pre><code class="language-plain">X @ w -&gt; (n,)
+noise -&gt; (n, 1)</code></pre>
+<p>相加可能得到：</p>
+<pre><code class="language-plain">(n, n)</code></pre>
+<p>安全原则：</p>
+<pre><code class="language-plain">要么都一维，要么都列向量</code></pre>
+<h3>3. <code>yield</code> 缩进错导致每个 epoch 只训练一个 batch</h3>
+<p>错误：</p>
+<pre><code class="language-plain">for ...:
+    batch_indices = ...
+yield ...</code></pre>
+<p>正确：</p>
+<pre><code class="language-plain">for ...:
+    batch_indices = ...
+    yield ...</code></pre>
+<p>这个坑会让训练明显变慢，因为模型每轮只看最后一个 batch。</p>
+<h3>4. <code>torch.tensor(indices_slice)</code> 多余</h3>
+<p>如果 <code>indices</code> 已经是 Tensor，不要再包：</p>
+<pre><code class="language-plain">torch.tensor(indices[...])</code></pre>
+<p>直接：</p>
+<pre><code class="language-plain">indices[...]</code></pre>
+<h3>5. <code>with torch.no_grad</code> 少括号</h3>
+<p>错误：</p>
+<pre><code class="language-plain">with torch.no_grad:</code></pre>
+<p>正确：</p>
+<pre><code class="language-plain">with torch.no_grad():</code></pre>
+<h3>6. <code>loss.mean()</code> 后不要在 SGD 中再除 batch size</h3>
+<p>如果：</p>
+<pre><code class="language-plain">loss = squared_loss(...).mean()</code></pre>
+<p>那么：</p>
+<pre><code class="language-plain">param -= lr * param.grad</code></pre>
+<p>如果又写：</p>
+<pre><code class="language-plain">param -= lr * param.grad / batch_size</code></pre>
+<p>就会让更新幅度缩小，训练变慢。</p>
+<h3>7. 可视化时不要用最后一个 batch 的 <code>X, y</code></h3>
+<p>训练循环结束后，变量 <code>X, y</code> 还存在，但它们只是最后一个 batch。</p>
+<p>画完整训练集预测效果时，要用：</p>
+<pre><code class="language-plain">linreg(features, w, b)
+labels</code></pre>
+<h3>8. 画图预测时用 <code>torch.no_grad()</code></h3>
+<p>评估和可视化不需要计算图：</p>
+<pre><code class="language-plain">with torch.no_grad():
+    y_pred = linreg(features, w, b)</code></pre>
+<p>---</p>
+<h2>十. 最终展示</h2>
+<h3>1. 完整代码</h3>
+<pre><code class="language-text">import torch
+import numpy as np
+import pandas as pd
+import matplotlib
+import matplotlib.pyplot as plt
+
+matplotlib.rcParams[&#39;font.family&#39;] = &#39;Arial Unicode MS&#39;  # macOS 自带
+matplotlib.rcParams[&#39;axes.unicode_minus&#39;] = False  # 防止负号也变方块
+
+# 数据准备
+def synthetic_data(w, b, num_examples):
+    # 根据真实参数 w, b 生成特征 X 和标签 y
+    X = torch.normal(0, 1, size=(num_examples, len(w)))
+    noise = torch.normal(0, 0.01, size=(num_examples,))
+    y = X @ w + b + noise
+    return X, y.reshape((-1, 1))
+
+
+def data_iter(batch_size, features, labels):
+    # 每次随机取出一个小批量数据
+    num_examples = features.shape[0]
+    indices = torch.randperm(num_examples)
+    for i in range(0, num_examples, batch_size):
+        batch_indices = indices[i:min(i + batch_size, num_examples)]
+        yield features[batch_indices], labels[batch_indices]
+
+
+# 模型定义
+def linreg(X, w, b):
+    return X @ w + b
+
+
+def squared_loss(y_hat, y):
+    return (y_hat - y.reshape(y_hat.shape)) ** 2 / 2
+
+
+# 梯度更新
+def sgd(params, lr):
+    # 根据 param.grad 手动更新参数，并在更新后清空梯度
+    with torch.no_grad():
+        for param in params:
+            param -= lr * param.grad
+            param.grad.zero_()
+
+
+true_w = torch.tensor([2.0, -3.4])
+true_b = 4.2
+lr = 0.03
+num_epochs = 5
+batch_size = 10
+num_examples = 1000
+loss_history = []
+
+features, labels = synthetic_data(true_w, true_b, num_examples)
+print(&quot;features.shape:&quot;, features.shape)
+print(&quot;labels.shape:&quot;, labels.shape)
+print(&quot;labels.numel():&quot;, labels.numel())
+
+w = torch.normal(0, 0.1, size=(len(true_w),), requires_grad=True)
+b = torch.zeros(1, requires_grad=True)
+
+for epoch in range(num_epochs):
+    for X, y in data_iter(batch_size, features, labels):
+        y_hat = linreg(X, w, b)
+        loss = squared_loss(y_hat, y).mean()
+        loss_history.append(loss.item())
+        loss.backward()
+        sgd([w, b], lr)
+
+    with torch.no_grad():
+        train_loss = squared_loss(linreg(features, w, b), labels).mean()
+    print(f&quot;epoch {epoch + 1}, loss {float(train_loss):f}&quot;)
+    print(f&quot;w={w}, w 的估计误差: {true_w.reshape(w.shape) - w}&quot;)
+    print(f&quot;b={b}, b 的估计误差: {true_b - b}&quot;)
+
+
+# 可视化
+fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+axes.flatten()
+
+ax = axes[0]
+ax.plot(loss_history)
+ax.set_yscale(&#39;log&#39;)
+ax.set_xlabel(&#39;batch&#39;)
+ax.set_ylabel(&#39;loss（log scale）&#39;)
+ax.set_title(&#39;训练 loss 曲线&#39;)
+ax.grid(True, alpha=0.3)
+
+ax = axes[1]
+with torch.no_grad():
+    y_pred = linreg(features, w, b)
+
+y_true_plot = labels.reshape(-1)
+y_pred_plot = y_pred.reshape(-1)
+ax.scatter(
+    y_true_plot,
+    y_pred_plot,
+    s=3,
+    alpha=0.15,
+    color=&#39;steelblue&#39;,
+    edgecolors=&#39;none&#39;,
+)
+
+y_min = min(y_true_plot.min().item(), y_pred_plot.min().item())
+y_max = max(y_true_plot.max().item(), y_pred_plot.max().item())
+ax.plot(
+    [y_min, y_max],
+    [y_min, y_max],
+    color=&#39;red&#39;,
+    linewidth=1.5,
+    linestyle=&#39;--&#39;,
+    label=&#39;完美预测线&#39;,
+)
+ax.set_xlabel(&#39;真实值&#39;)
+ax.set_ylabel(&#39;预测值&#39;)
+ax.set_title(&#39;预测值 vs 真实值&#39;)
+ax.legend()
+
+plt.suptitle(&#39;线性回归训练可视化&#39;, fontsize=14)
+plt.tight_layout(rect=[0, 0, 1, 0.92])
+plt.show()</code></pre>
+<h3>2. 效果展示</h3>
+<p><img src="../../assets/stage-1/Pasted%20image%2020260629213515.png" alt="Pasted image 20260629213515"><br><img src="../../assets/stage-1/Pasted%20image%2020260629213537.png" alt="Pasted image 20260629213537"><br>---</p>
+<h2>十一、今天的最终心智模型</h2>
+<p>手写线性回归训练循环的核心是：</p>
+<pre><code class="language-plain">数据 batch
+  ↓
+用当前 w, b 前向预测
+  ↓
+计算平均 loss
+  ↓
+loss.backward() 算出 w.grad, b.grad
+  ↓
+with torch.no_grad() 手动更新参数
+  ↓
+param.grad.zero_() 清空旧梯度
+  ↓
+下一个 batch 重新建图、重新计算</code></pre>
+<p>最重要的分工：</p>
+<pre><code class="language-plain">linreg：定义模型怎么预测
+squared_loss：定义预测错多少
+backward：计算 loss 对参数的梯度
+sgd：用梯度更新参数
+zero_：清空梯度，避免累加</code></pre>
+<p>今天写的纯 Tensor 版本，就是以后 PyTorch 标准训练流程的底层原型：</p>
+<pre><code class="language-plain">loss = loss_fn(net(X), y)
+loss.backward()
+optimizer.step()
+optimizer.zero_grad()</code></pre>
+<p>只不过今天我们没有用 <code>nn.Module</code> 和 <code>optimizer</code>，而是亲手写出了它们背后的核心机制。</p></div></article>
+<nav class="note-pagination"><a href="./day-2-学习笔记-pytorch-autograd-自动微分基础.html">← Day 2 学习笔记：PyTorch Autograd 自动微分基础</a><a href="./day-4-学习笔记-手写-softmax-分类-纯-tensor-实现.html">Day 4 学习笔记：手写 Softmax 分类（纯 Tensor 实现） →</a></nav>
+  </main>
+</body>
+</html>
