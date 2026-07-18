@@ -145,7 +145,7 @@
     }
 
     .hero-main {
-      width: min(960px, calc(100vw - 390px));
+      width: min(760px, calc(100vw - 580px));
       margin: 0 clamp(22px, 4vw, 78px) 0 clamp(300px, 27vw, 380px);
       text-align: center;
     }
@@ -442,16 +442,23 @@
     }
 
     .hero-search {
+      width: min(760px, 100%);
+      margin-inline: auto;
       display: flex;
       align-items: center;
       min-height: 62px;
       padding: 0 18px;
-      border: 1px solid rgba(255,255,255,.38);
+      border: 1px solid rgba(228,244,250,.42);
       border-radius: 999px;
-      background: rgba(4,13,24,.40);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+      background: linear-gradient(115deg, rgba(220,240,248,.16), rgba(8,25,40,.36) 42%, rgba(196,220,229,.10));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 -14px 30px rgba(3,13,23,.18), 0 18px 48px rgba(1,8,16,.20);
+      backdrop-filter: blur(24px) saturate(135%);
+      -webkit-backdrop-filter: blur(24px) saturate(135%);
+      transition: border-color .3s ease, box-shadow .3s ease, background .3s ease;
     }
+
+    .hero-search:focus-within { border-color: rgba(230,249,255,.80); box-shadow: inset 0 1px 0 rgba(255,255,255,.44), 0 0 0 4px rgba(130,207,229,.10), 0 20px 58px rgba(1,8,16,.30); }
+    .hero-search:has(input[aria-invalid="true"]) { border-color: rgba(238,165,157,.82); }
 
     .hero-search-label {
       padding-right: 16px;
@@ -571,32 +578,42 @@
       display: grid;
       place-items: center;
       overflow: hidden;
-      border: 1px solid rgba(219,243,246,.8);
+      border: 1px solid rgba(220,240,246,.68);
       border-radius: 50%;
       color: var(--text);
-      background: linear-gradient(145deg, rgba(240,254,255,.27), rgba(3,13,21,.55));
-      box-shadow: inset 12px 9px 16px rgba(241,255,255,.16), inset -14px -12px 20px rgba(0,9,16,.42), 0 20px 60px rgba(0,0,0,.35);
+      background: radial-gradient(circle at 34% 25%, rgba(241,253,255,.35), transparent 28%), linear-gradient(145deg, rgba(201,224,230,.28), rgba(5,20,31,.52) 62%, rgba(3,11,20,.72));
+      box-shadow: inset 10px 9px 18px rgba(242,255,255,.20), inset -18px -14px 26px rgba(0,9,16,.48), 0 20px 60px rgba(0,0,0,.35);
       cursor: pointer;
       transform: translate(var(--depth-x), var(--depth-y)) rotate(var(--turn, 0deg));
       transition: transform .16s ease-out, box-shadow .35s ease;
     }
 
+    .memory-aperture::before,
+    .memory-aperture::after {
+      content: "";
+      position: absolute;
+      border-radius: inherit;
+      pointer-events: none;
+    }
+    .memory-aperture::before { inset: 7px; border: 1px solid rgba(240,252,255,.26); background: linear-gradient(135deg, rgba(255,255,255,.20), transparent 34%); mix-blend-mode: screen; }
+    .memory-aperture::after { inset: 18px; border: 1px solid rgba(156,207,220,.24); box-shadow: inset 0 0 24px rgba(106,194,213,.14); }
+
     .memory-aperture-ticks {
       position: absolute;
       inset: 8px;
       border-radius: inherit;
-      background: repeating-conic-gradient(from 12deg, rgba(221,243,243,.54) 0 1deg, transparent 1.5deg 11deg);
+      background: repeating-conic-gradient(from 12deg, rgba(221,243,243,.34) 0 1deg, transparent 1.5deg 18deg);
       -webkit-mask: radial-gradient(transparent 0 62%, #000 63% 65%, transparent 66%);
       mask: radial-gradient(transparent 0 62%, #000 63% 65%, transparent 66%);
     }
 
     .memory-aperture-blades {
-      width: 102px;
-      height: 102px;
+      width: 94px;
+      height: 94px;
       border-radius: 50%;
-      background: conic-gradient(from 15deg, #0a1823 0 38deg, #1d4a5a 40deg 57deg, #07131d 59deg 98deg, #285766 100deg 116deg, #06131d 118deg 157deg, #1d4857 159deg 176deg, #06131d 178deg 217deg, #285867 219deg 236deg, #07141e 238deg 277deg, #1c4756 279deg 296deg, #06121c 298deg 337deg, #2a5966 339deg 356deg, #0b1922 358deg);
-      box-shadow: inset 0 0 24px rgba(0,0,0,.72);
-      transform: scale(var(--blade-scale, .86)) rotate(var(--blade-turn, 0deg));
+      background: conic-gradient(from 15deg, #071520 0 42deg, #204a58 43deg 61deg, #07141e 62deg 102deg, #1c4452 103deg 121deg, #07141e 122deg 162deg, #204a58 163deg 181deg, #07141e 182deg 222deg, #1c4452 223deg 241deg, #07141e 242deg 282deg, #204a58 283deg 301deg, #07141e 302deg 342deg, #1c4452 343deg 359deg);
+      box-shadow: inset 0 0 24px rgba(0,0,0,.76), 0 0 16px rgba(127,210,224,.08);
+      transform: scale(var(--blade-scale, .82)) rotate(var(--blade-turn, 0deg));
       transition: transform .38s cubic-bezier(.2,.75,.2,1);
     }
 
@@ -651,15 +668,24 @@
       gap: 10px;
       align-items: center;
       padding: 10px 12px;
-      border: 1px solid rgba(255,255,255,.22);
-      border-radius: 12px;
-      background: rgba(4,15,28,.82);
-      box-shadow: 0 12px 28px rgba(0,0,0,.28);
+      border: 1px solid rgba(220,241,247,.35);
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(226,244,249,.16), rgba(4,15,28,.76));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.24), 0 16px 38px rgba(0,0,0,.32);
+      backdrop-filter: blur(18px) saturate(130%);
+      -webkit-backdrop-filter: blur(18px) saturate(130%);
       font-size: 11px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(10px) scale(.88);
+      filter: blur(8px);
+      transform-origin: 20% 100%;
+      transition: opacity .22s ease, transform .42s cubic-bezier(.16,1.32,.3,1), filter .32s ease;
     }
 
     .contact-popover button { border: 0; border-radius: 999px; padding: 5px 8px; color: var(--text); background: rgba(101,203,229,.30); cursor: pointer; }
     .contact-popover[hidden] { display: none; }
+    .contact-popover.is-open { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); filter: blur(0); }
 
     .hero-footer {
       position: absolute;
@@ -1082,10 +1108,10 @@
           <p class="hero-heading-kicker">PERSONAL ARCHIVE / 121</p>
           <h1 id="hero-title">STILL, I GO ON</h1>
         </div>
-        <form id="hero-search-form" class="hero-search" action="https://www.bing.com/search" method="get" target="_blank">
-          <label class="sr-only" for="hero-search-input">搜索个人主页</label>
+        <form id="hero-search-form" class="hero-search" action="https://www.google.com/search" method="get" target="_blank">
+          <label class="sr-only" for="hero-search-input">Google 搜索</label>
           <span class="hero-search-label">SEARCH</span>
-          <input id="hero-search-input" name="q" type="search" placeholder="搜索你的档案…" autocomplete="off">
+          <input id="hero-search-input" name="q" type="search" placeholder="Google 搜索…" autocomplete="off">
           <button type="submit" aria-label="搜索"><span aria-hidden="true">⌕</span></button>
         </form>
         <div class="hero-quote-area">
@@ -1437,17 +1463,35 @@
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let aperturePhraseIndex = 0;
 
-    heroSearchForm.addEventListener("submit", () => {
-      const query = heroSearchInput.value.trim();
-      heroSearchInput.value = (`site:snowstorm-121.github.io ${query}`).trim();
+    heroSearchForm.addEventListener("submit", (event) => {
+      if (heroSearchInput.value.trim()) return;
+      event.preventDefault();
+      heroSearchInput.setAttribute("aria-invalid", "true");
+      heroSearchInput.focus();
     });
+    heroSearchInput.addEventListener("input", () => heroSearchInput.removeAttribute("aria-invalid"));
 
-    document.querySelectorAll("[data-contact]").forEach((trigger) => trigger.addEventListener("click", () => {
-      const isWechat = trigger.dataset.contact === "wechat";
-      contactPopoverValue.textContent = isWechat ? "微信：yan_yongyi" : "QQ：2971234387";
-      copyContact.dataset.value = isWechat ? "yan_yongyi" : "2971234387";
+    let contactCloseTimer;
+    function toggleContact(contact) {
+      const value = contact === "wechat" ? "yan_yongyi" : "2971234387";
+      const alreadyOpen = !contactPopover.hidden && copyContact.dataset.value === value;
+      window.clearTimeout(contactCloseTimer);
+      if (alreadyOpen) {
+        contactPopover.classList.remove("is-open");
+        contactCloseTimer = window.setTimeout(() => {
+          contactPopover.hidden = !contactPopover.hidden;
+        }, reduceMotion ? 0 : 280);
+        return;
+      }
+      contactPopoverValue.textContent = contact === "wechat" ? "微信：yan_yongyi" : "QQ：2971234387";
+      copyContact.dataset.value = value;
       copyContact.textContent = "复制";
       contactPopover.hidden = false;
+      requestAnimationFrame(() => contactPopover.classList.add("is-open"));
+    }
+
+    document.querySelectorAll("[data-contact]").forEach((trigger) => trigger.addEventListener("click", () => {
+      toggleContact(trigger.dataset.contact);
     }));
 
     copyContact.addEventListener("click", async () => {

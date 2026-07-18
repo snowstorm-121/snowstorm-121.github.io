@@ -4,9 +4,9 @@ import { readFile } from "node:fs/promises";
 
 const page = await readFile(new URL("../index.html", import.meta.url), "utf8");
 
-test("hero provides title, Bing search, and a safe main region", () => {
+test("hero provides title, Google search, and a safe main region", () => {
   assert.match(page, /id="hero-title"[^>]*>STILL, I GO ON/);
-  assert.match(page, /id="hero-search-form"[^>]*action="https:\/\/www\.bing\.com\/search"/);
+  assert.match(page, /id="hero-search-form"[^>]*action="https:\/\/www\.google\.com\/search"/);
   assert.match(page, /id="hero-search-input"[^>]*name="q"/);
   assert.match(page, /class="hero-content"/);
   assert.match(page, /\.hero-main\s*\{[\s\S]*margin:\s*0 clamp\(22px, 4vw, 78px\) 0 clamp\(300px,/);
@@ -42,4 +42,11 @@ test("player uses native audio playback and symmetric transport controls", () =>
   assert.match(page, /await profileAudio\.play\(\)/);
   assert.match(page, /profileAudio\.addEventListener\("ended"/);
   assert.match(page, /#track-previous,\s*#track-next\s*\{/);
+});
+
+test("homepage toggles contacts and submits raw Google keywords", () => {
+  assert.match(page, /action="https:\/\/www\.google\.com\/search"/);
+  assert.match(page, /contactPopover\.hidden = !contactPopover\.hidden/);
+  assert.match(page, /\.hero-search\s*\{[\s\S]*width: min\(760px,/);
+  assert.match(page, /\.memory-aperture::before/);
 });
