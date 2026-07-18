@@ -56,6 +56,15 @@ test("player maps every local track to a local LRC asset", () => {
   assert.match(page, /long-time-no-see-eason-chan\.lrc/);
 });
 
+test("clock widget syncs local time and LRC lyrics with the native player", () => {
+  assert.match(page, /function parseLrc\(source\)/);
+  assert.match(page, /fetch\(track\.lyrics\)/);
+  assert.match(page, /profileAudio\.addEventListener\("timeupdate", syncLyrics\)/);
+  assert.match(page, /window\.setInterval\(syncClock, 1000\)/);
+  assert.match(page, /clockWidget\.addEventListener\("pointermove"/);
+  assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.clock-orbit/);
+});
+
 test("player uses native audio playback and symmetric transport controls", () => {
   assert.match(page, /profileAudio\.src = track\.src/);
   assert.match(page, /await profileAudio\.play\(\)/);

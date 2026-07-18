@@ -568,6 +568,11 @@
     }
 
     .clock-widget {
+      --clock-lift: 0px;
+      --clock-x: 0px;
+      --clock-y: 0px;
+      --clock-rotate-x: 0deg;
+      --clock-rotate-y: 0deg;
       position: absolute;
       top: clamp(96px, 14vh, 148px);
       right: clamp(22px, 4vw, 62px);
@@ -587,6 +592,7 @@
       backdrop-filter: blur(20px) saturate(135%);
       -webkit-backdrop-filter: blur(20px) saturate(135%);
       cursor: pointer;
+      transform: translate3d(var(--clock-x), calc(var(--clock-lift) + var(--clock-y)), 0) rotateX(var(--clock-rotate-x)) rotateY(var(--clock-rotate-y));
       transition: transform .35s cubic-bezier(.2, .75, .2, 1), box-shadow .35s ease, border-color .35s ease;
     }
 
@@ -697,11 +703,14 @@
       font-weight: 680;
     }
 
+    #lyrics-previous,
+    #lyrics-next { display: none; }
+
     .clock-widget:hover,
     .clock-widget:focus-visible {
       border-color: rgba(189, 247, 244, .74);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, .46), inset 0 -18px 34px rgba(0, 8, 20, .3), 0 28px 62px rgba(0, 0, 0, .4), 0 0 32px rgba(99, 229, 234, .3);
-      transform: translateY(-9px);
+      --clock-lift: -9px;
     }
 
     .clock-widget:hover::before,
@@ -712,6 +721,10 @@
     .clock-widget:focus-visible .clock-orbit-inner { animation-duration: 6s; }
     .clock-widget:hover .clock-lyrics,
     .clock-widget:focus-visible .clock-lyrics { max-height: 82px; background: rgba(7, 29, 44, .58); }
+    .clock-widget:hover #lyrics-previous,
+    .clock-widget:hover #lyrics-next,
+    .clock-widget:focus-visible #lyrics-previous,
+    .clock-widget:focus-visible #lyrics-next { display: block; }
 
     @keyframes orbit-clockwise { to { transform: rotate(360deg); } }
     @keyframes orbit-counterclockwise { to { transform: rotate(-360deg); } }
@@ -1330,9 +1343,18 @@
     const previousTrack = document.querySelector("#track-previous");
     const playTrack = document.querySelector("#track-play");
     const nextTrack = document.querySelector("#track-next");
+    const clockWidget = document.querySelector("#clock-widget");
+    const clockTime = document.querySelector("#clock-time");
+    const clockDate = document.querySelector("#clock-date");
+    const lyricsPrevious = document.querySelector("#lyrics-previous");
+    const lyricsCurrent = document.querySelector("#lyrics-current");
+    const lyricsNext = document.querySelector("#lyrics-next");
+    const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const lyricCache = new Map();
     const profileAudio = new Audio();
     profileAudio.preload = "none";
     profileAudio.volume = 1;
+    let lyricLines = [];
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     let profileAudioContext;
     let profileMasterGain;
@@ -1340,6 +1362,80 @@
     let profileNoteTimer;
     let profileSwitchTimer;
     let profileSources = [];
+
+    function parseLrc(source) {
+      return source.split(/\r?\n/).flatMap((line) => {
+        const text = line.replace(/^(\[\d{2}:\d{2}(?:\.\d{1,3})?\])+/, "").trim();
+        return [...line.matchAll(/\[(\d{2}):(\d{2}(?:\.\d{1,3})?)\]/g)]
+          .map((match) => ({ time: Number(match[1]) * 60 + Number(match[2]), text }))
+          .filter((entry) => entry.text);
+      }).sort((a, b) => a.time - b.time);
+    }
+
+    function renderLyricStatus(track, message) {
+      lyricsPrevious.textContent = "";
+      lyricsCurrent.textContent = `${track.title} · ${message}`;
+      lyricsNext.textContent = "";
+    }
+
+    function renderLyricLines(index) {
+      const track = TRACKS[trackIndex];
+      const current = lyricLines[index] ?? lyricLines[0];
+      if (!current) {
+        renderLyricStatus(track, "歌词暂不可用");
+        return;
+      }
+      lyricsPrevious.textContent = lyricLines[index - 1]?.text ?? "";
+      lyricsCurrent.textContent = `${track.title} · ${current.text}`;
+      lyricsNext.textContent = lyricLines[index + 1]?.text ?? "";
+    }
+
+    function syncLyrics() {
+      if (!lyricLines.length) return;
+      const current = lyricLines.findLastIndex((line) => line.time <= profileAudio.currentTime);
+      renderLyricLines(current < 0 ? 0 : current);
+    }
+
+    async function loadLyrics(track) {
+      lyricLines = [];
+      renderLyricStatus(track, "加载歌词…");
+      try {
+        let lines = lyricCache.get(track.lyrics);
+        if (!lines) {
+          const response = await fetch(track.lyrics);
+          if (!response.ok) throw new Error("Lyrics could not be loaded.");
+          lines = parseLrc(await response.text());
+        }
+        lyricCache.set(track.lyrics, lines);
+        if (track !== TRACKS[trackIndex]) return;
+        lyricLines = lines;
+        if (!lyricLines.length) {
+          renderLyricStatus(track, "歌词暂不可用");
+          return;
+        }
+        renderLyricLines(0);
+        syncLyrics();
+      } catch {
+        if (track === TRACKS[trackIndex]) renderLyricStatus(track, "歌词暂不可用");
+      }
+    }
+
+    function syncClock() {
+      const now = new Date();
+      const twoDigits = (value) => String(value).padStart(2, "0");
+      const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
+      clockTime.textContent = `${twoDigits(now.getHours())}:${twoDigits(now.getMinutes())}:${twoDigits(now.getSeconds())}`;
+      clockDate.textContent = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 星期${weekdays[now.getDay()]}`;
+    }
+
+    function updateClockWidget() {
+      syncClock();
+      syncLyrics();
+    }
+
+    function clearClockParallax() {
+      ["--clock-x", "--clock-y", "--clock-rotate-x", "--clock-rotate-y"].forEach((property) => clockWidget.style.removeProperty(property));
+    }
 
     function createTrackDots() {
       TRACKS.forEach((track, index) => {
@@ -1504,6 +1600,7 @@
       profileAudio.pause();
       profileAudio.src = track.src;
       profileAudio.load();
+      void loadLyrics(track);
       profileStatus.textContent = `${track.title} — ${track.artist}.`;
       renderTrack(animate);
     }
@@ -1525,9 +1622,32 @@
       }
     }
 
-    profileAudio.addEventListener("play", syncNativePlayback);
-    profileAudio.addEventListener("pause", syncNativePlayback);
-    profileAudio.addEventListener("ended", () => switchNativeTrack(1));
+    profileAudio.addEventListener("play", () => {
+      syncNativePlayback();
+      syncLyrics();
+    });
+    profileAudio.addEventListener("pause", () => {
+      syncNativePlayback();
+      syncLyrics();
+    });
+    profileAudio.addEventListener("ended", () => {
+      syncLyrics();
+      switchNativeTrack(1);
+    });
+    profileAudio.addEventListener("timeupdate", syncLyrics);
+
+    if (!reduceMotionQuery.matches) {
+      clockWidget.addEventListener("pointermove", (event) => {
+        const bounds = clockWidget.getBoundingClientRect();
+        const x = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
+        const y = Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height));
+        clockWidget.style.setProperty("--clock-x", `${(x - .5) * 8}px`);
+        clockWidget.style.setProperty("--clock-y", `${(y - .5) * 8}px`);
+        clockWidget.style.setProperty("--clock-rotate-x", `${(0.5 - y) * 5}deg`);
+        clockWidget.style.setProperty("--clock-rotate-y", `${(x - .5) * 5}deg`);
+      });
+      clockWidget.addEventListener("pointerleave", clearClockParallax);
+    }
 
     const canHover = window.matchMedia("(hover: hover) and (pointer: fine)");
 
@@ -1545,13 +1665,15 @@
     createTrackDots();
     loadTrack(trackIndex);
     renderTrack();
+    updateClockWidget();
+    window.setInterval(syncClock, 1000);
 
     const heroSearchForm = document.querySelector("#hero-search-form");
     const heroSearchInput = document.querySelector("#hero-search-input");
     const contactPopover = document.querySelector("#contact-popover");
     const contactPopoverValue = document.querySelector("#contact-popover-value");
     const copyContact = document.querySelector("#copy-contact");
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduceMotion = reduceMotionQuery.matches;
 
     heroSearchForm.addEventListener("submit", (event) => {
       if (heroSearchInput.value.trim()) return;
