@@ -707,24 +707,31 @@
     #lyrics-next { display: none; }
 
     .clock-widget:hover,
-    .clock-widget:focus-visible {
+    .clock-widget:focus-visible,
+    .clock-widget.is-expanded {
       border-color: rgba(189, 247, 244, .74);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, .46), inset 0 -18px 34px rgba(0, 8, 20, .3), 0 28px 62px rgba(0, 0, 0, .4), 0 0 32px rgba(99, 229, 234, .3);
       --clock-lift: -9px;
     }
 
     .clock-widget:hover::before,
-    .clock-widget:focus-visible::before { opacity: 1; transform: translateX(45%); }
+    .clock-widget:focus-visible::before,
+    .clock-widget.is-expanded::before { opacity: 1; transform: translateX(45%); }
     .clock-widget:hover .clock-orbit-outer,
-    .clock-widget:focus-visible .clock-orbit-outer { animation-duration: 8s; }
+    .clock-widget:focus-visible .clock-orbit-outer,
+    .clock-widget.is-expanded .clock-orbit-outer { animation-duration: 8s; }
     .clock-widget:hover .clock-orbit-inner,
-    .clock-widget:focus-visible .clock-orbit-inner { animation-duration: 6s; }
+    .clock-widget:focus-visible .clock-orbit-inner,
+    .clock-widget.is-expanded .clock-orbit-inner { animation-duration: 6s; }
     .clock-widget:hover .clock-lyrics,
-    .clock-widget:focus-visible .clock-lyrics { max-height: 82px; background: rgba(7, 29, 44, .58); }
+    .clock-widget:focus-visible .clock-lyrics,
+    .clock-widget.is-expanded .clock-lyrics { max-height: 82px; background: rgba(7, 29, 44, .58); }
     .clock-widget:hover #lyrics-previous,
     .clock-widget:hover #lyrics-next,
     .clock-widget:focus-visible #lyrics-previous,
-    .clock-widget:focus-visible #lyrics-next { display: block; }
+    .clock-widget:focus-visible #lyrics-next,
+    .clock-widget.is-expanded #lyrics-previous,
+    .clock-widget.is-expanded #lyrics-next { display: block; }
 
     @keyframes orbit-clockwise { to { transform: rotate(360deg); } }
     @keyframes orbit-counterclockwise { to { transform: rotate(-360deg); } }
@@ -1227,7 +1234,7 @@
       </div>
     </main>
 
-    <button class="clock-widget" id="clock-widget" type="button" aria-label="查看当前播放歌词">
+    <button class="clock-widget" id="clock-widget" type="button" aria-label="查看当前播放歌词" aria-expanded="false">
       <span class="clock-time" id="clock-time">00:00:00</span>
       <span class="clock-date" id="clock-date">加载日期…</span>
       <span class="clock-orbits" aria-hidden="true">
@@ -1355,6 +1362,10 @@
     profileAudio.preload = "none";
     profileAudio.volume = 1;
     let lyricLines = [];
+    let renderedLyricTrack;
+    let renderedLyricIndex;
+    let renderedLyricLines;
+    let renderedLyricMessage;
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     let profileAudioContext;
     let profileMasterGain;
@@ -1373,9 +1384,19 @@
     }
 
     function renderLyricStatus(track, message) {
+      if (
+        renderedLyricTrack === track &&
+        renderedLyricIndex === null &&
+        renderedLyricLines === lyricLines &&
+        renderedLyricMessage === message
+      ) return;
       lyricsPrevious.textContent = "";
       lyricsCurrent.textContent = `${track.title} · ${message}`;
       lyricsNext.textContent = "";
+      renderedLyricTrack = track;
+      renderedLyricIndex = null;
+      renderedLyricLines = lyricLines;
+      renderedLyricMessage = message;
     }
 
     function renderLyricLines(index) {
@@ -1385,9 +1406,18 @@
         renderLyricStatus(track, "歌词暂不可用");
         return;
       }
+      if (
+        renderedLyricTrack === track &&
+        renderedLyricIndex === index &&
+        renderedLyricLines === lyricLines
+      ) return;
       lyricsPrevious.textContent = lyricLines[index - 1]?.text ?? "";
       lyricsCurrent.textContent = `${track.title} · ${current.text}`;
       lyricsNext.textContent = lyricLines[index + 1]?.text ?? "";
+      renderedLyricTrack = track;
+      renderedLyricIndex = index;
+      renderedLyricLines = lyricLines;
+      renderedLyricMessage = undefined;
     }
 
     function syncLyrics() {
@@ -1435,6 +1465,11 @@
 
     function clearClockParallax() {
       ["--clock-x", "--clock-y", "--clock-rotate-x", "--clock-rotate-y"].forEach((property) => clockWidget.style.removeProperty(property));
+    }
+
+    function toggleClockLyrics() {
+      const isExpanded = clockWidget.classList.toggle("is-expanded");
+      clockWidget.setAttribute("aria-expanded", String(isExpanded));
     }
 
     function createTrackDots() {
@@ -1635,6 +1670,7 @@
       switchNativeTrack(1);
     });
     profileAudio.addEventListener("timeupdate", syncLyrics);
+    clockWidget.addEventListener("click", toggleClockLyrics);
 
     if (!reduceMotionQuery.matches) {
       clockWidget.addEventListener("pointermove", (event) => {

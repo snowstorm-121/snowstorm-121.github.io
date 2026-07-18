@@ -70,6 +70,20 @@ test("clock widget syncs local time and LRC lyrics with the native player", () =
   assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.clock-orbit/);
 });
 
+test("clock widget exposes a persistent lyric disclosure through its native button activation", () => {
+  assert.match(page, /id="clock-widget"[^>]*type="button"[^>]*aria-expanded="false"/);
+  assert.match(page, /function toggleClockLyrics\(\)\s*\{[\s\S]*clockWidget\.classList\.toggle\("is-expanded"\)[\s\S]*clockWidget\.setAttribute\("aria-expanded", String\(isExpanded\)\)/);
+  assert.match(page, /clockWidget\.addEventListener\("click", toggleClockLyrics\)/);
+  assert.match(page, /\.clock-widget\.is-expanded\s*\{[\s\S]*--clock-lift: -9px;/);
+  assert.match(page, /\.clock-widget\.is-expanded \.clock-lyrics\s*\{\s*max-height: 82px;/);
+});
+
+test("clock lyric rendering skips duplicate live-region writes for an unchanged track and lyric index", () => {
+  assert.match(page, /let renderedLyricTrack;\s*let renderedLyricIndex;\s*let renderedLyricLines;/);
+  assert.match(page, /function renderLyricLines\(index\)\s*\{[\s\S]*renderedLyricTrack === track[\s\S]*renderedLyricIndex === index[\s\S]*renderedLyricLines === lyricLines[\s\S]*\) return;/);
+  assert.match(page, /function renderLyricStatus\(track, message\)\s*\{[\s\S]*renderedLyricIndex === null[\s\S]*renderedLyricLines === lyricLines[\s\S]*\) return;/);
+});
+
 test("player uses native audio playback and symmetric transport controls", () => {
   assert.match(page, /profileAudio\.src = track\.src/);
   assert.match(page, /await profileAudio\.play\(\)/);
