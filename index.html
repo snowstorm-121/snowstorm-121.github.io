@@ -153,9 +153,9 @@
       --track-accent: #8d89b8;
       position: absolute;
       top: clamp(104px, 12vh, 148px);
-      left: clamp(34px, 7vw, 112px);
+      left: clamp(18px, 3.8vw, 58px);
       z-index: 4;
-      width: 330px;
+      width: 280px;
     }
 
     .avatar-player {
@@ -362,7 +362,7 @@
     }
 
     .profile-card {
-      width: 330px;
+      width: 280px;
       margin-top: 16px;
       padding: 22px;
       border: 1px solid rgba(255,255,255,.14);
@@ -743,7 +743,7 @@
       .archive-card:last-child { grid-column: 1 / -1; width: calc(50% - 9px); justify-self: center; }
     }
 
-    @media (max-width: 1060px) {
+    @media (max-width: 1320px) {
       .hero {
         display: block;
         min-height: 100svh;
@@ -752,7 +752,7 @@
       .hero-profile {
         position: relative;
         inset: auto;
-        width: min(100%, 330px);
+        width: min(100%, 280px);
         margin: 0 auto 44px;
       }
       .hero-main {
@@ -997,19 +997,28 @@
       window.setTimeout(() => avatarPlayer.classList.remove("is-switching"), 340);
     }
 
-    function createProfileTone(frequency, gainValue, duration) {
+    function createProfileVoice(frequency, gainValue, duration) {
       const now = profileAudioContext.currentTime;
-      const oscillator = profileAudioContext.createOscillator();
-      const gain = profileAudioContext.createGain();
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(frequency, now);
-      gain.gain.setValueAtTime(.0001, now);
-      gain.gain.exponentialRampToValueAtTime(gainValue, now + .24);
-      gain.gain.exponentialRampToValueAtTime(.0001, now + duration);
-      oscillator.connect(gain).connect(profileTrackGain);
-      oscillator.start(now);
-      oscillator.stop(now + duration + .05);
-      profileSources.push(oscillator);
+      ["sine", "triangle", "sawtooth"].forEach((type, index) => {
+        const oscillator = profileAudioContext.createOscillator();
+        const filter = profileAudioContext.createBiquadFilter();
+        const gain = profileAudioContext.createGain();
+        const detune = [-5, 4, 0][index];
+        const layer = [1, .48, .12][index];
+        oscillator.type = type;
+        oscillator.frequency.setValueAtTime(frequency, now);
+        oscillator.detune.setValueAtTime(detune, now);
+        filter.type = "lowpass";
+        filter.frequency.setValueAtTime(Math.min(2200, frequency * 7), now);
+        filter.Q.value = .35;
+        gain.gain.setValueAtTime(.0001, now);
+        gain.gain.exponentialRampToValueAtTime(gainValue * layer, now + .32);
+        gain.gain.exponentialRampToValueAtTime(.0001, now + duration);
+        oscillator.connect(filter).connect(gain).connect(profileTrackGain);
+        oscillator.start(now);
+        oscillator.stop(now + duration + .05);
+        profileSources.push(oscillator);
+      });
     }
 
     function createProfileWind(filterFrequency) {
@@ -1047,12 +1056,12 @@
         const track = TRACKS[trackIndex];
         const now = profileAudioContext.currentTime;
         profileTrackGain.gain.setValueAtTime(.0001, now);
-        profileTrackGain.gain.exponentialRampToValueAtTime(.40, now + .45);
-        track.pad.forEach((frequency, index) => createProfileTone(frequency, index === 0 ? .02 : .014, 2));
+        profileTrackGain.gain.exponentialRampToValueAtTime(.80, now + .45);
+        track.pad.forEach((frequency, index) => createProfileVoice(frequency, index === 0 ? .028 : .020, 2.6));
         createProfileWind(track.filter);
         let noteIndex = 0;
         window.clearInterval(profileNoteTimer);
-        const scheduleNote = () => createProfileTone(track.notes[noteIndex++ % track.notes.length], track.pulse, 2.6);
+        const scheduleNote = () => createProfileVoice(track.notes[noteIndex++ % track.notes.length], track.pulse, 2.8);
         scheduleNote();
         profileNoteTimer = window.setInterval(scheduleNote, track.interval);
         profileWidget.classList.add("is-playing");
