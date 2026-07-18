@@ -89,102 +89,6 @@
       color: rgba(255,255,255,.93);
     }
 
-    .header-identity {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .profile-widget { position: relative; }
-
-    .profile-toggle {
-      position: relative;
-      display: block;
-      width: 40px;
-      height: 40px;
-      padding: 0;
-      overflow: hidden;
-      border: 1px solid rgba(255,255,255,.34);
-      border-radius: 50%;
-      background: #08101d;
-      cursor: pointer;
-      box-shadow: 0 8px 18px rgba(0,0,0,.22);
-    }
-
-    .profile-toggle img {
-      display: block;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .profile-toggle:focus-visible {
-      outline: 2px solid rgba(239,194,139,.9);
-      outline-offset: 3px;
-    }
-
-    .profile-audio-ring {
-      position: absolute;
-      inset: 3px;
-      border: 1px solid transparent;
-      border-radius: inherit;
-    }
-
-    .profile-widget.is-playing .profile-audio-ring {
-      border-color: rgba(239,194,139,.78);
-      animation: profile-orbit 9s linear infinite;
-    }
-
-    .profile-card {
-      position: absolute;
-      top: calc(100% + 14px);
-      left: 0;
-      z-index: 2;
-      width: min(390px, calc(100vw - 28px));
-      padding: 22px;
-      border: 1px solid rgba(255,255,255,.14);
-      border-radius: 18px;
-      background: rgba(5,13,27,.68);
-      box-shadow: 0 18px 48px rgba(0,0,0,.24);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      opacity: 0;
-      pointer-events: none;
-      translate: 0 -8px;
-      transition: opacity .28s ease, translate .28s ease;
-    }
-
-    .profile-widget.is-open .profile-card {
-      opacity: 1;
-      pointer-events: auto;
-      translate: 0 0;
-    }
-
-    .profile-kicker,
-    .education-period {
-      margin: 0;
-      color: rgba(235,239,246,.58);
-      font-size: 9px;
-      font-weight: 650;
-      letter-spacing: .16em;
-    }
-
-    .education-entry { margin-top: 17px; }
-
-    .education-entry p:not(.education-period) {
-      margin: 6px 0 0;
-      color: rgba(247,249,252,.9);
-      font-size: 13px;
-      line-height: 1.45;
-    }
-
-    .profile-audio-status {
-      margin: 19px 0 0;
-      color: rgba(225,231,242,.48);
-      font-size: 10px;
-      letter-spacing: .05em;
-    }
-
     .site-nav {
       display: flex;
       align-items: center;
@@ -239,9 +143,235 @@
     }
 
     .hero-main {
-      width: min(1180px, 88vw);
-      margin-top: -1vh;
+      justify-self: end;
+      width: min(820px, 60vw);
+      margin: -1vh clamp(30px, 5vw, 90px) 0 0;
       text-align: center;
+    }
+
+    .hero-profile {
+      --track-accent: #8d89b8;
+      position: absolute;
+      top: clamp(104px, 12vh, 148px);
+      left: clamp(34px, 7vw, 112px);
+      z-index: 4;
+      width: 430px;
+    }
+
+    .profile-toggle {
+      position: relative;
+      display: block;
+      width: 132px;
+      height: 132px;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.42);
+      border-radius: 50%;
+      background: #08101d;
+      cursor: pointer;
+      box-shadow: 0 18px 38px rgba(0,0,0,.28);
+      transition: transform .35s cubic-bezier(.2,.72,.2,1), box-shadow .35s ease;
+    }
+
+    .profile-toggle:hover,
+    .profile-toggle:focus-visible {
+      transform: translateY(-4px) scale(1.025);
+      box-shadow: 0 24px 48px rgba(0,0,0,.36);
+    }
+
+    .profile-toggle:focus-visible {
+      outline: 2px solid rgba(239,194,139,.9);
+      outline-offset: 4px;
+    }
+
+    .profile-toggle img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .profile-audio-ring {
+      position: absolute;
+      inset: 6px;
+      border: 1px solid transparent;
+      border-radius: inherit;
+      transition: border-color .45s ease, box-shadow .45s ease;
+    }
+
+    .hero-profile.is-playing .profile-audio-ring {
+      border-color: var(--track-accent);
+      box-shadow: 0 0 20px color-mix(in srgb, var(--track-accent) 62%, transparent);
+      animation: profile-ring 3.2s ease-in-out infinite;
+    }
+
+    .profile-details {
+      display: grid;
+      gap: 18px;
+      width: 430px;
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      translate: 0 -12px;
+      transition: max-height .5s cubic-bezier(.2,.72,.2,1), opacity .3s ease, translate .3s ease;
+    }
+
+    .hero-profile.is-open .profile-details {
+      max-height: 760px;
+      opacity: 1;
+      translate: 0 0;
+    }
+
+    .profile-player {
+      position: relative;
+      width: 250px;
+      aspect-ratio: 1;
+      margin: 18px 0 0 20px;
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 9px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.24);
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 27%, color-mix(in srgb, var(--track-accent) 44%, rgba(255,255,255,.76)), rgba(8,17,31,.72) 68%);
+      box-shadow: 0 20px 42px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.18);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      transition: background .6s ease, box-shadow .6s ease, scale .35s ease;
+    }
+
+    .profile-player::before,
+    .profile-player::after {
+      content: "";
+      position: absolute;
+      inset: 13px;
+      border: 1px solid color-mix(in srgb, var(--track-accent) 70%, transparent);
+      border-radius: inherit;
+      pointer-events: none;
+    }
+
+    .profile-player::after { inset: 26px; opacity: .42; }
+    .hero-profile.is-playing .profile-player::before { animation: profile-rotate 18s linear infinite; }
+    .hero-profile.is-playing .profile-player::after { animation: profile-ripple 2.8s ease-in-out infinite; }
+    .profile-player.is-switching { scale: .95; }
+
+    .track-mood,
+    .track-name {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      text-align: center;
+      text-shadow: 0 2px 18px rgba(0,0,0,.28);
+    }
+
+    .track-mood {
+      color: rgba(255,255,255,.66);
+      font-size: 9px;
+      font-weight: 680;
+      letter-spacing: .24em;
+    }
+
+    .track-name {
+      color: rgba(255,255,255,.95);
+      font-size: 18px;
+      font-weight: 650;
+      letter-spacing: .08em;
+    }
+
+    .track-controls {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .track-controls button {
+      width: 48px;
+      height: 48px;
+      border: 0;
+      border-radius: 50%;
+      color: rgba(255,255,255,.95);
+      background: rgba(4,10,20,.30);
+      box-shadow: 0 7px 14px rgba(0,0,0,.18);
+      cursor: pointer;
+      transition: transform .25s ease, background .25s ease;
+    }
+
+    #track-play {
+      width: 72px;
+      height: 72px;
+      font-size: 23px;
+      background: color-mix(in srgb, var(--track-accent) 43%, rgba(255,255,255,.22));
+    }
+
+    .track-controls button:hover,
+    .track-controls button:focus-visible {
+      transform: scale(1.09);
+      background: rgba(255,255,255,.28);
+    }
+
+    .track-controls button:focus-visible {
+      outline: 2px solid rgba(255,255,255,.9);
+      outline-offset: 3px;
+    }
+
+    .track-dots {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      gap: 6px;
+    }
+
+    .track-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: rgba(255,255,255,.36);
+      transition: width .3s ease, background .3s ease;
+    }
+
+    .track-dot.is-active {
+      width: 22px;
+      border-radius: 5px;
+      background: rgba(255,255,255,.92);
+    }
+
+    .profile-card {
+      width: 430px;
+      padding: 26px;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 20px;
+      background: rgba(5,13,27,.62);
+      box-shadow: 0 18px 48px rgba(0,0,0,.24);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .profile-kicker,
+    .education-period {
+      margin: 0;
+      color: rgba(235,239,246,.58);
+      font-size: 9px;
+      font-weight: 650;
+      letter-spacing: .16em;
+    }
+
+    .education-entry { margin-top: 17px; }
+
+    .education-entry p:not(.education-period) {
+      margin: 6px 0 0;
+      color: rgba(247,249,252,.9);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .profile-audio-status {
+      margin: 19px 0 0;
+      color: rgba(225,231,242,.54);
+      font-size: 10px;
+      letter-spacing: .05em;
     }
 
     .eyebrow {
@@ -580,22 +710,51 @@
 
     @keyframes blink { 50% { opacity: 0; } }
     @keyframes scan { 0% { transform: translateX(-100%); } 55%, 100% { transform: translateX(110%); } }
-    @keyframes profile-orbit { to { rotate: 1turn; } }
+    @keyframes profile-rotate { to { rotate: 1turn; } }
+    @keyframes profile-ripple { 50% { scale: 1.08; opacity: .16; } }
+    @keyframes profile-ring { 50% { scale: 1.05; opacity: .42; } }
 
     @media (max-width: 1020px) {
       .archive-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .archive-card:last-child { grid-column: 1 / -1; width: calc(50% - 9px); justify-self: center; }
     }
 
+    @media (max-width: 1060px) {
+      .hero {
+        display: block;
+        min-height: 100svh;
+        padding: 100px 22px 42px;
+      }
+      .hero-profile {
+        position: relative;
+        inset: auto;
+        width: min(100%, 430px);
+        margin: 0 auto 44px;
+      }
+      .hero-main {
+        width: 100%;
+        margin: 0;
+      }
+      .hero-footer {
+        position: relative;
+        right: auto;
+        bottom: auto;
+        left: auto;
+        margin-top: 52px;
+      }
+    }
+
     @media (max-width: 720px) {
       .site-header { height: 62px; }
-      .header-identity { gap: 8px; }
-      .profile-toggle { width: 34px; height: 34px; }
-      .profile-card { left: -8px; padding: 18px; }
       .site-nav { gap: 16px; }
       .site-nav a { font-size: 0; }
       .site-nav a::before { content: attr(data-short); font-size: 9px; }
-      .hero-main { width: 92vw; }
+      .hero { padding: 88px 18px 38px; }
+      .hero-profile { width: 100%; margin-bottom: 38px; }
+      .profile-toggle { width: 94px; height: 94px; }
+      .profile-details,
+      .profile-card { width: 100%; }
+      .profile-player { width: 220px; margin-left: 0; }
       .eyebrow { margin-bottom: 18px; font-size: 8px; }
       .sentence-wrap { height: 250px; }
       .sentence { font-size: clamp(14px, 3.7vw, 19px); line-height: 1.82; letter-spacing: 0; }
@@ -616,7 +775,11 @@
 
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
-      .caret, .scroll-line::after, .profile-widget.is-playing .profile-audio-ring { animation: none; }
+      .caret,
+      .scroll-line::after,
+      .hero-profile.is-playing .profile-audio-ring,
+      .hero-profile.is-playing .profile-player::before,
+      .hero-profile.is-playing .profile-player::after { animation: none; }
       .archive-card,
       [data-reveal],
       .card-media img,
@@ -630,14 +793,32 @@
   <div class="page-backdrop" aria-hidden="true"></div>
 
   <header class="site-header">
-    <div class="header-identity">
-      <a class="brand" href="#hero">SNOWSTORM / PERSONAL ARCHIVE</a>
-      <div class="profile-widget" id="profile-widget">
-        <button class="profile-toggle" id="profile-toggle" type="button" aria-controls="profile-card" aria-expanded="false" aria-pressed="false" aria-label="Open profile and play ambient sound">
-          <img src="./assets/homepage/profile-coast-backview.png" alt="">
-          <span class="profile-audio-ring" aria-hidden="true"></span>
-        </button>
-        <aside class="profile-card" id="profile-card" aria-hidden="true" aria-label="Profile and education">
+    <a class="brand" href="#hero">SNOWSTORM / PERSONAL ARCHIVE</a>
+    <nav class="site-nav" aria-label="主页分区">
+      <a href="./learning/" data-short="01">星野问津</a>
+      <a href="./living/" data-short="02">人间照影</a>
+      <a href="./research/" data-short="03">烛微观澜</a>
+    </nav>
+  </header>
+
+  <section class="hero" id="hero">
+    <aside class="hero-profile" id="hero-profile" aria-label="Profile and music player">
+      <button class="profile-toggle" id="profile-toggle" type="button" aria-controls="profile-details" aria-expanded="false" aria-label="Open profile and music player">
+        <img src="./assets/homepage/profile-coast-backview.png" alt="">
+        <span class="profile-audio-ring" aria-hidden="true"></span>
+      </button>
+      <div class="profile-details" id="profile-details" aria-hidden="true">
+        <section class="profile-player" id="profile-player" aria-label="Original ambient player">
+          <p class="track-mood" id="track-mood">MELANCHOLY</p>
+          <p class="track-name" id="track-name">DUSK</p>
+          <div class="track-controls">
+            <button id="track-previous" type="button" aria-label="Previous track">◀</button>
+            <button id="track-play" type="button" aria-label="Play DUSK" aria-pressed="false">▶</button>
+            <button id="track-next" type="button" aria-label="Next track">▶▶</button>
+          </div>
+          <div class="track-dots" id="track-dots" aria-label="Track selection"></div>
+        </section>
+        <section class="profile-card" id="profile-card" aria-label="Profile and education">
           <p class="profile-kicker">PROFILE / EDUCATION</p>
           <section class="education-entry">
             <p class="education-period">2022—2026 · ARTIFICIAL INTELLIGENCE</p>
@@ -649,18 +830,10 @@
             <p>School of Artificial Intelligence and Automation</p>
             <p>Huazhong University of Science and Technology</p>
           </section>
-          <p class="profile-audio-status" id="profile-audio-status" aria-live="polite">Click the portrait to play ambience.</p>
-        </aside>
+          <p class="profile-audio-status" id="track-status" aria-live="polite">Open the profile, then choose a track.</p>
+        </section>
       </div>
-    </div>
-    <nav class="site-nav" aria-label="主页分区">
-      <a href="./learning/" data-short="01">星野问津</a>
-      <a href="./living/" data-short="02">人间照影</a>
-      <a href="./research/" data-short="03">烛微观澜</a>
-    </nav>
-  </header>
-
-  <section class="hero" id="hero">
+    </aside>
     <main class="hero-main">
       <div class="eyebrow" id="eyebrow">NOTES ON LIFE · 01 / 10</div>
       <div class="sentence-wrap">
@@ -738,28 +911,59 @@
   </section>
 
   <script>
-    const profileWidget = document.querySelector("#profile-widget");
+    const TRACKS = [
+      { title: "DUSK / MELANCHOLY", name: "DUSK", mood: "MELANCHOLY", accent: "#8d89b8", pad: [110, 164.81], notes: [220, 196, 174.61], interval: 3600, pulse: .018, filter: 620 },
+      { title: "YOUTH / OPEN ROAD", name: "OPEN ROAD", mood: "YOUTH", accent: "#8fc5d6", pad: [146.83, 220], notes: [293.66, 329.63, 392], interval: 2500, pulse: .024, filter: 980 },
+      { title: "SUNLIT / HORIZON", name: "HORIZON", mood: "SUNLIT", accent: "#e4bb83", pad: [164.81, 246.94], notes: [329.63, 392, 493.88], interval: 2200, pulse: .026, filter: 1280 },
+      { title: "RAIN / AFTERTHOUGHT", name: "AFTERTHOUGHT", mood: "RAIN", accent: "#b38b9f", pad: [98, 146.83], notes: [196, 233.08, 174.61], interval: 3900, pulse: .016, filter: 480 },
+      { title: "ASCENT / RENEWAL", name: "RENEWAL", mood: "ASCENT", accent: "#d8d3a5", pad: [130.81, 196], notes: [261.63, 329.63, 392, 523.25], interval: 2000, pulse: .028, filter: 1460 },
+    ];
+
+    let trackIndex = 0;
+    const profileWidget = document.querySelector("#hero-profile");
     const profileToggle = document.querySelector("#profile-toggle");
-    const profileCard = document.querySelector("#profile-card");
-    const profileStatus = document.querySelector("#profile-audio-status");
+    const profileDetails = document.querySelector("#profile-details");
+    const profilePlayer = document.querySelector("#profile-player");
+    const profileStatus = document.querySelector("#track-status");
+    const trackName = document.querySelector("#track-name");
+    const trackMood = document.querySelector("#track-mood");
+    const trackDots = document.querySelector("#track-dots");
+    const previousTrack = document.querySelector("#track-previous");
+    const playTrack = document.querySelector("#track-play");
+    const nextTrack = document.querySelector("#track-next");
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     let profileAudioContext;
     let profileMasterGain;
+    let profileTrackGain;
     let profileNoteTimer;
-    let profileStopTimer;
+    let profileSwitchTimer;
     let profileSources = [];
 
-    function setProfileOpen() {
-      profileWidget.classList.add("is-open");
-      profileToggle.setAttribute("aria-expanded", "true");
-      profileCard.setAttribute("aria-hidden", "false");
+    function createTrackDots() {
+      TRACKS.forEach((track, index) => {
+        const dot = document.createElement("span");
+        dot.className = "track-dot";
+        dot.setAttribute("aria-label", track.title);
+        dot.setAttribute("title", track.title);
+        trackDots.append(dot);
+      });
     }
 
-    function stopProfileSources() {
-      profileSources.forEach((source) => {
-        try { source.stop(); } catch {}
-      });
-      profileSources = [];
+    function renderTrack(animate = false) {
+      const track = TRACKS[trackIndex];
+      trackName.textContent = track.name;
+      trackMood.textContent = track.mood;
+      profileWidget.style.setProperty("--track-accent", track.accent);
+      [...trackDots.children].forEach((dot, index) => dot.classList.toggle("is-active", index === trackIndex));
+      const playing = profileWidget.classList.contains("is-playing");
+      playTrack.textContent = playing ? "Ⅱ" : "▶";
+      playTrack.setAttribute("aria-pressed", String(playing));
+      playTrack.setAttribute("aria-label", playing ? `Pause ${track.name}` : `Play ${track.name}`);
+      if (!animate) return;
+      profilePlayer.classList.remove("is-switching");
+      void profilePlayer.offsetWidth;
+      profilePlayer.classList.add("is-switching");
+      window.setTimeout(() => profilePlayer.classList.remove("is-switching"), 340);
     }
 
     function createProfileTone(frequency, gainValue, duration) {
@@ -769,18 +973,15 @@
       oscillator.type = "sine";
       oscillator.frequency.setValueAtTime(frequency, now);
       gain.gain.setValueAtTime(.0001, now);
-      gain.gain.exponentialRampToValueAtTime(gainValue, now + .3);
+      gain.gain.exponentialRampToValueAtTime(gainValue, now + .24);
       gain.gain.exponentialRampToValueAtTime(.0001, now + duration);
-      oscillator.connect(gain).connect(profileMasterGain);
+      oscillator.connect(gain).connect(profileTrackGain);
       oscillator.start(now);
       oscillator.stop(now + duration + .05);
       profileSources.push(oscillator);
-      oscillator.addEventListener("ended", () => {
-        profileSources = profileSources.filter((source) => source !== oscillator);
-      });
     }
 
-    function createProfileWind() {
+    function createProfileWind(filterFrequency) {
       const buffer = profileAudioContext.createBuffer(1, profileAudioContext.sampleRate * 4, profileAudioContext.sampleRate);
       const data = buffer.getChannelData(0);
       for (let index = 0; index < data.length; index += 1) data[index] = Math.random() * 2 - 1;
@@ -790,9 +991,9 @@
       source.buffer = buffer;
       source.loop = true;
       filter.type = "lowpass";
-      filter.frequency.value = 620;
-      gain.gain.value = .0018;
-      source.connect(filter).connect(gain).connect(profileMasterGain);
+      filter.frequency.value = filterFrequency;
+      gain.gain.value = .0024;
+      source.connect(filter).connect(gain).connect(profileTrackGain);
       source.start();
       profileSources.push(source);
     }
@@ -804,26 +1005,28 @@
       }
 
       try {
-        window.clearTimeout(profileStopTimer);
-        stopProfileSources();
         profileAudioContext ??= new AudioContextClass();
         await profileAudioContext.resume();
-        profileMasterGain ??= profileAudioContext.createGain();
-        profileMasterGain.connect(profileAudioContext.destination);
+        if (!profileMasterGain) {
+          profileMasterGain = profileAudioContext.createGain();
+          profileMasterGain.connect(profileAudioContext.destination);
+        }
+        profileTrackGain = profileAudioContext.createGain();
+        profileTrackGain.connect(profileMasterGain);
+        const track = TRACKS[trackIndex];
         const now = profileAudioContext.currentTime;
-        profileMasterGain.gain.cancelScheduledValues(now);
-        profileMasterGain.gain.setValueAtTime(.0001, now);
-        profileMasterGain.gain.exponentialRampToValueAtTime(.055, now + .45);
-        createProfileTone(110, .014, 7);
-        createProfileTone(164.81, .009, 7);
-        createProfileWind();
-        const notes = [220, 246.94, 293.66, 329.63];
+        profileTrackGain.gain.setValueAtTime(.0001, now);
+        profileTrackGain.gain.exponentialRampToValueAtTime(.11, now + .45);
+        track.pad.forEach((frequency, index) => createProfileTone(frequency, index === 0 ? .02 : .014, 8));
+        createProfileWind(track.filter);
         let noteIndex = 0;
         window.clearInterval(profileNoteTimer);
-        profileNoteTimer = window.setInterval(() => {
-          createProfileTone(notes[noteIndex++ % notes.length], .026, 2.8);
-        }, 3400);
-        profileStatus.textContent = "Ambient sound is playing. Click the portrait to pause.";
+        const scheduleNote = () => createProfileTone(track.notes[noteIndex++ % track.notes.length], track.pulse, 2.6);
+        scheduleNote();
+        profileNoteTimer = window.setInterval(scheduleNote, track.interval);
+        profileWidget.classList.add("is-playing");
+        profileStatus.textContent = `${track.mood}: ${track.name} is playing.`;
+        renderTrack();
         return true;
       } catch {
         profileStatus.textContent = "Ambient sound is unavailable in this browser.";
@@ -834,34 +1037,58 @@
     function fadeOutProfileAudio(duration) {
       window.clearInterval(profileNoteTimer);
       profileNoteTimer = undefined;
-      if (!profileAudioContext || !profileMasterGain) return;
+      const closingGain = profileTrackGain;
+      const closingSources = profileSources;
+      profileTrackGain = undefined;
+      profileSources = [];
+      if (!profileAudioContext || !closingGain) return;
       const now = profileAudioContext.currentTime;
-      profileMasterGain.gain.cancelScheduledValues(now);
-      profileMasterGain.gain.setValueAtTime(Math.max(profileMasterGain.gain.value, .0001), now);
-      profileMasterGain.gain.exponentialRampToValueAtTime(.0001, now + duration / 1000);
-      window.clearTimeout(profileStopTimer);
-      profileStopTimer = window.setTimeout(stopProfileSources, duration + 20);
+      closingGain.gain.cancelScheduledValues(now);
+      closingGain.gain.setValueAtTime(Math.max(closingGain.gain.value, .0001), now);
+      closingGain.gain.exponentialRampToValueAtTime(.0001, now + duration / 1000);
+      window.setTimeout(() => closingSources.forEach((source) => {
+        try { source.stop(); } catch {}
+      }), duration + 20);
     }
 
-    async function toggleProfileAudio() {
-      setProfileOpen();
+    async function togglePlayback() {
       if (profileWidget.classList.contains("is-playing")) {
+        window.clearTimeout(profileSwitchTimer);
         fadeOutProfileAudio(350);
         profileWidget.classList.remove("is-playing");
-        profileToggle.setAttribute("aria-pressed", "false");
-        profileToggle.setAttribute("aria-label", "Open profile and play ambient sound");
-        profileStatus.textContent = "Ambient sound is paused. Click the portrait to play.";
+        profileStatus.textContent = "Ambient sound is paused.";
+        renderTrack();
         return;
       }
 
-      if (await startProfileAudio()) {
-        profileWidget.classList.add("is-playing");
-        profileToggle.setAttribute("aria-pressed", "true");
-        profileToggle.setAttribute("aria-label", "Pause ambient sound");
-      }
+      await startProfileAudio();
     }
 
-    profileToggle.addEventListener("click", toggleProfileAudio);
+    function switchTrack(direction) {
+      const resume = profileWidget.classList.contains("is-playing");
+      window.clearTimeout(profileSwitchTimer);
+      if (resume) {
+        fadeOutProfileAudio(450);
+        profileWidget.classList.remove("is-playing");
+      }
+      trackIndex = (trackIndex + direction + TRACKS.length) % TRACKS.length;
+      renderTrack(true);
+      const track = TRACKS[trackIndex];
+      profileStatus.textContent = `${track.mood}: ${track.name}.`;
+      if (resume) profileSwitchTimer = window.setTimeout(startProfileAudio, 120);
+    }
+
+    profileToggle.addEventListener("click", () => {
+      const isOpen = profileWidget.classList.toggle("is-open");
+      profileToggle.setAttribute("aria-expanded", String(isOpen));
+      profileDetails.setAttribute("aria-hidden", String(!isOpen));
+      if (!isOpen) profileStatus.textContent = "Profile and player are closed.";
+    });
+    previousTrack.addEventListener("click", () => switchTrack(-1));
+    playTrack.addEventListener("click", togglePlayback);
+    nextTrack.addEventListener("click", () => switchTrack(1));
+    createTrackDots();
+    renderTrack();
 
     const phrases = [
       { tone: "NOTES ON LIFE", lines: ["人生并不总在向前，", "许多看似停滞的时刻，也在悄然校正方向。"] },
