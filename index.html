@@ -323,6 +323,13 @@
       transition: transform .25s ease, background .25s ease;
     }
 
+    #track-previous,
+    #track-next {
+      width: 31px;
+      height: 31px;
+      font-size: 12px;
+    }
+
     #track-play {
       width: 46px;
       height: 46px;
@@ -1046,9 +1053,9 @@
         <section class="avatar-controls" id="avatar-controls" aria-label="Original ambient player">
           <p class="track-mood" id="track-mood">MELANCHOLY</p>
           <div class="track-controls">
-            <button id="track-previous" type="button" aria-label="Previous track">◀</button>
+            <button id="track-previous" type="button" aria-label="Previous track">‹</button>
             <button id="track-play" type="button" aria-label="Play DUSK" aria-pressed="false">▶</button>
-            <button id="track-next" type="button" aria-label="Next track">▶▶</button>
+            <button id="track-next" type="button" aria-label="Next track">›</button>
           </div>
           <p class="track-name" id="track-name">DUSK</p>
           <div class="track-dots" id="track-dots" aria-label="Track selection"></div>
@@ -1180,11 +1187,15 @@
 
   <script>
     const TRACKS = [
-      { title: "DUSK / MELANCHOLY", name: "DUSK", mood: "MELANCHOLY", accent: "#8d89b8", pad: [110, 164.81], notes: [220, 196, 174.61], interval: 1600, pulse: .018, filter: 620 },
-      { title: "YOUTH / OPEN ROAD", name: "OPEN ROAD", mood: "YOUTH", accent: "#8fc5d6", pad: [146.83, 220], notes: [293.66, 329.63, 392], interval: 1300, pulse: .024, filter: 980 },
-      { title: "SUNLIT / HORIZON", name: "HORIZON", mood: "SUNLIT", accent: "#e4bb83", pad: [164.81, 246.94], notes: [329.63, 392, 493.88], interval: 1200, pulse: .026, filter: 1280 },
-      { title: "RAIN / AFTERTHOUGHT", name: "AFTERTHOUGHT", mood: "RAIN", accent: "#b38b9f", pad: [98, 146.83], notes: [196, 233.08, 174.61], interval: 1600, pulse: .016, filter: 480 },
-      { title: "ASCENT / RENEWAL", name: "RENEWAL", mood: "ASCENT", accent: "#d8d3a5", pad: [130.81, 196], notes: [261.63, 329.63, 392, 523.25], interval: 1100, pulse: .028, filter: 1460 },
+      { title: "The Nights", artist: "Avicii", mood: "OPEN ROAD", accent: "#8fc5d6", src: "./assets/music/the-nights-avicii.mp3" },
+      { title: "稻香", artist: "周杰伦", mood: "SUNLIT", accent: "#e4bb83", src: "./assets/music/daoxiang-jay-chou.mp3" },
+      { title: "后来", artist: "刘若英", mood: "AFTERGLOW", accent: "#b38b9f", src: "./assets/music/houlai-rene-liu.mp3" },
+      { title: "遇见", artist: "孙燕姿", mood: "WANDER", accent: "#9db5d4", src: "./assets/music/meet-stefanie-sun.mp3" },
+      { title: "Viva La Vida", artist: "Coldplay", mood: "ASCENT", accent: "#d8d3a5", src: "./assets/music/viva-la-vida-coldplay.mp3" },
+      { title: "平凡之路", artist: "朴树", mood: "HORIZON", accent: "#8cae9e", src: "./assets/music/ordinary-road-pu-shu.mp3" },
+      { title: "倔强", artist: "五月天", mood: "YOUTH", accent: "#d49a82", src: "./assets/music/stubborn-mayday.mp3" },
+      { title: "Counting Stars", artist: "OneRepublic", mood: "MOTION", accent: "#a7b9e7", src: "./assets/music/counting-stars-onerepublic.mp3" },
+      { title: "好久不见", artist: "陈奕迅", mood: "MELANCHOLY", accent: "#8d89b8", src: "./assets/music/long-time-no-see-eason-chan.mp3" },
     ];
 
     let trackIndex = 0;
@@ -1199,6 +1210,9 @@
     const previousTrack = document.querySelector("#track-previous");
     const playTrack = document.querySelector("#track-play");
     const nextTrack = document.querySelector("#track-next");
+    const profileAudio = new Audio();
+    profileAudio.preload = "none";
+    profileAudio.volume = 1;
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     let profileAudioContext;
     let profileMasterGain;
@@ -1219,14 +1233,14 @@
 
     function renderTrack(animate = false) {
       const track = TRACKS[trackIndex];
-      trackName.textContent = track.name;
-      trackMood.textContent = track.mood;
+      trackName.textContent = track.title;
+      trackMood.textContent = track.artist;
       profileWidget.style.setProperty("--track-accent", track.accent);
       [...trackDots.children].forEach((dot, index) => dot.classList.toggle("is-active", index === trackIndex));
       const playing = profileWidget.classList.contains("is-playing");
       playTrack.textContent = playing ? "Ⅱ" : "▶";
       playTrack.setAttribute("aria-pressed", String(playing));
-      playTrack.setAttribute("aria-label", playing ? `Pause ${track.name}` : `Play ${track.name}`);
+      playTrack.setAttribute("aria-label", playing ? `Pause ${track.title}` : `Play ${track.title}`);
       if (!animate) return;
       avatarPlayer.classList.remove("is-switching");
       void avatarPlayer.offsetWidth;
@@ -1355,6 +1369,46 @@
       if (resume) profileSwitchTimer = window.setTimeout(startProfileAudio, 120);
     }
 
+    function syncNativePlayback() {
+      const playing = !profileAudio.paused;
+      profileWidget.classList.toggle("is-playing", playing);
+      profileStatus.textContent = playing
+        ? `${TRACKS[trackIndex].title} — ${TRACKS[trackIndex].artist} is playing.`
+        : `${TRACKS[trackIndex].title} — ${TRACKS[trackIndex].artist}.`;
+      renderTrack();
+    }
+
+    function loadTrack(index, animate = false) {
+      trackIndex = (index + TRACKS.length) % TRACKS.length;
+      const track = TRACKS[trackIndex];
+      profileAudio.pause();
+      profileAudio.src = track.src;
+      profileAudio.load();
+      profileStatus.textContent = `${track.title} — ${track.artist}.`;
+      renderTrack(animate);
+    }
+
+    async function toggleNativePlayback() {
+      if (profileAudio.paused) {
+        if (!profileAudio.src) loadTrack(trackIndex);
+        try { await profileAudio.play(); } catch { profileStatus.textContent = "This track could not be played in this browser."; }
+      } else {
+        profileAudio.pause();
+      }
+    }
+
+    async function switchNativeTrack(direction) {
+      const resume = !profileAudio.paused;
+      loadTrack(trackIndex + direction, true);
+      if (resume) {
+        try { await profileAudio.play(); } catch { profileStatus.textContent = "This track could not be played in this browser."; }
+      }
+    }
+
+    profileAudio.addEventListener("play", syncNativePlayback);
+    profileAudio.addEventListener("pause", syncNativePlayback);
+    profileAudio.addEventListener("ended", () => switchNativeTrack(1));
+
     const canHover = window.matchMedia("(hover: hover) and (pointer: fine)");
 
     function toggleAvatarControls() {
@@ -1365,10 +1419,11 @@
     }
 
     profileToggle.addEventListener("click", toggleAvatarControls);
-    previousTrack.addEventListener("click", () => switchTrack(-1));
-    playTrack.addEventListener("click", togglePlayback);
-    nextTrack.addEventListener("click", () => switchTrack(1));
+    previousTrack.addEventListener("click", () => switchNativeTrack(-1));
+    playTrack.addEventListener("click", toggleNativePlayback);
+    nextTrack.addEventListener("click", () => switchNativeTrack(1));
     createTrackDots();
+    loadTrack(trackIndex);
     renderTrack();
 
     const heroSearchForm = document.querySelector("#hero-search-form");

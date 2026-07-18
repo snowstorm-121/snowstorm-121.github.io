@@ -29,3 +29,10 @@ test("hero code configures maximum gain and motion-aware aperture", () => {
   assert.match(page, /memoryAperture\.addEventListener\("click"/);
   assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.memory-aperture/);
 });
+
+test("player declares nine local audio tracks with display metadata", () => {
+  assert.match(page, /the-nights-avicii\.mp3/);
+  assert.match(page, /artist: "Avicii"/);
+  assert.match(page, /new Audio\(\)/);
+  assert.match(page, /profileAudio\.volume = 1/);
+});
