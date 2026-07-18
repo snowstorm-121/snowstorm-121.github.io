@@ -1131,6 +1131,8 @@
       .clock-orbit,
       .hero-socials a,
       .hero-socials button { transition: none; }
+      .clock-widget::before,
+      .clock-lyrics { transition: none; }
       .clock-widget { transform: none; }
       .clock-orbit { animation: none; }
       .archive-card,
@@ -1546,14 +1548,10 @@
 
     const heroSearchForm = document.querySelector("#hero-search-form");
     const heroSearchInput = document.querySelector("#hero-search-input");
-    const memoryAperture = document.querySelector("#memory-aperture");
-    const memoryAperturePhrase = document.querySelector("#memory-aperture-phrase");
     const contactPopover = document.querySelector("#contact-popover");
     const contactPopoverValue = document.querySelector("#contact-popover-value");
     const copyContact = document.querySelector("#copy-contact");
-    const aperturePhrases = ["GO ON", "BREATHE", "DRIFT", "BEGIN"];
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let aperturePhraseIndex = 0;
 
     heroSearchForm.addEventListener("submit", (event) => {
       if (heroSearchInput.value.trim()) return;
@@ -1589,29 +1587,6 @@
     copyContact.addEventListener("click", async () => {
       try { await navigator.clipboard?.writeText(copyContact.dataset.value); } catch {}
       copyContact.textContent = "已复制";
-    });
-
-    if (!reduceMotion) {
-      memoryAperture.addEventListener("pointermove", (event) => {
-        const bounds = memoryAperture.getBoundingClientRect();
-        const x = (event.clientX - bounds.left) / bounds.width - .5;
-        const y = (event.clientY - bounds.top) / bounds.height - .5;
-        memoryAperture.style.setProperty("--depth-x", `${x * 10}px`);
-        memoryAperture.style.setProperty("--depth-y", `${y * 8}px`);
-        memoryAperture.style.setProperty("--turn", `${x * 7 + y * 4}deg`);
-        memoryAperture.style.setProperty("--blade-scale", String(.84 + Math.abs(x) * .1));
-        memoryAperture.style.setProperty("--blade-turn", `${x * 18 - y * 11}deg`);
-      });
-      memoryAperture.addEventListener("pointerleave", () => ["--depth-x", "--depth-y", "--turn", "--blade-scale", "--blade-turn"].forEach((name) => memoryAperture.style.removeProperty(name)));
-    }
-
-    memoryAperture.addEventListener("click", () => {
-      aperturePhraseIndex = (aperturePhraseIndex + 1) % aperturePhrases.length;
-      memoryAperturePhrase.textContent = aperturePhrases[aperturePhraseIndex];
-      memoryAperture.classList.remove("is-pulsing");
-      void memoryAperture.offsetWidth;
-      memoryAperture.classList.add("is-pulsing");
-      window.setTimeout(() => memoryAperture.classList.remove("is-pulsing"), 720);
     });
 
     const phrases = [

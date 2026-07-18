@@ -34,6 +34,14 @@ test("hero code configures maximum gain and motion-aware clock widget", () => {
   assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.clock-widget/);
 });
 
+test("clock widget has no obsolete aperture binding", () => {
+  assert.doesNotMatch(page, /memoryAperture/);
+});
+
+test("reduced motion disables clock shine and lyric transitions", () => {
+  assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.clock-widget::before,\s*\.clock-lyrics\s*\{\s*transition:\s*none;/);
+});
+
 test("player declares nine local audio tracks with display metadata", () => {
   assert.match(page, /the-nights-avicii\.mp3/);
   assert.match(page, /artist: "Avicii"/);
