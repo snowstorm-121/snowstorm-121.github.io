@@ -37,6 +37,13 @@ test("player declares nine local audio tracks with display metadata", () => {
   assert.match(page, /profileAudio\.volume = 1/);
 });
 
+test("player maps every local track to a local LRC asset", () => {
+  const lyricPaths = page.match(/lyrics: "assets\/music\/lyrics\/[^\"]+\.lrc"/g) ?? [];
+  assert.equal(lyricPaths.length, 9);
+  assert.match(page, /the-nights-avicii\.lrc/);
+  assert.match(page, /long-time-no-see-eason-chan\.lrc/);
+});
+
 test("player uses native audio playback and symmetric transport controls", () => {
   assert.match(page, /profileAudio\.src = track\.src/);
   assert.match(page, /await profileAudio\.play\(\)/);
