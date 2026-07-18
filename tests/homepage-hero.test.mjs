@@ -36,3 +36,10 @@ test("player declares nine local audio tracks with display metadata", () => {
   assert.match(page, /new Audio\(\)/);
   assert.match(page, /profileAudio\.volume = 1/);
 });
+
+test("player uses native audio playback and symmetric transport controls", () => {
+  assert.match(page, /profileAudio\.src = track\.src/);
+  assert.match(page, /await profileAudio\.play\(\)/);
+  assert.match(page, /profileAudio\.addEventListener\("ended"/);
+  assert.match(page, /#track-previous,\s*#track-next\s*\{/);
+});
