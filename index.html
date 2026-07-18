@@ -145,7 +145,7 @@
     }
 
     .hero-main {
-      width: min(960px, calc(100vw - 390px));
+      width: min(760px, calc(100vw - 580px));
       margin: 0 clamp(22px, 4vw, 78px) 0 clamp(300px, 27vw, 380px);
       text-align: center;
     }
@@ -323,6 +323,13 @@
       transition: transform .25s ease, background .25s ease;
     }
 
+    #track-previous,
+    #track-next {
+      width: 31px;
+      height: 31px;
+      font-size: 12px;
+    }
+
     #track-play {
       width: 46px;
       height: 46px;
@@ -435,16 +442,23 @@
     }
 
     .hero-search {
+      width: min(760px, 100%);
+      margin-inline: auto;
       display: flex;
       align-items: center;
       min-height: 62px;
       padding: 0 18px;
-      border: 1px solid rgba(255,255,255,.38);
+      border: 1px solid rgba(228,244,250,.42);
       border-radius: 999px;
-      background: rgba(4,13,24,.40);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+      background: linear-gradient(115deg, rgba(220,240,248,.16), rgba(8,25,40,.36) 42%, rgba(196,220,229,.10));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 -14px 30px rgba(3,13,23,.18), 0 18px 48px rgba(1,8,16,.20);
+      backdrop-filter: blur(24px) saturate(135%);
+      -webkit-backdrop-filter: blur(24px) saturate(135%);
+      transition: border-color .3s ease, box-shadow .3s ease, background .3s ease;
     }
+
+    .hero-search:focus-within { border-color: rgba(230,249,255,.80); box-shadow: inset 0 1px 0 rgba(255,255,255,.44), 0 0 0 4px rgba(130,207,229,.10), 0 20px 58px rgba(1,8,16,.30); }
+    .hero-search:has(input[aria-invalid="true"]) { border-color: rgba(238,165,157,.82); }
 
     .hero-search-label {
       padding-right: 16px;
@@ -564,32 +578,42 @@
       display: grid;
       place-items: center;
       overflow: hidden;
-      border: 1px solid rgba(219,243,246,.8);
+      border: 1px solid rgba(220,240,246,.68);
       border-radius: 50%;
       color: var(--text);
-      background: linear-gradient(145deg, rgba(240,254,255,.27), rgba(3,13,21,.55));
-      box-shadow: inset 12px 9px 16px rgba(241,255,255,.16), inset -14px -12px 20px rgba(0,9,16,.42), 0 20px 60px rgba(0,0,0,.35);
+      background: radial-gradient(circle at 34% 25%, rgba(241,253,255,.35), transparent 28%), linear-gradient(145deg, rgba(201,224,230,.28), rgba(5,20,31,.52) 62%, rgba(3,11,20,.72));
+      box-shadow: inset 10px 9px 18px rgba(242,255,255,.20), inset -18px -14px 26px rgba(0,9,16,.48), 0 20px 60px rgba(0,0,0,.35);
       cursor: pointer;
       transform: translate(var(--depth-x), var(--depth-y)) rotate(var(--turn, 0deg));
       transition: transform .16s ease-out, box-shadow .35s ease;
     }
 
+    .memory-aperture::before,
+    .memory-aperture::after {
+      content: "";
+      position: absolute;
+      border-radius: inherit;
+      pointer-events: none;
+    }
+    .memory-aperture::before { inset: 7px; border: 1px solid rgba(240,252,255,.26); background: linear-gradient(135deg, rgba(255,255,255,.20), transparent 34%); mix-blend-mode: screen; }
+    .memory-aperture::after { inset: 18px; border: 1px solid rgba(156,207,220,.24); box-shadow: inset 0 0 24px rgba(106,194,213,.14); }
+
     .memory-aperture-ticks {
       position: absolute;
       inset: 8px;
       border-radius: inherit;
-      background: repeating-conic-gradient(from 12deg, rgba(221,243,243,.54) 0 1deg, transparent 1.5deg 11deg);
+      background: repeating-conic-gradient(from 12deg, rgba(221,243,243,.34) 0 1deg, transparent 1.5deg 18deg);
       -webkit-mask: radial-gradient(transparent 0 62%, #000 63% 65%, transparent 66%);
       mask: radial-gradient(transparent 0 62%, #000 63% 65%, transparent 66%);
     }
 
     .memory-aperture-blades {
-      width: 102px;
-      height: 102px;
+      width: 94px;
+      height: 94px;
       border-radius: 50%;
-      background: conic-gradient(from 15deg, #0a1823 0 38deg, #1d4a5a 40deg 57deg, #07131d 59deg 98deg, #285766 100deg 116deg, #06131d 118deg 157deg, #1d4857 159deg 176deg, #06131d 178deg 217deg, #285867 219deg 236deg, #07141e 238deg 277deg, #1c4756 279deg 296deg, #06121c 298deg 337deg, #2a5966 339deg 356deg, #0b1922 358deg);
-      box-shadow: inset 0 0 24px rgba(0,0,0,.72);
-      transform: scale(var(--blade-scale, .86)) rotate(var(--blade-turn, 0deg));
+      background: conic-gradient(from 15deg, #071520 0 42deg, #204a58 43deg 61deg, #07141e 62deg 102deg, #1c4452 103deg 121deg, #07141e 122deg 162deg, #204a58 163deg 181deg, #07141e 182deg 222deg, #1c4452 223deg 241deg, #07141e 242deg 282deg, #204a58 283deg 301deg, #07141e 302deg 342deg, #1c4452 343deg 359deg);
+      box-shadow: inset 0 0 24px rgba(0,0,0,.76), 0 0 16px rgba(127,210,224,.08);
+      transform: scale(var(--blade-scale, .82)) rotate(var(--blade-turn, 0deg));
       transition: transform .38s cubic-bezier(.2,.75,.2,1);
     }
 
@@ -644,15 +668,24 @@
       gap: 10px;
       align-items: center;
       padding: 10px 12px;
-      border: 1px solid rgba(255,255,255,.22);
-      border-radius: 12px;
-      background: rgba(4,15,28,.82);
-      box-shadow: 0 12px 28px rgba(0,0,0,.28);
+      border: 1px solid rgba(220,241,247,.35);
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(226,244,249,.16), rgba(4,15,28,.76));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.24), 0 16px 38px rgba(0,0,0,.32);
+      backdrop-filter: blur(18px) saturate(130%);
+      -webkit-backdrop-filter: blur(18px) saturate(130%);
       font-size: 11px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(10px) scale(.88);
+      filter: blur(8px);
+      transform-origin: 20% 100%;
+      transition: opacity .22s ease, transform .42s cubic-bezier(.16,1.32,.3,1), filter .32s ease;
     }
 
     .contact-popover button { border: 0; border-radius: 999px; padding: 5px 8px; color: var(--text); background: rgba(101,203,229,.30); cursor: pointer; }
     .contact-popover[hidden] { display: none; }
+    .contact-popover.is-open { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); filter: blur(0); }
 
     .hero-footer {
       position: absolute;
@@ -1046,9 +1079,9 @@
         <section class="avatar-controls" id="avatar-controls" aria-label="Original ambient player">
           <p class="track-mood" id="track-mood">MELANCHOLY</p>
           <div class="track-controls">
-            <button id="track-previous" type="button" aria-label="Previous track">◀</button>
+            <button id="track-previous" type="button" aria-label="Previous track">‹</button>
             <button id="track-play" type="button" aria-label="Play DUSK" aria-pressed="false">▶</button>
-            <button id="track-next" type="button" aria-label="Next track">▶▶</button>
+            <button id="track-next" type="button" aria-label="Next track">›</button>
           </div>
           <p class="track-name" id="track-name">DUSK</p>
           <div class="track-dots" id="track-dots" aria-label="Track selection"></div>
@@ -1075,10 +1108,10 @@
           <p class="hero-heading-kicker">PERSONAL ARCHIVE / 121</p>
           <h1 id="hero-title">STILL, I GO ON</h1>
         </div>
-        <form id="hero-search-form" class="hero-search" action="https://www.bing.com/search" method="get" target="_blank">
-          <label class="sr-only" for="hero-search-input">搜索个人主页</label>
+        <form id="hero-search-form" class="hero-search" action="https://www.google.com/search" method="get" target="_blank">
+          <label class="sr-only" for="hero-search-input">Google 搜索</label>
           <span class="hero-search-label">SEARCH</span>
-          <input id="hero-search-input" name="q" type="search" placeholder="搜索你的档案…" autocomplete="off">
+          <input id="hero-search-input" name="q" type="search" placeholder="Google 搜索…" autocomplete="off">
           <button type="submit" aria-label="搜索"><span aria-hidden="true">⌕</span></button>
         </form>
         <div class="hero-quote-area">
@@ -1180,11 +1213,15 @@
 
   <script>
     const TRACKS = [
-      { title: "DUSK / MELANCHOLY", name: "DUSK", mood: "MELANCHOLY", accent: "#8d89b8", pad: [110, 164.81], notes: [220, 196, 174.61], interval: 1600, pulse: .018, filter: 620 },
-      { title: "YOUTH / OPEN ROAD", name: "OPEN ROAD", mood: "YOUTH", accent: "#8fc5d6", pad: [146.83, 220], notes: [293.66, 329.63, 392], interval: 1300, pulse: .024, filter: 980 },
-      { title: "SUNLIT / HORIZON", name: "HORIZON", mood: "SUNLIT", accent: "#e4bb83", pad: [164.81, 246.94], notes: [329.63, 392, 493.88], interval: 1200, pulse: .026, filter: 1280 },
-      { title: "RAIN / AFTERTHOUGHT", name: "AFTERTHOUGHT", mood: "RAIN", accent: "#b38b9f", pad: [98, 146.83], notes: [196, 233.08, 174.61], interval: 1600, pulse: .016, filter: 480 },
-      { title: "ASCENT / RENEWAL", name: "RENEWAL", mood: "ASCENT", accent: "#d8d3a5", pad: [130.81, 196], notes: [261.63, 329.63, 392, 523.25], interval: 1100, pulse: .028, filter: 1460 },
+      { title: "The Nights", artist: "Avicii", mood: "OPEN ROAD", accent: "#8fc5d6", src: "./assets/music/the-nights-avicii.mp3" },
+      { title: "稻香", artist: "周杰伦", mood: "SUNLIT", accent: "#e4bb83", src: "./assets/music/daoxiang-jay-chou.mp3" },
+      { title: "后来", artist: "刘若英", mood: "AFTERGLOW", accent: "#b38b9f", src: "./assets/music/houlai-rene-liu.mp3" },
+      { title: "遇见", artist: "孙燕姿", mood: "WANDER", accent: "#9db5d4", src: "./assets/music/meet-stefanie-sun.mp3" },
+      { title: "Viva La Vida", artist: "Coldplay", mood: "ASCENT", accent: "#d8d3a5", src: "./assets/music/viva-la-vida-coldplay.mp3" },
+      { title: "平凡之路", artist: "朴树", mood: "HORIZON", accent: "#8cae9e", src: "./assets/music/ordinary-road-pu-shu.mp3" },
+      { title: "倔强", artist: "五月天", mood: "YOUTH", accent: "#d49a82", src: "./assets/music/stubborn-mayday.mp3" },
+      { title: "Counting Stars", artist: "OneRepublic", mood: "MOTION", accent: "#a7b9e7", src: "./assets/music/counting-stars-onerepublic.mp3" },
+      { title: "好久不见", artist: "陈奕迅", mood: "MELANCHOLY", accent: "#8d89b8", src: "./assets/music/long-time-no-see-eason-chan.mp3" },
     ];
 
     let trackIndex = 0;
@@ -1199,6 +1236,9 @@
     const previousTrack = document.querySelector("#track-previous");
     const playTrack = document.querySelector("#track-play");
     const nextTrack = document.querySelector("#track-next");
+    const profileAudio = new Audio();
+    profileAudio.preload = "none";
+    profileAudio.volume = 1;
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     let profileAudioContext;
     let profileMasterGain;
@@ -1219,14 +1259,14 @@
 
     function renderTrack(animate = false) {
       const track = TRACKS[trackIndex];
-      trackName.textContent = track.name;
-      trackMood.textContent = track.mood;
+      trackName.textContent = track.title;
+      trackMood.textContent = track.artist;
       profileWidget.style.setProperty("--track-accent", track.accent);
       [...trackDots.children].forEach((dot, index) => dot.classList.toggle("is-active", index === trackIndex));
       const playing = profileWidget.classList.contains("is-playing");
       playTrack.textContent = playing ? "Ⅱ" : "▶";
       playTrack.setAttribute("aria-pressed", String(playing));
-      playTrack.setAttribute("aria-label", playing ? `Pause ${track.name}` : `Play ${track.name}`);
+      playTrack.setAttribute("aria-label", playing ? `Pause ${track.title}` : `Play ${track.title}`);
       if (!animate) return;
       avatarPlayer.classList.remove("is-switching");
       void avatarPlayer.offsetWidth;
@@ -1355,6 +1395,46 @@
       if (resume) profileSwitchTimer = window.setTimeout(startProfileAudio, 120);
     }
 
+    function syncNativePlayback() {
+      const playing = !profileAudio.paused;
+      profileWidget.classList.toggle("is-playing", playing);
+      profileStatus.textContent = playing
+        ? `${TRACKS[trackIndex].title} — ${TRACKS[trackIndex].artist} is playing.`
+        : `${TRACKS[trackIndex].title} — ${TRACKS[trackIndex].artist}.`;
+      renderTrack();
+    }
+
+    function loadTrack(index, animate = false) {
+      trackIndex = (index + TRACKS.length) % TRACKS.length;
+      const track = TRACKS[trackIndex];
+      profileAudio.pause();
+      profileAudio.src = track.src;
+      profileAudio.load();
+      profileStatus.textContent = `${track.title} — ${track.artist}.`;
+      renderTrack(animate);
+    }
+
+    async function toggleNativePlayback() {
+      if (profileAudio.paused) {
+        if (!profileAudio.src) loadTrack(trackIndex);
+        try { await profileAudio.play(); } catch { profileStatus.textContent = "This track could not be played in this browser."; }
+      } else {
+        profileAudio.pause();
+      }
+    }
+
+    async function switchNativeTrack(direction) {
+      const resume = !profileAudio.paused;
+      loadTrack(trackIndex + direction, true);
+      if (resume) {
+        try { await profileAudio.play(); } catch { profileStatus.textContent = "This track could not be played in this browser."; }
+      }
+    }
+
+    profileAudio.addEventListener("play", syncNativePlayback);
+    profileAudio.addEventListener("pause", syncNativePlayback);
+    profileAudio.addEventListener("ended", () => switchNativeTrack(1));
+
     const canHover = window.matchMedia("(hover: hover) and (pointer: fine)");
 
     function toggleAvatarControls() {
@@ -1365,10 +1445,11 @@
     }
 
     profileToggle.addEventListener("click", toggleAvatarControls);
-    previousTrack.addEventListener("click", () => switchTrack(-1));
-    playTrack.addEventListener("click", togglePlayback);
-    nextTrack.addEventListener("click", () => switchTrack(1));
+    previousTrack.addEventListener("click", () => switchNativeTrack(-1));
+    playTrack.addEventListener("click", toggleNativePlayback);
+    nextTrack.addEventListener("click", () => switchNativeTrack(1));
     createTrackDots();
+    loadTrack(trackIndex);
     renderTrack();
 
     const heroSearchForm = document.querySelector("#hero-search-form");
@@ -1382,17 +1463,35 @@
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let aperturePhraseIndex = 0;
 
-    heroSearchForm.addEventListener("submit", () => {
-      const query = heroSearchInput.value.trim();
-      heroSearchInput.value = (`site:snowstorm-121.github.io ${query}`).trim();
+    heroSearchForm.addEventListener("submit", (event) => {
+      if (heroSearchInput.value.trim()) return;
+      event.preventDefault();
+      heroSearchInput.setAttribute("aria-invalid", "true");
+      heroSearchInput.focus();
     });
+    heroSearchInput.addEventListener("input", () => heroSearchInput.removeAttribute("aria-invalid"));
 
-    document.querySelectorAll("[data-contact]").forEach((trigger) => trigger.addEventListener("click", () => {
-      const isWechat = trigger.dataset.contact === "wechat";
-      contactPopoverValue.textContent = isWechat ? "微信：yan_yongyi" : "QQ：2971234387";
-      copyContact.dataset.value = isWechat ? "yan_yongyi" : "2971234387";
+    let contactCloseTimer;
+    function toggleContact(contact) {
+      const value = contact === "wechat" ? "yan_yongyi" : "2971234387";
+      const alreadyOpen = !contactPopover.hidden && copyContact.dataset.value === value;
+      window.clearTimeout(contactCloseTimer);
+      if (alreadyOpen) {
+        contactPopover.classList.remove("is-open");
+        contactCloseTimer = window.setTimeout(() => {
+          contactPopover.hidden = !contactPopover.hidden;
+        }, reduceMotion ? 0 : 280);
+        return;
+      }
+      contactPopoverValue.textContent = contact === "wechat" ? "微信：yan_yongyi" : "QQ：2971234387";
+      copyContact.dataset.value = value;
       copyContact.textContent = "复制";
       contactPopover.hidden = false;
+      requestAnimationFrame(() => contactPopover.classList.add("is-open"));
+    }
+
+    document.querySelectorAll("[data-contact]").forEach((trigger) => trigger.addEventListener("click", () => {
+      toggleContact(trigger.dataset.contact);
     }));
 
     copyContact.addEventListener("click", async () => {
