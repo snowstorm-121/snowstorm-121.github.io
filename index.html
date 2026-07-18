@@ -145,8 +145,8 @@
     }
 
     .hero-main {
-      width: min(760px, calc(100vw - 580px));
-      margin: 0 clamp(22px, 4vw, 78px) 0 clamp(300px, 27vw, 380px);
+      width: min(600px, calc(100vw - 720px));
+      margin: 0 clamp(280px, 21vw, 340px) 0 clamp(300px, 27vw, 380px);
       text-align: center;
     }
 
@@ -442,7 +442,7 @@
     }
 
     .hero-search {
-      width: min(760px, 100%);
+      width: 100%;
       margin-inline: auto;
       display: flex;
       align-items: center;
@@ -490,7 +490,7 @@
     }
 
     .hero-search button:focus-visible,
-    .memory-aperture:focus-visible,
+    .clock-widget:focus-visible,
     .hero-socials a:focus-visible,
     .hero-socials button:focus-visible,
     .contact-popover button:focus-visible {
@@ -567,72 +567,174 @@
       background: rgba(244,246,251,.82);
     }
 
-    .memory-aperture {
-      --depth-x: 0px;
-      --depth-y: 0px;
+    .clock-widget {
+      --clock-lift: 0px;
+      --clock-x: 0px;
+      --clock-y: 0px;
+      --clock-rotate-x: 0deg;
+      --clock-rotate-y: 0deg;
       position: absolute;
-      top: clamp(110px, 17vh, 180px);
+      top: clamp(96px, 14vh, 148px);
       right: clamp(22px, 4vw, 62px);
-      width: 148px;
-      height: 148px;
-      display: grid;
-      place-items: center;
+      z-index: 2;
+      width: clamp(220px, 17vw, 250px);
+      min-height: 342px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 25px 20px 18px;
       overflow: hidden;
-      border: 1px solid rgba(220,240,246,.68);
-      border-radius: 50%;
+      border: 1px solid rgba(191, 238, 242, .44);
+      border-radius: 28px;
       color: var(--text);
-      background: radial-gradient(circle at 34% 25%, rgba(241,253,255,.35), transparent 28%), linear-gradient(145deg, rgba(201,224,230,.28), rgba(5,20,31,.52) 62%, rgba(3,11,20,.72));
-      box-shadow: inset 10px 9px 18px rgba(242,255,255,.20), inset -18px -14px 26px rgba(0,9,16,.48), 0 20px 60px rgba(0,0,0,.35);
+      background: linear-gradient(145deg, rgba(220, 252, 255, .22), rgba(10, 31, 48, .56) 48%, rgba(4, 14, 28, .74));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .34), inset 0 -18px 34px rgba(0, 8, 20, .34), 0 22px 52px rgba(0, 0, 0, .34);
+      backdrop-filter: blur(20px) saturate(135%);
+      -webkit-backdrop-filter: blur(20px) saturate(135%);
       cursor: pointer;
-      transform: translate(var(--depth-x), var(--depth-y)) rotate(var(--turn, 0deg));
-      transition: transform .16s ease-out, box-shadow .35s ease;
+      transform: translate3d(var(--clock-x), calc(var(--clock-lift) + var(--clock-y)), 0) rotateX(var(--clock-rotate-x)) rotateY(var(--clock-rotate-y));
+      transition: transform .35s cubic-bezier(.2, .75, .2, 1), box-shadow .35s ease, border-color .35s ease;
     }
 
-    .memory-aperture::before,
-    .memory-aperture::after {
+    .clock-widget::before,
+    .clock-widget::after {
       content: "";
       position: absolute;
-      border-radius: inherit;
       pointer-events: none;
     }
-    .memory-aperture::before { inset: 7px; border: 1px solid rgba(240,252,255,.26); background: linear-gradient(135deg, rgba(255,255,255,.20), transparent 34%); mix-blend-mode: screen; }
-    .memory-aperture::after { inset: 18px; border: 1px solid rgba(156,207,220,.24); box-shadow: inset 0 0 24px rgba(106,194,213,.14); }
-
-    .memory-aperture-ticks {
-      position: absolute;
-      inset: 8px;
-      border-radius: inherit;
-      background: repeating-conic-gradient(from 12deg, rgba(221,243,243,.34) 0 1deg, transparent 1.5deg 18deg);
-      -webkit-mask: radial-gradient(transparent 0 62%, #000 63% 65%, transparent 66%);
-      mask: radial-gradient(transparent 0 62%, #000 63% 65%, transparent 66%);
+    .clock-widget::before {
+      inset: -36% -74%;
+      background: linear-gradient(100deg, transparent 42%, rgba(237, 255, 255, .38) 50%, transparent 58%);
+      opacity: .56;
+      transform: translateX(-45%);
+      transition: transform .7s ease, opacity .35s ease;
+    }
+    .clock-widget::after {
+      inset: 9px;
+      border: 1px solid rgba(233, 255, 255, .18);
+      border-radius: 22px;
     }
 
-    .memory-aperture-blades {
-      width: 94px;
-      height: 94px;
-      border-radius: 50%;
-      background: conic-gradient(from 15deg, #071520 0 42deg, #204a58 43deg 61deg, #07141e 62deg 102deg, #1c4452 103deg 121deg, #07141e 122deg 162deg, #204a58 163deg 181deg, #07141e 182deg 222deg, #1c4452 223deg 241deg, #07141e 242deg 282deg, #204a58 283deg 301deg, #07141e 302deg 342deg, #1c4452 343deg 359deg);
-      box-shadow: inset 0 0 24px rgba(0,0,0,.76), 0 0 16px rgba(127,210,224,.08);
-      transform: scale(var(--blade-scale, .82)) rotate(var(--blade-turn, 0deg));
-      transition: transform .38s cubic-bezier(.2,.75,.2,1);
+    .clock-time,
+    .clock-date,
+    .clock-lyrics { position: relative; z-index: 1; }
+
+    .clock-time {
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: clamp(25px, 2vw, 31px);
+      font-weight: 650;
+      letter-spacing: .075em;
+      text-shadow: 0 0 18px rgba(149, 239, 248, .34);
     }
 
-    .memory-aperture-core {
-      position: absolute;
-      z-index: 1;
-      width: 58px;
-      height: 58px;
-      display: grid;
-      place-items: center;
-      border: 1px solid rgba(225,244,246,.65);
-      border-radius: 50%;
-      background: rgba(4,21,34,.74);
+    .clock-date {
+      margin-top: 5px;
+      color: rgba(224, 242, 248, .66);
       font-size: 9px;
-      letter-spacing: .14em;
-      box-shadow: 0 0 20px rgba(101,213,229,.20);
+      font-weight: 650;
+      letter-spacing: .13em;
     }
 
-    .memory-aperture.is-pulsing { box-shadow: inset 12px 9px 16px rgba(241,255,255,.16), inset -14px -12px 20px rgba(0,9,16,.42), 0 20px 60px rgba(0,0,0,.35), 0 0 42px rgba(234,221,132,.34); }
+    .clock-orbits {
+      position: relative;
+      z-index: 1;
+      width: 154px;
+      height: 154px;
+      margin: 16px auto 12px;
+      flex: 0 0 auto;
+    }
+
+    .clock-orbit {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      -webkit-mask: radial-gradient(transparent 0 66%, #000 67% 72%, transparent 73%);
+      mask: radial-gradient(transparent 0 66%, #000 67% 72%, transparent 73%);
+    }
+
+    .clock-orbit-outer {
+      background: conic-gradient(from 18deg, #7ce9ed 0 28deg, transparent 29deg 59deg, #e7dc71 60deg 88deg, transparent 89deg 133deg, #63d7e2 134deg 180deg, transparent 181deg 228deg, #e9df79 229deg 256deg, transparent 257deg 314deg, #8ce9ee 315deg 359deg);
+      filter: drop-shadow(0 0 7px rgba(102, 222, 232, .5));
+      animation: orbit-clockwise 22s linear infinite;
+    }
+
+    .clock-orbit-middle {
+      inset: 15px;
+      background: conic-gradient(from 88deg, rgba(120, 239, 241, .94) 0 42deg, transparent 43deg 104deg, rgba(237, 223, 117, .86) 105deg 141deg, transparent 142deg 238deg, rgba(117, 225, 236, .82) 239deg 282deg, transparent 283deg 359deg);
+      opacity: .78;
+      transform: rotate(-12deg);
+    }
+
+    .clock-orbit-inner {
+      inset: 34px;
+      background: conic-gradient(from 42deg, #e9df79 0 52deg, transparent 53deg 121deg, #79dfe8 122deg 202deg, transparent 203deg 270deg, #e7dc71 271deg 317deg, transparent 318deg 359deg);
+      filter: drop-shadow(0 0 8px rgba(233, 220, 113, .32));
+      animation: orbit-counterclockwise 15s linear infinite;
+    }
+
+    .clock-lyrics {
+      width: 100%;
+      display: grid;
+      gap: 3px;
+      min-height: 31px;
+      max-height: 31px;
+      padding: 7px 9px;
+      overflow: hidden;
+      border: 1px solid rgba(180, 237, 241, .18);
+      border-radius: 12px;
+      color: rgba(230, 245, 248, .6);
+      background: rgba(4, 18, 32, .42);
+      font-size: 9px;
+      line-height: 1.2;
+      text-align: center;
+      transition: max-height .48s cubic-bezier(.2, .8, .2, 1), background .35s ease;
+    }
+
+    .clock-lyrics span,
+    .clock-lyrics strong {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .clock-lyrics strong {
+      color: rgba(248, 253, 253, .96);
+      font-size: 10px;
+      font-weight: 680;
+    }
+
+    #lyrics-previous,
+    #lyrics-next { display: none; }
+
+    .clock-widget:hover,
+    .clock-widget:focus-visible,
+    .clock-widget.is-expanded {
+      border-color: rgba(189, 247, 244, .74);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .46), inset 0 -18px 34px rgba(0, 8, 20, .3), 0 28px 62px rgba(0, 0, 0, .4), 0 0 32px rgba(99, 229, 234, .3);
+      --clock-lift: -9px;
+    }
+
+    .clock-widget:hover::before,
+    .clock-widget:focus-visible::before,
+    .clock-widget.is-expanded::before { opacity: 1; transform: translateX(45%); }
+    .clock-widget:hover .clock-orbit-outer,
+    .clock-widget:focus-visible .clock-orbit-outer,
+    .clock-widget.is-expanded .clock-orbit-outer { animation-duration: 8s; }
+    .clock-widget:hover .clock-orbit-inner,
+    .clock-widget:focus-visible .clock-orbit-inner,
+    .clock-widget.is-expanded .clock-orbit-inner { animation-duration: 6s; }
+    .clock-widget:hover .clock-lyrics,
+    .clock-widget:focus-visible .clock-lyrics,
+    .clock-widget.is-expanded .clock-lyrics { max-height: 82px; background: rgba(7, 29, 44, .58); }
+    .clock-widget:hover #lyrics-previous,
+    .clock-widget:hover #lyrics-next,
+    .clock-widget:focus-visible #lyrics-previous,
+    .clock-widget:focus-visible #lyrics-next,
+    .clock-widget.is-expanded #lyrics-previous,
+    .clock-widget.is-expanded #lyrics-next { display: block; }
+
+    @keyframes orbit-clockwise { to { transform: rotate(360deg); } }
+    @keyframes orbit-counterclockwise { to { transform: rotate(-360deg); } }
 
     .hero-socials {
       display: flex;
@@ -658,6 +760,8 @@
     .hero-socials a:focus-visible,
     .hero-socials button:hover,
     .hero-socials button:focus-visible { transform: translateY(-4px); background: rgba(101,203,229,.32); }
+
+    .hero-socials i { font-size: 20px; line-height: 1; }
 
     .contact-popover {
       position: absolute;
@@ -985,7 +1089,7 @@
         margin: 0;
       }
       .hero-content { width: min(860px, 100%); margin-inline: auto; }
-      .memory-aperture { position: relative; inset: auto; margin: 8px auto 28px; }
+      .clock-widget { position: relative; inset: auto; margin: 8px auto 28px; }
       .hero-footer {
         position: relative;
         right: auto;
@@ -1043,11 +1147,14 @@
       .hero-profile.is-playing .profile-audio-ring,
       .hero-profile.is-playing .avatar-controls::before,
       .hero-profile.is-playing .avatar-controls::after { animation: none; }
-      .memory-aperture,
-      .memory-aperture-blades,
+      .clock-widget,
+      .clock-orbit,
       .hero-socials a,
       .hero-socials button { transition: none; }
-      .memory-aperture { transform: none; }
+      .clock-widget::before,
+      .clock-lyrics { transition: none; }
+      .clock-widget { transform: none; }
+      .clock-orbit { animation: none; }
       .archive-card,
       [data-reveal],
       .card-media img,
@@ -1127,10 +1234,17 @@
       </div>
     </main>
 
-    <button class="memory-aperture" id="memory-aperture" type="button" aria-label="切换记忆短句">
-      <span class="memory-aperture-ticks" aria-hidden="true"></span>
-      <span class="memory-aperture-blades" aria-hidden="true"></span>
-      <span class="memory-aperture-core" id="memory-aperture-phrase">GO ON</span>
+    <button class="clock-widget" id="clock-widget" type="button" aria-label="查看当前播放歌词" aria-expanded="false">
+      <span class="clock-time" id="clock-time">00:00:00</span>
+      <span class="clock-date" id="clock-date">加载日期…</span>
+      <span class="clock-orbits" aria-hidden="true">
+        <span class="clock-orbit clock-orbit-outer"></span>
+        <span class="clock-orbit clock-orbit-middle"></span>
+        <span class="clock-orbit clock-orbit-inner"></span>
+      </span>
+      <span class="clock-lyrics" aria-live="polite">
+        <span id="lyrics-previous"></span><strong id="lyrics-current">选择一首歌</strong><span id="lyrics-next"></span>
+      </span>
     </button>
 
     <div class="contact-popover" id="contact-popover" hidden role="status">
@@ -1213,15 +1327,15 @@
 
   <script>
     const TRACKS = [
-      { title: "The Nights", artist: "Avicii", mood: "OPEN ROAD", accent: "#8fc5d6", src: "./assets/music/the-nights-avicii.mp3" },
-      { title: "稻香", artist: "周杰伦", mood: "SUNLIT", accent: "#e4bb83", src: "./assets/music/daoxiang-jay-chou.mp3" },
-      { title: "后来", artist: "刘若英", mood: "AFTERGLOW", accent: "#b38b9f", src: "./assets/music/houlai-rene-liu.mp3" },
-      { title: "遇见", artist: "孙燕姿", mood: "WANDER", accent: "#9db5d4", src: "./assets/music/meet-stefanie-sun.mp3" },
-      { title: "Viva La Vida", artist: "Coldplay", mood: "ASCENT", accent: "#d8d3a5", src: "./assets/music/viva-la-vida-coldplay.mp3" },
-      { title: "平凡之路", artist: "朴树", mood: "HORIZON", accent: "#8cae9e", src: "./assets/music/ordinary-road-pu-shu.mp3" },
-      { title: "倔强", artist: "五月天", mood: "YOUTH", accent: "#d49a82", src: "./assets/music/stubborn-mayday.mp3" },
-      { title: "Counting Stars", artist: "OneRepublic", mood: "MOTION", accent: "#a7b9e7", src: "./assets/music/counting-stars-onerepublic.mp3" },
-      { title: "好久不见", artist: "陈奕迅", mood: "MELANCHOLY", accent: "#8d89b8", src: "./assets/music/long-time-no-see-eason-chan.mp3" },
+      { title: "The Nights", artist: "Avicii", mood: "OPEN ROAD", accent: "#8fc5d6", src: "./assets/music/the-nights-avicii.mp3", lyrics: "assets/music/lyrics/the-nights-avicii.lrc" },
+      { title: "稻香", artist: "周杰伦", mood: "SUNLIT", accent: "#e4bb83", src: "./assets/music/daoxiang-jay-chou.mp3", lyrics: "assets/music/lyrics/daoxiang-jay-chou.lrc" },
+      { title: "后来", artist: "刘若英", mood: "AFTERGLOW", accent: "#b38b9f", src: "./assets/music/houlai-rene-liu.mp3", lyrics: "assets/music/lyrics/houlai-rene-liu.lrc" },
+      { title: "遇见", artist: "孙燕姿", mood: "WANDER", accent: "#9db5d4", src: "./assets/music/meet-stefanie-sun.mp3", lyrics: "assets/music/lyrics/meet-stefanie-sun.lrc" },
+      { title: "Viva La Vida", artist: "Coldplay", mood: "ASCENT", accent: "#d8d3a5", src: "./assets/music/viva-la-vida-coldplay.mp3", lyrics: "assets/music/lyrics/viva-la-vida-coldplay.lrc" },
+      { title: "平凡之路", artist: "朴树", mood: "HORIZON", accent: "#8cae9e", src: "./assets/music/ordinary-road-pu-shu.mp3", lyrics: "assets/music/lyrics/ordinary-road-pu-shu.lrc" },
+      { title: "倔强", artist: "五月天", mood: "YOUTH", accent: "#d49a82", src: "./assets/music/stubborn-mayday.mp3", lyrics: "assets/music/lyrics/stubborn-mayday.lrc" },
+      { title: "Counting Stars", artist: "OneRepublic", mood: "MOTION", accent: "#a7b9e7", src: "./assets/music/counting-stars-onerepublic.mp3", lyrics: "assets/music/lyrics/counting-stars-onerepublic.lrc" },
+      { title: "好久不见", artist: "陈奕迅", mood: "MELANCHOLY", accent: "#8d89b8", src: "./assets/music/long-time-no-see-eason-chan.mp3", lyrics: "assets/music/lyrics/long-time-no-see-eason-chan.lrc" },
     ];
 
     let trackIndex = 0;
@@ -1236,9 +1350,22 @@
     const previousTrack = document.querySelector("#track-previous");
     const playTrack = document.querySelector("#track-play");
     const nextTrack = document.querySelector("#track-next");
+    const clockWidget = document.querySelector("#clock-widget");
+    const clockTime = document.querySelector("#clock-time");
+    const clockDate = document.querySelector("#clock-date");
+    const lyricsPrevious = document.querySelector("#lyrics-previous");
+    const lyricsCurrent = document.querySelector("#lyrics-current");
+    const lyricsNext = document.querySelector("#lyrics-next");
+    const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const lyricCache = new Map();
     const profileAudio = new Audio();
     profileAudio.preload = "none";
     profileAudio.volume = 1;
+    let lyricLines = [];
+    let renderedLyricTrack;
+    let renderedLyricIndex;
+    let renderedLyricLines;
+    let renderedLyricMessage;
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     let profileAudioContext;
     let profileMasterGain;
@@ -1246,6 +1373,104 @@
     let profileNoteTimer;
     let profileSwitchTimer;
     let profileSources = [];
+
+    function parseLrc(source) {
+      return source.split(/\r?\n/).flatMap((line) => {
+        const text = line.replace(/^(\[\d{2}:\d{2}(?:\.\d{1,3})?\])+/, "").trim();
+        return [...line.matchAll(/\[(\d{2}):(\d{2}(?:\.\d{1,3})?)\]/g)]
+          .map((match) => ({ time: Number(match[1]) * 60 + Number(match[2]), text }))
+          .filter((entry) => entry.text);
+      }).sort((a, b) => a.time - b.time);
+    }
+
+    function renderLyricStatus(track, message) {
+      if (
+        renderedLyricTrack === track &&
+        renderedLyricIndex === null &&
+        renderedLyricLines === lyricLines &&
+        renderedLyricMessage === message
+      ) return;
+      lyricsPrevious.textContent = "";
+      lyricsCurrent.textContent = `${track.title} · ${message}`;
+      lyricsNext.textContent = "";
+      renderedLyricTrack = track;
+      renderedLyricIndex = null;
+      renderedLyricLines = lyricLines;
+      renderedLyricMessage = message;
+    }
+
+    function renderLyricLines(index) {
+      const track = TRACKS[trackIndex];
+      const current = lyricLines[index] ?? lyricLines[0];
+      if (!current) {
+        renderLyricStatus(track, "歌词暂不可用");
+        return;
+      }
+      if (
+        renderedLyricTrack === track &&
+        renderedLyricIndex === index &&
+        renderedLyricLines === lyricLines
+      ) return;
+      lyricsPrevious.textContent = lyricLines[index - 1]?.text ?? "";
+      lyricsCurrent.textContent = `${track.title} · ${current.text}`;
+      lyricsNext.textContent = lyricLines[index + 1]?.text ?? "";
+      renderedLyricTrack = track;
+      renderedLyricIndex = index;
+      renderedLyricLines = lyricLines;
+      renderedLyricMessage = undefined;
+    }
+
+    function syncLyrics() {
+      if (!lyricLines.length) return;
+      const current = lyricLines.findLastIndex((line) => line.time <= profileAudio.currentTime);
+      renderLyricLines(current < 0 ? 0 : current);
+    }
+
+    async function loadLyrics(track) {
+      lyricLines = [];
+      renderLyricStatus(track, "加载歌词…");
+      try {
+        let lines = lyricCache.get(track.lyrics);
+        if (!lines) {
+          const response = await fetch(track.lyrics);
+          if (!response.ok) throw new Error("Lyrics could not be loaded.");
+          lines = parseLrc(await response.text());
+        }
+        lyricCache.set(track.lyrics, lines);
+        if (track !== TRACKS[trackIndex]) return;
+        lyricLines = lines;
+        if (!lyricLines.length) {
+          renderLyricStatus(track, "歌词暂不可用");
+          return;
+        }
+        renderLyricLines(0);
+        syncLyrics();
+      } catch {
+        if (track === TRACKS[trackIndex]) renderLyricStatus(track, "歌词暂不可用");
+      }
+    }
+
+    function syncClock() {
+      const now = new Date();
+      const twoDigits = (value) => String(value).padStart(2, "0");
+      const weekdays = ["日", "一", "二", "三", "四", "五", "六"];
+      clockTime.textContent = `${twoDigits(now.getHours())}:${twoDigits(now.getMinutes())}:${twoDigits(now.getSeconds())}`;
+      clockDate.textContent = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 星期${weekdays[now.getDay()]}`;
+    }
+
+    function updateClockWidget() {
+      syncClock();
+      syncLyrics();
+    }
+
+    function clearClockParallax() {
+      ["--clock-x", "--clock-y", "--clock-rotate-x", "--clock-rotate-y"].forEach((property) => clockWidget.style.removeProperty(property));
+    }
+
+    function toggleClockLyrics() {
+      const isExpanded = clockWidget.classList.toggle("is-expanded");
+      clockWidget.setAttribute("aria-expanded", String(isExpanded));
+    }
 
     function createTrackDots() {
       TRACKS.forEach((track, index) => {
@@ -1410,6 +1635,7 @@
       profileAudio.pause();
       profileAudio.src = track.src;
       profileAudio.load();
+      void loadLyrics(track);
       profileStatus.textContent = `${track.title} — ${track.artist}.`;
       renderTrack(animate);
     }
@@ -1431,9 +1657,33 @@
       }
     }
 
-    profileAudio.addEventListener("play", syncNativePlayback);
-    profileAudio.addEventListener("pause", syncNativePlayback);
-    profileAudio.addEventListener("ended", () => switchNativeTrack(1));
+    profileAudio.addEventListener("play", () => {
+      syncNativePlayback();
+      syncLyrics();
+    });
+    profileAudio.addEventListener("pause", () => {
+      syncNativePlayback();
+      syncLyrics();
+    });
+    profileAudio.addEventListener("ended", () => {
+      syncLyrics();
+      switchNativeTrack(1);
+    });
+    profileAudio.addEventListener("timeupdate", syncLyrics);
+    clockWidget.addEventListener("click", toggleClockLyrics);
+
+    if (!reduceMotionQuery.matches) {
+      clockWidget.addEventListener("pointermove", (event) => {
+        const bounds = clockWidget.getBoundingClientRect();
+        const x = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
+        const y = Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height));
+        clockWidget.style.setProperty("--clock-x", `${(x - .5) * 8}px`);
+        clockWidget.style.setProperty("--clock-y", `${(y - .5) * 8}px`);
+        clockWidget.style.setProperty("--clock-rotate-x", `${(0.5 - y) * 5}deg`);
+        clockWidget.style.setProperty("--clock-rotate-y", `${(x - .5) * 5}deg`);
+      });
+      clockWidget.addEventListener("pointerleave", clearClockParallax);
+    }
 
     const canHover = window.matchMedia("(hover: hover) and (pointer: fine)");
 
@@ -1451,17 +1701,15 @@
     createTrackDots();
     loadTrack(trackIndex);
     renderTrack();
+    updateClockWidget();
+    window.setInterval(syncClock, 1000);
 
     const heroSearchForm = document.querySelector("#hero-search-form");
     const heroSearchInput = document.querySelector("#hero-search-input");
-    const memoryAperture = document.querySelector("#memory-aperture");
-    const memoryAperturePhrase = document.querySelector("#memory-aperture-phrase");
     const contactPopover = document.querySelector("#contact-popover");
     const contactPopoverValue = document.querySelector("#contact-popover-value");
     const copyContact = document.querySelector("#copy-contact");
-    const aperturePhrases = ["GO ON", "BREATHE", "DRIFT", "BEGIN"];
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let aperturePhraseIndex = 0;
+    const reduceMotion = reduceMotionQuery.matches;
 
     heroSearchForm.addEventListener("submit", (event) => {
       if (heroSearchInput.value.trim()) return;
@@ -1497,29 +1745,6 @@
     copyContact.addEventListener("click", async () => {
       try { await navigator.clipboard?.writeText(copyContact.dataset.value); } catch {}
       copyContact.textContent = "已复制";
-    });
-
-    if (!reduceMotion) {
-      memoryAperture.addEventListener("pointermove", (event) => {
-        const bounds = memoryAperture.getBoundingClientRect();
-        const x = (event.clientX - bounds.left) / bounds.width - .5;
-        const y = (event.clientY - bounds.top) / bounds.height - .5;
-        memoryAperture.style.setProperty("--depth-x", `${x * 10}px`);
-        memoryAperture.style.setProperty("--depth-y", `${y * 8}px`);
-        memoryAperture.style.setProperty("--turn", `${x * 7 + y * 4}deg`);
-        memoryAperture.style.setProperty("--blade-scale", String(.84 + Math.abs(x) * .1));
-        memoryAperture.style.setProperty("--blade-turn", `${x * 18 - y * 11}deg`);
-      });
-      memoryAperture.addEventListener("pointerleave", () => ["--depth-x", "--depth-y", "--turn", "--blade-scale", "--blade-turn"].forEach((name) => memoryAperture.style.removeProperty(name)));
-    }
-
-    memoryAperture.addEventListener("click", () => {
-      aperturePhraseIndex = (aperturePhraseIndex + 1) % aperturePhrases.length;
-      memoryAperturePhrase.textContent = aperturePhrases[aperturePhraseIndex];
-      memoryAperture.classList.remove("is-pulsing");
-      void memoryAperture.offsetWidth;
-      memoryAperture.classList.add("is-pulsing");
-      window.setTimeout(() => memoryAperture.classList.remove("is-pulsing"), 720);
     });
 
     const phrases = [
