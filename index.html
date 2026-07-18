@@ -158,24 +158,35 @@
       width: 430px;
     }
 
-    .profile-toggle {
+    .avatar-player {
       position: relative;
-      display: block;
+      width: 132px;
+      height: 132px;
+    }
+
+    .profile-toggle,
+    .avatar-controls {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      border-radius: 50%;
+    }
+
+    .profile-toggle {
+      z-index: 1;
       width: 132px;
       height: 132px;
       padding: 0;
-      overflow: hidden;
       border: 1px solid rgba(255,255,255,.42);
-      border-radius: 50%;
       background: #08101d;
       cursor: pointer;
       box-shadow: 0 18px 38px rgba(0,0,0,.28);
       transition: transform .35s cubic-bezier(.2,.72,.2,1), box-shadow .35s ease;
     }
 
-    .profile-toggle:hover,
-    .profile-toggle:focus-visible {
-      transform: translateY(-4px) scale(1.025);
+    .avatar-player:focus-within .profile-toggle,
+    .avatar-player.is-controls .profile-toggle {
+      transform: translateY(-3px) scale(1.02);
       box-shadow: 0 24px 48px rgba(0,0,0,.36);
     }
 
@@ -189,6 +200,14 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+      transition: opacity .28s ease, transform .42s cubic-bezier(.2,.72,.2,1), filter .28s ease;
+    }
+
+    .avatar-player:focus-within .profile-toggle img,
+    .avatar-player.is-controls .profile-toggle img {
+      opacity: 0;
+      filter: blur(5px);
+      transform: scale(1.1);
     }
 
     .profile-audio-ring {
@@ -205,56 +224,62 @@
       animation: profile-ring 3.2s ease-in-out infinite;
     }
 
-    .profile-details {
-      display: grid;
-      gap: 18px;
-      width: 430px;
-      max-height: 0;
-      overflow: hidden;
-      opacity: 0;
-      translate: 0 -12px;
-      transition: max-height .5s cubic-bezier(.2,.72,.2,1), opacity .3s ease, translate .3s ease;
-    }
-
-    .hero-profile.is-open .profile-details {
-      max-height: 760px;
-      opacity: 1;
-      translate: 0 0;
-    }
-
-    .profile-player {
-      position: relative;
-      width: 250px;
-      aspect-ratio: 1;
-      margin: 18px 0 0 20px;
+    .avatar-controls {
+      z-index: 2;
       display: grid;
       align-content: center;
       justify-items: center;
-      gap: 9px;
-      overflow: hidden;
-      border: 1px solid rgba(255,255,255,.24);
-      border-radius: 50%;
-      background: radial-gradient(circle at 35% 27%, color-mix(in srgb, var(--track-accent) 44%, rgba(255,255,255,.76)), rgba(8,17,31,.72) 68%);
-      box-shadow: 0 20px 42px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.18);
+      gap: 5px;
+      padding: 14px 5px 11px;
+      border: 1px solid rgba(255,255,255,.25);
+      background: radial-gradient(circle at 34% 25%, color-mix(in srgb, var(--track-accent) 43%, rgba(255,255,255,.74)), rgba(8,17,31,.76) 71%);
+      box-shadow: 0 20px 42px rgba(0,0,0,.24), inset 0 1px 0 rgba(255,255,255,.2);
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(.9);
+      transition: opacity .28s ease, transform .36s cubic-bezier(.2,.72,.2,1), background .6s ease;
       backdrop-filter: blur(18px);
       -webkit-backdrop-filter: blur(18px);
-      transition: background .6s ease, box-shadow .6s ease, scale .35s ease;
     }
 
-    .profile-player::before,
-    .profile-player::after {
+    .avatar-controls::before,
+    .avatar-controls::after {
       content: "";
       position: absolute;
-      inset: 13px;
       border: 1px solid color-mix(in srgb, var(--track-accent) 70%, transparent);
       border-radius: inherit;
       pointer-events: none;
     }
 
-    .profile-player::after { inset: 26px; opacity: .42; }
-    .hero-profile.is-playing .profile-player::before { animation: profile-rotate 18s linear infinite; }
-    .hero-profile.is-playing .profile-player::after { animation: profile-ripple 2.8s ease-in-out infinite; }
-    .profile-player.is-switching { scale: .95; }
+    .avatar-controls::before { inset: 8px; }
+    .avatar-controls::after { inset: 18px; opacity: .42; }
+    .hero-profile.is-playing .avatar-controls::before { animation: profile-rotate 18s linear infinite; }
+    .hero-profile.is-playing .avatar-controls::after { animation: profile-ripple 2.8s ease-in-out infinite; }
+    .avatar-player.is-switching .avatar-controls { transform: scale(.94); }
+
+    .avatar-player:focus-within .avatar-controls,
+    .avatar-player.is-controls .avatar-controls {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(1);
+    }
+
+    @media (hover: hover) and (pointer: fine) {
+      .avatar-player:hover .profile-toggle {
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 0 24px 48px rgba(0,0,0,.36);
+      }
+      .avatar-player:hover .profile-toggle img {
+        opacity: 0;
+        filter: blur(5px);
+        transform: scale(1.1);
+      }
+      .avatar-player:hover .avatar-controls {
+        opacity: 1;
+        pointer-events: auto;
+        transform: scale(1);
+      }
+    }
 
     .track-mood,
     .track-name {
@@ -267,14 +292,14 @@
 
     .track-mood {
       color: rgba(255,255,255,.66);
-      font-size: 9px;
+      font-size: 7px;
       font-weight: 680;
       letter-spacing: .24em;
     }
 
     .track-name {
       color: rgba(255,255,255,.95);
-      font-size: 18px;
+      font-size: 10px;
       font-weight: 650;
       letter-spacing: .08em;
     }
@@ -284,12 +309,12 @@
       z-index: 1;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 5px;
     }
 
     .track-controls button {
-      width: 48px;
-      height: 48px;
+      width: 31px;
+      height: 31px;
       border: 0;
       border-radius: 50%;
       color: rgba(255,255,255,.95);
@@ -300,9 +325,9 @@
     }
 
     #track-play {
-      width: 72px;
-      height: 72px;
-      font-size: 23px;
+      width: 46px;
+      height: 46px;
+      font-size: 16px;
       background: color-mix(in srgb, var(--track-accent) 43%, rgba(255,255,255,.22));
     }
 
@@ -340,6 +365,7 @@
 
     .profile-card {
       width: 430px;
+      margin-top: 18px;
       padding: 26px;
       border: 1px solid rgba(255,255,255,.14);
       border-radius: 20px;
@@ -751,10 +777,17 @@
       .site-nav a::before { content: attr(data-short); font-size: 9px; }
       .hero { padding: 88px 18px 38px; }
       .hero-profile { width: 100%; margin-bottom: 38px; }
+      .avatar-player,
       .profile-toggle { width: 94px; height: 94px; }
-      .profile-details,
+      .avatar-controls { padding: 10px 4px 8px; gap: 3px; }
+      .track-mood { font-size: 6px; }
+      .track-name { font-size: 8px; }
+      .track-controls { gap: 4px; }
+      .track-controls button { width: 24px; height: 24px; font-size: 8px; }
+      #track-play { width: 38px; height: 38px; font-size: 13px; }
+      .track-dot { width: 4px; height: 4px; }
+      .track-dot.is-active { width: 16px; }
       .profile-card { width: 100%; }
-      .profile-player { width: 220px; margin-left: 0; }
       .eyebrow { margin-bottom: 18px; font-size: 8px; }
       .sentence-wrap { height: 250px; }
       .sentence { font-size: clamp(14px, 3.7vw, 19px); line-height: 1.82; letter-spacing: 0; }
@@ -778,8 +811,8 @@
       .caret,
       .scroll-line::after,
       .hero-profile.is-playing .profile-audio-ring,
-      .hero-profile.is-playing .profile-player::before,
-      .hero-profile.is-playing .profile-player::after { animation: none; }
+      .hero-profile.is-playing .avatar-controls::before,
+      .hero-profile.is-playing .avatar-controls::after { animation: none; }
       .archive-card,
       [data-reveal],
       .card-media img,
@@ -803,36 +836,36 @@
 
   <section class="hero" id="hero">
     <aside class="hero-profile" id="hero-profile" aria-label="Profile and music player">
-      <button class="profile-toggle" id="profile-toggle" type="button" aria-controls="profile-details" aria-expanded="false" aria-label="Open profile and music player">
-        <img src="./assets/homepage/profile-coast-backview.png" alt="">
-        <span class="profile-audio-ring" aria-hidden="true"></span>
-      </button>
-      <div class="profile-details" id="profile-details" aria-hidden="true">
-        <section class="profile-player" id="profile-player" aria-label="Original ambient player">
+      <div class="avatar-player" id="avatar-player">
+        <button class="profile-toggle" id="profile-toggle" type="button" aria-controls="avatar-controls" aria-expanded="false" aria-label="Show music controls">
+          <img src="./assets/homepage/profile-coast-backview.png" alt="">
+          <span class="profile-audio-ring" aria-hidden="true"></span>
+        </button>
+        <section class="avatar-controls" id="avatar-controls" aria-label="Original ambient player">
           <p class="track-mood" id="track-mood">MELANCHOLY</p>
-          <p class="track-name" id="track-name">DUSK</p>
           <div class="track-controls">
             <button id="track-previous" type="button" aria-label="Previous track">◀</button>
             <button id="track-play" type="button" aria-label="Play DUSK" aria-pressed="false">▶</button>
             <button id="track-next" type="button" aria-label="Next track">▶▶</button>
           </div>
+          <p class="track-name" id="track-name">DUSK</p>
           <div class="track-dots" id="track-dots" aria-label="Track selection"></div>
         </section>
-        <section class="profile-card" id="profile-card" aria-label="Profile and education">
-          <p class="profile-kicker">PROFILE / EDUCATION</p>
-          <section class="education-entry">
-            <p class="education-period">2022—2026 · ARTIFICIAL INTELLIGENCE</p>
-            <p>School of Artificial Intelligence</p>
-            <p>China University of Petroleum (Beijing)</p>
-          </section>
-          <section class="education-entry">
-            <p class="education-period">2026—NOW · ARTIFICIAL INTELLIGENCE</p>
-            <p>School of Artificial Intelligence and Automation</p>
-            <p>Huazhong University of Science and Technology</p>
-          </section>
-          <p class="profile-audio-status" id="track-status" aria-live="polite">Open the profile, then choose a track.</p>
-        </section>
       </div>
+      <section class="profile-card" id="profile-card" aria-label="Profile and education">
+        <p class="profile-kicker">PROFILE / EDUCATION</p>
+        <section class="education-entry">
+          <p class="education-period">2022—2026 · ARTIFICIAL INTELLIGENCE</p>
+          <p>School of Artificial Intelligence</p>
+          <p>China University of Petroleum (Beijing)</p>
+        </section>
+        <section class="education-entry">
+          <p class="education-period">2026—NOW · ARTIFICIAL INTELLIGENCE</p>
+          <p>School of Artificial Intelligence and Automation</p>
+          <p>Huazhong University of Science and Technology</p>
+        </section>
+        <p class="profile-audio-status" id="track-status" aria-live="polite">Choose a track from the avatar.</p>
+      </section>
     </aside>
     <main class="hero-main">
       <div class="eyebrow" id="eyebrow">NOTES ON LIFE · 01 / 10</div>
@@ -912,18 +945,18 @@
 
   <script>
     const TRACKS = [
-      { title: "DUSK / MELANCHOLY", name: "DUSK", mood: "MELANCHOLY", accent: "#8d89b8", pad: [110, 164.81], notes: [220, 196, 174.61], interval: 3600, pulse: .018, filter: 620 },
-      { title: "YOUTH / OPEN ROAD", name: "OPEN ROAD", mood: "YOUTH", accent: "#8fc5d6", pad: [146.83, 220], notes: [293.66, 329.63, 392], interval: 2500, pulse: .024, filter: 980 },
-      { title: "SUNLIT / HORIZON", name: "HORIZON", mood: "SUNLIT", accent: "#e4bb83", pad: [164.81, 246.94], notes: [329.63, 392, 493.88], interval: 2200, pulse: .026, filter: 1280 },
-      { title: "RAIN / AFTERTHOUGHT", name: "AFTERTHOUGHT", mood: "RAIN", accent: "#b38b9f", pad: [98, 146.83], notes: [196, 233.08, 174.61], interval: 3900, pulse: .016, filter: 480 },
-      { title: "ASCENT / RENEWAL", name: "RENEWAL", mood: "ASCENT", accent: "#d8d3a5", pad: [130.81, 196], notes: [261.63, 329.63, 392, 523.25], interval: 2000, pulse: .028, filter: 1460 },
+      { title: "DUSK / MELANCHOLY", name: "DUSK", mood: "MELANCHOLY", accent: "#8d89b8", pad: [110, 164.81], notes: [220, 196, 174.61], interval: 1600, pulse: .018, filter: 620 },
+      { title: "YOUTH / OPEN ROAD", name: "OPEN ROAD", mood: "YOUTH", accent: "#8fc5d6", pad: [146.83, 220], notes: [293.66, 329.63, 392], interval: 1300, pulse: .024, filter: 980 },
+      { title: "SUNLIT / HORIZON", name: "HORIZON", mood: "SUNLIT", accent: "#e4bb83", pad: [164.81, 246.94], notes: [329.63, 392, 493.88], interval: 1200, pulse: .026, filter: 1280 },
+      { title: "RAIN / AFTERTHOUGHT", name: "AFTERTHOUGHT", mood: "RAIN", accent: "#b38b9f", pad: [98, 146.83], notes: [196, 233.08, 174.61], interval: 1600, pulse: .016, filter: 480 },
+      { title: "ASCENT / RENEWAL", name: "RENEWAL", mood: "ASCENT", accent: "#d8d3a5", pad: [130.81, 196], notes: [261.63, 329.63, 392, 523.25], interval: 1100, pulse: .028, filter: 1460 },
     ];
 
     let trackIndex = 0;
     const profileWidget = document.querySelector("#hero-profile");
+    const avatarPlayer = document.querySelector("#avatar-player");
     const profileToggle = document.querySelector("#profile-toggle");
-    const profileDetails = document.querySelector("#profile-details");
-    const profilePlayer = document.querySelector("#profile-player");
+    const avatarControls = document.querySelector("#avatar-controls");
     const profileStatus = document.querySelector("#track-status");
     const trackName = document.querySelector("#track-name");
     const trackMood = document.querySelector("#track-mood");
@@ -960,10 +993,10 @@
       playTrack.setAttribute("aria-pressed", String(playing));
       playTrack.setAttribute("aria-label", playing ? `Pause ${track.name}` : `Play ${track.name}`);
       if (!animate) return;
-      profilePlayer.classList.remove("is-switching");
-      void profilePlayer.offsetWidth;
-      profilePlayer.classList.add("is-switching");
-      window.setTimeout(() => profilePlayer.classList.remove("is-switching"), 340);
+      avatarPlayer.classList.remove("is-switching");
+      void avatarPlayer.offsetWidth;
+      avatarPlayer.classList.add("is-switching");
+      window.setTimeout(() => avatarPlayer.classList.remove("is-switching"), 340);
     }
 
     function createProfileTone(frequency, gainValue, duration) {
@@ -1016,8 +1049,8 @@
         const track = TRACKS[trackIndex];
         const now = profileAudioContext.currentTime;
         profileTrackGain.gain.setValueAtTime(.0001, now);
-        profileTrackGain.gain.exponentialRampToValueAtTime(.11, now + .45);
-        track.pad.forEach((frequency, index) => createProfileTone(frequency, index === 0 ? .02 : .014, 8));
+        profileTrackGain.gain.exponentialRampToValueAtTime(.22, now + .45);
+        track.pad.forEach((frequency, index) => createProfileTone(frequency, index === 0 ? .02 : .014, 2));
         createProfileWind(track.filter);
         let noteIndex = 0;
         window.clearInterval(profileNoteTimer);
@@ -1078,12 +1111,13 @@
       if (resume) profileSwitchTimer = window.setTimeout(startProfileAudio, 120);
     }
 
-    profileToggle.addEventListener("click", () => {
-      const isOpen = profileWidget.classList.toggle("is-open");
-      profileToggle.setAttribute("aria-expanded", String(isOpen));
-      profileDetails.setAttribute("aria-hidden", String(!isOpen));
-      if (!isOpen) profileStatus.textContent = "Profile and player are closed.";
-    });
+    function toggleAvatarControls() {
+      const isVisible = avatarPlayer.classList.toggle("is-controls");
+      profileToggle.setAttribute("aria-expanded", String(isVisible));
+      profileToggle.setAttribute("aria-label", isVisible ? "Hide music controls" : "Show music controls");
+    }
+
+    profileToggle.addEventListener("click", toggleAvatarControls);
     previousTrack.addEventListener("click", () => switchTrack(-1));
     playTrack.addEventListener("click", togglePlayback);
     nextTrack.addEventListener("click", () => switchTrack(1));
