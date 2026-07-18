@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07101c">
-  <title>SNOWSTORM · PERSONAL ARCHIVE</title>
+  <title>SNOWSTORM的个人主页 ✦</title>
+  <link rel="icon" href="./assets/homepage/profile-coast-backview.png" type="image/png">
   <style>
     :root {
       color-scheme: dark;
@@ -143,9 +144,8 @@
     }
 
     .hero-main {
-      justify-self: end;
-      width: min(820px, 60vw);
-      margin: -1vh clamp(30px, 5vw, 90px) 0 0;
+      width: min(1180px, 88vw);
+      margin-top: -1vh;
       text-align: center;
     }
 
@@ -155,13 +155,14 @@
       top: clamp(104px, 12vh, 148px);
       left: clamp(34px, 7vw, 112px);
       z-index: 4;
-      width: 430px;
+      width: 330px;
     }
 
     .avatar-player {
       position: relative;
       width: 132px;
       height: 132px;
+      margin-inline: auto;
     }
 
     .profile-toggle,
@@ -184,7 +185,6 @@
       transition: transform .35s cubic-bezier(.2,.72,.2,1), box-shadow .35s ease;
     }
 
-    .avatar-player:focus-within .profile-toggle,
     .avatar-player.is-controls .profile-toggle {
       transform: translateY(-3px) scale(1.02);
       box-shadow: 0 24px 48px rgba(0,0,0,.36);
@@ -203,7 +203,6 @@
       transition: opacity .28s ease, transform .42s cubic-bezier(.2,.72,.2,1), filter .28s ease;
     }
 
-    .avatar-player:focus-within .profile-toggle img,
     .avatar-player.is-controls .profile-toggle img {
       opacity: 0;
       filter: blur(5px);
@@ -257,7 +256,6 @@
     .hero-profile.is-playing .avatar-controls::after { animation: profile-ripple 2.8s ease-in-out infinite; }
     .avatar-player.is-switching .avatar-controls { transform: scale(.94); }
 
-    .avatar-player:focus-within .avatar-controls,
     .avatar-player.is-controls .avatar-controls {
       opacity: 1;
       pointer-events: auto;
@@ -364,9 +362,9 @@
     }
 
     .profile-card {
-      width: 430px;
-      margin-top: 18px;
-      padding: 26px;
+      width: 330px;
+      margin-top: 16px;
+      padding: 22px;
       border: 1px solid rgba(255,255,255,.14);
       border-radius: 20px;
       background: rgba(5,13,27,.62);
@@ -754,7 +752,7 @@
       .hero-profile {
         position: relative;
         inset: auto;
-        width: min(100%, 430px);
+        width: min(100%, 330px);
         margin: 0 auto 44px;
       }
       .hero-main {
@@ -1049,7 +1047,7 @@
         const track = TRACKS[trackIndex];
         const now = profileAudioContext.currentTime;
         profileTrackGain.gain.setValueAtTime(.0001, now);
-        profileTrackGain.gain.exponentialRampToValueAtTime(.22, now + .45);
+        profileTrackGain.gain.exponentialRampToValueAtTime(.40, now + .45);
         track.pad.forEach((frequency, index) => createProfileTone(frequency, index === 0 ? .02 : .014, 2));
         createProfileWind(track.filter);
         let noteIndex = 0;
@@ -1111,7 +1109,10 @@
       if (resume) profileSwitchTimer = window.setTimeout(startProfileAudio, 120);
     }
 
+    const canHover = window.matchMedia("(hover: hover) and (pointer: fine)");
+
     function toggleAvatarControls() {
+      if (canHover.matches) return;
       const isVisible = avatarPlayer.classList.toggle("is-controls");
       profileToggle.setAttribute("aria-expanded", String(isVisible));
       profileToggle.setAttribute("aria-label", isVisible ? "Hide music controls" : "Show music controls");
