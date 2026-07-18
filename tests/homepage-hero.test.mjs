@@ -9,12 +9,19 @@ test("hero provides title, Google search, and a safe main region", () => {
   assert.match(page, /id="hero-search-form"[^>]*action="https:\/\/www\.google\.com\/search"/);
   assert.match(page, /id="hero-search-input"[^>]*name="q"/);
   assert.match(page, /class="hero-content"/);
-  assert.match(page, /\.hero-main\s*\{[\s\S]*margin:\s*0 clamp\(22px, 4vw, 78px\) 0 clamp\(300px,/);
+  assert.match(page, /\.hero-main\s*\{[\s\S]*width: min\(680px, calc\(100vw - 720px\)\)[\s\S]*margin:\s*0 clamp\(280px, 21vw, 340px\) 0 clamp\(300px,/);
 });
 
-test("hero exposes aperture and supplied social contacts", () => {
-  assert.match(page, /id="memory-aperture"[^>]*type="button"/);
-  assert.match(page, /id="memory-aperture-phrase">GO ON/);
+test("hero renders a frosted clock lyric widget instead of an aperture", () => {
+  assert.match(page, /id="clock-widget"[^>]*type="button"/);
+  assert.match(page, /id="clock-time"/);
+  assert.match(page, /id="clock-date"/);
+  assert.match(page, /class="clock-orbit clock-orbit-outer"/);
+  assert.match(page, /id="lyrics-current"/);
+  assert.match(page, /\.clock-widget\s*\{[\s\S]*width: clamp\(220px, 17vw, 250px\)/);
+});
+
+test("hero retains supplied social contacts", () => {
   assert.match(page, /data-contact="wechat"/);
   assert.match(page, /https:\/\/github\.com\/snowstorm-121/);
   assert.match(page, /mailto:2971234387@qq\.com/);
@@ -22,12 +29,9 @@ test("hero exposes aperture and supplied social contacts", () => {
   assert.match(page, /https:\/\/x\.com\/yongyi_121/);
 });
 
-test("hero code configures maximum gain and motion-aware aperture", () => {
+test("hero code configures maximum gain and motion-aware clock widget", () => {
   assert.match(page, /profileTrackGain\.gain\.exponentialRampToValueAtTime\(1\.00, now \+ \.45\)/);
-  assert.match(page, /const aperturePhrases = \["GO ON", "BREATHE", "DRIFT", "BEGIN"\]/);
-  assert.match(page, /memoryAperture\.addEventListener\("pointermove"/);
-  assert.match(page, /memoryAperture\.addEventListener\("click"/);
-  assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.memory-aperture/);
+  assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.clock-widget/);
 });
 
 test("player declares nine local audio tracks with display metadata", () => {
@@ -55,5 +59,5 @@ test("homepage toggles contacts and submits raw Google keywords", () => {
   assert.match(page, /action="https:\/\/www\.google\.com\/search"/);
   assert.match(page, /contactPopover\.hidden = !contactPopover\.hidden/);
   assert.match(page, /\.hero-search\s*\{[\s\S]*width: min\(760px,/);
-  assert.match(page, /\.memory-aperture::before/);
+  assert.match(page, /\.clock-widget::before/);
 });

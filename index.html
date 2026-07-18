@@ -145,8 +145,8 @@
     }
 
     .hero-main {
-      width: min(760px, calc(100vw - 580px));
-      margin: 0 clamp(22px, 4vw, 78px) 0 clamp(300px, 27vw, 380px);
+      width: min(680px, calc(100vw - 720px));
+      margin: 0 clamp(280px, 21vw, 340px) 0 clamp(300px, 27vw, 380px);
       text-align: center;
     }
 
@@ -490,7 +490,7 @@
     }
 
     .hero-search button:focus-visible,
-    .memory-aperture:focus-visible,
+    .clock-widget:focus-visible,
     .hero-socials a:focus-visible,
     .hero-socials button:focus-visible,
     .contact-popover button:focus-visible {
@@ -567,72 +567,154 @@
       background: rgba(244,246,251,.82);
     }
 
-    .memory-aperture {
-      --depth-x: 0px;
-      --depth-y: 0px;
+    .clock-widget {
       position: absolute;
-      top: clamp(110px, 17vh, 180px);
+      top: clamp(96px, 14vh, 148px);
       right: clamp(22px, 4vw, 62px);
-      width: 148px;
-      height: 148px;
-      display: grid;
-      place-items: center;
+      z-index: 2;
+      width: clamp(220px, 17vw, 250px);
+      min-height: 342px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 25px 20px 18px;
       overflow: hidden;
-      border: 1px solid rgba(220,240,246,.68);
-      border-radius: 50%;
+      border: 1px solid rgba(191, 238, 242, .44);
+      border-radius: 28px;
       color: var(--text);
-      background: radial-gradient(circle at 34% 25%, rgba(241,253,255,.35), transparent 28%), linear-gradient(145deg, rgba(201,224,230,.28), rgba(5,20,31,.52) 62%, rgba(3,11,20,.72));
-      box-shadow: inset 10px 9px 18px rgba(242,255,255,.20), inset -18px -14px 26px rgba(0,9,16,.48), 0 20px 60px rgba(0,0,0,.35);
+      background: linear-gradient(145deg, rgba(220, 252, 255, .22), rgba(10, 31, 48, .56) 48%, rgba(4, 14, 28, .74));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .34), inset 0 -18px 34px rgba(0, 8, 20, .34), 0 22px 52px rgba(0, 0, 0, .34);
+      backdrop-filter: blur(20px) saturate(135%);
+      -webkit-backdrop-filter: blur(20px) saturate(135%);
       cursor: pointer;
-      transform: translate(var(--depth-x), var(--depth-y)) rotate(var(--turn, 0deg));
-      transition: transform .16s ease-out, box-shadow .35s ease;
+      transition: transform .35s cubic-bezier(.2, .75, .2, 1), box-shadow .35s ease, border-color .35s ease;
     }
 
-    .memory-aperture::before,
-    .memory-aperture::after {
+    .clock-widget::before,
+    .clock-widget::after {
       content: "";
       position: absolute;
-      border-radius: inherit;
       pointer-events: none;
     }
-    .memory-aperture::before { inset: 7px; border: 1px solid rgba(240,252,255,.26); background: linear-gradient(135deg, rgba(255,255,255,.20), transparent 34%); mix-blend-mode: screen; }
-    .memory-aperture::after { inset: 18px; border: 1px solid rgba(156,207,220,.24); box-shadow: inset 0 0 24px rgba(106,194,213,.14); }
-
-    .memory-aperture-ticks {
-      position: absolute;
-      inset: 8px;
-      border-radius: inherit;
-      background: repeating-conic-gradient(from 12deg, rgba(221,243,243,.34) 0 1deg, transparent 1.5deg 18deg);
-      -webkit-mask: radial-gradient(transparent 0 62%, #000 63% 65%, transparent 66%);
-      mask: radial-gradient(transparent 0 62%, #000 63% 65%, transparent 66%);
+    .clock-widget::before {
+      inset: -36% -74%;
+      background: linear-gradient(100deg, transparent 42%, rgba(237, 255, 255, .38) 50%, transparent 58%);
+      opacity: .56;
+      transform: translateX(-45%);
+      transition: transform .7s ease, opacity .35s ease;
+    }
+    .clock-widget::after {
+      inset: 9px;
+      border: 1px solid rgba(233, 255, 255, .18);
+      border-radius: 22px;
     }
 
-    .memory-aperture-blades {
-      width: 94px;
-      height: 94px;
-      border-radius: 50%;
-      background: conic-gradient(from 15deg, #071520 0 42deg, #204a58 43deg 61deg, #07141e 62deg 102deg, #1c4452 103deg 121deg, #07141e 122deg 162deg, #204a58 163deg 181deg, #07141e 182deg 222deg, #1c4452 223deg 241deg, #07141e 242deg 282deg, #204a58 283deg 301deg, #07141e 302deg 342deg, #1c4452 343deg 359deg);
-      box-shadow: inset 0 0 24px rgba(0,0,0,.76), 0 0 16px rgba(127,210,224,.08);
-      transform: scale(var(--blade-scale, .82)) rotate(var(--blade-turn, 0deg));
-      transition: transform .38s cubic-bezier(.2,.75,.2,1);
+    .clock-time,
+    .clock-date,
+    .clock-lyrics { position: relative; z-index: 1; }
+
+    .clock-time {
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: clamp(25px, 2vw, 31px);
+      font-weight: 650;
+      letter-spacing: .075em;
+      text-shadow: 0 0 18px rgba(149, 239, 248, .34);
     }
 
-    .memory-aperture-core {
-      position: absolute;
-      z-index: 1;
-      width: 58px;
-      height: 58px;
-      display: grid;
-      place-items: center;
-      border: 1px solid rgba(225,244,246,.65);
-      border-radius: 50%;
-      background: rgba(4,21,34,.74);
+    .clock-date {
+      margin-top: 5px;
+      color: rgba(224, 242, 248, .66);
       font-size: 9px;
-      letter-spacing: .14em;
-      box-shadow: 0 0 20px rgba(101,213,229,.20);
+      font-weight: 650;
+      letter-spacing: .13em;
     }
 
-    .memory-aperture.is-pulsing { box-shadow: inset 12px 9px 16px rgba(241,255,255,.16), inset -14px -12px 20px rgba(0,9,16,.42), 0 20px 60px rgba(0,0,0,.35), 0 0 42px rgba(234,221,132,.34); }
+    .clock-orbits {
+      position: relative;
+      z-index: 1;
+      width: 154px;
+      height: 154px;
+      margin: 16px auto 12px;
+      flex: 0 0 auto;
+    }
+
+    .clock-orbit {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      -webkit-mask: radial-gradient(transparent 0 66%, #000 67% 72%, transparent 73%);
+      mask: radial-gradient(transparent 0 66%, #000 67% 72%, transparent 73%);
+    }
+
+    .clock-orbit-outer {
+      background: conic-gradient(from 18deg, #7ce9ed 0 28deg, transparent 29deg 59deg, #e7dc71 60deg 88deg, transparent 89deg 133deg, #63d7e2 134deg 180deg, transparent 181deg 228deg, #e9df79 229deg 256deg, transparent 257deg 314deg, #8ce9ee 315deg 359deg);
+      filter: drop-shadow(0 0 7px rgba(102, 222, 232, .5));
+      animation: orbit-clockwise 22s linear infinite;
+    }
+
+    .clock-orbit-middle {
+      inset: 15px;
+      background: conic-gradient(from 88deg, rgba(120, 239, 241, .94) 0 42deg, transparent 43deg 104deg, rgba(237, 223, 117, .86) 105deg 141deg, transparent 142deg 238deg, rgba(117, 225, 236, .82) 239deg 282deg, transparent 283deg 359deg);
+      opacity: .78;
+      transform: rotate(-12deg);
+    }
+
+    .clock-orbit-inner {
+      inset: 34px;
+      background: conic-gradient(from 42deg, #e9df79 0 52deg, transparent 53deg 121deg, #79dfe8 122deg 202deg, transparent 203deg 270deg, #e7dc71 271deg 317deg, transparent 318deg 359deg);
+      filter: drop-shadow(0 0 8px rgba(233, 220, 113, .32));
+      animation: orbit-counterclockwise 15s linear infinite;
+    }
+
+    .clock-lyrics {
+      width: 100%;
+      display: grid;
+      gap: 3px;
+      min-height: 31px;
+      max-height: 31px;
+      padding: 7px 9px;
+      overflow: hidden;
+      border: 1px solid rgba(180, 237, 241, .18);
+      border-radius: 12px;
+      color: rgba(230, 245, 248, .6);
+      background: rgba(4, 18, 32, .42);
+      font-size: 9px;
+      line-height: 1.2;
+      text-align: center;
+      transition: max-height .48s cubic-bezier(.2, .8, .2, 1), background .35s ease;
+    }
+
+    .clock-lyrics span,
+    .clock-lyrics strong {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .clock-lyrics strong {
+      color: rgba(248, 253, 253, .96);
+      font-size: 10px;
+      font-weight: 680;
+    }
+
+    .clock-widget:hover,
+    .clock-widget:focus-visible {
+      border-color: rgba(189, 247, 244, .74);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .46), inset 0 -18px 34px rgba(0, 8, 20, .3), 0 28px 62px rgba(0, 0, 0, .4), 0 0 32px rgba(99, 229, 234, .3);
+      transform: translateY(-9px);
+    }
+
+    .clock-widget:hover::before,
+    .clock-widget:focus-visible::before { opacity: 1; transform: translateX(45%); }
+    .clock-widget:hover .clock-orbit-outer,
+    .clock-widget:focus-visible .clock-orbit-outer { animation-duration: 8s; }
+    .clock-widget:hover .clock-orbit-inner,
+    .clock-widget:focus-visible .clock-orbit-inner { animation-duration: 6s; }
+    .clock-widget:hover .clock-lyrics,
+    .clock-widget:focus-visible .clock-lyrics { max-height: 82px; background: rgba(7, 29, 44, .58); }
+
+    @keyframes orbit-clockwise { to { transform: rotate(360deg); } }
+    @keyframes orbit-counterclockwise { to { transform: rotate(-360deg); } }
 
     .hero-socials {
       display: flex;
@@ -658,6 +740,8 @@
     .hero-socials a:focus-visible,
     .hero-socials button:hover,
     .hero-socials button:focus-visible { transform: translateY(-4px); background: rgba(101,203,229,.32); }
+
+    .hero-socials i { font-size: 20px; line-height: 1; }
 
     .contact-popover {
       position: absolute;
@@ -985,7 +1069,7 @@
         margin: 0;
       }
       .hero-content { width: min(860px, 100%); margin-inline: auto; }
-      .memory-aperture { position: relative; inset: auto; margin: 8px auto 28px; }
+      .clock-widget { position: relative; inset: auto; margin: 8px auto 28px; }
       .hero-footer {
         position: relative;
         right: auto;
@@ -1043,11 +1127,12 @@
       .hero-profile.is-playing .profile-audio-ring,
       .hero-profile.is-playing .avatar-controls::before,
       .hero-profile.is-playing .avatar-controls::after { animation: none; }
-      .memory-aperture,
-      .memory-aperture-blades,
+      .clock-widget,
+      .clock-orbit,
       .hero-socials a,
       .hero-socials button { transition: none; }
-      .memory-aperture { transform: none; }
+      .clock-widget { transform: none; }
+      .clock-orbit { animation: none; }
       .archive-card,
       [data-reveal],
       .card-media img,
@@ -1127,10 +1212,17 @@
       </div>
     </main>
 
-    <button class="memory-aperture" id="memory-aperture" type="button" aria-label="切换记忆短句">
-      <span class="memory-aperture-ticks" aria-hidden="true"></span>
-      <span class="memory-aperture-blades" aria-hidden="true"></span>
-      <span class="memory-aperture-core" id="memory-aperture-phrase">GO ON</span>
+    <button class="clock-widget" id="clock-widget" type="button" aria-label="查看当前播放歌词">
+      <span class="clock-time" id="clock-time">00:00:00</span>
+      <span class="clock-date" id="clock-date">加载日期…</span>
+      <span class="clock-orbits" aria-hidden="true">
+        <span class="clock-orbit clock-orbit-outer"></span>
+        <span class="clock-orbit clock-orbit-middle"></span>
+        <span class="clock-orbit clock-orbit-inner"></span>
+      </span>
+      <span class="clock-lyrics" aria-live="polite">
+        <span id="lyrics-previous"></span><strong id="lyrics-current">选择一首歌</strong><span id="lyrics-next"></span>
+      </span>
     </button>
 
     <div class="contact-popover" id="contact-popover" hidden role="status">
