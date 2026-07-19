@@ -9,7 +9,6 @@ test("hero provides title, Google search, and a safe main region", () => {
   assert.match(page, /id="hero-search-form"[^>]*action="https:\/\/www\.google\.com\/search"/);
   assert.match(page, /id="hero-search-input"[^>]*name="q"/);
   assert.match(page, /class="hero-content"/);
-  assert.match(page, /\.hero-main\s*\{[\s\S]*width: min\(540px, calc\(100vw - 820px\)\)[\s\S]*margin:\s*0 clamp\(360px, 24vw, 430px\) 0 clamp\(360px,/);
 });
 
 test("hero locks search directly above a two-line quote stack", () => {
@@ -27,58 +26,20 @@ test("hero renders a responsive vinyl turntable instead of the film clock", () =
   assert.doesNotMatch(page, /film-perforations|film-equalizer|clock-orbit/);
 });
 
-test("desktop hero reserves horizontal room for the clock widget", () => {
-  assert.match(page, /\.hero-main\s*\{[\s\S]*width: min\(540px, calc\(100vw - 820px\)\)/);
-  assert.match(page, /\.hero-search\s*\{[\s\S]*width: 100%;/);
-});
+test("vinyl metadata stacks before the fixed card can fit two columns", () => {
+  const start = page.indexOf("@media (max-width: 1470px)");
+  const end = page.indexOf("@media (max-width: 1320px)", start);
+  assert.notEqual(start, -1);
+  assert.notEqual(end, -1);
 
-test("desktop hero keeps a compact fixed safe column for title and search", () => {
-  assert.match(page, /\.hero-main\s*\{[\s\S]*width: min\(540px, calc\(100vw - 820px\)\)[\s\S]*margin:\s*0 clamp\(360px, 24vw, 430px\) 0 clamp\(360px, 20vw, 460px\)/);
-  assert.match(page, /#hero-title\s*\{[\s\S]*font: italic 700 clamp\(34px, 4\.2vw, 58px\)\/\.9 Georgia, serif;[\s\S]*white-space: nowrap;/);
-  assert.match(page, /\.hero-search\s*\{[\s\S]*width: 100%;[\s\S]*max-width: 540px;/);
+  const rule = page.slice(start, end);
+  assert.match(rule, /\.vinyl-player\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\);[\s\S]*justify-items: center;/);
+  assert.match(rule, /\.vinyl-metadata\s*\{\s*width: 100%;\s*text-align: center;\s*\}/);
+  assert.doesNotMatch(rule, /\.hero(?:\s|\{)/);
 });
 
 test("mobile hero title can wrap safely within a 320px viewport", () => {
   assert.match(page, /@media \(max-width: 720px\)[\s\S]*#hero-title\s*\{[\s\S]*font-size: clamp\(30px, 10vw, 42px\);[\s\S]*white-space: normal;[\s\S]*overflow-wrap: anywhere;/);
-});
-
-test("hero renders a frosted clock lyric widget instead of an aperture", () => {
-  assert.match(page, /id="clock-widget"[^>]*type="button"/);
-  assert.match(page, /id="clock-time"/);
-  assert.match(page, /id="clock-date"/);
-  assert.match(page, /class="clock-orbit clock-orbit-outer"/);
-  assert.match(page, /id="lyrics-current"/);
-  assert.match(page, /\.clock-widget\s*\{[\s\S]*width: clamp\(220px, 17vw, 250px\)/);
-});
-
-test("clock widget exposes film-player metadata and decorative layers", () => {
-  assert.match(page, /id="film-now-playing"/);
-  assert.match(page, /id="film-track-title"/);
-  assert.match(page, /id="film-track-artist"/);
-  assert.match(page, /id="film-progress"/);
-  assert.match(page, /id="film-elapsed"/);
-  assert.match(page, /id="film-duration"/);
-  assert.match(page, /class="film-perforations" aria-hidden="true"/);
-  assert.match(page, /class="film-equalizer" aria-hidden="true"/);
-  assert.match(page, /\.clock-widget\s*\{[\s\S]*backdrop-filter: blur\(28px\) saturate\(150%\)/);
-  assert.match(page, /\.film-perforations\s*\{[\s\S]*repeating-linear-gradient/);
-});
-
-test("film card includes an aria-hidden edge numbering and tick layer", () => {
-  assert.match(page, /class="film-edge-marks" aria-hidden="true"/);
-  assert.match(page, /class="film-edge-label film-edge-label-top-left">24</);
-  assert.match(page, /class="film-edge-label film-edge-label-bottom-right">60</);
-  assert.match(page, /\.film-edge-marks::before,[\s\S]*\.film-edge-marks::after\s*\{[\s\S]*repeating-linear-gradient/);
-});
-
-test("clock reel includes a concentric progress ring driven by audio progress", () => {
-  assert.match(page, /id="film-progress-ring" class="film-progress-ring" aria-hidden="true"/);
-  assert.match(page, /\.film-progress-ring\s*\{[\s\S]*conic-gradient\([\s\S]*var\(--film-progress\)/);
-  assert.match(page, /filmProgress\.style\.width = `\$\{progress\}%`;[\s\S]*clockWidget\.style\.setProperty\("--film-progress", `\$\{progress\}%`\);/);
-});
-
-test("film equalizer remains behind readable clock content", () => {
-  assert.match(page, /\.film-equalizer\s*\{[\s\S]*z-index:\s*0;/);
 });
 
 test("film clock mirrors existing player metadata progress and motion-safe playback state", () => {

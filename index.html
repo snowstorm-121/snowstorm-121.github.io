@@ -1163,6 +1163,14 @@
       .archive-card:last-child { grid-column: 1 / -1; width: calc(50% - 9px); justify-self: center; }
     }
 
+    @media (max-width: 1470px) {
+      .vinyl-player {
+        grid-template-columns: minmax(0, 1fr);
+        justify-items: center;
+      }
+      .vinyl-metadata { width: 100%; text-align: center; }
+    }
+
     @media (max-width: 1320px) {
       .hero {
         display: block;
