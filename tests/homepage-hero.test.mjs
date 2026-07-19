@@ -12,6 +12,21 @@ test("hero provides title, Google search, and a safe main region", () => {
   assert.match(page, /\.hero-main\s*\{[\s\S]*width: min\(540px, calc\(100vw - 820px\)\)[\s\S]*margin:\s*0 clamp\(360px, 24vw, 430px\) 0 clamp\(360px,/);
 });
 
+test("hero locks search directly above a two-line quote stack", () => {
+  assert.match(page, /class="hero-middle-stack"[\s\S]*id="hero-search-form"[\s\S]*class="hero-quote-area"/);
+  assert.match(page, /\.hero-middle-stack\s*\{[\s\S]*width: min\(520px, calc\(100vw - 860px\)\)/);
+  assert.match(page, /\.sentence-wrap\s*\{[\s\S]*height: calc\(2 \* var\(--sentence-line-height\)\)/);
+});
+
+test("hero renders a responsive vinyl turntable instead of the film clock", () => {
+  assert.match(page, /id="vinyl-player"[^>]*type="button"/);
+  assert.match(page, /id="vinyl-record"[^>]*aria-hidden="true"/);
+  assert.match(page, /id="vinyl-cover"[^>]*alt=""/);
+  assert.match(page, /id="vinyl-tonearm"[^>]*aria-hidden="true"/);
+  assert.match(page, /id="vinyl-lyrics-current"/);
+  assert.doesNotMatch(page, /film-perforations|film-equalizer|clock-orbit/);
+});
+
 test("desktop hero reserves horizontal room for the clock widget", () => {
   assert.match(page, /\.hero-main\s*\{[\s\S]*width: min\(540px, calc\(100vw - 820px\)\)/);
   assert.match(page, /\.hero-search\s*\{[\s\S]*width: 100%;/);

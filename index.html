@@ -145,8 +145,8 @@
     }
 
     .hero-main {
-      width: min(540px, calc(100vw - 820px));
-      margin: 0 clamp(360px, 24vw, 430px) 0 clamp(360px, 20vw, 460px);
+      width: 100%;
+      margin: 0;
       text-align: center;
     }
 
@@ -424,7 +424,20 @@
       gap: clamp(20px, 3vh, 36px);
     }
 
-    .hero-heading { text-align: left; }
+    .hero-heading {
+      width: min(520px, calc(100vw - 860px));
+      margin-left: clamp(320px, 20vw, 430px);
+      margin-right: auto;
+      text-align: left;
+    }
+
+    .hero-middle-stack {
+      width: min(520px, calc(100vw - 860px));
+      margin-left: clamp(320px, 20vw, 430px);
+      margin-right: auto;
+      display: grid;
+      gap: clamp(20px, 3vh, 36px);
+    }
 
     .hero-heading-kicker {
       margin: 0 0 13px;
@@ -492,7 +505,7 @@
     }
 
     .hero-search button:focus-visible,
-    .clock-widget:focus-visible,
+    .vinyl-player:focus-visible,
     .hero-socials a:focus-visible,
     .hero-socials button:focus-visible,
     .contact-popover button:focus-visible {
@@ -501,8 +514,10 @@
     }
 
     .hero-quote-area {
-      width: min(100%, 780px);
+      --sentence-line-height: 1.58em;
+      width: 100%;
       justify-self: center;
+      font-size: clamp(24px, 2.7vw, 42px);
     }
 
     .eyebrow {
@@ -514,7 +529,7 @@
     }
 
     .sentence-wrap {
-      height: 198px;
+      height: calc(2 * var(--sentence-line-height));
       overflow: hidden;
       display: grid;
       place-items: center;
@@ -525,16 +540,16 @@
       max-width: 780px;
       margin: 0;
       font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
-      font-size: clamp(24px, 2.7vw, 42px);
+      font-size: inherit;
       font-weight: 400;
-      line-height: 1.58;
+      line-height: var(--sentence-line-height);
       letter-spacing: .025em;
       text-shadow: 0 5px 34px rgba(0, 0, 0, .64);
     }
 
     .sentence-line {
       display: block;
-      height: 1.58em;
+      height: var(--sentence-line-height);
       white-space: nowrap;
     }
 
@@ -569,345 +584,219 @@
       background: rgba(244,246,251,.82);
     }
 
-    .clock-widget {
-      --clock-lift: 0px;
-      --clock-x: 0px;
-      --clock-y: 0px;
-      --clock-rotate-x: 0deg;
-      --clock-rotate-y: 0deg;
-      --film-reel-x: 0px;
-      --film-reel-y: 0px;
-      --film-meta-x: 0px;
-      --film-meta-y: 0px;
-      --film-progress: 0%;
+    .vinyl-player {
+      --record-size: 238px;
       position: absolute;
-      top: clamp(96px, 14vh, 148px);
+      top: clamp(106px, 14vh, 150px);
       right: clamp(22px, 4vw, 62px);
       z-index: 2;
-      width: clamp(220px, 17vw, 250px);
-      min-height: 342px;
-      display: flex;
-      flex-direction: column;
+      width: clamp(470px, 34vw, 540px);
+      min-height: 318px;
+      display: grid;
+      grid-template-columns: minmax(260px, 1.15fr) minmax(170px, .85fr);
       align-items: center;
-      padding: 25px 20px 18px;
+      gap: clamp(18px, 2vw, 30px);
+      padding: 26px;
       overflow: hidden;
       isolation: isolate;
       border: 1px solid rgba(168, 224, 239, .38);
-      border-radius: 28px;
+      border-radius: 30px;
       color: var(--text);
       background:
-        radial-gradient(circle at 9% 7%, rgba(114, 221, 239, .22), transparent 31%),
-        radial-gradient(circle at 93% 11%, rgba(222, 183, 101, .14), transparent 27%),
-        linear-gradient(145deg, rgba(26, 54, 76, .70), rgba(8, 22, 40, .76) 51%, rgba(3, 12, 27, .84));
-      box-shadow: inset 0 1px 0 rgba(219, 248, 255, .28), inset 0 -20px 38px rgba(0, 6, 17, .48), 0 22px 52px rgba(0, 0, 0, .38), 0 0 28px rgba(77, 208, 229, .12);
+        radial-gradient(circle at 12% 8%, rgba(104, 214, 237, .24), transparent 32%),
+        radial-gradient(circle at 92% 88%, rgba(214, 177, 102, .12), transparent 30%),
+        linear-gradient(145deg, rgba(22, 54, 78, .72), rgba(6, 22, 40, .82) 55%, rgba(3, 12, 27, .88));
+      box-shadow: inset 0 1px 0 rgba(219, 248, 255, .3), inset 0 -24px 42px rgba(0, 6, 17, .44), 0 24px 56px rgba(0, 0, 0, .4), 0 0 28px rgba(77, 208, 229, .13);
       backdrop-filter: blur(28px) saturate(150%);
       -webkit-backdrop-filter: blur(28px) saturate(150%);
       cursor: pointer;
-      transform: translate3d(var(--clock-x), calc(var(--clock-lift) + var(--clock-y)), 0) rotateX(var(--clock-rotate-x)) rotateY(var(--clock-rotate-y));
-      transition: transform .35s cubic-bezier(.2, .75, .2, 1), box-shadow .35s ease, border-color .35s ease;
+      text-align: left;
+      transition: border-color .35s ease, box-shadow .35s ease, transform .35s cubic-bezier(.2, .75, .2, 1);
     }
 
-    .clock-widget::before,
-    .clock-widget::after {
+    .vinyl-player::before,
+    .vinyl-player::after {
       content: "";
       position: absolute;
       pointer-events: none;
     }
-    .clock-widget::before {
-      inset: -36% -74%;
+
+    .vinyl-player::before {
+      inset: -50% -70%;
       z-index: 0;
-      background: linear-gradient(100deg, transparent 42%, rgba(162, 235, 246, .24) 50%, rgba(226, 191, 114, .12) 53%, transparent 59%);
-      opacity: .5;
-      transform: translateX(-45%);
+      opacity: .42;
+      background: linear-gradient(105deg, transparent 44%, rgba(166, 234, 245, .2) 50%, rgba(222, 183, 101, .1) 53%, transparent 59%);
+      transform: translateX(-34%);
       transition: transform .7s ease, opacity .35s ease;
     }
-    .clock-widget::after {
+
+    .vinyl-player::after {
       inset: 9px;
       z-index: 0;
-      border: 1px solid rgba(192, 234, 246, .16);
+      border: 1px solid rgba(192, 234, 246, .15);
       border-radius: 22px;
     }
 
-    .clock-time,
-    .clock-date,
-    .clock-lyrics,
-    .film-now-playing,
-    .film-track,
-    .film-progress-row { position: relative; z-index: 1; }
+    .vinyl-deck,
+    .vinyl-metadata { position: relative; z-index: 1; }
 
-    .film-perforations,
-    .film-grain {
-      position: absolute;
-      inset: 0;
-      z-index: 0;
-      pointer-events: none;
+    .vinyl-deck {
+      width: 100%;
+      min-width: 260px;
+      height: 266px;
+      display: grid;
+      place-items: center;
     }
 
-    .film-perforations {
-      inset: 14px 8px;
-      border-radius: 20px;
-      opacity: .42;
+    .vinyl-record {
+      position: relative;
+      width: var(--record-size);
+      height: var(--record-size);
+      display: grid;
+      place-items: center;
+      border: 3px solid rgba(205, 218, 225, .68);
+      border-radius: 50%;
       background:
-        repeating-linear-gradient(to bottom, rgba(6, 17, 31, .82) 0 5px, rgba(153, 224, 236, .14) 5px 7px, transparent 7px 13px) left center / 5px 100% no-repeat,
-        repeating-linear-gradient(to bottom, rgba(6, 17, 31, .82) 0 5px, rgba(222, 184, 105, .12) 5px 7px, transparent 7px 13px) right center / 5px 100% no-repeat;
-      animation: film-flicker 4.6s steps(2, end) infinite;
+        repeating-radial-gradient(circle, transparent 0 4px, rgba(167, 188, 197, .13) 5px, transparent 6px 9px),
+        radial-gradient(circle at 36% 31%, #30343a 0, #111318 27%, #040508 64%, #13161b 100%);
+      box-shadow: inset 0 0 0 3px rgba(255, 255, 255, .08), inset 0 0 34px #000, 0 16px 30px rgba(0, 0, 0, .42), 0 0 0 1px rgba(226, 238, 242, .2);
     }
 
-    .film-edge-marks {
+    #vinyl-cover {
+      width: 43%;
+      height: 43%;
+      display: block;
+      border: 2px solid rgba(217, 233, 237, .55);
+      border-radius: 50%;
+      object-fit: cover;
+      box-shadow: 0 0 0 5px rgba(5, 10, 16, .72), 0 0 22px rgba(117, 211, 225, .2);
+    }
+
+    .vinyl-spindle {
       position: absolute;
-      inset: 22px 12px;
-      z-index: 0;
-      color: rgba(197, 234, 241, .42);
-      font-family: "SFMono-Regular", Consolas, monospace;
-      font-size: 6px;
-      font-weight: 700;
-      letter-spacing: .08em;
-      pointer-events: none;
+      top: 50%;
+      left: 50%;
+      width: 9px;
+      height: 9px;
+      border: 2px solid rgba(255, 255, 255, .75);
+      border-radius: 50%;
+      background: #88949b;
+      box-shadow: 0 0 0 3px rgba(7, 12, 17, .68);
+      transform: translate(-50%, -50%);
     }
 
-    .film-edge-marks::before,
-    .film-edge-marks::after {
+    .vinyl-tonearm {
+      position: absolute;
+      top: 0;
+      right: 1px;
+      width: 96px;
+      height: 222px;
+      transform-origin: 72px 29px;
+      transform: rotate(-18deg);
+      filter: drop-shadow(0 6px 5px rgba(0, 0, 0, .5));
+    }
+
+    .vinyl-tonearm::before {
       content: "";
       position: absolute;
-      top: 13px;
-      bottom: 13px;
-      width: 5px;
-      background: repeating-linear-gradient(to bottom, rgba(163, 237, 241, .5) 0 1px, transparent 1px 12px);
+      top: 7px;
+      right: 8px;
+      width: 42px;
+      height: 42px;
+      border: 5px solid rgba(183, 198, 205, .88);
+      border-radius: 50%;
+      background: radial-gradient(circle, #26323b 0 35%, #7e9099 37% 48%, #111a22 50%);
+      box-shadow: 0 0 0 3px rgba(5, 13, 21, .7);
     }
 
-    .film-edge-marks::before { left: 0; }
-    .film-edge-marks::after { right: 0; }
-
-    .film-edge-label { position: absolute; }
-    .film-edge-label-top-left { top: 0; left: 9px; }
-    .film-edge-label-top-right { top: 0; right: 9px; }
-    .film-edge-label-bottom-left { bottom: 0; left: 9px; }
-    .film-edge-label-bottom-right { right: 9px; bottom: 0; }
-
-    .film-grain {
-      opacity: .17;
-      mix-blend-mode: screen;
-      background:
-        repeating-radial-gradient(circle at 18% 21%, rgba(193, 239, 244, .40) 0 .55px, transparent .8px 3px),
-        linear-gradient(112deg, transparent 0 26%, rgba(212, 240, 245, .16) 26.2% 26.45%, transparent 26.7% 69%, rgba(224, 188, 115, .14) 69.2% 69.4%, transparent 69.7%);
-      background-size: 5px 5px, 100% 100%;
-      animation: film-grain-drift .7s steps(2, end) infinite;
+    .vinyl-tonearm::after {
+      content: "";
+      position: absolute;
+      top: 45px;
+      right: 31px;
+      width: 8px;
+      height: 150px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #74838a, #dce8eb 45%, #78868d);
+      box-shadow: 0 0 0 1px rgba(3, 9, 14, .4);
+      transform: rotate(6deg);
+      transform-origin: top;
     }
 
-    .film-now-playing {
-      margin-top: 1px;
-      color: rgba(187, 236, 244, .76);
+    .vinyl-stylus {
+      position: absolute;
+      right: 13px;
+      bottom: 16px;
+      width: 35px;
+      height: 17px;
+      border: 1px solid rgba(213, 230, 233, .46);
+      border-radius: 5px 11px 4px 5px;
+      background: linear-gradient(135deg, #829198, #25333b 70%);
+      transform: rotate(17deg);
+    }
+
+    .vinyl-metadata {
+      min-width: 0;
+      display: grid;
+      align-content: center;
+      gap: 8px;
+    }
+
+    .vinyl-kicker {
+      color: rgba(159, 225, 236, .68);
       font-size: 8px;
       font-weight: 720;
-      letter-spacing: .25em;
-      text-shadow: 0 0 14px rgba(98, 220, 236, .28);
-      transform: translate3d(var(--film-meta-x), var(--film-meta-y), 0);
+      letter-spacing: .24em;
     }
 
-    .film-track {
-      display: grid;
-      justify-items: center;
-      gap: 2px;
-      margin: 5px 0 7px;
-      min-width: 0;
-      transform: translate3d(var(--film-meta-x), var(--film-meta-y), 0);
-    }
-
-    .film-track strong,
-    .film-track span {
-      max-width: 168px;
+    #vinyl-track-title,
+    #vinyl-track-artist {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    .film-track strong {
-      color: rgba(248, 252, 255, .96);
-      font-size: 11px;
-      font-weight: 690;
-      letter-spacing: .04em;
+    #vinyl-track-title {
+      color: rgba(247, 252, 253, .98);
+      font-family: Georgia, "Noto Serif SC", serif;
+      font-size: clamp(20px, 2vw, 30px);
+      font-weight: 700;
+      line-height: 1.08;
     }
 
-    .film-track span {
-      color: rgba(215, 230, 241, .58);
-      font-size: 8px;
-      font-weight: 650;
-      letter-spacing: .16em;
+    #vinyl-track-artist {
+      color: rgba(213, 233, 239, .6);
+      font-size: 10px;
+      letter-spacing: .14em;
     }
 
-    .clock-time {
-      font-family: "SFMono-Regular", Consolas, monospace;
-      font-size: clamp(25px, 2vw, 31px);
-      font-weight: 650;
-      letter-spacing: .075em;
-      text-shadow: 0 0 18px rgba(149, 239, 248, .34);
-    }
-
-    .clock-date {
-      margin-top: 5px;
-      color: rgba(224, 242, 248, .66);
-      font-size: 9px;
-      font-weight: 650;
-      letter-spacing: .13em;
-    }
-
-    .clock-orbits {
-      position: relative;
-      z-index: 1;
-      width: 154px;
-      height: 154px;
-      margin: 16px auto 12px;
-      flex: 0 0 auto;
-      transform: translate3d(var(--film-reel-x), var(--film-reel-y), 0);
-      transition: transform .35s cubic-bezier(.2, .75, .2, 1);
-    }
-
-    .film-progress-ring {
-      position: absolute;
-      inset: 5px;
-      border-radius: 50%;
-      background: conic-gradient(from -90deg, #78dce8 0 var(--film-progress), rgba(157, 216, 228, .16) var(--film-progress) 100%);
-      -webkit-mask: radial-gradient(transparent 0 78%, #000 79% 83%, transparent 84%);
-      mask: radial-gradient(transparent 0 78%, #000 79% 83%, transparent 84%);
-      filter: drop-shadow(0 0 5px rgba(121, 221, 234, .48));
-    }
-
-    .film-progress-row {
+    .vinyl-lyrics {
       width: 100%;
+      min-height: 42px;
+      max-height: 42px;
       display: grid;
-      grid-template-columns: auto minmax(0, 1fr) auto;
-      align-items: center;
-      gap: 7px;
-      margin: -3px 0 8px;
-      color: rgba(205, 228, 238, .65);
-      font-family: "SFMono-Regular", Consolas, monospace;
-      font-size: 8px;
-      letter-spacing: .04em;
-      transform: translate3d(var(--film-meta-x), var(--film-meta-y), 0);
-    }
-
-    .film-progress-track {
-      display: block;
-      height: 2px;
-      overflow: hidden;
-      border-radius: 999px;
-      background: rgba(157, 216, 228, .17);
-      box-shadow: inset 0 1px 1px rgba(0, 0, 0, .32);
-    }
-
-    #film-progress {
-      display: block;
-      width: 0;
-      height: 100%;
-      border-radius: inherit;
-      background: linear-gradient(90deg, #78dce8, #d7b46d);
-      box-shadow: 0 0 9px rgba(121, 221, 234, .56);
-      transition: width .18s linear, box-shadow .35s ease;
-    }
-
-    .film-equalizer {
-      position: absolute;
-      right: 22px;
-      bottom: 22px;
-      z-index: 0;
-      display: flex;
-      align-items: end;
-      gap: 2px;
-      height: 12px;
-      opacity: .66;
-      pointer-events: none;
-    }
-
-    .film-equalizer i {
-      display: block;
-      width: 2px;
-      height: 5px;
-      border-radius: 99px;
-      background: linear-gradient(#a3edf1, #d9b56d);
-      transform-origin: bottom;
-    }
-
-    .film-equalizer i:nth-child(2) { height: 10px; }
-    .film-equalizer i:nth-child(3) { height: 7px; }
-    .film-equalizer i:nth-child(4) { height: 12px; }
-    .film-equalizer i:nth-child(5) { height: 4px; }
-
-    .clock-widget.is-playing {
-      border-color: rgba(189, 247, 244, .72);
-      box-shadow: inset 0 1px 0 rgba(219, 248, 255, .4), inset 0 -20px 38px rgba(0, 6, 17, .42), 0 22px 52px rgba(0, 0, 0, .38), 0 0 34px rgba(94, 225, 234, .28);
-    }
-
-    .clock-widget.is-playing #film-progress {
-      box-shadow: 0 0 14px rgba(121, 221, 234, .88), 0 0 22px rgba(215, 180, 109, .38);
-    }
-
-    .clock-widget.is-playing .film-progress-track {
-      box-shadow: inset 0 1px 1px rgba(0, 0, 0, .32), 0 0 12px rgba(121, 221, 234, .2);
-    }
-
-    .clock-widget.is-playing .film-equalizer i {
-      animation: film-equalizer .72s ease-in-out infinite alternate;
-    }
-
-    .clock-widget.is-playing .film-equalizer i:nth-child(2) { animation-delay: -.24s; }
-    .clock-widget.is-playing .film-equalizer i:nth-child(3) { animation-delay: -.48s; }
-    .clock-widget.is-playing .film-equalizer i:nth-child(4) { animation-delay: -.12s; }
-    .clock-widget.is-playing .film-equalizer i:nth-child(5) { animation-delay: -.36s; }
-
-    .clock-orbit {
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      -webkit-mask: radial-gradient(transparent 0 66%, #000 67% 72%, transparent 73%);
-      mask: radial-gradient(transparent 0 66%, #000 67% 72%, transparent 73%);
-    }
-
-    .clock-orbit-outer {
-      background: conic-gradient(from 18deg, #7ce9ed 0 28deg, transparent 29deg 59deg, #e7dc71 60deg 88deg, transparent 89deg 133deg, #63d7e2 134deg 180deg, transparent 181deg 228deg, #e9df79 229deg 256deg, transparent 257deg 314deg, #8ce9ee 315deg 359deg);
-      filter: drop-shadow(0 0 7px rgba(102, 222, 232, .5));
-      animation: orbit-clockwise 22s linear infinite;
-    }
-
-    .clock-orbit-middle {
-      inset: 15px;
-      background: conic-gradient(from 88deg, rgba(120, 239, 241, .94) 0 42deg, transparent 43deg 104deg, rgba(237, 223, 117, .86) 105deg 141deg, transparent 142deg 238deg, rgba(117, 225, 236, .82) 239deg 282deg, transparent 283deg 359deg);
-      opacity: .78;
-      transform: rotate(-12deg);
-    }
-
-    .clock-orbit-inner {
-      inset: 34px;
-      background: conic-gradient(from 42deg, #e9df79 0 52deg, transparent 53deg 121deg, #79dfe8 122deg 202deg, transparent 203deg 270deg, #e7dc71 271deg 317deg, transparent 318deg 359deg);
-      filter: drop-shadow(0 0 8px rgba(233, 220, 113, .32));
-      animation: orbit-counterclockwise 15s linear infinite;
-    }
-
-    .clock-lyrics {
-      width: 100%;
-      display: grid;
-      gap: 3px;
-      min-height: 31px;
-      max-height: 31px;
-      padding: 7px 9px;
+      gap: 4px;
+      margin-top: 10px;
+      padding: 10px 11px;
       overflow: hidden;
       border: 1px solid rgba(180, 237, 241, .18);
-      border-radius: 12px;
-      color: rgba(230, 245, 248, .6);
+      border-radius: 13px;
+      color: rgba(224, 241, 245, .56);
       background: rgba(4, 18, 32, .42);
       font-size: 9px;
-      line-height: 1.2;
+      line-height: 1.35;
       text-align: center;
-      transition: max-height .48s cubic-bezier(.2, .8, .2, 1), background .35s ease;
+      transition: max-height .42s ease, background .35s ease;
     }
 
-    .clock-lyrics span,
-    .clock-lyrics strong {
+    .vinyl-lyrics span,
+    .vinyl-lyrics strong {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    .clock-lyrics strong {
+    .vinyl-lyrics strong {
       color: rgba(248, 253, 253, .96);
       font-size: 10px;
       font-weight: 680;
@@ -916,38 +805,27 @@
     #lyrics-previous,
     #lyrics-next { display: none; }
 
-    .clock-widget:hover,
-    .clock-widget:focus-visible,
-    .clock-widget.is-expanded {
-      border-color: rgba(189, 247, 244, .74);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .46), inset 0 -18px 34px rgba(0, 8, 20, .3), 0 28px 62px rgba(0, 0, 0, .4), 0 0 32px rgba(99, 229, 234, .3);
-      --clock-lift: -9px;
+    .vinyl-player:hover,
+    .vinyl-player:focus-visible,
+    .vinyl-player.is-expanded {
+      border-color: rgba(189, 247, 244, .72);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .42), inset 0 -20px 38px rgba(0, 6, 17, .4), 0 28px 64px rgba(0, 0, 0, .42), 0 0 34px rgba(94, 225, 234, .24);
     }
 
-    .clock-widget:hover::before,
-    .clock-widget:focus-visible::before,
-    .clock-widget.is-expanded::before { opacity: 1; transform: translateX(45%); }
-    .clock-widget:hover .clock-orbit-outer,
-    .clock-widget:focus-visible .clock-orbit-outer,
-    .clock-widget.is-expanded .clock-orbit-outer { animation-duration: 8s; }
-    .clock-widget:hover .clock-orbit-inner,
-    .clock-widget:focus-visible .clock-orbit-inner,
-    .clock-widget.is-expanded .clock-orbit-inner { animation-duration: 6s; }
-    .clock-widget:hover .clock-lyrics,
-    .clock-widget:focus-visible .clock-lyrics,
-    .clock-widget.is-expanded .clock-lyrics { max-height: 82px; background: rgba(7, 29, 44, .58); }
-    .clock-widget:hover #lyrics-previous,
-    .clock-widget:hover #lyrics-next,
-    .clock-widget:focus-visible #lyrics-previous,
-    .clock-widget:focus-visible #lyrics-next,
-    .clock-widget.is-expanded #lyrics-previous,
-    .clock-widget.is-expanded #lyrics-next { display: block; }
+    .vinyl-player:hover::before,
+    .vinyl-player:focus-visible::before,
+    .vinyl-player.is-expanded::before { opacity: .82; transform: translateX(32%); }
 
-    @keyframes film-equalizer { to { transform: scaleY(.38); opacity: .44; } }
-    @keyframes film-flicker { 50% { opacity: .3; } }
-    @keyframes film-grain-drift { to { background-position: 3px -2px, 0 0; } }
-    @keyframes orbit-clockwise { to { transform: rotate(360deg); } }
-    @keyframes orbit-counterclockwise { to { transform: rotate(-360deg); } }
+    .vinyl-player:hover .vinyl-lyrics,
+    .vinyl-player:focus-visible .vinyl-lyrics,
+    .vinyl-player.is-expanded .vinyl-lyrics { max-height: 96px; background: rgba(7, 29, 44, .58); }
+
+    .vinyl-player:hover #lyrics-previous,
+    .vinyl-player:hover #lyrics-next,
+    .vinyl-player:focus-visible #lyrics-previous,
+    .vinyl-player:focus-visible #lyrics-next,
+    .vinyl-player.is-expanded #lyrics-previous,
+    .vinyl-player.is-expanded #lyrics-next { display: block; }
 
     .hero-socials {
       display: flex;
@@ -1301,8 +1179,21 @@
         width: 100%;
         margin: 0;
       }
-      .hero-content { width: min(860px, 100%); margin-inline: auto; }
-      .clock-widget { position: relative; inset: auto; margin: 8px auto 28px; }
+      .hero-content { width: 100%; margin-inline: auto; }
+      .hero-heading,
+      .hero-middle-stack {
+        width: min(520px, 100%);
+        margin-inline: auto;
+      }
+      .vinyl-player {
+        position: relative;
+        inset: auto;
+        width: min(430px, 100%);
+        grid-template-columns: minmax(0, 1fr);
+        justify-items: center;
+        margin: 34px auto 28px;
+      }
+      .vinyl-metadata { width: 100%; text-align: center; }
       .hero-footer {
         position: relative;
         right: auto;
@@ -1340,9 +1231,10 @@
       .hero-heading-kicker { font-size: 8px; }
       .hero-search { min-height: 54px; }
       .eyebrow { margin-bottom: 18px; font-size: 8px; }
-      .sentence-wrap { height: 204px; }
-      .sentence { font-size: clamp(14px, 3.7vw, 19px); line-height: 1.82; letter-spacing: 0; }
-      .sentence-line { height: 1.82em; }
+      .hero-quote-area { font-size: clamp(14px, 3.7vw, 19px); }
+      .sentence { letter-spacing: 0; }
+      .vinyl-player { --record-size: 204px; padding: 20px 16px; }
+      .vinyl-deck { min-width: 0; height: 226px; }
       .progress { margin-top: 18px; gap: 5px; }
       .progress span { width: 8px; }
       .progress span.active { width: 26px; }
@@ -1364,23 +1256,16 @@
       .hero-profile.is-playing .profile-audio-ring,
       .hero-profile.is-playing .avatar-controls::before,
       .hero-profile.is-playing .avatar-controls::after { animation: none; }
-      .clock-widget,
-      .clock-orbit,
-      .clock-orbits,
+      .vinyl-player,
+      .vinyl-record,
+      .vinyl-tonearm,
       .hero-socials a,
       .hero-socials button { transition: none; }
-      .clock-widget::before,
-      .clock-lyrics { transition: none; }
-      #film-progress { transition: none; }
-      .clock-widget { transform: none; }
-      .clock-orbits,
-      .film-now-playing,
-      .film-track,
-      .film-progress-row { transform: none; }
-      .clock-orbit,
-      .film-perforations,
-      .film-grain { animation: none; }
-      .clock-widget.is-playing .film-equalizer i { animation: none; }
+      .vinyl-player::before,
+      .vinyl-lyrics { transition: none; }
+      .vinyl-player,
+      .vinyl-record,
+      .vinyl-tonearm { animation: none; transform: none; }
       .archive-card,
       [data-reveal],
       .card-media img,
@@ -1441,55 +1326,44 @@
           <p class="hero-heading-kicker">PERSONAL ARCHIVE / 121</p>
           <h1 id="hero-title">STILL, I GO ON</h1>
         </div>
-        <form id="hero-search-form" class="hero-search" action="https://www.google.com/search" method="get" target="_blank">
-          <label class="sr-only" for="hero-search-input">Google 搜索</label>
-          <span class="hero-search-label">SEARCH</span>
-          <input id="hero-search-input" name="q" type="search" placeholder="Google 搜索…" autocomplete="off">
-          <button type="submit" aria-label="搜索"><span aria-hidden="true">⌕</span></button>
-        </form>
-        <div class="hero-quote-area">
-          <div class="eyebrow" id="eyebrow">NOTES ON LIFE · 01 / 10</div>
-          <div class="sentence-wrap">
-            <p class="sentence" id="sentence">
-              <span class="sentence-line" data-line="0"></span>
-              <span class="sentence-line" data-line="1"></span>
-            </p>
+        <div class="hero-middle-stack">
+          <form id="hero-search-form" class="hero-search" action="https://www.google.com/search" method="get" target="_blank">
+            <label class="sr-only" for="hero-search-input">Google 搜索</label>
+            <span class="hero-search-label">SEARCH</span>
+            <input id="hero-search-input" name="q" type="search" placeholder="Google 搜索…" autocomplete="off">
+            <button type="submit" aria-label="搜索"><span aria-hidden="true">⌕</span></button>
+          </form>
+          <div class="hero-quote-area">
+            <div class="eyebrow" id="eyebrow">NOTES ON LIFE · 01 / 10</div>
+            <div class="sentence-wrap">
+              <p class="sentence" id="sentence">
+                <span class="sentence-line" data-line="0"></span>
+                <span class="sentence-line" data-line="1"></span>
+              </p>
+            </div>
+            <div class="progress" id="progress" aria-label="文案播放进度"></div>
           </div>
-          <div class="progress" id="progress" aria-label="文案播放进度"></div>
         </div>
       </div>
     </main>
 
-    <button class="clock-widget" id="clock-widget" type="button" aria-label="查看当前播放歌词" aria-expanded="false">
-      <span class="film-perforations" aria-hidden="true"></span>
-      <span class="film-edge-marks" aria-hidden="true">
-        <span class="film-edge-label film-edge-label-top-left">24</span>
-        <span class="film-edge-label film-edge-label-top-right">36</span>
-        <span class="film-edge-label film-edge-label-bottom-left">48</span>
-        <span class="film-edge-label film-edge-label-bottom-right">60</span>
+    <button class="vinyl-player" id="vinyl-player" type="button" aria-label="查看当前播放歌词" aria-expanded="false">
+      <span class="vinyl-deck" aria-hidden="true">
+        <span class="vinyl-record" id="vinyl-record" aria-hidden="true">
+          <img id="vinyl-cover" src="./assets/music/covers/the-nights.png" alt="">
+          <span class="vinyl-spindle"></span>
+        </span>
+        <span class="vinyl-tonearm" id="vinyl-tonearm" aria-hidden="true">
+          <span class="vinyl-stylus"></span>
+        </span>
       </span>
-      <span class="film-grain" aria-hidden="true"></span>
-      <span class="film-now-playing" id="film-now-playing">NOW PLAYING</span>
-      <span class="film-track" aria-live="off">
-        <strong id="film-track-title">选择一首歌</strong>
-        <span id="film-track-artist">LOCAL ARCHIVE</span>
-      </span>
-      <span class="clock-time" id="clock-time">00:00:00</span>
-      <span class="clock-date" id="clock-date">加载日期…</span>
-      <span class="clock-orbits" aria-hidden="true">
-        <span id="film-progress-ring" class="film-progress-ring" aria-hidden="true"></span>
-        <span class="clock-orbit clock-orbit-outer"></span>
-        <span class="clock-orbit clock-orbit-middle"></span>
-        <span class="clock-orbit clock-orbit-inner"></span>
-      </span>
-      <span class="film-progress-row" aria-label="播放进度">
-        <span id="film-elapsed">00:00</span>
-        <span class="film-progress-track" aria-hidden="true"><span id="film-progress"></span></span>
-        <span id="film-duration">00:00</span>
-      </span>
-      <span class="film-equalizer" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
-      <span class="clock-lyrics" aria-live="polite">
-        <span id="lyrics-previous"></span><strong id="lyrics-current">选择一首歌</strong><span id="lyrics-next"></span>
+      <span class="vinyl-metadata">
+        <span class="vinyl-kicker">NOW PLAYING</span>
+        <strong id="vinyl-track-title">选择一首歌</strong>
+        <span id="vinyl-track-artist">LOCAL ARCHIVE</span>
+        <span class="vinyl-lyrics" aria-live="polite">
+          <span id="lyrics-previous"></span><strong id="vinyl-lyrics-current">选择一首歌</strong><span id="lyrics-next"></span>
+        </span>
       </span>
     </button>
 
