@@ -145,8 +145,8 @@
     }
 
     .hero-main {
-      width: min(600px, calc(100vw - 720px));
-      margin: 0 clamp(280px, 21vw, 340px) 0 clamp(300px, 27vw, 380px);
+      width: min(540px, calc(100vw - 820px));
+      margin: 0 clamp(360px, 24vw, 430px) 0 clamp(360px, 20vw, 460px);
       text-align: center;
     }
 
@@ -435,7 +435,8 @@
 
     #hero-title {
       margin: 0;
-      font: italic 700 clamp(38px, 5.2vw, 76px)/.9 Georgia, serif;
+      font: italic 700 clamp(34px, 4.2vw, 58px)/.9 Georgia, serif;
+      white-space: nowrap;
       letter-spacing: .08em;
       text-shadow: 5px 6px 0 rgba(3,10,19,.34);
       transform: skewX(-10deg);
@@ -443,6 +444,7 @@
 
     .hero-search {
       width: 100%;
+      max-width: 540px;
       margin-inline: auto;
       display: flex;
       align-items: center;
@@ -573,6 +575,11 @@
       --clock-y: 0px;
       --clock-rotate-x: 0deg;
       --clock-rotate-y: 0deg;
+      --film-reel-x: 0px;
+      --film-reel-y: 0px;
+      --film-meta-x: 0px;
+      --film-meta-y: 0px;
+      --film-progress: 0%;
       position: absolute;
       top: clamp(96px, 14vh, 148px);
       right: clamp(22px, 4vw, 62px);
@@ -584,13 +591,17 @@
       align-items: center;
       padding: 25px 20px 18px;
       overflow: hidden;
-      border: 1px solid rgba(191, 238, 242, .44);
+      isolation: isolate;
+      border: 1px solid rgba(168, 224, 239, .38);
       border-radius: 28px;
       color: var(--text);
-      background: linear-gradient(145deg, rgba(220, 252, 255, .22), rgba(10, 31, 48, .56) 48%, rgba(4, 14, 28, .74));
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .34), inset 0 -18px 34px rgba(0, 8, 20, .34), 0 22px 52px rgba(0, 0, 0, .34);
-      backdrop-filter: blur(20px) saturate(135%);
-      -webkit-backdrop-filter: blur(20px) saturate(135%);
+      background:
+        radial-gradient(circle at 9% 7%, rgba(114, 221, 239, .22), transparent 31%),
+        radial-gradient(circle at 93% 11%, rgba(222, 183, 101, .14), transparent 27%),
+        linear-gradient(145deg, rgba(26, 54, 76, .70), rgba(8, 22, 40, .76) 51%, rgba(3, 12, 27, .84));
+      box-shadow: inset 0 1px 0 rgba(219, 248, 255, .28), inset 0 -20px 38px rgba(0, 6, 17, .48), 0 22px 52px rgba(0, 0, 0, .38), 0 0 28px rgba(77, 208, 229, .12);
+      backdrop-filter: blur(28px) saturate(150%);
+      -webkit-backdrop-filter: blur(28px) saturate(150%);
       cursor: pointer;
       transform: translate3d(var(--clock-x), calc(var(--clock-lift) + var(--clock-y)), 0) rotateX(var(--clock-rotate-x)) rotateY(var(--clock-rotate-y));
       transition: transform .35s cubic-bezier(.2, .75, .2, 1), box-shadow .35s ease, border-color .35s ease;
@@ -604,20 +615,125 @@
     }
     .clock-widget::before {
       inset: -36% -74%;
-      background: linear-gradient(100deg, transparent 42%, rgba(237, 255, 255, .38) 50%, transparent 58%);
-      opacity: .56;
+      z-index: 0;
+      background: linear-gradient(100deg, transparent 42%, rgba(162, 235, 246, .24) 50%, rgba(226, 191, 114, .12) 53%, transparent 59%);
+      opacity: .5;
       transform: translateX(-45%);
       transition: transform .7s ease, opacity .35s ease;
     }
     .clock-widget::after {
       inset: 9px;
-      border: 1px solid rgba(233, 255, 255, .18);
+      z-index: 0;
+      border: 1px solid rgba(192, 234, 246, .16);
       border-radius: 22px;
     }
 
     .clock-time,
     .clock-date,
-    .clock-lyrics { position: relative; z-index: 1; }
+    .clock-lyrics,
+    .film-now-playing,
+    .film-track,
+    .film-progress-row { position: relative; z-index: 1; }
+
+    .film-perforations,
+    .film-grain {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .film-perforations {
+      inset: 14px 8px;
+      border-radius: 20px;
+      opacity: .42;
+      background:
+        repeating-linear-gradient(to bottom, rgba(6, 17, 31, .82) 0 5px, rgba(153, 224, 236, .14) 5px 7px, transparent 7px 13px) left center / 5px 100% no-repeat,
+        repeating-linear-gradient(to bottom, rgba(6, 17, 31, .82) 0 5px, rgba(222, 184, 105, .12) 5px 7px, transparent 7px 13px) right center / 5px 100% no-repeat;
+      animation: film-flicker 4.6s steps(2, end) infinite;
+    }
+
+    .film-edge-marks {
+      position: absolute;
+      inset: 22px 12px;
+      z-index: 0;
+      color: rgba(197, 234, 241, .42);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 6px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      pointer-events: none;
+    }
+
+    .film-edge-marks::before,
+    .film-edge-marks::after {
+      content: "";
+      position: absolute;
+      top: 13px;
+      bottom: 13px;
+      width: 5px;
+      background: repeating-linear-gradient(to bottom, rgba(163, 237, 241, .5) 0 1px, transparent 1px 12px);
+    }
+
+    .film-edge-marks::before { left: 0; }
+    .film-edge-marks::after { right: 0; }
+
+    .film-edge-label { position: absolute; }
+    .film-edge-label-top-left { top: 0; left: 9px; }
+    .film-edge-label-top-right { top: 0; right: 9px; }
+    .film-edge-label-bottom-left { bottom: 0; left: 9px; }
+    .film-edge-label-bottom-right { right: 9px; bottom: 0; }
+
+    .film-grain {
+      opacity: .17;
+      mix-blend-mode: screen;
+      background:
+        repeating-radial-gradient(circle at 18% 21%, rgba(193, 239, 244, .40) 0 .55px, transparent .8px 3px),
+        linear-gradient(112deg, transparent 0 26%, rgba(212, 240, 245, .16) 26.2% 26.45%, transparent 26.7% 69%, rgba(224, 188, 115, .14) 69.2% 69.4%, transparent 69.7%);
+      background-size: 5px 5px, 100% 100%;
+      animation: film-grain-drift .7s steps(2, end) infinite;
+    }
+
+    .film-now-playing {
+      margin-top: 1px;
+      color: rgba(187, 236, 244, .76);
+      font-size: 8px;
+      font-weight: 720;
+      letter-spacing: .25em;
+      text-shadow: 0 0 14px rgba(98, 220, 236, .28);
+      transform: translate3d(var(--film-meta-x), var(--film-meta-y), 0);
+    }
+
+    .film-track {
+      display: grid;
+      justify-items: center;
+      gap: 2px;
+      margin: 5px 0 7px;
+      min-width: 0;
+      transform: translate3d(var(--film-meta-x), var(--film-meta-y), 0);
+    }
+
+    .film-track strong,
+    .film-track span {
+      max-width: 168px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .film-track strong {
+      color: rgba(248, 252, 255, .96);
+      font-size: 11px;
+      font-weight: 690;
+      letter-spacing: .04em;
+    }
+
+    .film-track span {
+      color: rgba(215, 230, 241, .58);
+      font-size: 8px;
+      font-weight: 650;
+      letter-spacing: .16em;
+    }
 
     .clock-time {
       font-family: "SFMono-Regular", Consolas, monospace;
@@ -642,7 +758,101 @@
       height: 154px;
       margin: 16px auto 12px;
       flex: 0 0 auto;
+      transform: translate3d(var(--film-reel-x), var(--film-reel-y), 0);
+      transition: transform .35s cubic-bezier(.2, .75, .2, 1);
     }
+
+    .film-progress-ring {
+      position: absolute;
+      inset: 5px;
+      border-radius: 50%;
+      background: conic-gradient(from -90deg, #78dce8 0 var(--film-progress), rgba(157, 216, 228, .16) var(--film-progress) 100%);
+      -webkit-mask: radial-gradient(transparent 0 78%, #000 79% 83%, transparent 84%);
+      mask: radial-gradient(transparent 0 78%, #000 79% 83%, transparent 84%);
+      filter: drop-shadow(0 0 5px rgba(121, 221, 234, .48));
+    }
+
+    .film-progress-row {
+      width: 100%;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 7px;
+      margin: -3px 0 8px;
+      color: rgba(205, 228, 238, .65);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 8px;
+      letter-spacing: .04em;
+      transform: translate3d(var(--film-meta-x), var(--film-meta-y), 0);
+    }
+
+    .film-progress-track {
+      display: block;
+      height: 2px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(157, 216, 228, .17);
+      box-shadow: inset 0 1px 1px rgba(0, 0, 0, .32);
+    }
+
+    #film-progress {
+      display: block;
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #78dce8, #d7b46d);
+      box-shadow: 0 0 9px rgba(121, 221, 234, .56);
+      transition: width .18s linear, box-shadow .35s ease;
+    }
+
+    .film-equalizer {
+      position: absolute;
+      right: 22px;
+      bottom: 22px;
+      z-index: 0;
+      display: flex;
+      align-items: end;
+      gap: 2px;
+      height: 12px;
+      opacity: .66;
+      pointer-events: none;
+    }
+
+    .film-equalizer i {
+      display: block;
+      width: 2px;
+      height: 5px;
+      border-radius: 99px;
+      background: linear-gradient(#a3edf1, #d9b56d);
+      transform-origin: bottom;
+    }
+
+    .film-equalizer i:nth-child(2) { height: 10px; }
+    .film-equalizer i:nth-child(3) { height: 7px; }
+    .film-equalizer i:nth-child(4) { height: 12px; }
+    .film-equalizer i:nth-child(5) { height: 4px; }
+
+    .clock-widget.is-playing {
+      border-color: rgba(189, 247, 244, .72);
+      box-shadow: inset 0 1px 0 rgba(219, 248, 255, .4), inset 0 -20px 38px rgba(0, 6, 17, .42), 0 22px 52px rgba(0, 0, 0, .38), 0 0 34px rgba(94, 225, 234, .28);
+    }
+
+    .clock-widget.is-playing #film-progress {
+      box-shadow: 0 0 14px rgba(121, 221, 234, .88), 0 0 22px rgba(215, 180, 109, .38);
+    }
+
+    .clock-widget.is-playing .film-progress-track {
+      box-shadow: inset 0 1px 1px rgba(0, 0, 0, .32), 0 0 12px rgba(121, 221, 234, .2);
+    }
+
+    .clock-widget.is-playing .film-equalizer i {
+      animation: film-equalizer .72s ease-in-out infinite alternate;
+    }
+
+    .clock-widget.is-playing .film-equalizer i:nth-child(2) { animation-delay: -.24s; }
+    .clock-widget.is-playing .film-equalizer i:nth-child(3) { animation-delay: -.48s; }
+    .clock-widget.is-playing .film-equalizer i:nth-child(4) { animation-delay: -.12s; }
+    .clock-widget.is-playing .film-equalizer i:nth-child(5) { animation-delay: -.36s; }
 
     .clock-orbit {
       position: absolute;
@@ -733,6 +943,9 @@
     .clock-widget.is-expanded #lyrics-previous,
     .clock-widget.is-expanded #lyrics-next { display: block; }
 
+    @keyframes film-equalizer { to { transform: scaleY(.38); opacity: .44; } }
+    @keyframes film-flicker { 50% { opacity: .3; } }
+    @keyframes film-grain-drift { to { background-position: 3px -2px, 0 0; } }
     @keyframes orbit-clockwise { to { transform: rotate(360deg); } }
     @keyframes orbit-counterclockwise { to { transform: rotate(-360deg); } }
 
@@ -1119,7 +1332,11 @@
       .track-dot { width: 4px; height: 4px; }
       .track-dot.is-active { width: 16px; }
       .profile-card { width: 100%; }
-      #hero-title { font-size: clamp(34px, 12vw, 54px); }
+      #hero-title {
+        font-size: clamp(30px, 10vw, 42px);
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
       .hero-heading-kicker { font-size: 8px; }
       .hero-search { min-height: 54px; }
       .eyebrow { margin-bottom: 18px; font-size: 8px; }
@@ -1149,12 +1366,21 @@
       .hero-profile.is-playing .avatar-controls::after { animation: none; }
       .clock-widget,
       .clock-orbit,
+      .clock-orbits,
       .hero-socials a,
       .hero-socials button { transition: none; }
       .clock-widget::before,
       .clock-lyrics { transition: none; }
+      #film-progress { transition: none; }
       .clock-widget { transform: none; }
-      .clock-orbit { animation: none; }
+      .clock-orbits,
+      .film-now-playing,
+      .film-track,
+      .film-progress-row { transform: none; }
+      .clock-orbit,
+      .film-perforations,
+      .film-grain { animation: none; }
+      .clock-widget.is-playing .film-equalizer i { animation: none; }
       .archive-card,
       [data-reveal],
       .card-media img,
@@ -1235,13 +1461,33 @@
     </main>
 
     <button class="clock-widget" id="clock-widget" type="button" aria-label="查看当前播放歌词" aria-expanded="false">
+      <span class="film-perforations" aria-hidden="true"></span>
+      <span class="film-edge-marks" aria-hidden="true">
+        <span class="film-edge-label film-edge-label-top-left">24</span>
+        <span class="film-edge-label film-edge-label-top-right">36</span>
+        <span class="film-edge-label film-edge-label-bottom-left">48</span>
+        <span class="film-edge-label film-edge-label-bottom-right">60</span>
+      </span>
+      <span class="film-grain" aria-hidden="true"></span>
+      <span class="film-now-playing" id="film-now-playing">NOW PLAYING</span>
+      <span class="film-track" aria-live="off">
+        <strong id="film-track-title">选择一首歌</strong>
+        <span id="film-track-artist">LOCAL ARCHIVE</span>
+      </span>
       <span class="clock-time" id="clock-time">00:00:00</span>
       <span class="clock-date" id="clock-date">加载日期…</span>
       <span class="clock-orbits" aria-hidden="true">
+        <span id="film-progress-ring" class="film-progress-ring" aria-hidden="true"></span>
         <span class="clock-orbit clock-orbit-outer"></span>
         <span class="clock-orbit clock-orbit-middle"></span>
         <span class="clock-orbit clock-orbit-inner"></span>
       </span>
+      <span class="film-progress-row" aria-label="播放进度">
+        <span id="film-elapsed">00:00</span>
+        <span class="film-progress-track" aria-hidden="true"><span id="film-progress"></span></span>
+        <span id="film-duration">00:00</span>
+      </span>
+      <span class="film-equalizer" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
       <span class="clock-lyrics" aria-live="polite">
         <span id="lyrics-previous"></span><strong id="lyrics-current">选择一首歌</strong><span id="lyrics-next"></span>
       </span>
@@ -1353,6 +1599,11 @@
     const clockWidget = document.querySelector("#clock-widget");
     const clockTime = document.querySelector("#clock-time");
     const clockDate = document.querySelector("#clock-date");
+    const filmTrackTitle = document.querySelector("#film-track-title");
+    const filmTrackArtist = document.querySelector("#film-track-artist");
+    const filmElapsed = document.querySelector("#film-elapsed");
+    const filmDuration = document.querySelector("#film-duration");
+    const filmProgress = document.querySelector("#film-progress");
     const lyricsPrevious = document.querySelector("#lyrics-previous");
     const lyricsCurrent = document.querySelector("#lyrics-current");
     const lyricsNext = document.querySelector("#lyrics-next");
@@ -1458,13 +1709,33 @@
       clockDate.textContent = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 星期${weekdays[now.getDay()]}`;
     }
 
+    function formatPlaybackTime(seconds) {
+      if (!Number.isFinite(seconds) || seconds < 0) return "00:00";
+      const minutes = Math.floor(seconds / 60);
+      const remainder = Math.floor(seconds % 60).toString().padStart(2, "0");
+      return `${minutes.toString().padStart(2, "0")}:${remainder}`;
+    }
+
+    function syncFilmPlayback() {
+      const track = TRACKS[trackIndex];
+      const duration = Number.isFinite(profileAudio.duration) ? profileAudio.duration : 0;
+      const progress = duration > 0 ? Math.min(100, profileAudio.currentTime / duration * 100) : 0;
+      filmTrackTitle.textContent = track.title;
+      filmTrackArtist.textContent = track.artist;
+      filmElapsed.textContent = formatPlaybackTime(profileAudio.currentTime);
+      filmDuration.textContent = formatPlaybackTime(duration);
+      filmProgress.style.width = `${progress}%`;
+      clockWidget.style.setProperty("--film-progress", `${progress}%`);
+      clockWidget.classList.toggle("is-playing", !profileAudio.paused);
+    }
+
     function updateClockWidget() {
       syncClock();
       syncLyrics();
     }
 
     function clearClockParallax() {
-      ["--clock-x", "--clock-y", "--clock-rotate-x", "--clock-rotate-y"].forEach((property) => clockWidget.style.removeProperty(property));
+      ["--clock-x", "--clock-y", "--clock-rotate-x", "--clock-rotate-y", "--film-reel-x", "--film-reel-y", "--film-meta-x", "--film-meta-y"].forEach((property) => clockWidget.style.removeProperty(property));
     }
 
     function toggleClockLyrics() {
@@ -1638,6 +1909,7 @@
       void loadLyrics(track);
       profileStatus.textContent = `${track.title} — ${track.artist}.`;
       renderTrack(animate);
+      syncFilmPlayback();
     }
 
     async function toggleNativePlayback() {
@@ -1660,30 +1932,48 @@
     profileAudio.addEventListener("play", () => {
       syncNativePlayback();
       syncLyrics();
+      syncFilmPlayback();
     });
     profileAudio.addEventListener("pause", () => {
       syncNativePlayback();
       syncLyrics();
+      syncFilmPlayback();
     });
     profileAudio.addEventListener("ended", () => {
       syncLyrics();
+      syncFilmPlayback();
       switchNativeTrack(1);
     });
     profileAudio.addEventListener("timeupdate", syncLyrics);
+    profileAudio.addEventListener("timeupdate", syncFilmPlayback);
+    profileAudio.addEventListener("loadedmetadata", syncFilmPlayback);
     clockWidget.addEventListener("click", toggleClockLyrics);
 
-    if (!reduceMotionQuery.matches) {
-      clockWidget.addEventListener("pointermove", (event) => {
-        const bounds = clockWidget.getBoundingClientRect();
-        const x = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
-        const y = Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height));
-        clockWidget.style.setProperty("--clock-x", `${(x - .5) * 8}px`);
-        clockWidget.style.setProperty("--clock-y", `${(y - .5) * 8}px`);
-        clockWidget.style.setProperty("--clock-rotate-x", `${(0.5 - y) * 5}deg`);
-        clockWidget.style.setProperty("--clock-rotate-y", `${(x - .5) * 5}deg`);
-      });
+    function updateClockParallax(event) {
+      const bounds = clockWidget.getBoundingClientRect();
+      const x = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
+      const y = Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height));
+      clockWidget.style.setProperty("--clock-x", `${(x - .5) * 8}px`);
+      clockWidget.style.setProperty("--clock-y", `${(y - .5) * 8}px`);
+      clockWidget.style.setProperty("--clock-rotate-x", `${(0.5 - y) * 5}deg`);
+      clockWidget.style.setProperty("--clock-rotate-y", `${(x - .5) * 5}deg`);
+      clockWidget.style.setProperty("--film-reel-x", `${(.5 - x) * 16}px`);
+      clockWidget.style.setProperty("--film-reel-y", `${(.5 - y) * 16}px`);
+      clockWidget.style.setProperty("--film-meta-x", `${(x - .5) * 3}px`);
+      clockWidget.style.setProperty("--film-meta-y", `${(y - .5) * 3}px`);
+    }
+
+    function syncClockParallaxListeners() {
+      clockWidget.removeEventListener("pointermove", updateClockParallax);
+      clockWidget.removeEventListener("pointerleave", clearClockParallax);
+      clearClockParallax();
+      if (reduceMotionQuery.matches) return;
+      clockWidget.addEventListener("pointermove", updateClockParallax);
       clockWidget.addEventListener("pointerleave", clearClockParallax);
     }
+
+    reduceMotionQuery.addEventListener("change", syncClockParallaxListeners);
+    syncClockParallaxListeners();
 
     const canHover = window.matchMedia("(hover: hover) and (pointer: fine)");
 
