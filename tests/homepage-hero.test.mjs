@@ -32,6 +32,19 @@ test("hero renders a frosted clock lyric widget instead of an aperture", () => {
   assert.match(page, /\.clock-widget\s*\{[\s\S]*width: clamp\(220px, 17vw, 250px\)/);
 });
 
+test("clock widget exposes film-player metadata and decorative layers", () => {
+  assert.match(page, /id="film-now-playing"/);
+  assert.match(page, /id="film-track-title"/);
+  assert.match(page, /id="film-track-artist"/);
+  assert.match(page, /id="film-progress"/);
+  assert.match(page, /id="film-elapsed"/);
+  assert.match(page, /id="film-duration"/);
+  assert.match(page, /class="film-perforations" aria-hidden="true"/);
+  assert.match(page, /class="film-equalizer" aria-hidden="true"/);
+  assert.match(page, /\.clock-widget\s*\{[\s\S]*backdrop-filter: blur\(28px\) saturate\(150%\)/);
+  assert.match(page, /\.film-perforations\s*\{[\s\S]*repeating-linear-gradient/);
+});
+
 test("hero retains supplied social contacts", () => {
   assert.match(page, /data-contact="wechat"/);
   assert.match(page, /https:\/\/github\.com\/snowstorm-121/);

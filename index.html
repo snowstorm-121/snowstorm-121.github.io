@@ -586,13 +586,17 @@
       align-items: center;
       padding: 25px 20px 18px;
       overflow: hidden;
-      border: 1px solid rgba(191, 238, 242, .44);
+      isolation: isolate;
+      border: 1px solid rgba(168, 224, 239, .38);
       border-radius: 28px;
       color: var(--text);
-      background: linear-gradient(145deg, rgba(220, 252, 255, .22), rgba(10, 31, 48, .56) 48%, rgba(4, 14, 28, .74));
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, .34), inset 0 -18px 34px rgba(0, 8, 20, .34), 0 22px 52px rgba(0, 0, 0, .34);
-      backdrop-filter: blur(20px) saturate(135%);
-      -webkit-backdrop-filter: blur(20px) saturate(135%);
+      background:
+        radial-gradient(circle at 9% 7%, rgba(114, 221, 239, .22), transparent 31%),
+        radial-gradient(circle at 93% 11%, rgba(222, 183, 101, .14), transparent 27%),
+        linear-gradient(145deg, rgba(26, 54, 76, .70), rgba(8, 22, 40, .76) 51%, rgba(3, 12, 27, .84));
+      box-shadow: inset 0 1px 0 rgba(219, 248, 255, .28), inset 0 -20px 38px rgba(0, 6, 17, .48), 0 22px 52px rgba(0, 0, 0, .38), 0 0 28px rgba(77, 208, 229, .12);
+      backdrop-filter: blur(28px) saturate(150%);
+      -webkit-backdrop-filter: blur(28px) saturate(150%);
       cursor: pointer;
       transform: translate3d(var(--clock-x), calc(var(--clock-lift) + var(--clock-y)), 0) rotateX(var(--clock-rotate-x)) rotateY(var(--clock-rotate-y));
       transition: transform .35s cubic-bezier(.2, .75, .2, 1), box-shadow .35s ease, border-color .35s ease;
@@ -606,20 +610,90 @@
     }
     .clock-widget::before {
       inset: -36% -74%;
-      background: linear-gradient(100deg, transparent 42%, rgba(237, 255, 255, .38) 50%, transparent 58%);
-      opacity: .56;
+      z-index: 0;
+      background: linear-gradient(100deg, transparent 42%, rgba(162, 235, 246, .24) 50%, rgba(226, 191, 114, .12) 53%, transparent 59%);
+      opacity: .5;
       transform: translateX(-45%);
       transition: transform .7s ease, opacity .35s ease;
     }
     .clock-widget::after {
       inset: 9px;
-      border: 1px solid rgba(233, 255, 255, .18);
+      z-index: 0;
+      border: 1px solid rgba(192, 234, 246, .16);
       border-radius: 22px;
     }
 
     .clock-time,
     .clock-date,
-    .clock-lyrics { position: relative; z-index: 1; }
+    .clock-lyrics,
+    .film-now-playing,
+    .film-track,
+    .film-progress-row { position: relative; z-index: 1; }
+
+    .film-perforations,
+    .film-grain {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .film-perforations {
+      inset: 14px 8px;
+      border-radius: 20px;
+      opacity: .42;
+      background:
+        repeating-linear-gradient(to bottom, rgba(6, 17, 31, .82) 0 5px, rgba(153, 224, 236, .14) 5px 7px, transparent 7px 13px) left center / 5px 100% no-repeat,
+        repeating-linear-gradient(to bottom, rgba(6, 17, 31, .82) 0 5px, rgba(222, 184, 105, .12) 5px 7px, transparent 7px 13px) right center / 5px 100% no-repeat;
+    }
+
+    .film-grain {
+      opacity: .17;
+      mix-blend-mode: screen;
+      background:
+        repeating-radial-gradient(circle at 18% 21%, rgba(193, 239, 244, .40) 0 .55px, transparent .8px 3px),
+        linear-gradient(112deg, transparent 0 26%, rgba(212, 240, 245, .16) 26.2% 26.45%, transparent 26.7% 69%, rgba(224, 188, 115, .14) 69.2% 69.4%, transparent 69.7%);
+      background-size: 5px 5px, 100% 100%;
+    }
+
+    .film-now-playing {
+      margin-top: 1px;
+      color: rgba(187, 236, 244, .76);
+      font-size: 8px;
+      font-weight: 720;
+      letter-spacing: .25em;
+      text-shadow: 0 0 14px rgba(98, 220, 236, .28);
+    }
+
+    .film-track {
+      display: grid;
+      justify-items: center;
+      gap: 2px;
+      margin: 5px 0 7px;
+      min-width: 0;
+    }
+
+    .film-track strong,
+    .film-track span {
+      max-width: 168px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .film-track strong {
+      color: rgba(248, 252, 255, .96);
+      font-size: 11px;
+      font-weight: 690;
+      letter-spacing: .04em;
+    }
+
+    .film-track span {
+      color: rgba(215, 230, 241, .58);
+      font-size: 8px;
+      font-weight: 650;
+      letter-spacing: .16em;
+    }
 
     .clock-time {
       font-family: "SFMono-Regular", Consolas, monospace;
@@ -645,6 +719,63 @@
       margin: 16px auto 12px;
       flex: 0 0 auto;
     }
+
+    .film-progress-row {
+      width: 100%;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 7px;
+      margin: -3px 0 8px;
+      color: rgba(205, 228, 238, .65);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 8px;
+      letter-spacing: .04em;
+    }
+
+    .film-progress-track {
+      display: block;
+      height: 2px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(157, 216, 228, .17);
+      box-shadow: inset 0 1px 1px rgba(0, 0, 0, .32);
+    }
+
+    #film-progress {
+      display: block;
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, #78dce8, #d7b46d);
+      box-shadow: 0 0 9px rgba(121, 221, 234, .56);
+    }
+
+    .film-equalizer {
+      position: absolute;
+      right: 22px;
+      bottom: 22px;
+      z-index: 1;
+      display: flex;
+      align-items: end;
+      gap: 2px;
+      height: 12px;
+      opacity: .66;
+      pointer-events: none;
+    }
+
+    .film-equalizer i {
+      display: block;
+      width: 2px;
+      height: 5px;
+      border-radius: 99px;
+      background: linear-gradient(#a3edf1, #d9b56d);
+    }
+
+    .film-equalizer i:nth-child(2) { height: 10px; }
+    .film-equalizer i:nth-child(3) { height: 7px; }
+    .film-equalizer i:nth-child(4) { height: 12px; }
+    .film-equalizer i:nth-child(5) { height: 4px; }
 
     .clock-orbit {
       position: absolute;
@@ -1237,6 +1368,13 @@
     </main>
 
     <button class="clock-widget" id="clock-widget" type="button" aria-label="查看当前播放歌词" aria-expanded="false">
+      <span class="film-perforations" aria-hidden="true"></span>
+      <span class="film-grain" aria-hidden="true"></span>
+      <span class="film-now-playing" id="film-now-playing">NOW PLAYING</span>
+      <span class="film-track" aria-live="off">
+        <strong id="film-track-title">选择一首歌</strong>
+        <span id="film-track-artist">LOCAL ARCHIVE</span>
+      </span>
       <span class="clock-time" id="clock-time">00:00:00</span>
       <span class="clock-date" id="clock-date">加载日期…</span>
       <span class="clock-orbits" aria-hidden="true">
@@ -1244,6 +1382,12 @@
         <span class="clock-orbit clock-orbit-middle"></span>
         <span class="clock-orbit clock-orbit-inner"></span>
       </span>
+      <span class="film-progress-row" aria-label="播放进度">
+        <span id="film-elapsed">00:00</span>
+        <span class="film-progress-track" aria-hidden="true"><span id="film-progress"></span></span>
+        <span id="film-duration">00:00</span>
+      </span>
+      <span class="film-equalizer" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
       <span class="clock-lyrics" aria-live="polite">
         <span id="lyrics-previous"></span><strong id="lyrics-current">选择一首歌</strong><span id="lyrics-next"></span>
       </span>
