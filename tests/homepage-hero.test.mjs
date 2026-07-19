@@ -124,6 +124,16 @@ test("player maps every local track to a local LRC asset", () => {
   assert.match(page, /long-time-no-see-eason-chan\.lrc/);
 });
 
+test("player maps every local track to a distinct local vinyl label", async () => {
+  const covers = page.match(/cover: "assets\/music\/covers\/[^\"]+\.png"/g) ?? [];
+  assert.equal(covers.length, 9);
+  assert.equal(new Set(covers).size, 9);
+  for (const cover of covers) {
+    const file = cover.match(/assets\/music\/covers\/([^\"]+)/)[1];
+    await readFile(new URL(`../assets/music/covers/${file}`, import.meta.url));
+  }
+});
+
 test("clock widget syncs local time and LRC lyrics with the native player", () => {
   assert.match(page, /function parseLrc\(source\)/);
   assert.match(page, /fetch\(track\.lyrics\)/);
