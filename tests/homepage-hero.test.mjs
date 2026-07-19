@@ -9,12 +9,18 @@ test("hero provides title, Google search, and a safe main region", () => {
   assert.match(page, /id="hero-search-form"[^>]*action="https:\/\/www\.google\.com\/search"/);
   assert.match(page, /id="hero-search-input"[^>]*name="q"/);
   assert.match(page, /class="hero-content"/);
-  assert.match(page, /\.hero-main\s*\{[\s\S]*width: min\(600px, calc\(100vw - 720px\)\)[\s\S]*margin:\s*0 clamp\(280px, 21vw, 340px\) 0 clamp\(300px,/);
+  assert.match(page, /\.hero-main\s*\{[\s\S]*width: min\(540px, calc\(100vw - 820px\)\)[\s\S]*margin:\s*0 clamp\(360px, 24vw, 430px\) 0 clamp\(360px,/);
 });
 
 test("desktop hero reserves horizontal room for the clock widget", () => {
-  assert.match(page, /\.hero-main\s*\{[\s\S]*width: min\(600px, calc\(100vw - 720px\)\)/);
+  assert.match(page, /\.hero-main\s*\{[\s\S]*width: min\(540px, calc\(100vw - 820px\)\)/);
   assert.match(page, /\.hero-search\s*\{[\s\S]*width: 100%;/);
+});
+
+test("desktop hero keeps a compact fixed safe column for title and search", () => {
+  assert.match(page, /\.hero-main\s*\{[\s\S]*width: min\(540px, calc\(100vw - 820px\)\)[\s\S]*margin:\s*0 clamp\(360px, 24vw, 430px\) 0 clamp\(360px, 20vw, 460px\)/);
+  assert.match(page, /#hero-title\s*\{[\s\S]*font: italic 700 clamp\(34px, 4\.2vw, 58px\)\/\.9 Georgia, serif;[\s\S]*white-space: nowrap;/);
+  assert.match(page, /\.hero-search\s*\{[\s\S]*width: 100%;[\s\S]*max-width: 540px;/);
 });
 
 test("hero renders a frosted clock lyric widget instead of an aperture", () => {
