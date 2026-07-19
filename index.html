@@ -575,6 +575,10 @@
       --clock-y: 0px;
       --clock-rotate-x: 0deg;
       --clock-rotate-y: 0deg;
+      --film-reel-x: 0px;
+      --film-reel-y: 0px;
+      --film-meta-x: 0px;
+      --film-meta-y: 0px;
       position: absolute;
       top: clamp(96px, 14vh, 148px);
       right: clamp(22px, 4vw, 62px);
@@ -645,6 +649,7 @@
       background:
         repeating-linear-gradient(to bottom, rgba(6, 17, 31, .82) 0 5px, rgba(153, 224, 236, .14) 5px 7px, transparent 7px 13px) left center / 5px 100% no-repeat,
         repeating-linear-gradient(to bottom, rgba(6, 17, 31, .82) 0 5px, rgba(222, 184, 105, .12) 5px 7px, transparent 7px 13px) right center / 5px 100% no-repeat;
+      animation: film-flicker 4.6s steps(2, end) infinite;
     }
 
     .film-grain {
@@ -654,6 +659,7 @@
         repeating-radial-gradient(circle at 18% 21%, rgba(193, 239, 244, .40) 0 .55px, transparent .8px 3px),
         linear-gradient(112deg, transparent 0 26%, rgba(212, 240, 245, .16) 26.2% 26.45%, transparent 26.7% 69%, rgba(224, 188, 115, .14) 69.2% 69.4%, transparent 69.7%);
       background-size: 5px 5px, 100% 100%;
+      animation: film-grain-drift .7s steps(2, end) infinite;
     }
 
     .film-now-playing {
@@ -663,6 +669,7 @@
       font-weight: 720;
       letter-spacing: .25em;
       text-shadow: 0 0 14px rgba(98, 220, 236, .28);
+      transform: translate3d(var(--film-meta-x), var(--film-meta-y), 0);
     }
 
     .film-track {
@@ -671,6 +678,7 @@
       gap: 2px;
       margin: 5px 0 7px;
       min-width: 0;
+      transform: translate3d(var(--film-meta-x), var(--film-meta-y), 0);
     }
 
     .film-track strong,
@@ -718,6 +726,8 @@
       height: 154px;
       margin: 16px auto 12px;
       flex: 0 0 auto;
+      transform: translate3d(var(--film-reel-x), var(--film-reel-y), 0);
+      transition: transform .35s cubic-bezier(.2, .75, .2, 1);
     }
 
     .film-progress-row {
@@ -731,6 +741,7 @@
       font-family: "SFMono-Regular", Consolas, monospace;
       font-size: 8px;
       letter-spacing: .04em;
+      transform: translate3d(var(--film-meta-x), var(--film-meta-y), 0);
     }
 
     .film-progress-track {
@@ -749,6 +760,7 @@
       border-radius: inherit;
       background: linear-gradient(90deg, #78dce8, #d7b46d);
       box-shadow: 0 0 9px rgba(121, 221, 234, .56);
+      transition: width .18s linear, box-shadow .35s ease;
     }
 
     .film-equalizer {
@@ -770,12 +782,35 @@
       height: 5px;
       border-radius: 99px;
       background: linear-gradient(#a3edf1, #d9b56d);
+      transform-origin: bottom;
     }
 
     .film-equalizer i:nth-child(2) { height: 10px; }
     .film-equalizer i:nth-child(3) { height: 7px; }
     .film-equalizer i:nth-child(4) { height: 12px; }
     .film-equalizer i:nth-child(5) { height: 4px; }
+
+    .clock-widget.is-playing {
+      border-color: rgba(189, 247, 244, .72);
+      box-shadow: inset 0 1px 0 rgba(219, 248, 255, .4), inset 0 -20px 38px rgba(0, 6, 17, .42), 0 22px 52px rgba(0, 0, 0, .38), 0 0 34px rgba(94, 225, 234, .28);
+    }
+
+    .clock-widget.is-playing #film-progress {
+      box-shadow: 0 0 14px rgba(121, 221, 234, .88), 0 0 22px rgba(215, 180, 109, .38);
+    }
+
+    .clock-widget.is-playing .film-progress-track {
+      box-shadow: inset 0 1px 1px rgba(0, 0, 0, .32), 0 0 12px rgba(121, 221, 234, .2);
+    }
+
+    .clock-widget.is-playing .film-equalizer i {
+      animation: film-equalizer .72s ease-in-out infinite alternate;
+    }
+
+    .clock-widget.is-playing .film-equalizer i:nth-child(2) { animation-delay: -.24s; }
+    .clock-widget.is-playing .film-equalizer i:nth-child(3) { animation-delay: -.48s; }
+    .clock-widget.is-playing .film-equalizer i:nth-child(4) { animation-delay: -.12s; }
+    .clock-widget.is-playing .film-equalizer i:nth-child(5) { animation-delay: -.36s; }
 
     .clock-orbit {
       position: absolute;
@@ -866,6 +901,9 @@
     .clock-widget.is-expanded #lyrics-previous,
     .clock-widget.is-expanded #lyrics-next { display: block; }
 
+    @keyframes film-equalizer { to { transform: scaleY(.38); opacity: .44; } }
+    @keyframes film-flicker { 50% { opacity: .3; } }
+    @keyframes film-grain-drift { to { background-position: 3px -2px, 0 0; } }
     @keyframes orbit-clockwise { to { transform: rotate(360deg); } }
     @keyframes orbit-counterclockwise { to { transform: rotate(-360deg); } }
 
@@ -1282,12 +1320,17 @@
       .hero-profile.is-playing .avatar-controls::after { animation: none; }
       .clock-widget,
       .clock-orbit,
+      .clock-orbits,
       .hero-socials a,
       .hero-socials button { transition: none; }
       .clock-widget::before,
       .clock-lyrics { transition: none; }
+      #film-progress { transition: none; }
       .clock-widget { transform: none; }
-      .clock-orbit { animation: none; }
+      .clock-orbit,
+      .film-perforations,
+      .film-grain { animation: none; }
+      .film-equalizer i { animation: none; }
       .archive-card,
       [data-reveal],
       .card-media img,
@@ -1499,6 +1542,11 @@
     const clockWidget = document.querySelector("#clock-widget");
     const clockTime = document.querySelector("#clock-time");
     const clockDate = document.querySelector("#clock-date");
+    const filmTrackTitle = document.querySelector("#film-track-title");
+    const filmTrackArtist = document.querySelector("#film-track-artist");
+    const filmElapsed = document.querySelector("#film-elapsed");
+    const filmDuration = document.querySelector("#film-duration");
+    const filmProgress = document.querySelector("#film-progress");
     const lyricsPrevious = document.querySelector("#lyrics-previous");
     const lyricsCurrent = document.querySelector("#lyrics-current");
     const lyricsNext = document.querySelector("#lyrics-next");
@@ -1604,13 +1652,32 @@
       clockDate.textContent = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 星期${weekdays[now.getDay()]}`;
     }
 
+    function formatPlaybackTime(seconds) {
+      if (!Number.isFinite(seconds) || seconds < 0) return "00:00";
+      const minutes = Math.floor(seconds / 60);
+      const remainder = Math.floor(seconds % 60).toString().padStart(2, "0");
+      return `${minutes.toString().padStart(2, "0")}:${remainder}`;
+    }
+
+    function syncFilmPlayback() {
+      const track = TRACKS[trackIndex];
+      const duration = Number.isFinite(profileAudio.duration) ? profileAudio.duration : 0;
+      const progress = duration > 0 ? Math.min(100, profileAudio.currentTime / duration * 100) : 0;
+      filmTrackTitle.textContent = track.title;
+      filmTrackArtist.textContent = track.artist;
+      filmElapsed.textContent = formatPlaybackTime(profileAudio.currentTime);
+      filmDuration.textContent = formatPlaybackTime(duration);
+      filmProgress.style.width = `${progress}%`;
+      clockWidget.classList.toggle("is-playing", !profileAudio.paused);
+    }
+
     function updateClockWidget() {
       syncClock();
       syncLyrics();
     }
 
     function clearClockParallax() {
-      ["--clock-x", "--clock-y", "--clock-rotate-x", "--clock-rotate-y"].forEach((property) => clockWidget.style.removeProperty(property));
+      ["--clock-x", "--clock-y", "--clock-rotate-x", "--clock-rotate-y", "--film-reel-x", "--film-reel-y", "--film-meta-x", "--film-meta-y"].forEach((property) => clockWidget.style.removeProperty(property));
     }
 
     function toggleClockLyrics() {
@@ -1784,6 +1851,7 @@
       void loadLyrics(track);
       profileStatus.textContent = `${track.title} — ${track.artist}.`;
       renderTrack(animate);
+      syncFilmPlayback();
     }
 
     async function toggleNativePlayback() {
@@ -1806,16 +1874,21 @@
     profileAudio.addEventListener("play", () => {
       syncNativePlayback();
       syncLyrics();
+      syncFilmPlayback();
     });
     profileAudio.addEventListener("pause", () => {
       syncNativePlayback();
       syncLyrics();
+      syncFilmPlayback();
     });
     profileAudio.addEventListener("ended", () => {
       syncLyrics();
+      syncFilmPlayback();
       switchNativeTrack(1);
     });
     profileAudio.addEventListener("timeupdate", syncLyrics);
+    profileAudio.addEventListener("timeupdate", syncFilmPlayback);
+    profileAudio.addEventListener("loadedmetadata", syncFilmPlayback);
     clockWidget.addEventListener("click", toggleClockLyrics);
 
     if (!reduceMotionQuery.matches) {
@@ -1827,6 +1900,10 @@
         clockWidget.style.setProperty("--clock-y", `${(y - .5) * 8}px`);
         clockWidget.style.setProperty("--clock-rotate-x", `${(0.5 - y) * 5}deg`);
         clockWidget.style.setProperty("--clock-rotate-y", `${(x - .5) * 5}deg`);
+        clockWidget.style.setProperty("--film-reel-x", `${(.5 - x) * 16}px`);
+        clockWidget.style.setProperty("--film-reel-y", `${(.5 - y) * 16}px`);
+        clockWidget.style.setProperty("--film-meta-x", `${(x - .5) * 3}px`);
+        clockWidget.style.setProperty("--film-meta-y", `${(y - .5) * 3}px`);
       });
       clockWidget.addEventListener("pointerleave", clearClockParallax);
     }

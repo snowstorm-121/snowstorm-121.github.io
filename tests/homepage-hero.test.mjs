@@ -49,6 +49,18 @@ test("film equalizer remains behind readable clock content", () => {
   assert.match(page, /\.film-equalizer\s*\{[\s\S]*z-index:\s*0;/);
 });
 
+test("film clock mirrors existing player metadata progress and motion-safe playback state", () => {
+  assert.match(page, /function formatPlaybackTime\(seconds\)/);
+  assert.match(page, /function syncFilmPlayback\(\)/);
+  assert.match(page, /filmTrackTitle\.textContent = track\.title/);
+  assert.match(page, /filmTrackArtist\.textContent = track\.artist/);
+  assert.match(page, /filmProgress\.style\.width = `\$\{progress\}%`/);
+  assert.match(page, /clockWidget\.classList\.toggle\("is-playing", !profileAudio\.paused\)/);
+  assert.match(page, /profileAudio\.addEventListener\("timeupdate", syncFilmPlayback\)/);
+  assert.match(page, /profileAudio\.addEventListener\("loadedmetadata", syncFilmPlayback\)/);
+  assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.film-equalizer i\s*\{\s*animation: none;/);
+});
+
 test("hero retains supplied social contacts", () => {
   assert.match(page, /data-contact="wechat"/);
   assert.match(page, /https:\/\/github\.com\/snowstorm-121/);
