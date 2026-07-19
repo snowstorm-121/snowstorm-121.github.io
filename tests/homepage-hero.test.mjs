@@ -23,6 +23,10 @@ test("desktop hero keeps a compact fixed safe column for title and search", () =
   assert.match(page, /\.hero-search\s*\{[\s\S]*width: 100%;[\s\S]*max-width: 540px;/);
 });
 
+test("mobile hero title can wrap safely within a 320px viewport", () => {
+  assert.match(page, /@media \(max-width: 720px\)[\s\S]*#hero-title\s*\{[\s\S]*font-size: clamp\(30px, 10vw, 42px\);[\s\S]*white-space: normal;[\s\S]*overflow-wrap: anywhere;/);
+});
+
 test("hero renders a frosted clock lyric widget instead of an aperture", () => {
   assert.match(page, /id="clock-widget"[^>]*type="button"/);
   assert.match(page, /id="clock-time"/);
@@ -45,6 +49,19 @@ test("clock widget exposes film-player metadata and decorative layers", () => {
   assert.match(page, /\.film-perforations\s*\{[\s\S]*repeating-linear-gradient/);
 });
 
+test("film card includes an aria-hidden edge numbering and tick layer", () => {
+  assert.match(page, /class="film-edge-marks" aria-hidden="true"/);
+  assert.match(page, /class="film-edge-label film-edge-label-top-left">24</);
+  assert.match(page, /class="film-edge-label film-edge-label-bottom-right">60</);
+  assert.match(page, /\.film-edge-marks::before,[\s\S]*\.film-edge-marks::after\s*\{[\s\S]*repeating-linear-gradient/);
+});
+
+test("clock reel includes a concentric progress ring driven by audio progress", () => {
+  assert.match(page, /id="film-progress-ring" class="film-progress-ring" aria-hidden="true"/);
+  assert.match(page, /\.film-progress-ring\s*\{[\s\S]*conic-gradient\([\s\S]*var\(--film-progress\)/);
+  assert.match(page, /filmProgress\.style\.width = `\$\{progress\}%`;[\s\S]*clockWidget\.style\.setProperty\("--film-progress", `\$\{progress\}%`\);/);
+});
+
 test("film equalizer remains behind readable clock content", () => {
   assert.match(page, /\.film-equalizer\s*\{[\s\S]*z-index:\s*0;/);
 });
@@ -59,6 +76,10 @@ test("film clock mirrors existing player metadata progress and motion-safe playb
   assert.match(page, /profileAudio\.addEventListener\("timeupdate", syncFilmPlayback\)/);
   assert.match(page, /profileAudio\.addEventListener\("loadedmetadata", syncFilmPlayback\)/);
   assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.film-equalizer i\s*\{\s*animation: none;/);
+});
+
+test("reduced motion overrides the active equalizer animation with matching specificity", () => {
+  assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.clock-widget\.is-playing \.film-equalizer i\s*\{\s*animation: none;/);
 });
 
 test("hero retains supplied social contacts", () => {

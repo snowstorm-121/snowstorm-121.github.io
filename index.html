@@ -579,6 +579,7 @@
       --film-reel-y: 0px;
       --film-meta-x: 0px;
       --film-meta-y: 0px;
+      --film-progress: 0%;
       position: absolute;
       top: clamp(96px, 14vh, 148px);
       right: clamp(22px, 4vw, 62px);
@@ -651,6 +652,37 @@
         repeating-linear-gradient(to bottom, rgba(6, 17, 31, .82) 0 5px, rgba(222, 184, 105, .12) 5px 7px, transparent 7px 13px) right center / 5px 100% no-repeat;
       animation: film-flicker 4.6s steps(2, end) infinite;
     }
+
+    .film-edge-marks {
+      position: absolute;
+      inset: 22px 12px;
+      z-index: 0;
+      color: rgba(197, 234, 241, .42);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 6px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      pointer-events: none;
+    }
+
+    .film-edge-marks::before,
+    .film-edge-marks::after {
+      content: "";
+      position: absolute;
+      top: 13px;
+      bottom: 13px;
+      width: 5px;
+      background: repeating-linear-gradient(to bottom, rgba(163, 237, 241, .5) 0 1px, transparent 1px 12px);
+    }
+
+    .film-edge-marks::before { left: 0; }
+    .film-edge-marks::after { right: 0; }
+
+    .film-edge-label { position: absolute; }
+    .film-edge-label-top-left { top: 0; left: 9px; }
+    .film-edge-label-top-right { top: 0; right: 9px; }
+    .film-edge-label-bottom-left { bottom: 0; left: 9px; }
+    .film-edge-label-bottom-right { right: 9px; bottom: 0; }
 
     .film-grain {
       opacity: .17;
@@ -728,6 +760,16 @@
       flex: 0 0 auto;
       transform: translate3d(var(--film-reel-x), var(--film-reel-y), 0);
       transition: transform .35s cubic-bezier(.2, .75, .2, 1);
+    }
+
+    .film-progress-ring {
+      position: absolute;
+      inset: 5px;
+      border-radius: 50%;
+      background: conic-gradient(from -90deg, #78dce8 0 var(--film-progress), rgba(157, 216, 228, .16) var(--film-progress) 100%);
+      -webkit-mask: radial-gradient(transparent 0 78%, #000 79% 83%, transparent 84%);
+      mask: radial-gradient(transparent 0 78%, #000 79% 83%, transparent 84%);
+      filter: drop-shadow(0 0 5px rgba(121, 221, 234, .48));
     }
 
     .film-progress-row {
@@ -1290,7 +1332,11 @@
       .track-dot { width: 4px; height: 4px; }
       .track-dot.is-active { width: 16px; }
       .profile-card { width: 100%; }
-      #hero-title { font-size: clamp(34px, 12vw, 54px); }
+      #hero-title {
+        font-size: clamp(30px, 10vw, 42px);
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
       .hero-heading-kicker { font-size: 8px; }
       .hero-search { min-height: 54px; }
       .eyebrow { margin-bottom: 18px; font-size: 8px; }
@@ -1334,7 +1380,7 @@
       .clock-orbit,
       .film-perforations,
       .film-grain { animation: none; }
-      .film-equalizer i { animation: none; }
+      .clock-widget.is-playing .film-equalizer i { animation: none; }
       .archive-card,
       [data-reveal],
       .card-media img,
@@ -1416,6 +1462,12 @@
 
     <button class="clock-widget" id="clock-widget" type="button" aria-label="查看当前播放歌词" aria-expanded="false">
       <span class="film-perforations" aria-hidden="true"></span>
+      <span class="film-edge-marks" aria-hidden="true">
+        <span class="film-edge-label film-edge-label-top-left">24</span>
+        <span class="film-edge-label film-edge-label-top-right">36</span>
+        <span class="film-edge-label film-edge-label-bottom-left">48</span>
+        <span class="film-edge-label film-edge-label-bottom-right">60</span>
+      </span>
       <span class="film-grain" aria-hidden="true"></span>
       <span class="film-now-playing" id="film-now-playing">NOW PLAYING</span>
       <span class="film-track" aria-live="off">
@@ -1425,6 +1477,7 @@
       <span class="clock-time" id="clock-time">00:00:00</span>
       <span class="clock-date" id="clock-date">加载日期…</span>
       <span class="clock-orbits" aria-hidden="true">
+        <span id="film-progress-ring" class="film-progress-ring" aria-hidden="true"></span>
         <span class="clock-orbit clock-orbit-outer"></span>
         <span class="clock-orbit clock-orbit-middle"></span>
         <span class="clock-orbit clock-orbit-inner"></span>
@@ -1672,6 +1725,7 @@
       filmElapsed.textContent = formatPlaybackTime(profileAudio.currentTime);
       filmDuration.textContent = formatPlaybackTime(duration);
       filmProgress.style.width = `${progress}%`;
+      clockWidget.style.setProperty("--film-progress", `${progress}%`);
       clockWidget.classList.toggle("is-playing", !profileAudio.paused);
     }
 
