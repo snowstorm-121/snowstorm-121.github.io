@@ -45,6 +45,10 @@ test("clock widget exposes film-player metadata and decorative layers", () => {
   assert.match(page, /\.film-perforations\s*\{[\s\S]*repeating-linear-gradient/);
 });
 
+test("film equalizer remains behind readable clock content", () => {
+  assert.match(page, /\.film-equalizer\s*\{[\s\S]*z-index:\s*0;/);
+});
+
 test("hero retains supplied social contacts", () => {
   assert.match(page, /data-contact="wechat"/);
   assert.match(page, /https:\/\/github\.com\/snowstorm-121/);
