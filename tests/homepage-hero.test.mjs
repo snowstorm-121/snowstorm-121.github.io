@@ -82,6 +82,13 @@ test("reduced motion disables clock shine and lyric transitions", () => {
   assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.clock-widget::before,\s*\.clock-lyrics\s*\{\s*transition:\s*none;/);
 });
 
+test("clock parallax responds to live reduced-motion preference changes", () => {
+  assert.match(page, /function updateClockParallax\(event\)/);
+  assert.match(page, /function syncClockParallaxListeners\(\)\s*\{[\s\S]*clockWidget\.removeEventListener\("pointermove", updateClockParallax\);[\s\S]*clockWidget\.removeEventListener\("pointerleave", clearClockParallax\);[\s\S]*clearClockParallax\(\);[\s\S]*if \(reduceMotionQuery\.matches\) return;[\s\S]*clockWidget\.addEventListener\("pointermove", updateClockParallax\);[\s\S]*clockWidget\.addEventListener\("pointerleave", clearClockParallax\);/);
+  assert.match(page, /reduceMotionQuery\.addEventListener\("change", syncClockParallaxListeners\)/);
+  assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.clock-orbits,\s*\.film-now-playing,\s*\.film-track,\s*\.film-progress-row\s*\{\s*transform:\s*none;/);
+});
+
 test("player declares nine local audio tracks with display metadata", () => {
   assert.match(page, /the-nights-avicii\.mp3/);
   assert.match(page, /artist: "Avicii"/);

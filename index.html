@@ -1327,6 +1327,10 @@
       .clock-lyrics { transition: none; }
       #film-progress { transition: none; }
       .clock-widget { transform: none; }
+      .clock-orbits,
+      .film-now-playing,
+      .film-track,
+      .film-progress-row { transform: none; }
       .clock-orbit,
       .film-perforations,
       .film-grain { animation: none; }
@@ -1891,22 +1895,31 @@
     profileAudio.addEventListener("loadedmetadata", syncFilmPlayback);
     clockWidget.addEventListener("click", toggleClockLyrics);
 
-    if (!reduceMotionQuery.matches) {
-      clockWidget.addEventListener("pointermove", (event) => {
-        const bounds = clockWidget.getBoundingClientRect();
-        const x = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
-        const y = Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height));
-        clockWidget.style.setProperty("--clock-x", `${(x - .5) * 8}px`);
-        clockWidget.style.setProperty("--clock-y", `${(y - .5) * 8}px`);
-        clockWidget.style.setProperty("--clock-rotate-x", `${(0.5 - y) * 5}deg`);
-        clockWidget.style.setProperty("--clock-rotate-y", `${(x - .5) * 5}deg`);
-        clockWidget.style.setProperty("--film-reel-x", `${(.5 - x) * 16}px`);
-        clockWidget.style.setProperty("--film-reel-y", `${(.5 - y) * 16}px`);
-        clockWidget.style.setProperty("--film-meta-x", `${(x - .5) * 3}px`);
-        clockWidget.style.setProperty("--film-meta-y", `${(y - .5) * 3}px`);
-      });
+    function updateClockParallax(event) {
+      const bounds = clockWidget.getBoundingClientRect();
+      const x = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
+      const y = Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height));
+      clockWidget.style.setProperty("--clock-x", `${(x - .5) * 8}px`);
+      clockWidget.style.setProperty("--clock-y", `${(y - .5) * 8}px`);
+      clockWidget.style.setProperty("--clock-rotate-x", `${(0.5 - y) * 5}deg`);
+      clockWidget.style.setProperty("--clock-rotate-y", `${(x - .5) * 5}deg`);
+      clockWidget.style.setProperty("--film-reel-x", `${(.5 - x) * 16}px`);
+      clockWidget.style.setProperty("--film-reel-y", `${(.5 - y) * 16}px`);
+      clockWidget.style.setProperty("--film-meta-x", `${(x - .5) * 3}px`);
+      clockWidget.style.setProperty("--film-meta-y", `${(y - .5) * 3}px`);
+    }
+
+    function syncClockParallaxListeners() {
+      clockWidget.removeEventListener("pointermove", updateClockParallax);
+      clockWidget.removeEventListener("pointerleave", clearClockParallax);
+      clearClockParallax();
+      if (reduceMotionQuery.matches) return;
+      clockWidget.addEventListener("pointermove", updateClockParallax);
       clockWidget.addEventListener("pointerleave", clearClockParallax);
     }
+
+    reduceMotionQuery.addEventListener("change", syncClockParallaxListeners);
+    syncClockParallaxListeners();
 
     const canHover = window.matchMedia("(hover: hover) and (pointer: fine)");
 
