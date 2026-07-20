@@ -13,8 +13,21 @@ test("hero provides title, Google search, and a safe main region", () => {
 
 test("hero locks search directly above a two-line quote stack", () => {
   assert.match(page, /class="hero-middle-stack"[\s\S]*id="hero-search-form"[\s\S]*class="hero-quote-area"/);
-  assert.match(page, /\.hero-middle-stack\s*\{[\s\S]*width: min\(520px, calc\(100vw - 860px\)\)/);
+  assert.match(page, /\.hero-middle-stack\s*\{[\s\S]*min-width: 0;[\s\S]*width: 100%/);
   assert.match(page, /\.sentence-wrap\s*\{[\s\S]*height: calc\(2 \* var\(--sentence-line-height\)\)/);
+});
+
+test("compact vinyl geometry keeps a large label beside a flexible middle stack", () => {
+  assert.match(page, /\.vinyl-player\s*\{[\s\S]*width: clamp\(304px, 25vw, 348px\)/);
+  assert.match(page, /--record-size: clamp\(148px, 12vw, 164px\)/);
+  assert.match(page, /#vinyl-cover\s*\{[\s\S]*width: 70%/);
+  assert.match(page, /\.hero-top\s*\{[\s\S]*grid-template-columns: minmax\(280px, 1fr\) minmax\(0, 520px\) minmax\(304px, 348px\)/);
+});
+
+test("tonearm enters the record only while playing and the compact layout reflows", () => {
+  assert.match(page, /\.vinyl-tonearm\s*\{[\s\S]*transform: rotate\(-28deg\)/);
+  assert.match(page, /\.vinyl-player\.is-playing \.vinyl-tonearm\s*\{\s*transform: rotate\(12deg\)/);
+  assert.match(page, /@media \(max-width: 1200px\)[\s\S]*\.vinyl-player\s*\{[\s\S]*grid-template-columns: 1fr/);
 });
 
 test("hero renders a responsive vinyl turntable instead of the film clock", () => {
@@ -72,6 +85,18 @@ test("social controls use local icon presentation without a CDN runtime styleshe
   assert.equal((page.match(/class="social-icon" aria-hidden="true"/g) ?? []).length, 6);
 });
 
+test("social controls use local SVG icons and retain accessible labels", () => {
+  assert.match(page, /aria-label="GitHub"[\s\S]*<svg/);
+  assert.match(page, /aria-label="发送邮件"[\s\S]*<svg/);
+  assert.doesNotMatch(page, /class="social-icon"[^>]*>GH</);
+});
+
+test("hero reserves independent regions before compact player reflow", () => {
+  assert.match(page, /\.hero-top\s*\{[\s\S]*grid-template-columns:/);
+  assert.match(page, /\.hero-middle-stack\s*\{[\s\S]*min-width: 0/);
+  assert.match(page, /@media \(max-width: 1200px\)[\s\S]*\.hero-top\s*\{[\s\S]*grid-template-columns: 1fr/);
+});
+
 test("hero code configures maximum gain", () => {
   assert.match(page, /profileTrackGain\.gain\.exponentialRampToValueAtTime\(1\.00, now \+ \.45\)/);
 });
@@ -84,7 +109,7 @@ test("vinyl motion and the quote animator respect reduced motion", () => {
   assert.match(page, /--vinyl-x[\s\S]*--vinyl-y[\s\S]*--vinyl-rotate-x[\s\S]*--vinyl-rotate-y[\s\S]*--vinyl-glow-x/);
   assert.match(page, /\.vinyl-player:hover,[\s\S]*--vinyl-lift: -7px;[\s\S]*--vinyl-rotate-x: -1\.25deg;[\s\S]*--vinyl-rotate-y: 1\.5deg;/);
   assert.match(page, /\.vinyl-player\.is-playing \.vinyl-record \{ animation: vinyl-spin/);
-  assert.match(page, /\.vinyl-player\.is-playing \.vinyl-tonearm \{ transform: rotate\(-3deg\); \}/);
+  assert.match(page, /\.vinyl-player\.is-playing \.vinyl-tonearm \{ transform: rotate\(12deg\); \}/);
   assert.match(page, /\.vinyl-tonearm\s*\{[\s\S]*transition: transform \.55s/);
   assert.match(page, /\.vinyl-player\.is-switching #vinyl-cover,[\s\S]*\.vinyl-player\.is-switching \.vinyl-metadata/);
   assert.match(page, /let vinylSwitchTimer;[\s\S]*window\.clearTimeout\(vinylSwitchTimer\);[\s\S]*vinylSwitchTimer = window\.setTimeout/);
