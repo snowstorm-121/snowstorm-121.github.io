@@ -144,15 +144,11 @@
     }
 
     .hero-main {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 520px;
-      max-width: calc(100% - 676px);
       min-width: 0;
       margin: 0;
       text-align: center;
-      transform: translateX(-50%);
+      align-self: start;
+      padding-top: clamp(96px, 14vh, 180px);
     }
 
     .hero-profile {
@@ -425,6 +421,7 @@
 
     .hero-top {
       position: relative;
+      min-height: 100svh;
       display: grid;
       grid-template-columns: 280px minmax(0, 1fr) clamp(276px, 22vw, 316px);
       align-items: center;
@@ -445,13 +442,16 @@
     }
 
     .hero-middle-stack {
+      position: absolute;
+      left: 50%;
+      top: clamp(230px, 32vh, 320px);
       min-width: 0;
       width: 520px;
-      max-width: 100%;
+      max-width: calc(100% - 676px);
       margin: 0;
       display: grid;
       gap: clamp(20px, 3vh, 36px);
-      justify-self: center;
+      transform: translateX(-50%);
     }
 
     .hero-heading-kicker {
@@ -1242,10 +1242,18 @@
         transform: none;
       }
       .hero-content { width: 100%; margin-inline: auto; }
-      .hero-heading,
-      .hero-middle-stack {
+      .hero-heading {
         width: min(520px, 100%);
         margin-inline: auto;
+      }
+      .hero-middle-stack {
+        position: static;
+        left: auto;
+        top: auto;
+        width: min(520px, 100%);
+        max-width: none;
+        margin-inline: auto;
+        transform: none;
       }
       .vinyl-player {
         position: relative;
