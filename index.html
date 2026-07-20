@@ -144,16 +144,21 @@
     }
 
     .hero-main {
-      width: 100%;
+      position: absolute;
+      left: 50%;
+      width: 520px;
+      max-width: calc(100% - 676px);
       min-width: 0;
       margin: 0;
       text-align: center;
+      transform: translateX(-50%);
     }
 
     .hero-profile {
       --track-accent: #8d89b8;
       position: relative;
       z-index: 4;
+      grid-column: 1;
       width: 280px;
       justify-self: start;
     }
@@ -418,10 +423,10 @@
     }
 
     .hero-top {
+      position: relative;
       display: grid;
-      grid-template-columns: 280px 520px 348px;
+      grid-template-columns: 280px minmax(0, 1fr) clamp(276px, 22vw, 316px);
       align-items: center;
-      justify-content: space-between;
       gap: clamp(24px, 3vw, 56px);
       width: min(100% - clamp(44px, 6.8vw, 108px), 1480px);
     }
@@ -594,17 +599,18 @@
     }
 
     .vinyl-player {
-      --record-size: clamp(148px, 12vw, 164px);
+      --record-size: clamp(132px, 10vw, 150px);
       position: relative;
       z-index: 2;
-      width: clamp(304px, 25vw, 348px);
+      grid-column: 3;
+      width: clamp(276px, 22vw, 316px);
       justify-self: end;
-      min-height: 318px;
+      min-height: 286px;
       display: grid;
       grid-template-columns: 1fr;
       align-items: center;
       gap: 14px;
-      padding: 18px;
+      padding: 14px;
       overflow: hidden;
       isolation: isolate;
       border: 1px solid rgba(168, 224, 239, .38);
@@ -1212,6 +1218,8 @@
 
     @media (max-width: 1320px) {
       .hero-top { grid-template-columns: 1fr; }
+      .hero-profile,
+      .vinyl-player { grid-column: auto; }
       .hero {
         display: block;
         min-height: 100svh;
@@ -1224,8 +1232,10 @@
         margin: 0 auto 44px;
       }
       .hero-main {
+        position: static;
         width: 100%;
         margin: 0;
+        transform: none;
       }
       .hero-content { width: 100%; margin-inline: auto; }
       .hero-heading,
@@ -1439,7 +1449,7 @@
         <a href="https://github.com/snowstorm-121" target="_blank" rel="noreferrer" aria-label="GitHub"><svg class="social-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.18-3.37-1.18-.46-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.61.07-.61 1 .07 1.52 1.02 1.52 1.02.89 1.52 2.33 1.08 2.9.83.09-.64.35-1.08.63-1.33-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.02-2.68-.1-.25-.44-1.27.1-2.65 0 0 .84-.27 2.75 1.02A9.5 9.5 0 0 1 12 6.46c.85 0 1.7.11 2.5.34 1.91-1.29 2.75-1.02 2.75-1.02.54 1.38.2 2.4.1 2.65.63.7 1.02 1.59 1.02 2.68 0 3.84-2.35 4.68-4.58 4.93.36.31.68.91.68 1.84v2.73c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg></a>
         <a href="mailto:2971234387@qq.com" aria-label="发送邮件"><svg class="social-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 5h18v14H3V5Zm2 2v.51l7 4.67 7-4.67V7l-7 4.67L5 7Z"/></svg></a>
         <button type="button" data-contact="wechat" aria-label="查看微信号"><svg class="social-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12.05 4C7.63 4 4 6.96 4 10.59c0 2.04 1.14 3.88 3.05 5.11L6.3 18.3l2.84-1.5c.9.25 1.88.38 2.91.38 4.45 0 8.05-2.96 8.05-6.59C20.1 6.96 16.5 4 12.05 4Zm-2.7 6.84a1.03 1.03 0 1 1 0-2.06 1.03 1.03 0 0 1 0 2.06Zm5.4 0a1.03 1.03 0 1 1 0-2.06 1.03 1.03 0 0 1 0 2.06ZM20.1 11.2c-.3 3.17-3.69 5.63-7.86 5.63-.48 0-.95-.03-1.4-.1.87 1.9 3.06 3.27 5.67 3.27.69 0 1.35-.1 1.95-.28l2.18 1.15-.59-1.96c1.31-.91 2.12-2.22 2.12-3.67 0-1.51-.88-2.88-2.28-3.8Z"/></svg></button>
-        <a href="https://wpa.qq.com/msgrd?v=3&uin=2971234387&site=qq&menu=yes" target="_blank" rel="noreferrer" data-contact="qq" aria-label="QQ 2971234387"><svg class="social-icon" aria-hidden="true" viewBox="0 0 24 24"><ellipse cx="12" cy="11.5" rx="6.5" ry="8.5" style="fill:#111827"/><ellipse cx="12" cy="13.2" rx="4.15" ry="5.7" style="fill:#f8fafc"/><ellipse cx="9.6" cy="8.25" rx=".75" ry=".9" style="fill:#f8fafc"/><ellipse cx="14.4" cy="8.25" rx=".75" ry=".9" style="fill:#f8fafc"/><path d="M10.2 9.65 12 11.15l1.8-1.5Z" style="fill:#f59e0b"/><ellipse cx="8.2" cy="20.25" rx="2.5" ry="1.05" style="fill:#f59e0b"/><ellipse cx="15.8" cy="20.25" rx="2.5" ry="1.05" style="fill:#f59e0b"/></svg></a>
+        <a href="https://wpa.qq.com/msgrd?v=3&uin=2971234387&site=qq&menu=yes" target="_blank" rel="noreferrer" aria-label="QQ 2971234387"><svg class="social-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 2.4c-3.3 0-5.45 3.26-5.45 7.18 0 2.08.5 4.24 1.37 5.88l-2.27 3.56 3.62-1.48c.78.62 1.7.98 2.73.98s1.95-.36 2.73-.98l3.62 1.48-2.27-3.56c.87-1.64 1.37-3.8 1.37-5.88C17.45 5.66 15.3 2.4 12 2.4Z" style="fill:#fff"/><path d="M7.68 10.34 3.8 13.3l3.25.96 1.75-2.32Z" style="fill:#fff"/><path d="m16.32 10.34 3.88 2.96-3.25.96-1.75-2.32Z" style="fill:#fff"/><path d="m10.4 8.25 1.6 1.32 1.6-1.32Z" style="fill:#fff"/></svg></a>
         <a href="https://www.youtube.com/@yongyiyan" target="_blank" rel="noreferrer" aria-label="YouTube"><svg class="social-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M21.58 7.19a2.99 2.99 0 0 0-2.1-2.12C17.63 4.57 12 4.57 12 4.57s-5.63 0-7.48.5a3 3 0 0 0-2.1 2.12C1.92 9.06 1.92 12 1.92 12s0 2.94.5 4.81a3 3 0 0 0 2.1 2.12c1.85.5 7.48.5 7.48.5s5.63 0 7.48-.5a2.99 2.99 0 0 0 2.1-2.12c.5-1.87.5-4.81.5-4.81s0-2.94-.5-4.81ZM10.16 15.04V8.96L15.5 12l-5.34 3.04Z"/></svg></a>
         <a href="https://x.com/yongyi_121" target="_blank" rel="noreferrer" aria-label="X"><svg class="social-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4.8 3h3.83l3.72 5.1L16.7 3h2.5l-5.7 6.55L20 21h-3.83l-4.13-5.67L7.1 21H4.6l6.31-7.25L4.8 3Zm2.73 1.75 8.79 14.5h1.95L9.48 4.75H7.53Z"/></svg></a>
       </nav>
@@ -1937,8 +1947,8 @@
       requestAnimationFrame(() => contactPopover.classList.add("is-open"));
     }
 
-    document.querySelectorAll("[data-contact]").forEach((trigger) => trigger.addEventListener("click", () => {
-      toggleContact(trigger.dataset.contact);
+    document.querySelectorAll('[data-contact="wechat"]').forEach((trigger) => trigger.addEventListener("click", () => {
+      toggleContact("wechat");
     }));
 
     copyContact.addEventListener("click", async () => {

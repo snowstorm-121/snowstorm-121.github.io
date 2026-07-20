@@ -17,26 +17,39 @@ test("hero locks search directly above a two-line quote stack", () => {
   assert.match(page, /\.sentence-wrap\s*\{[\s\S]*height: calc\(2 \* var\(--sentence-line-height\)\)/);
 });
 
-test("desktop hero keeps search and quotes in a fixed 520px middle stack", () => {
-  assert.match(page, /\.hero-top\s*\{[\s\S]*grid-template-columns: 280px 520px 348px;[\s\S]*justify-content: space-between;/);
-  assert.match(page, /\.hero-middle-stack\s*\{[\s\S]*width: 520px;[\s\S]*max-width: 100%;[\s\S]*justify-self: center;/);
-  assert.doesNotMatch(page, /\.hero-top\s*\{[\s\S]*grid-template-columns: minmax\(280px, 1fr\) minmax\(0, 520px\)/);
-  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-top\s*\{\s*grid-template-columns: 1fr;\s*\}/);
+test("desktop hero uses an independent fixed middle anchor", () => {
+  const desktopHero = page.match(/\.hero-top\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const desktopMain = page.match(/\.hero-main\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
+
+  assert.match(desktopHero, /position: relative;/);
+  assert.match(page, /\.hero-profile\s*\{[\s\S]*grid-column: 1;/);
+  assert.match(page, /\.vinyl-player\s*\{[\s\S]*grid-column: 3;/);
+  assert.match(desktopMain, /position: absolute;/);
+  assert.match(desktopMain, /left: 50%;/);
+  assert.match(desktopMain, /width: 520px;/);
+  assert.match(desktopMain, /max-width: calc\(100% - 676px\);/);
+  assert.match(desktopMain, /transform: translateX\(-50%\);/);
+  assert.doesNotMatch(desktopMain, /justify-self|grid-column/);
+  assert.match(page, /<main class="hero-main">[\s\S]*id="hero-title"[\s\S]*class="hero-middle-stack"[\s\S]*id="hero-search-form"[\s\S]*class="hero-quote-area"/);
+  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-main\s*\{[\s\S]*position: static;[\s\S]*width: 100%;[\s\S]*transform: none;/);
+  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-profile,\s*\.vinyl-player\s*\{\s*grid-column: auto;/);
 });
 
-test("QQ contact retains its link contract and renders a colored penguin SVG", () => {
-  const qqLink = page.match(/<a href="https:\/\/wpa\.qq\.com\/msgrd\?v=3&uin=2971234387&site=qq&menu=yes" target="_blank" rel="noreferrer" data-contact="qq" aria-label="QQ 2971234387">[\s\S]*?<\/a>/)?.[0] ?? "";
+test("QQ contact retains its link contract and renders a white penguin SVG", () => {
+  const qqLink = page.match(/<a href="https:\/\/wpa\.qq\.com\/msgrd\?v=3&uin=2971234387&site=qq&menu=yes" target="_blank" rel="noreferrer" aria-label="QQ 2971234387">[\s\S]*?<\/a>/)?.[0] ?? "";
   assert.match(qqLink, /<svg[^>]*class="social-icon"[^>]*viewBox="0 0 24 24"/);
-  assert.match(qqLink, /<(?:path|ellipse)[^>]*style="fill:#111827"/);
-  assert.match(qqLink, /<(?:path|ellipse)[^>]*style="fill:#f8fafc"/);
-  assert.match(qqLink, /<(?:path|ellipse)[^>]*style="fill:#f59e0b"/);
+  assert.doesNotMatch(qqLink, /data-contact/);
+  assert.match(qqLink, /<(?:path|ellipse)[^>]*style="fill:#fff"/);
+  assert.doesNotMatch(qqLink, /#(?:111827|f8fafc|f59e0b)/);
 });
 
-test("compact vinyl geometry keeps a large label beside a fixed middle stack", () => {
-  assert.match(page, /\.vinyl-player\s*\{[\s\S]*width: clamp\(304px, 25vw, 348px\)/);
-  assert.match(page, /--record-size: clamp\(148px, 12vw, 164px\)/);
+test("compact vinyl geometry keeps a readable label beside the fixed middle stack", () => {
+  assert.match(page, /\.vinyl-player\s*\{[\s\S]*width: clamp\(276px, 22vw, 316px\)/);
+  assert.match(page, /--record-size: clamp\(132px, 10vw, 150px\)/);
+  assert.match(page, /\.vinyl-player\s*\{[\s\S]*min-height: 286px;/);
+  assert.match(page, /\.vinyl-player\s*\{[\s\S]*padding: 14px;/);
   assert.match(page, /#vinyl-cover\s*\{[\s\S]*width: 70%/);
-  assert.match(page, /\.hero-top\s*\{[\s\S]*grid-template-columns: 280px 520px 348px;/);
+  assert.match(page, /\.vinyl-metadata\s*\{[\s\S]*font-size:/);
 });
 
 test("tonearm enters the record only while playing and the compact layout reflows", () => {
@@ -211,4 +224,9 @@ test("homepage toggles contacts and submits raw Google keywords", () => {
   assert.match(page, /action="https:\/\/www\.google\.com\/search"/);
   assert.match(page, /contactPopover\.hidden = !contactPopover\.hidden/);
   assert.match(page, /\.hero-search\s*\{[\s\S]*width: 100%;/);
+});
+
+test("only the WeChat control binds the contact popover", () => {
+  assert.match(page, /document\.querySelectorAll\('\[data-contact="wechat"\]'\)\.forEach\(\(trigger\) => trigger\.addEventListener\("click", \(\) => \{[\s\S]*toggleContact\("wechat"\);/);
+  assert.doesNotMatch(page, /document\.querySelectorAll\("\[data-contact\]"\)/);
 });
