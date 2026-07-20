@@ -1954,7 +1954,15 @@
     });
 
     let phraseIndex = 0;
-    const wait = (duration) => new Promise((resolve) => window.setTimeout(resolve, duration));
+    let quoteRun = 0;
+    let quoteTimer;
+    const wait = (duration) => new Promise((resolve) => {
+      quoteTimer = window.setTimeout(() => {
+        quoteTimer = undefined;
+        resolve();
+      }, duration);
+    });
+    const isQuoteRunCurrent = (run) => run === quoteRun && !reduceMotionQuery.matches;
 
     function delayFor(character) {
       if (character === "，") return TIMING.comma;
@@ -1969,41 +1977,69 @@
       marks.forEach((mark, index) => mark.classList.toggle("active", index === phraseIndex));
     }
 
-    async function typeLine(lineNode, text) {
+    async function typeLine(lineNode, text, run) {
       let visibleText = "";
       lineNode.append(caret);
       for (const character of text) {
+        if (!isQuoteRunCurrent(run)) return false;
         visibleText += character;
         lineNode.textContent = visibleText;
         lineNode.append(caret);
         await wait(delayFor(character));
       }
+      return isQuoteRunCurrent(run);
     }
 
-    async function deleteLine(lineNode) {
+    async function deleteLine(lineNode, run) {
       let visibleText = lineNode.textContent;
       lineNode.append(caret);
       while (visibleText.length > 0) {
+        if (!isQuoteRunCurrent(run)) return false;
         visibleText = visibleText.slice(0, -1);
         lineNode.textContent = visibleText;
         lineNode.append(caret);
         await wait(TIMING.deleteCharacter);
       }
+      return isQuoteRunCurrent(run);
     }
 
-    async function play() {
-      while (true) {
+    async function deleteVisibleLines(run) {
+      for (let lineIndex = lineNodes.length - 1; lineIndex >= 0; lineIndex -= 1) {
+        if (!lineNodes[lineIndex].textContent) continue;
+        if (!(await deleteLine(lineNodes[lineIndex], run))) return false;
+        if (lineIndex > 0) {
+          await wait(TIMING.deleteLineBreak);
+          if (!isQuoteRunCurrent(run)) return false;
+        }
+      }
+      return true;
+    }
+
+    async function play(run) {
+      if (lineNodes.some((lineNode) => lineNode.textContent)) {
+        if (!(await deleteVisibleLines(run))) return;
+        phraseIndex = (phraseIndex + 1) % phrases.length;
+      }
+      while (run === quoteRun && !reduceMotionQuery.matches) {
         const current = phrases[phraseIndex];
         updateMeta();
         await wait(TIMING.between);
+        if (!isQuoteRunCurrent(run)) return;
         for (let lineIndex = 0; lineIndex < current.lines.length; lineIndex += 1) {
-          if (lineIndex > 0) await wait(TIMING.lineBreak);
-          await typeLine(lineNodes[lineIndex], current.lines[lineIndex]);
+          if (lineIndex > 0) {
+            await wait(TIMING.lineBreak);
+            if (!isQuoteRunCurrent(run)) return;
+          }
+          if (!(await typeLine(lineNodes[lineIndex], current.lines[lineIndex], run))) return;
         }
         await wait(TIMING.hold);
+        if (!isQuoteRunCurrent(run)) return;
         for (let lineIndex = current.lines.length - 1; lineIndex >= 0; lineIndex -= 1) {
-          if (lineIndex < current.lines.length - 1) await wait(TIMING.deleteLineBreak);
-          await deleteLine(lineNodes[lineIndex]);
+          if (lineIndex < current.lines.length - 1) {
+            await wait(TIMING.deleteLineBreak);
+            if (!isQuoteRunCurrent(run)) return;
+          }
+          if (!(await deleteLine(lineNodes[lineIndex], run))) return;
         }
         phraseIndex = (phraseIndex + 1) % phrases.length;
       }
@@ -2017,6 +2053,17 @@
         });
         updateMeta();
       }
+    }
+
+    function syncQuoteMotion() {
+      quoteRun += 1;
+      window.clearTimeout(quoteTimer);
+      quoteTimer = undefined;
+      if (reduceMotionQuery.matches) {
+        renderStaticPhrase();
+        return;
+      }
+      void play(quoteRun);
     }
 
     const revealTargets = [...document.querySelectorAll("[data-reveal]")];
@@ -2049,11 +2096,8 @@
       });
     }
 
-    if (reduceMotionQuery.matches) {
-      renderStaticPhrase();
-    } else {
-      void play();
-    }
+    reduceMotionQuery.addEventListener("change", syncQuoteMotion);
+    syncQuoteMotion();
   </script>
 </body>
 </html>

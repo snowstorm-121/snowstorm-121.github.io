@@ -84,8 +84,15 @@ test("vinyl motion and the quote animator respect reduced motion", () => {
   assert.match(page, /let vinylSwitchTimer;[\s\S]*window\.clearTimeout\(vinylSwitchTimer\);[\s\S]*vinylSwitchTimer = window\.setTimeout/);
   assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.vinyl-record[\s\S]*animation: none;/);
   assert.match(page, /if \(reduceMotionQuery\.matches\)[\s\S]*lineNodes\.forEach/);
-  assert.match(page, /await deleteLine\(lineNodes\[lineIndex\]\);[\s\S]*phraseIndex =/);
+  assert.match(page, /await deleteLine\(lineNodes\[lineIndex\], run\)[\s\S]*phraseIndex =/);
   assert.doesNotMatch(page, /while \(true\) \{[\s\S]*lineNodes\.forEach\(\(lineNode\) => \{ lineNode\.textContent = ""; \}\);/);
+});
+
+test("live reduced-motion changes invalidate quote animation before static rendering", () => {
+  assert.match(page, /let quoteRun = 0;/);
+  assert.match(page, /function syncQuoteMotion\(\)\s*\{[\s\S]*quoteRun \+= 1;[\s\S]*window\.clearTimeout\(quoteTimer\);[\s\S]*if \(reduceMotionQuery\.matches\) \{[\s\S]*renderStaticPhrase\(\);[\s\S]*return;[\s\S]*void play\(quoteRun\);/);
+  assert.match(page, /reduceMotionQuery\.addEventListener\("change", syncQuoteMotion\)/);
+  assert.match(page, /async function play\(run\) \{[\s\S]*while \(run === quoteRun && !reduceMotionQuery\.matches\)/);
 });
 
 test("player declares nine local audio tracks with display metadata", () => {
