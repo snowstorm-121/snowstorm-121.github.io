@@ -146,12 +146,13 @@
     .hero-main {
       position: absolute;
       left: 50%;
+      top: 50%;
       width: 520px;
       max-width: calc(100% - 676px);
       min-width: 0;
       margin: 0;
       text-align: center;
-      transform: translateX(-50%);
+      transform: translate(-50%, -50%);
     }
 
     .hero-profile {
@@ -1233,6 +1234,8 @@
       }
       .hero-main {
         position: static;
+        top: auto;
+        left: auto;
         width: 100%;
         max-width: none;
         margin: 0;
