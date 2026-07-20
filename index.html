@@ -454,7 +454,7 @@
       transform: translateX(-50%);
     }
 
-    .hero > #hero-search-form {
+    .hero-top > #hero-search-form {
       position: absolute;
       z-index: 1;
       left: 50%;
@@ -1228,7 +1228,12 @@
     }
 
     @media (max-width: 1320px) {
-      .hero-top { grid-template-columns: 1fr; }
+      .hero-top {
+        grid-template-columns: 1fr;
+        width: 100%;
+        min-height: 0;
+        gap: 0;
+      }
       .hero-profile,
       .vinyl-player { grid-column: auto; }
       .hero {
@@ -1237,13 +1242,11 @@
         min-height: 100svh;
         padding: 100px 22px 42px;
       }
-      .hero-top { display: contents; }
       .hero-profile {
         position: relative;
         inset: auto;
         width: min(100%, 280px);
         margin: 0 auto 44px;
-        order: 1;
       }
       .hero-main {
         position: static;
@@ -1253,7 +1256,6 @@
         max-width: none;
         margin: 0;
         transform: none;
-        order: 2;
       }
       .hero-content { width: 100%; margin-inline: auto; }
       .hero-heading {
@@ -1268,15 +1270,13 @@
         max-width: none;
         margin-inline: auto;
         margin-top: clamp(20px, 3vh, 36px);
-        order: 4;
         transform: none;
       }
-      .hero > #hero-search-form {
+      .hero-top > #hero-search-form {
         position: static;
         width: min(520px, 100%);
         max-width: none;
         margin-inline: auto;
-        order: 3;
         transform: none;
       }
       .vinyl-player {
@@ -1286,17 +1286,14 @@
         grid-template-columns: 1fr;
         justify-items: center;
         margin: 34px auto 28px;
-        order: 5;
       }
       .vinyl-metadata { width: 100%; text-align: center; }
-      .contact-popover { order: 6; }
       .hero-footer {
         position: relative;
         right: auto;
         bottom: auto;
         left: auto;
         margin-top: 52px;
-        order: 7;
       }
       .hero-socials { justify-content: center; margin-top: 26px; }
       .contact-popover { position: relative; inset: auto; width: fit-content; margin: 12px auto 0; }
@@ -1439,6 +1436,26 @@
       </div>
       </main>
 
+      <form id="hero-search-form" class="hero-search" action="https://www.google.com/search" method="get" target="_blank">
+        <label class="sr-only" for="hero-search-input">Google 搜索</label>
+        <span class="hero-search-label">SEARCH</span>
+        <input id="hero-search-input" name="q" type="search" placeholder="Google 搜索…" autocomplete="off">
+        <button type="submit" aria-label="搜索"><span aria-hidden="true">⌕</span></button>
+      </form>
+
+      <div class="hero-middle-stack">
+        <div class="hero-quote-area">
+          <div class="eyebrow" id="eyebrow">NOTES ON LIFE · 01 / 10</div>
+          <div class="sentence-wrap">
+            <p class="sentence" id="sentence">
+              <span class="sentence-line" data-line="0"></span>
+              <span class="sentence-line" data-line="1"></span>
+            </p>
+          </div>
+          <div class="progress" id="progress" aria-label="文案播放进度"></div>
+        </div>
+      </div>
+
       <button class="vinyl-player" id="vinyl-player" type="button" aria-label="查看当前播放歌词" aria-expanded="false">
       <span class="vinyl-deck" aria-hidden="true">
         <span class="vinyl-record" id="vinyl-record" aria-hidden="true">
@@ -1458,26 +1475,6 @@
         </span>
       </span>
       </button>
-    </div>
-
-    <form id="hero-search-form" class="hero-search" action="https://www.google.com/search" method="get" target="_blank">
-      <label class="sr-only" for="hero-search-input">Google 搜索</label>
-      <span class="hero-search-label">SEARCH</span>
-      <input id="hero-search-input" name="q" type="search" placeholder="Google 搜索…" autocomplete="off">
-      <button type="submit" aria-label="搜索"><span aria-hidden="true">⌕</span></button>
-    </form>
-
-    <div class="hero-middle-stack">
-      <div class="hero-quote-area">
-        <div class="eyebrow" id="eyebrow">NOTES ON LIFE · 01 / 10</div>
-        <div class="sentence-wrap">
-          <p class="sentence" id="sentence">
-            <span class="sentence-line" data-line="0"></span>
-            <span class="sentence-line" data-line="1"></span>
-          </p>
-        </div>
-        <div class="progress" id="progress" aria-label="文案播放进度"></div>
-      </div>
     </div>
 
     <div class="contact-popover" id="contact-popover" hidden role="status">

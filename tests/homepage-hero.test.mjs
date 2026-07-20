@@ -8,6 +8,35 @@ const heroMarkup = page.slice(
   page.indexOf('<section class="archives" id="archives">'),
 );
 
+function directHeroTopChildren(markup) {
+  const start = markup.indexOf('<div class="hero-top">') + '<div class="hero-top">'.length;
+  const voidTags = new Set(["img", "input"]);
+  const children = [];
+  let depth = 1;
+
+  for (const match of markup.slice(start).matchAll(/<\/?([a-z][\w-]*)(?:\s[^<>]*?)?>/gi)) {
+    const openingTag = match[0];
+    const tagName = match[1].toLowerCase();
+
+    if (openingTag.startsWith("</")) {
+      depth -= 1;
+      if (depth === 0) break;
+      continue;
+    }
+
+    if (depth === 1) {
+      children.push({
+        tagName,
+        id: openingTag.match(/\bid="([^"]+)"/)?.[1] ?? "",
+        className: openingTag.match(/\bclass="([^"]+)"/)?.[1] ?? "",
+      });
+    }
+    if (!voidTags.has(tagName) && !openingTag.endsWith("/>")) depth += 1;
+  }
+
+  return children;
+}
+
 test("hero provides title, Google search, and a safe main region", () => {
   assert.match(page, /id="hero-title"[^>]*>STILL, I GO ON/);
   assert.match(page, /id="hero-search-form"[^>]*action="https:\/\/www\.google\.com\/search"/);
@@ -26,7 +55,7 @@ test("desktop hero independently anchors the search form while quote height chan
   const desktopHero = page.match(/\.hero-top\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
   const desktopMain = page.match(/\.hero-main\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
   const desktopStack = page.match(/\.hero-middle-stack\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
-  const desktopSearch = page.match(/\.hero > #hero-search-form\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const desktopSearch = page.match(/\.hero-top > #hero-search-form\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
 
   assert.match(desktopHero, /position: relative;/);
   assert.match(desktopHero, /min-height: 100svh;/);
@@ -42,9 +71,16 @@ test("desktop hero independently anchors the search form while quote height chan
   assert.match(desktopStack, /position: absolute;/);
   assert.match(desktopStack, /top: clamp\(312px, calc\(32vh \+ 82px\), 402px\);/);
   assert.doesNotMatch(desktopMain, /position: absolute;|left: 50%;|top: 50%;|transform: translateX\(-50%\)/);
-  assert.match(heroMarkup, /<\/div>\s*<form id="hero-search-form"[\s\S]*?<\/form>\s*<div class="hero-middle-stack">[\s\S]*class="hero-quote-area"/);
-  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero > #hero-search-form\s*\{[\s\S]*position: static;[\s\S]*width: min\(520px, 100%\);[\s\S]*order: 3;[\s\S]*transform: none;/);
-  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-middle-stack\s*\{[\s\S]*position: static;[\s\S]*width: min\(520px, 100%\);[\s\S]*order: 4;/);
+  assert.deepEqual(directHeroTopChildren(heroMarkup), [
+    { tagName: "aside", id: "hero-profile", className: "hero-profile" },
+    { tagName: "main", id: "", className: "hero-main" },
+    { tagName: "form", id: "hero-search-form", className: "hero-search" },
+    { tagName: "div", id: "", className: "hero-middle-stack" },
+    { tagName: "button", id: "vinyl-player", className: "vinyl-player" },
+  ]);
+  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-top > #hero-search-form\s*\{[\s\S]*position: static;[\s\S]*width: min\(520px, 100%\);[\s\S]*transform: none;/);
+  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-middle-stack\s*\{[\s\S]*position: static;[\s\S]*width: min\(520px, 100%\);[\s\S]*transform: none;/);
+  assert.doesNotMatch(page, /\.hero-top\s*\{\s*display: contents;/);
   assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-profile,\s*\.vinyl-player\s*\{\s*grid-column: auto;/);
 });
 
