@@ -13,15 +13,30 @@ test("hero provides title, Google search, and a safe main region", () => {
 
 test("hero locks search directly above a two-line quote stack", () => {
   assert.match(page, /class="hero-middle-stack"[\s\S]*id="hero-search-form"[\s\S]*class="hero-quote-area"/);
-  assert.match(page, /\.hero-middle-stack\s*\{[\s\S]*min-width: 0;[\s\S]*width: 100%/);
+  assert.match(page, /\.hero-middle-stack\s*\{[\s\S]*min-width: 0;/);
   assert.match(page, /\.sentence-wrap\s*\{[\s\S]*height: calc\(2 \* var\(--sentence-line-height\)\)/);
 });
 
-test("compact vinyl geometry keeps a large label beside a flexible middle stack", () => {
+test("desktop hero keeps search and quotes in a fixed 520px middle stack", () => {
+  assert.match(page, /\.hero-top\s*\{[\s\S]*grid-template-columns: 280px 520px 348px;[\s\S]*justify-content: space-between;/);
+  assert.match(page, /\.hero-middle-stack\s*\{[\s\S]*width: 520px;[\s\S]*max-width: 100%;[\s\S]*justify-self: center;/);
+  assert.doesNotMatch(page, /\.hero-top\s*\{[\s\S]*grid-template-columns: minmax\(280px, 1fr\) minmax\(0, 520px\)/);
+  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-top\s*\{\s*grid-template-columns: 1fr;\s*\}/);
+});
+
+test("QQ contact retains its link contract and renders a colored penguin SVG", () => {
+  const qqLink = page.match(/<a href="https:\/\/wpa\.qq\.com\/msgrd\?v=3&uin=2971234387&site=qq&menu=yes" target="_blank" rel="noreferrer" data-contact="qq" aria-label="QQ 2971234387">[\s\S]*?<\/a>/)?.[0] ?? "";
+  assert.match(qqLink, /<svg[^>]*class="social-icon"[^>]*viewBox="0 0 24 24"/);
+  assert.match(qqLink, /<(?:path|ellipse)[^>]*style="fill:#111827"/);
+  assert.match(qqLink, /<(?:path|ellipse)[^>]*style="fill:#f8fafc"/);
+  assert.match(qqLink, /<(?:path|ellipse)[^>]*style="fill:#f59e0b"/);
+});
+
+test("compact vinyl geometry keeps a large label beside a fixed middle stack", () => {
   assert.match(page, /\.vinyl-player\s*\{[\s\S]*width: clamp\(304px, 25vw, 348px\)/);
   assert.match(page, /--record-size: clamp\(148px, 12vw, 164px\)/);
   assert.match(page, /#vinyl-cover\s*\{[\s\S]*width: 70%/);
-  assert.match(page, /\.hero-top\s*\{[\s\S]*grid-template-columns: minmax\(280px, 1fr\) minmax\(0, 520px\) minmax\(304px, 348px\)/);
+  assert.match(page, /\.hero-top\s*\{[\s\S]*grid-template-columns: 280px 520px 348px;/);
 });
 
 test("tonearm enters the record only while playing and the compact layout reflows", () => {
