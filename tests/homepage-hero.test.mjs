@@ -250,8 +250,9 @@ test("named homepage surfaces share the liquid-glass material tokens", () => {
   }
   for (const selector of surfaceSelectors) {
     const rule = page.match(new RegExp(`${selector.replace(".", "\\.")}\\s*\\{[\\s\\S]*?\\n    \\}`))?.[0] ?? "";
-    assert.match(rule, /background:[\s\S]*var\(--glass-fill\)/);
-    assert.match(rule, /border(?:-[\w-]+)?:[\s\S]*var\(--glass-border\)/);
+    for (const token of ["--glass-fill", "--glass-border", "--glass-highlight", "--glass-shadow"]) {
+      assert.match(rule, new RegExp(`var\\(${token}\\)`), `${selector} must consume ${token}`);
+    }
   }
   assert.doesNotMatch(page, /<link[^>]+rel=["'][^"']*stylesheet[^"']*["'][^>]+href=["']https?:\/\//i);
 });
