@@ -105,9 +105,9 @@ test("desktop hero independently anchors the search form while quote height chan
   assert.match(desktopSearch, /position: absolute;/);
   assert.match(desktopSearch, /left: 50%;/);
   assert.match(desktopSearch, /top: clamp\(230px, 32vh, 320px\);/);
-  assert.match(desktopSearch, /width: 520px;/);
+  assert.match(desktopSearch, /width: var\(--hero-lane-width\);/);
   assert.match(desktopSearch, /max-width: calc\(100% - 676px\);/);
-  assert.match(desktopSearch, /transform: translateX\(-50%\);/);
+  assert.match(desktopSearch, /transform: translateX\(calc\(-50% - var\(--hero-lane-offset\)\)\);/);
   assert.doesNotMatch(desktopSearch, /translateY|translate\(-50%, -50%\)|top: 50%/);
   assert.match(desktopStack, /position: absolute;/);
   assert.match(desktopStack, /top: clamp\(312px, calc\(32vh \+ 82px\), 402px\);/);
@@ -141,12 +141,34 @@ test("QQ contact retains its link contract and renders a white penguin SVG", () 
 });
 
 test("compact vinyl geometry keeps a readable label beside the fixed middle stack", () => {
-  assert.match(page, /\.vinyl-player\s*\{[\s\S]*width: clamp\(276px, 22vw, 316px\)/);
-  assert.match(page, /--record-size: clamp\(132px, 10vw, 150px\)/);
-  assert.match(page, /\.vinyl-player\s*\{[\s\S]*min-height: 286px;/);
+  assert.match(page, /\.vinyl-player\s*\{[\s\S]*width: clamp\(248px, 19vw, 284px\)/);
+  assert.match(page, /--record-size: clamp\(118px, 8\.5vw, 132px\)/);
+  assert.match(page, /\.vinyl-player\s*\{[\s\S]*min-height: 250px;/);
   assert.match(page, /\.vinyl-player\s*\{[\s\S]*padding: 14px;/);
   assert.match(page, /#vinyl-cover\s*\{[\s\S]*width: 70%/);
   assert.match(page, /\.vinyl-metadata\s*\{[\s\S]*font-size:/);
+});
+
+test("desktop hero lane shifts both middle siblings left and resets below 1320px", () => {
+  const desktopHero = page.match(/\.hero-top\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const desktopStack = page.match(/\.hero-middle-stack\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const desktopSearch = page.match(/\.hero-top > #hero-search-form\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const desktopPlayer = page.match(/\.vinyl-player\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const compactHero = mediaBlock(page, "max-width\\s*:\\s*1320px");
+
+  assert.match(desktopHero, /--hero-lane-offset: clamp\(54px, 6vw, 108px\);/);
+  assert.match(desktopHero, /--hero-lane-width: 468px;/);
+  for (const middleNode of [desktopSearch, desktopStack]) {
+    assert.match(middleNode, /width: var\(--hero-lane-width\);/);
+    assert.match(middleNode, /transform: translateX\(calc\(-50% - var\(--hero-lane-offset\)\)\);/);
+  }
+  assert.match(page, /\.hero-quote-area\s*\{[\s\S]*font-size: clamp\(21px, 2\.25vw, 34px\);/);
+  assert.match(desktopPlayer, /width: clamp\(248px, 19vw, 284px\);/);
+  assert.match(desktopPlayer, /--vinyl-y: clamp\(-46px, -3vh, -22px\);/);
+  assert.match(compactHero, /\.hero-top\s*\{[\s\S]*--hero-lane-offset: 0px;/);
+  assert.match(compactHero, /\.hero-middle-stack\s*\{[\s\S]*transform: none;/);
+  assert.match(compactHero, /\.hero-top > #hero-search-form\s*\{[\s\S]*transform: none;/);
+  assert.match(compactHero, /\.vinyl-player\s*\{[\s\S]*--vinyl-y: 0px;/);
 });
 
 test("tonearm enters the record only while playing and the compact layout reflows", () => {
