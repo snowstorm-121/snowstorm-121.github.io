@@ -37,6 +37,47 @@ function directHeroTopChildren(markup) {
   return children;
 }
 
+function mediaBlock(source, condition) {
+  const opener = new RegExp(`@media\\s*\\(\\s*${condition}\\s*\\)\\s*\\{`, "i").exec(source);
+  assert.ok(opener, `missing @media (${condition}) block`);
+
+  let depth = 1;
+  let inComment = false;
+  let quote = "";
+  const start = opener.index + opener[0].length;
+
+  for (let index = start; index < source.length; index += 1) {
+    const character = source[index];
+    const next = source[index + 1];
+
+    if (inComment) {
+      if (character === "*" && next === "/") {
+        inComment = false;
+        index += 1;
+      }
+      continue;
+    }
+    if (quote) {
+      if (character === "\\") index += 1;
+      else if (character === quote) quote = "";
+      continue;
+    }
+    if (character === "/" && next === "*") {
+      inComment = true;
+      index += 1;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+    if (character === "{") depth += 1;
+    if (character === "}" && --depth === 0) return source.slice(start, index);
+  }
+
+  assert.fail(`unterminated @media (${condition}) block`);
+}
+
 test("hero provides title, Google search, and a safe main region", () => {
   assert.match(page, /id="hero-title"[^>]*>STILL, I GO ON/);
   assert.match(page, /id="hero-search-form"[^>]*action="https:\/\/www\.google\.com\/search"/);
@@ -82,6 +123,13 @@ test("desktop hero independently anchors the search form while quote height chan
   assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-middle-stack\s*\{[\s\S]*position: static;[\s\S]*width: min\(520px, 100%\);[\s\S]*transform: none;/);
   assert.doesNotMatch(page, /\.hero-top\s*\{\s*display: contents;/);
   assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-profile,\s*\.vinyl-player\s*\{\s*grid-column: auto;/);
+});
+
+test("1320px hero CSS does not visually reorder the source flow", () => {
+  const mobileHero = mediaBlock(page, "max-width\\s*:\\s*1320px");
+
+  assert.doesNotMatch(mobileHero, /\border\s*:/i);
+  assert.doesNotMatch(mobileHero, /\bdisplay\s*:\s*contents\b/i);
 });
 
 test("QQ contact retains its link contract and renders a white penguin SVG", () => {
