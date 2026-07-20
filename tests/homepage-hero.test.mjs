@@ -9,77 +9,53 @@ test("hero provides title, Google search, and a safe main region", () => {
   assert.match(page, /id="hero-search-form"[^>]*action="https:\/\/www\.google\.com\/search"/);
   assert.match(page, /id="hero-search-input"[^>]*name="q"/);
   assert.match(page, /class="hero-content"/);
-  assert.match(page, /\.hero-main\s*\{[\s\S]*width: min\(540px, calc\(100vw - 820px\)\)[\s\S]*margin:\s*0 clamp\(360px, 24vw, 430px\) 0 clamp\(360px,/);
 });
 
-test("desktop hero reserves horizontal room for the clock widget", () => {
-  assert.match(page, /\.hero-main\s*\{[\s\S]*width: min\(540px, calc\(100vw - 820px\)\)/);
-  assert.match(page, /\.hero-search\s*\{[\s\S]*width: 100%;/);
+test("hero locks search directly above a two-line quote stack", () => {
+  assert.match(page, /class="hero-middle-stack"[\s\S]*id="hero-search-form"[\s\S]*class="hero-quote-area"/);
+  assert.match(page, /\.hero-middle-stack\s*\{[\s\S]*width: min\(520px, calc\(100vw - 860px\)\)/);
+  assert.match(page, /\.sentence-wrap\s*\{[\s\S]*height: calc\(2 \* var\(--sentence-line-height\)\)/);
 });
 
-test("desktop hero keeps a compact fixed safe column for title and search", () => {
-  assert.match(page, /\.hero-main\s*\{[\s\S]*width: min\(540px, calc\(100vw - 820px\)\)[\s\S]*margin:\s*0 clamp\(360px, 24vw, 430px\) 0 clamp\(360px, 20vw, 460px\)/);
-  assert.match(page, /#hero-title\s*\{[\s\S]*font: italic 700 clamp\(34px, 4\.2vw, 58px\)\/\.9 Georgia, serif;[\s\S]*white-space: nowrap;/);
-  assert.match(page, /\.hero-search\s*\{[\s\S]*width: 100%;[\s\S]*max-width: 540px;/);
+test("hero renders a responsive vinyl turntable instead of the film clock", () => {
+  assert.match(page, /id="vinyl-player"[^>]*type="button"/);
+  assert.match(page, /id="vinyl-record"[^>]*aria-hidden="true"/);
+  assert.match(page, /id="vinyl-cover"[^>]*alt=""/);
+  assert.match(page, /id="vinyl-tonearm"[^>]*aria-hidden="true"/);
+  assert.match(page, /id="vinyl-lyrics-current"/);
+  assert.doesNotMatch(page, /film-perforations|film-equalizer|clock-orbit/);
+});
+
+test("vinyl metadata stacks until the fixed card can fit two columns", () => {
+  const match = page.match(/@media \(max-width: (\d+)px\)\s*\{\s*\.vinyl-player\s*\{[\s\S]*?grid-template-columns: minmax\(0, 1fr\);[\s\S]*?\.vinyl-metadata\s*\{\s*width: 100%;\s*text-align: center;\s*\}/);
+  assert.ok(match);
+
+  const breakpoint = Number(match[1]);
+  const firstTwoColumnViewport = breakpoint + 1;
+  const cardWidth = Math.min(540, Math.max(470, firstTwoColumnViewport * .34));
+  const contentWidth = cardWidth - 2 * 26 - 2;
+  const requiredWidth = 260 + 170 + Math.min(30, Math.max(18, firstTwoColumnViewport * .02));
+  assert.ok(contentWidth >= requiredWidth, `two-column vinyl needs ${requiredWidth}px but has ${contentWidth}px`);
+
+  const rule = match[0];
+  assert.match(rule, /\.vinyl-player\s*\{[\s\S]*grid-template-columns: minmax\(0, 1fr\);[\s\S]*justify-items: center;/);
+  assert.match(rule, /\.vinyl-metadata\s*\{\s*width: 100%;\s*text-align: center;\s*\}/);
+  assert.doesNotMatch(rule, /\.hero(?:\s|\{)/);
 });
 
 test("mobile hero title can wrap safely within a 320px viewport", () => {
   assert.match(page, /@media \(max-width: 720px\)[\s\S]*#hero-title\s*\{[\s\S]*font-size: clamp\(30px, 10vw, 42px\);[\s\S]*white-space: normal;[\s\S]*overflow-wrap: anywhere;/);
 });
 
-test("hero renders a frosted clock lyric widget instead of an aperture", () => {
-  assert.match(page, /id="clock-widget"[^>]*type="button"/);
-  assert.match(page, /id="clock-time"/);
-  assert.match(page, /id="clock-date"/);
-  assert.match(page, /class="clock-orbit clock-orbit-outer"/);
-  assert.match(page, /id="lyrics-current"/);
-  assert.match(page, /\.clock-widget\s*\{[\s\S]*width: clamp\(220px, 17vw, 250px\)/);
-});
-
-test("clock widget exposes film-player metadata and decorative layers", () => {
-  assert.match(page, /id="film-now-playing"/);
-  assert.match(page, /id="film-track-title"/);
-  assert.match(page, /id="film-track-artist"/);
-  assert.match(page, /id="film-progress"/);
-  assert.match(page, /id="film-elapsed"/);
-  assert.match(page, /id="film-duration"/);
-  assert.match(page, /class="film-perforations" aria-hidden="true"/);
-  assert.match(page, /class="film-equalizer" aria-hidden="true"/);
-  assert.match(page, /\.clock-widget\s*\{[\s\S]*backdrop-filter: blur\(28px\) saturate\(150%\)/);
-  assert.match(page, /\.film-perforations\s*\{[\s\S]*repeating-linear-gradient/);
-});
-
-test("film card includes an aria-hidden edge numbering and tick layer", () => {
-  assert.match(page, /class="film-edge-marks" aria-hidden="true"/);
-  assert.match(page, /class="film-edge-label film-edge-label-top-left">24</);
-  assert.match(page, /class="film-edge-label film-edge-label-bottom-right">60</);
-  assert.match(page, /\.film-edge-marks::before,[\s\S]*\.film-edge-marks::after\s*\{[\s\S]*repeating-linear-gradient/);
-});
-
-test("clock reel includes a concentric progress ring driven by audio progress", () => {
-  assert.match(page, /id="film-progress-ring" class="film-progress-ring" aria-hidden="true"/);
-  assert.match(page, /\.film-progress-ring\s*\{[\s\S]*conic-gradient\([\s\S]*var\(--film-progress\)/);
-  assert.match(page, /filmProgress\.style\.width = `\$\{progress\}%`;[\s\S]*clockWidget\.style\.setProperty\("--film-progress", `\$\{progress\}%`\);/);
-});
-
-test("film equalizer remains behind readable clock content", () => {
-  assert.match(page, /\.film-equalizer\s*\{[\s\S]*z-index:\s*0;/);
-});
-
-test("film clock mirrors existing player metadata progress and motion-safe playback state", () => {
-  assert.match(page, /function formatPlaybackTime\(seconds\)/);
-  assert.match(page, /function syncFilmPlayback\(\)/);
-  assert.match(page, /filmTrackTitle\.textContent = track\.title/);
-  assert.match(page, /filmTrackArtist\.textContent = track\.artist/);
-  assert.match(page, /filmProgress\.style\.width = `\$\{progress\}%`/);
-  assert.match(page, /clockWidget\.classList\.toggle\("is-playing", !profileAudio\.paused\)/);
-  assert.match(page, /profileAudio\.addEventListener\("timeupdate", syncFilmPlayback\)/);
-  assert.match(page, /profileAudio\.addEventListener\("loadedmetadata", syncFilmPlayback\)/);
-  assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.film-equalizer i\s*\{\s*animation: none;/);
-});
-
-test("reduced motion overrides the active equalizer animation with matching specificity", () => {
-  assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.clock-widget\.is-playing \.film-equalizer i\s*\{\s*animation: none;/);
+test("vinyl player follows the sole native audio and local LRC state", () => {
+  assert.match(page, /function syncVinylPlayback\(\)/);
+  assert.match(page, /vinylCover\.src = track\.cover/);
+  assert.match(page, /vinylTrackTitle\.textContent = track\.title/);
+  assert.match(page, /vinylTrackArtist\.textContent = track\.artist/);
+  assert.match(page, /vinylPlayer\.classList\.toggle\("is-playing", !profileAudio\.paused\)/);
+  assert.match(page, /profileAudio\.addEventListener\("timeupdate", syncVinylPlayback\)/);
+  assert.match(page, /profileAudio\.addEventListener\("loadedmetadata", syncVinylPlayback\)/);
+  assert.equal(page.match(/new Audio\(\)/g)?.length, 1);
 });
 
 test("hero retains supplied social contacts", () => {
@@ -90,24 +66,54 @@ test("hero retains supplied social contacts", () => {
   assert.match(page, /https:\/\/x\.com\/yongyi_121/);
 });
 
-test("hero code configures maximum gain and motion-aware clock widget", () => {
+test("social controls use local icon presentation without a CDN runtime stylesheet", () => {
+  assert.doesNotMatch(page, /https:\/\/cdnjs\.cloudflare\.com\//);
+  assert.doesNotMatch(page, /\bfa-(?:brands|solid|github|envelope|weixin|qq|youtube|x-twitter)\b/);
+  assert.equal((page.match(/class="social-icon" aria-hidden="true"/g) ?? []).length, 6);
+});
+
+test("hero code configures maximum gain", () => {
   assert.match(page, /profileTrackGain\.gain\.exponentialRampToValueAtTime\(1\.00, now \+ \.45\)/);
-  assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.clock-widget/);
 });
 
-test("clock widget has no obsolete aperture binding", () => {
-  assert.doesNotMatch(page, /memoryAperture/);
+test("vinyl motion and the quote animator respect reduced motion", () => {
+  assert.match(page, /function updateVinylParallax\(event\)/);
+  assert.match(page, /function syncVinylParallaxListeners\(\)\s*\{[\s\S]*vinylPlayer\.removeEventListener\("pointermove", updateVinylParallax\);[\s\S]*vinylPlayer\.removeEventListener\("pointerleave", clearVinylParallax\);[\s\S]*clearVinylParallax\(\);[\s\S]*if \(reduceMotionQuery\.matches\) return;[\s\S]*vinylPlayer\.addEventListener\("pointermove", updateVinylParallax\);[\s\S]*vinylPlayer\.addEventListener\("pointerleave", clearVinylParallax\);/);
+  assert.match(page, /reduceMotionQuery\.addEventListener\("change", syncVinylParallaxListeners\)/);
+  assert.match(page, /if \(reduceMotionQuery\.matches\) return;/);
+  assert.match(page, /--vinyl-x[\s\S]*--vinyl-y[\s\S]*--vinyl-rotate-x[\s\S]*--vinyl-rotate-y[\s\S]*--vinyl-glow-x/);
+  assert.match(page, /\.vinyl-player:hover,[\s\S]*--vinyl-lift: -7px;[\s\S]*--vinyl-rotate-x: -1\.25deg;[\s\S]*--vinyl-rotate-y: 1\.5deg;/);
+  assert.match(page, /\.vinyl-player\.is-playing \.vinyl-record \{ animation: vinyl-spin/);
+  assert.match(page, /\.vinyl-player\.is-playing \.vinyl-tonearm \{ transform: rotate\(-3deg\); \}/);
+  assert.match(page, /\.vinyl-tonearm\s*\{[\s\S]*transition: transform \.55s/);
+  assert.match(page, /\.vinyl-player\.is-switching #vinyl-cover,[\s\S]*\.vinyl-player\.is-switching \.vinyl-metadata/);
+  assert.match(page, /let vinylSwitchTimer;[\s\S]*window\.clearTimeout\(vinylSwitchTimer\);[\s\S]*vinylSwitchTimer = window\.setTimeout/);
+  assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.vinyl-record[\s\S]*animation: none;/);
+  assert.match(page, /if \(reduceMotionQuery\.matches\)[\s\S]*lineNodes\.forEach/);
+  assert.match(page, /await deleteLine\(lineNodes\[lineIndex\], run\)[\s\S]*phraseIndex =/);
+  assert.doesNotMatch(page, /while \(true\) \{[\s\S]*lineNodes\.forEach\(\(lineNode\) => \{ lineNode\.textContent = ""; \}\);/);
 });
 
-test("reduced motion disables clock shine and lyric transitions", () => {
-  assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.clock-widget::before,\s*\.clock-lyrics\s*\{\s*transition:\s*none;/);
+test("live reduced-motion changes invalidate quote animation before static rendering", () => {
+  assert.match(page, /let quoteRun = 0;/);
+  assert.match(page, /function syncQuoteMotion\(\)\s*\{[\s\S]*quoteRun \+= 1;[\s\S]*window\.clearTimeout\(quoteTimer\);[\s\S]*if \(reduceMotionQuery\.matches\) \{[\s\S]*scheduleStaticPhrase\(quoteRun\);[\s\S]*return;[\s\S]*void play\(quoteRun\);/);
+  assert.match(page, /reduceMotionQuery\.addEventListener\("change", syncQuoteMotion\)/);
+  assert.match(page, /async function play\(run\) \{[\s\S]*while \(run === quoteRun && !reduceMotionQuery\.matches\)/);
 });
 
-test("clock parallax responds to live reduced-motion preference changes", () => {
-  assert.match(page, /function updateClockParallax\(event\)/);
-  assert.match(page, /function syncClockParallaxListeners\(\)\s*\{[\s\S]*clockWidget\.removeEventListener\("pointermove", updateClockParallax\);[\s\S]*clockWidget\.removeEventListener\("pointerleave", clearClockParallax\);[\s\S]*clearClockParallax\(\);[\s\S]*if \(reduceMotionQuery\.matches\) return;[\s\S]*clockWidget\.addEventListener\("pointermove", updateClockParallax\);[\s\S]*clockWidget\.addEventListener\("pointerleave", clearClockParallax\);/);
-  assert.match(page, /reduceMotionQuery\.addEventListener\("change", syncClockParallaxListeners\)/);
-  assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.clock-orbits,\s*\.film-now-playing,\s*\.film-track,\s*\.film-progress-row\s*\{\s*transform:\s*none;/);
+test("reduced motion rotates complete quote pairs without a caret animation", () => {
+  assert.match(page, /function scheduleStaticPhrase\(run\)\s*\{[\s\S]*renderStaticPhrase\(\);[\s\S]*quoteTimer = window\.setTimeout\(\(\) => \{[\s\S]*phraseIndex = \(phraseIndex \+ 1\) % phrases\.length;[\s\S]*scheduleStaticPhrase\(run\);[\s\S]*\}, TIMING\.hold\);/);
+  assert.match(page, /function renderStaticPhrase\(\)\s*\{[\s\S]*lineNodes\.forEach\(\(lineNode, index\) => \{[\s\S]*lineNode\.textContent = current\.lines\[index\] \?\? "";/);
+  assert.match(page, /if \(reduceMotionQuery\.matches\) \{[\s\S]*scheduleStaticPhrase\(quoteRun\);[\s\S]*return;/);
+});
+
+test("reduced motion overrides active vinyl motion and reflection states", () => {
+  const reducedMotionBlock = page.match(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+  assert.match(reducedMotionBlock, /\.vinyl-player\.is-playing \.vinyl-record\s*\{\s*animation: none;/);
+  assert.match(reducedMotionBlock, /\.vinyl-player\.is-playing \.vinyl-tonearm\s*\{\s*transform: none;/);
+  assert.match(reducedMotionBlock, /\.vinyl-player:hover::before,[\s\S]*?\.vinyl-player\.is-expanded::before\s*\{[\s\S]*?transform: none;/);
+  assert.match(reducedMotionBlock, /\.vinyl-player\.is-switching #vinyl-cover,[\s\S]*?\.vinyl-player\.is-switching \.vinyl-metadata\s*\{[\s\S]*?transform: none;/);
+  assert.match(reducedMotionBlock, /\.caret,[\s\S]*?\{ animation: none; \}/);
 });
 
 test("player declares nine local audio tracks with display metadata", () => {
@@ -124,24 +130,31 @@ test("player maps every local track to a local LRC asset", () => {
   assert.match(page, /long-time-no-see-eason-chan\.lrc/);
 });
 
-test("clock widget syncs local time and LRC lyrics with the native player", () => {
+test("player maps every local track to a distinct local vinyl label", async () => {
+  const covers = page.match(/cover: "assets\/music\/covers\/[^\"]+\.png"/g) ?? [];
+  assert.equal(covers.length, 9);
+  assert.equal(new Set(covers).size, 9);
+  for (const cover of covers) {
+    const file = cover.match(/assets\/music\/covers\/([^\"]+)/)[1];
+    await readFile(new URL(`../assets/music/covers/${file}`, import.meta.url));
+  }
+});
+
+test("vinyl player syncs local LRC lyrics with the native player", () => {
   assert.match(page, /function parseLrc\(source\)/);
   assert.match(page, /fetch\(track\.lyrics\)/);
   assert.match(page, /profileAudio\.addEventListener\("timeupdate", syncLyrics\)/);
-  assert.match(page, /window\.setInterval\(syncClock, 1000\)/);
-  assert.match(page, /clockWidget\.addEventListener\("pointermove"/);
-  assert.match(page, /@media \(prefers-reduced-motion: reduce\)[\s\S]*\.clock-orbit/);
+  assert.match(page, /const vinylLyricsCurrent = document\.querySelector\("#vinyl-lyrics-current"\)/);
+  assert.match(page, /vinylLyricsCurrent\.textContent = `\$\{track\.title\} · \$\{current\.text\}`/);
+  assert.doesNotMatch(page, /#clock-widget|#film-track-title|syncFilmPlayback|syncClockParallaxListeners/);
 });
 
-test("clock widget exposes a persistent lyric disclosure through its native button activation", () => {
-  assert.match(page, /id="clock-widget"[^>]*type="button"[^>]*aria-expanded="false"/);
-  assert.match(page, /function toggleClockLyrics\(\)\s*\{[\s\S]*clockWidget\.classList\.toggle\("is-expanded"\)[\s\S]*clockWidget\.setAttribute\("aria-expanded", String\(isExpanded\)\)/);
-  assert.match(page, /clockWidget\.addEventListener\("click", toggleClockLyrics\)/);
-  assert.match(page, /\.clock-widget\.is-expanded\s*\{[\s\S]*--clock-lift: -9px;/);
-  assert.match(page, /\.clock-widget\.is-expanded \.clock-lyrics\s*\{\s*max-height: 82px;/);
+test("vinyl player exposes a persistent lyric disclosure through native button activation", () => {
+  assert.match(page, /function toggleVinylLyrics\(\)\s*\{[\s\S]*vinylPlayer\.classList\.toggle\("is-expanded"\)[\s\S]*vinylPlayer\.setAttribute\("aria-expanded", String\(isExpanded\)\)/);
+  assert.match(page, /vinylPlayer\.addEventListener\("click", toggleVinylLyrics\)/);
 });
 
-test("clock lyric rendering skips duplicate live-region writes for an unchanged track and lyric index", () => {
+test("vinyl lyric rendering skips duplicate live-region writes for an unchanged track and lyric index", () => {
   assert.match(page, /let renderedLyricTrack;\s*let renderedLyricIndex;\s*let renderedLyricLines;/);
   assert.match(page, /function renderLyricLines\(index\)\s*\{[\s\S]*renderedLyricTrack === track[\s\S]*renderedLyricIndex === index[\s\S]*renderedLyricLines === lyricLines[\s\S]*\) return;/);
   assert.match(page, /function renderLyricStatus\(track, message\)\s*\{[\s\S]*renderedLyricIndex === null[\s\S]*renderedLyricLines === lyricLines[\s\S]*\) return;/);
@@ -158,5 +171,4 @@ test("homepage toggles contacts and submits raw Google keywords", () => {
   assert.match(page, /action="https:\/\/www\.google\.com\/search"/);
   assert.match(page, /contactPopover\.hidden = !contactPopover\.hidden/);
   assert.match(page, /\.hero-search\s*\{[\s\S]*width: 100%;/);
-  assert.match(page, /\.clock-widget::before/);
 });
