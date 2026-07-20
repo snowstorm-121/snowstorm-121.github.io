@@ -17,7 +17,7 @@ test("hero locks search directly above a two-line quote stack", () => {
   assert.match(page, /\.sentence-wrap\s*\{[\s\S]*height: calc\(2 \* var\(--sentence-line-height\)\)/);
 });
 
-test("desktop hero uses an independent fixed middle anchor", () => {
+test("desktop hero locks the main top anchor while quote height changes", () => {
   const desktopHero = page.match(/\.hero-top\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
   const desktopMain = page.match(/\.hero-main\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
 
@@ -29,7 +29,8 @@ test("desktop hero uses an independent fixed middle anchor", () => {
   assert.match(desktopMain, /top: 50%;/);
   assert.match(desktopMain, /width: 520px;/);
   assert.match(desktopMain, /max-width: calc\(100% - 676px\);/);
-  assert.match(desktopMain, /transform: translate\(-50%, -50%\);/);
+  assert.match(desktopMain, /transform: translateX\(-50%\);/);
+  assert.doesNotMatch(desktopMain, /transform: translate\(-50%, -50%\);/);
   assert.doesNotMatch(desktopMain, /justify-self|grid-column/);
   assert.match(page, /<main class="hero-main">[\s\S]*id="hero-title"[\s\S]*class="hero-middle-stack"[\s\S]*id="hero-search-form"[\s\S]*class="hero-quote-area"/);
   assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-main\s*\{[\s\S]*position: static;[\s\S]*top: auto;[\s\S]*left: auto;[\s\S]*width: 100%;[\s\S]*max-width: none;[\s\S]*transform: none;/);
