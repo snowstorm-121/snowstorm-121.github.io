@@ -234,6 +234,28 @@ test("social controls use local icon presentation without a CDN runtime styleshe
   assert.equal((page.match(/class="social-icon" aria-hidden="true"/g) ?? []).length, 6);
 });
 
+test("named homepage surfaces share the liquid-glass material tokens", () => {
+  const root = page.match(/:root\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const surfaceSelectors = [
+    ".site-header",
+    ".profile-card",
+    ".hero-search",
+    ".vinyl-player",
+    ".contact-popover",
+    ".archive-card",
+  ];
+
+  for (const token of ["--glass-fill", "--glass-border", "--glass-highlight", "--glass-shadow"]) {
+    assert.match(root, new RegExp(`${token}:`));
+  }
+  for (const selector of surfaceSelectors) {
+    const rule = page.match(new RegExp(`${selector.replace(".", "\\.")}\\s*\\{[\\s\\S]*?\\n    \\}`))?.[0] ?? "";
+    assert.match(rule, /background:[\s\S]*var\(--glass-fill\)/);
+    assert.match(rule, /border(?:-[\w-]+)?:[\s\S]*var\(--glass-border\)/);
+  }
+  assert.doesNotMatch(page, /<link[^>]+rel=["'][^"']*stylesheet[^"']*["'][^>]+href=["']https?:\/\//i);
+});
+
 test("social controls use local SVG icons and retain accessible labels", () => {
   assert.match(page, /aria-label="GitHub"[\s\S]*<svg/);
   assert.match(page, /aria-label="发送邮件"[\s\S]*<svg/);
