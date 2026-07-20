@@ -444,13 +444,23 @@
     .hero-middle-stack {
       position: absolute;
       left: 50%;
-      top: clamp(230px, 32vh, 320px);
+      top: clamp(312px, calc(32vh + 82px), 402px);
       min-width: 0;
       width: 520px;
       max-width: calc(100% - 676px);
       margin: 0;
       display: grid;
       gap: clamp(20px, 3vh, 36px);
+      transform: translateX(-50%);
+    }
+
+    .hero-top > #hero-search-form {
+      position: absolute;
+      z-index: 1;
+      left: 50%;
+      top: clamp(230px, 32vh, 320px);
+      width: 520px;
+      max-width: calc(100% - 676px);
       transform: translateX(-50%);
     }
 
@@ -1218,11 +1228,17 @@
     }
 
     @media (max-width: 1320px) {
-      .hero-top { grid-template-columns: 1fr; }
+      .hero-top {
+        grid-template-columns: 1fr;
+        width: 100%;
+        min-height: 0;
+        gap: 0;
+      }
       .hero-profile,
       .vinyl-player { grid-column: auto; }
       .hero {
-        display: block;
+        display: flex;
+        flex-direction: column;
         min-height: 100svh;
         padding: 100px 22px 42px;
       }
@@ -1250,6 +1266,14 @@
         position: static;
         left: auto;
         top: auto;
+        width: min(520px, 100%);
+        max-width: none;
+        margin-inline: auto;
+        margin-top: clamp(20px, 3vh, 36px);
+        transform: none;
+      }
+      .hero-top > #hero-search-form {
+        position: static;
         width: min(520px, 100%);
         max-width: none;
         margin-inline: auto;
@@ -1409,26 +1433,28 @@
           <p class="hero-heading-kicker">PERSONAL ARCHIVE / 121</p>
           <h1 id="hero-title">STILL, I GO ON</h1>
         </div>
-        <div class="hero-middle-stack">
-          <form id="hero-search-form" class="hero-search" action="https://www.google.com/search" method="get" target="_blank">
-            <label class="sr-only" for="hero-search-input">Google 搜索</label>
-            <span class="hero-search-label">SEARCH</span>
-            <input id="hero-search-input" name="q" type="search" placeholder="Google 搜索…" autocomplete="off">
-            <button type="submit" aria-label="搜索"><span aria-hidden="true">⌕</span></button>
-          </form>
-          <div class="hero-quote-area">
-            <div class="eyebrow" id="eyebrow">NOTES ON LIFE · 01 / 10</div>
-            <div class="sentence-wrap">
-              <p class="sentence" id="sentence">
-                <span class="sentence-line" data-line="0"></span>
-                <span class="sentence-line" data-line="1"></span>
-              </p>
-            </div>
-            <div class="progress" id="progress" aria-label="文案播放进度"></div>
-          </div>
-        </div>
       </div>
       </main>
+
+      <form id="hero-search-form" class="hero-search" action="https://www.google.com/search" method="get" target="_blank">
+        <label class="sr-only" for="hero-search-input">Google 搜索</label>
+        <span class="hero-search-label">SEARCH</span>
+        <input id="hero-search-input" name="q" type="search" placeholder="Google 搜索…" autocomplete="off">
+        <button type="submit" aria-label="搜索"><span aria-hidden="true">⌕</span></button>
+      </form>
+
+      <div class="hero-middle-stack">
+        <div class="hero-quote-area">
+          <div class="eyebrow" id="eyebrow">NOTES ON LIFE · 01 / 10</div>
+          <div class="sentence-wrap">
+            <p class="sentence" id="sentence">
+              <span class="sentence-line" data-line="0"></span>
+              <span class="sentence-line" data-line="1"></span>
+            </p>
+          </div>
+          <div class="progress" id="progress" aria-label="文案播放进度"></div>
+        </div>
+      </div>
 
       <button class="vinyl-player" id="vinyl-player" type="button" aria-label="查看当前播放歌词" aria-expanded="false">
       <span class="vinyl-deck" aria-hidden="true">

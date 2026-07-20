@@ -3,6 +3,80 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 
 const page = await readFile(new URL("../index.html", import.meta.url), "utf8");
+const heroMarkup = page.slice(
+  page.indexOf('<section class="hero" id="hero">'),
+  page.indexOf('<section class="archives" id="archives">'),
+);
+
+function directHeroTopChildren(markup) {
+  const start = markup.indexOf('<div class="hero-top">') + '<div class="hero-top">'.length;
+  const voidTags = new Set(["img", "input"]);
+  const children = [];
+  let depth = 1;
+
+  for (const match of markup.slice(start).matchAll(/<\/?([a-z][\w-]*)(?:\s[^<>]*?)?>/gi)) {
+    const openingTag = match[0];
+    const tagName = match[1].toLowerCase();
+
+    if (openingTag.startsWith("</")) {
+      depth -= 1;
+      if (depth === 0) break;
+      continue;
+    }
+
+    if (depth === 1) {
+      children.push({
+        tagName,
+        id: openingTag.match(/\bid="([^"]+)"/)?.[1] ?? "",
+        className: openingTag.match(/\bclass="([^"]+)"/)?.[1] ?? "",
+      });
+    }
+    if (!voidTags.has(tagName) && !openingTag.endsWith("/>")) depth += 1;
+  }
+
+  return children;
+}
+
+function mediaBlock(source, condition) {
+  const opener = new RegExp(`@media\\s*\\(\\s*${condition}\\s*\\)\\s*\\{`, "i").exec(source);
+  assert.ok(opener, `missing @media (${condition}) block`);
+
+  let depth = 1;
+  let inComment = false;
+  let quote = "";
+  const start = opener.index + opener[0].length;
+
+  for (let index = start; index < source.length; index += 1) {
+    const character = source[index];
+    const next = source[index + 1];
+
+    if (inComment) {
+      if (character === "*" && next === "/") {
+        inComment = false;
+        index += 1;
+      }
+      continue;
+    }
+    if (quote) {
+      if (character === "\\") index += 1;
+      else if (character === quote) quote = "";
+      continue;
+    }
+    if (character === "/" && next === "*") {
+      inComment = true;
+      index += 1;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+    if (character === "{") depth += 1;
+    if (character === "}" && --depth === 0) return source.slice(start, index);
+  }
+
+  assert.fail(`unterminated @media (${condition}) block`);
+}
 
 test("hero provides title, Google search, and a safe main region", () => {
   assert.match(page, /id="hero-title"[^>]*>STILL, I GO ON/);
@@ -11,32 +85,51 @@ test("hero provides title, Google search, and a safe main region", () => {
   assert.match(page, /class="hero-content"/);
 });
 
-test("hero locks search directly above a two-line quote stack", () => {
-  assert.match(page, /class="hero-middle-stack"[\s\S]*id="hero-search-form"[\s\S]*class="hero-quote-area"/);
+test("hero keeps the quote in its own middle stack", () => {
+  assert.doesNotMatch(heroMarkup, /class="hero-middle-stack"[\s\S]*id="hero-search-form"/);
+  assert.match(heroMarkup, /class="hero-middle-stack"[\s\S]*class="hero-quote-area"/);
   assert.match(page, /\.hero-middle-stack\s*\{[\s\S]*min-width: 0;/);
   assert.match(page, /\.sentence-wrap\s*\{[\s\S]*height: calc\(2 \* var\(--sentence-line-height\)\)/);
 });
 
-test("desktop hero independently anchors the search stack while quote height changes", () => {
+test("desktop hero independently anchors the search form while quote height changes", () => {
   const desktopHero = page.match(/\.hero-top\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
   const desktopMain = page.match(/\.hero-main\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
   const desktopStack = page.match(/\.hero-middle-stack\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const desktopSearch = page.match(/\.hero-top > #hero-search-form\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
 
   assert.match(desktopHero, /position: relative;/);
   assert.match(desktopHero, /min-height: 100svh;/);
   assert.match(page, /\.hero-profile\s*\{[\s\S]*grid-column: 1;/);
   assert.match(page, /\.vinyl-player\s*\{[\s\S]*grid-column: 3;/);
+  assert.match(desktopSearch, /position: absolute;/);
+  assert.match(desktopSearch, /left: 50%;/);
+  assert.match(desktopSearch, /top: clamp\(230px, 32vh, 320px\);/);
+  assert.match(desktopSearch, /width: 520px;/);
+  assert.match(desktopSearch, /max-width: calc\(100% - 676px\);/);
+  assert.match(desktopSearch, /transform: translateX\(-50%\);/);
+  assert.doesNotMatch(desktopSearch, /translateY|translate\(-50%, -50%\)|top: 50%/);
   assert.match(desktopStack, /position: absolute;/);
-  assert.match(desktopStack, /left: 50%;/);
-  assert.match(desktopStack, /top: clamp\(230px, 32vh, 320px\);/);
-  assert.match(desktopStack, /width: 520px;/);
-  assert.match(desktopStack, /max-width: calc\(100% - 676px\);/);
-  assert.match(desktopStack, /transform: translateX\(-50%\);/);
-  assert.doesNotMatch(desktopStack, /translateY|translate\(-50%, -50%\)|top: 50%/);
+  assert.match(desktopStack, /top: clamp\(312px, calc\(32vh \+ 82px\), 402px\);/);
   assert.doesNotMatch(desktopMain, /position: absolute;|left: 50%;|top: 50%;|transform: translateX\(-50%\)/);
-  assert.match(page, /<main class="hero-main">[\s\S]*id="hero-title"[\s\S]*class="hero-middle-stack"[\s\S]*id="hero-search-form"[\s\S]*class="hero-quote-area"/);
-  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-middle-stack\s*\{[\s\S]*position: static;[\s\S]*left: auto;[\s\S]*top: auto;[\s\S]*width: min\(520px, 100%\);[\s\S]*max-width: none;[\s\S]*transform: none;/);
+  assert.deepEqual(directHeroTopChildren(heroMarkup), [
+    { tagName: "aside", id: "hero-profile", className: "hero-profile" },
+    { tagName: "main", id: "", className: "hero-main" },
+    { tagName: "form", id: "hero-search-form", className: "hero-search" },
+    { tagName: "div", id: "", className: "hero-middle-stack" },
+    { tagName: "button", id: "vinyl-player", className: "vinyl-player" },
+  ]);
+  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-top > #hero-search-form\s*\{[\s\S]*position: static;[\s\S]*width: min\(520px, 100%\);[\s\S]*transform: none;/);
+  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-middle-stack\s*\{[\s\S]*position: static;[\s\S]*width: min\(520px, 100%\);[\s\S]*transform: none;/);
+  assert.doesNotMatch(page, /\.hero-top\s*\{\s*display: contents;/);
   assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-profile,\s*\.vinyl-player\s*\{\s*grid-column: auto;/);
+});
+
+test("1320px hero CSS does not visually reorder the source flow", () => {
+  const mobileHero = mediaBlock(page, "max-width\\s*:\\s*1320px");
+
+  assert.doesNotMatch(mobileHero, /\border\s*:/i);
+  assert.doesNotMatch(mobileHero, /\bdisplay\s*:\s*contents\b/i);
 });
 
 test("QQ contact retains its link contract and renders a white penguin SVG", () => {
