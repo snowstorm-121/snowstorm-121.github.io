@@ -78,6 +78,13 @@ function mediaBlock(source, condition) {
   assert.fail(`unterminated @media (${condition}) block`);
 }
 
+function selectorBlock(source, selector) {
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const rule = source.match(new RegExp(`${escapedSelector}\\s*\\{[^}]*\\}`))?.[0] ?? "";
+  assert.ok(rule, `missing ${selector} rule`);
+  return rule;
+}
+
 test("hero provides title, Google search, and a safe main region", () => {
   assert.match(page, /id="hero-title"[^>]*>STILL, I GO ON/);
   assert.match(page, /id="hero-search-form"[^>]*action="https:\/\/www\.google\.com\/search"/);
@@ -97,6 +104,9 @@ test("desktop hero independently anchors the search form while quote height chan
   const desktopMain = page.match(/\.hero-main\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
   const desktopStack = page.match(/\.hero-middle-stack\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
   const desktopSearch = page.match(/\.hero-top > #hero-search-form\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const compactHero = mediaBlock(page, "max-width\\s*:\\s*1320px");
+  const compactSearch = selectorBlock(compactHero, ".hero-top > #hero-search-form");
+  const compactStack = selectorBlock(compactHero, ".hero-middle-stack");
 
   assert.match(desktopHero, /position: relative;/);
   assert.match(desktopHero, /min-height: 100svh;/);
@@ -119,10 +129,14 @@ test("desktop hero independently anchors the search form while quote height chan
     { tagName: "div", id: "", className: "hero-middle-stack" },
     { tagName: "button", id: "vinyl-player", className: "vinyl-player" },
   ]);
-  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-top > #hero-search-form\s*\{[\s\S]*position: static;[\s\S]*width: min\(520px, 100%\);[\s\S]*transform: none;/);
-  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-middle-stack\s*\{[\s\S]*position: static;[\s\S]*width: min\(520px, 100%\);[\s\S]*transform: none;/);
+  assert.match(compactSearch, /position: static;/);
+  assert.match(compactSearch, /width: min\(520px, 100%\);/);
+  assert.match(compactSearch, /transform: none;/);
+  assert.match(compactStack, /position: static;/);
+  assert.match(compactStack, /width: min\(520px, 100%\);/);
+  assert.match(compactStack, /transform: none;/);
   assert.doesNotMatch(page, /\.hero-top\s*\{\s*display: contents;/);
-  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-profile,\s*\.vinyl-player\s*\{\s*grid-column: auto;/);
+  assert.match(compactHero, /\.hero-profile,\s*\.vinyl-player\s*\{[^}]*grid-column: auto;/);
 });
 
 test("1320px hero CSS does not visually reorder the source flow", () => {
@@ -141,20 +155,31 @@ test("QQ contact retains its link contract and renders a white penguin SVG", () 
 });
 
 test("compact vinyl geometry keeps a readable label beside the fixed middle stack", () => {
-  assert.match(page, /\.vinyl-player\s*\{[\s\S]*width: clamp\(248px, 19vw, 284px\)/);
-  assert.match(page, /--record-size: clamp\(118px, 8\.5vw, 132px\)/);
-  assert.match(page, /\.vinyl-player\s*\{[\s\S]*min-height: 250px;/);
-  assert.match(page, /\.vinyl-player\s*\{[\s\S]*padding: 14px;/);
-  assert.match(page, /#vinyl-cover\s*\{[\s\S]*width: 70%/);
-  assert.match(page, /\.vinyl-metadata\s*\{[\s\S]*font-size:/);
+  const player = selectorBlock(page, ".vinyl-player");
+  const deck = selectorBlock(page, ".vinyl-deck");
+  const cover = selectorBlock(page, "#vinyl-cover");
+  const kicker = selectorBlock(page, ".vinyl-kicker");
+
+  assert.match(player, /width: clamp\(248px, 19vw, 284px\);/);
+  assert.match(player, /--record-size: clamp\(118px, 8\.5vw, 132px\);/);
+  assert.match(player, /min-height: 250px;/);
+  assert.match(player, /padding: 14px;/);
+  assert.match(deck, /height: 182px;/);
+  assert.match(cover, /width: 70%;/);
+  assert.match(kicker, /font-size:/);
 });
 
 test("desktop hero lane shifts both middle siblings left and resets below 1320px", () => {
-  const desktopHero = page.match(/\.hero-top\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
-  const desktopStack = page.match(/\.hero-middle-stack\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
-  const desktopSearch = page.match(/\.hero-top > #hero-search-form\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
-  const desktopPlayer = page.match(/\.vinyl-player\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const desktopHero = selectorBlock(page, ".hero-top");
+  const desktopStack = selectorBlock(page, ".hero-middle-stack");
+  const desktopSearch = selectorBlock(page, ".hero-top > #hero-search-form");
+  const desktopPlayer = selectorBlock(page, ".vinyl-player");
+  const quote = selectorBlock(page, ".hero-quote-area");
   const compactHero = mediaBlock(page, "max-width\\s*:\\s*1320px");
+  const compactTop = selectorBlock(compactHero, ".hero-top");
+  const compactStack = selectorBlock(compactHero, ".hero-middle-stack");
+  const compactSearch = selectorBlock(compactHero, ".hero-top > #hero-search-form");
+  const compactPlayer = compactHero.match(/\.vinyl-player\s*\{[^}]*--vinyl-base-y[^}]*\}/)?.[0] ?? "";
 
   assert.match(desktopHero, /--hero-lane-offset: clamp\(54px, 6vw, 108px\);/);
   assert.match(desktopHero, /--hero-lane-width: 468px;/);
@@ -162,21 +187,24 @@ test("desktop hero lane shifts both middle siblings left and resets below 1320px
     assert.match(middleNode, /width: var\(--hero-lane-width\);/);
     assert.match(middleNode, /transform: translateX\(calc\(-50% - var\(--hero-lane-offset\)\)\);/);
   }
-  assert.match(page, /\.hero-quote-area\s*\{[\s\S]*font-size: clamp\(21px, 2\.25vw, 34px\);/);
+  assert.match(quote, /font-size: clamp\(21px, 2\.25vw, 34px\);/);
   assert.match(desktopPlayer, /width: clamp\(248px, 19vw, 284px\);/);
   assert.match(desktopPlayer, /--vinyl-base-y: clamp\(-46px, -3vh, -22px\);/);
-  assert.match(desktopPlayer, /translate3d\(var\(--vinyl-x, 0px\), calc\(var\(--vinyl-base-y, 0px\) \+ var\(--vinyl-parallax-y, 0px\) \+ var\(--vinyl-lift, 0px\)\), 0\)/);
-  assert.match(compactHero, /\.hero-top\s*\{[\s\S]*--hero-lane-offset: 0px;/);
-  assert.match(compactHero, /\.hero-middle-stack\s*\{[\s\S]*transform: none;/);
-  assert.match(compactHero, /\.hero-top > #hero-search-form\s*\{[\s\S]*transform: none;/);
-  assert.match(compactHero, /\.vinyl-player\s*\{[\s\S]*--vinyl-base-y: 0px;/);
+  assert.match(desktopPlayer, /translate3d\(var\(--vinyl-x, 0px\), calc\(var\(--vinyl-base-y, 0px\) \+ var\(--vinyl-y, 0px\) \+ var\(--vinyl-lift, 0px\)\), 0\)/);
+  assert.match(compactTop, /--hero-lane-offset: 0px;/);
+  assert.match(compactStack, /transform: none;/);
+  assert.match(compactSearch, /transform: none;/);
+  assert.match(compactPlayer, /--vinyl-base-y: 0px;/);
 });
 
 test("tonearm enters the record only while playing and the compact layout reflows", () => {
-  assert.match(page, /\.vinyl-tonearm\s*\{[\s\S]*transform: rotate\(-28deg\)/);
-  assert.match(page, /\.vinyl-player\.is-playing \.vinyl-tonearm\s*\{\s*transform: rotate\(12deg\)/);
-  assert.match(page, /@media \(max-width: 1200px\)[\s\S]*\.vinyl-player\s*\{[\s\S]*grid-template-columns: 1fr/);
-  assert.match(mediaBlock(page, "max-width\\s*:\\s*720px"), /\.vinyl-deck\s*\{\s*height: 210px;/);
+  const compactPlayer = selectorBlock(mediaBlock(page, "max-width\\s*:\\s*1200px"), ".vinyl-player");
+  const mobileDeck = selectorBlock(mediaBlock(page, "max-width\\s*:\\s*720px"), ".vinyl-deck");
+
+  assert.match(selectorBlock(page, ".vinyl-tonearm"), /transform: rotate\(-28deg\);/);
+  assert.match(selectorBlock(page, ".vinyl-player.is-playing .vinyl-tonearm"), /transform: rotate\(12deg\);/);
+  assert.match(compactPlayer, /grid-template-columns: 1fr;/);
+  assert.match(mobileDeck, /height: 210px;/);
 });
 
 test("hero renders a responsive vinyl turntable instead of the film clock", () => {
@@ -249,11 +277,10 @@ test("named homepage surfaces share the liquid-glass material tokens", () => {
     assert.match(root, new RegExp(`${token}:`));
   }
   for (const selector of surfaceSelectors) {
-    const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const rule = page.match(new RegExp(`${escapedSelector}\\s*\\{[^}]*\\}`))?.[0] ?? "";
-    for (const token of ["--glass-fill", "--glass-border", "--glass-highlight", "--glass-shadow"]) {
-      assert.match(rule, new RegExp(`var\\(${token}\\)`), `${selector} must consume ${token}`);
-    }
+    const rule = selectorBlock(page, selector).replace(/\/\*[\s\S]*?\*\//g, "");
+    assert.match(rule, /(?:^|[;{])\s*background\s*:[^;]*var\(--glass-fill\)[^;]*;/, `${selector} background must consume --glass-fill`);
+    assert.match(rule, /(?:^|[;{])\s*border(?:-[\w-]+)?\s*:[^;]*var\(--glass-border\)[^;]*;/, `${selector} border must consume --glass-border`);
+    assert.match(rule, /(?:^|[;{])\s*box-shadow\s*:[^;]*var\(--glass-highlight\)[^;]*var\(--glass-shadow\)[^;]*;/, `${selector} box-shadow must consume both glass shadow tokens`);
   }
   assert.doesNotMatch(page, /<link[^>]+rel=["'][^"']*stylesheet[^"']*["'][^>]+href=["']https?:\/\//i);
 });
@@ -275,12 +302,16 @@ test("hero code configures maximum gain", () => {
 });
 
 test("vinyl motion and the quote animator respect reduced motion", () => {
+  const clearParallax = page.match(/function clearVinylParallax\(\)\s*\{[^}]*\}/)?.[0] ?? "";
+  const updateParallax = page.match(/function updateVinylParallax\(event\)\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
+
   assert.match(page, /function updateVinylParallax\(event\)/);
   assert.match(page, /function syncVinylParallaxListeners\(\)\s*\{[\s\S]*vinylPlayer\.removeEventListener\("pointermove", updateVinylParallax\);[\s\S]*vinylPlayer\.removeEventListener\("pointerleave", clearVinylParallax\);[\s\S]*clearVinylParallax\(\);[\s\S]*if \(reduceMotionQuery\.matches\) return;[\s\S]*vinylPlayer\.addEventListener\("pointermove", updateVinylParallax\);[\s\S]*vinylPlayer\.addEventListener\("pointerleave", clearVinylParallax\);/);
   assert.match(page, /reduceMotionQuery\.addEventListener\("change", syncVinylParallaxListeners\)/);
   assert.match(page, /if \(reduceMotionQuery\.matches\) return;/);
-  assert.match(page, /--vinyl-x[\s\S]*--vinyl-parallax-y[\s\S]*--vinyl-rotate-x[\s\S]*--vinyl-rotate-y[\s\S]*--vinyl-glow-x/);
-  assert.doesNotMatch(page.match(/function updateVinylParallax\(event\)[\s\S]*?\n    \}/)?.[0] ?? "", /--vinyl-y/);
+  assert.match(clearParallax, /--vinyl-x[\s\S]*--vinyl-y[\s\S]*--vinyl-rotate-x[\s\S]*--vinyl-rotate-y[\s\S]*--vinyl-glow-x/);
+  assert.match(updateParallax, /setProperty\("--vinyl-y",/);
+  assert.doesNotMatch(`${clearParallax}\n${updateParallax}`, /--vinyl-parallax-y/);
   assert.match(page, /\.vinyl-player:hover,[\s\S]*--vinyl-lift: -7px;[\s\S]*--vinyl-rotate-x: -1\.25deg;[\s\S]*--vinyl-rotate-y: 1\.5deg;/);
   assert.match(page, /\.vinyl-player\.is-playing \.vinyl-record \{ animation: vinyl-spin/);
   assert.match(page, /\.vinyl-player\.is-playing \.vinyl-tonearm \{ transform: rotate\(12deg\); \}/);
@@ -308,6 +339,12 @@ test("reduced motion rotates complete quote pairs without a caret animation", ()
 
 test("reduced motion overrides active vinyl motion and reflection states", () => {
   const reducedMotionBlock = page.match(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const reducedPlayer = selectorBlock(reducedMotionBlock, ".vinyl-player");
+  const reducedActivePlayer = reducedMotionBlock.match(/\.vinyl-player:hover,\s*\.vinyl-player:focus-visible,\s*\.vinyl-player\.is-expanded\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(reducedPlayer, /transform: translate3d\(0px, var\(--vinyl-base-y, 0px\), 0\);/);
+  assert.match(reducedActivePlayer, /transform: translate3d\(0px, var\(--vinyl-base-y, 0px\), 0\);/);
+  assert.doesNotMatch(`${reducedPlayer}\n${reducedActivePlayer}`, /transform:\s*none/);
   assert.match(reducedMotionBlock, /\.vinyl-player\.is-playing \.vinyl-record\s*\{\s*animation: none;/);
   assert.match(reducedMotionBlock, /\.vinyl-player\.is-playing \.vinyl-tonearm\s*\{\s*transform: none;/);
   assert.match(reducedMotionBlock, /\.vinyl-player:hover::before,[\s\S]*?\.vinyl-player\.is-expanded::before\s*\{[\s\S]*?transform: none;/);

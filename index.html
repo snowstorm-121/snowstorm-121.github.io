@@ -646,7 +646,7 @@
       cursor: pointer;
       text-align: left;
       transform: perspective(1100px)
-        translate3d(var(--vinyl-x, 0px), calc(var(--vinyl-base-y, 0px) + var(--vinyl-parallax-y, 0px) + var(--vinyl-lift, 0px)), 0)
+        translate3d(var(--vinyl-x, 0px), calc(var(--vinyl-base-y, 0px) + var(--vinyl-y, 0px) + var(--vinyl-lift, 0px)), 0)
         rotateX(var(--vinyl-rotate-x, 0deg))
         rotateY(var(--vinyl-rotate-y, 0deg));
       transition: border-color .35s ease, box-shadow .35s ease, transform .35s cubic-bezier(.2, .75, .2, 1);
@@ -1371,14 +1371,17 @@
       .vinyl-lyrics,
       #vinyl-cover,
       .vinyl-metadata { transition: none; }
-      .vinyl-player,
+      .vinyl-player {
+        animation: none;
+        transform: translate3d(0px, var(--vinyl-base-y, 0px), 0);
+      }
       .vinyl-record,
       .vinyl-tonearm { animation: none; transform: none; }
       .vinyl-player.is-playing .vinyl-record { animation: none; }
       .vinyl-player.is-playing .vinyl-tonearm { transform: none; }
       .vinyl-player:hover,
       .vinyl-player:focus-visible,
-      .vinyl-player.is-expanded { transform: none; }
+      .vinyl-player.is-expanded { transform: translate3d(0px, var(--vinyl-base-y, 0px), 0); }
       .vinyl-player:hover::before,
       .vinyl-player:focus-visible::before,
       .vinyl-player.is-expanded::before { opacity: .42; transform: none; }
@@ -1703,7 +1706,7 @@
     }
 
     function clearVinylParallax() {
-      ["--vinyl-x", "--vinyl-parallax-y", "--vinyl-rotate-x", "--vinyl-rotate-y", "--vinyl-glow-x"].forEach((property) => vinylPlayer.style.removeProperty(property));
+      ["--vinyl-x", "--vinyl-y", "--vinyl-rotate-x", "--vinyl-rotate-y", "--vinyl-glow-x"].forEach((property) => vinylPlayer.style.removeProperty(property));
     }
 
     function toggleVinylLyrics() {
@@ -1928,7 +1931,7 @@
       const x = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
       const y = Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height));
       vinylPlayer.style.setProperty("--vinyl-x", `${(x - .5) * 8}px`);
-      vinylPlayer.style.setProperty("--vinyl-parallax-y", `${(y - .5) * 8}px`);
+      vinylPlayer.style.setProperty("--vinyl-y", `${(y - .5) * 8}px`);
       vinylPlayer.style.setProperty("--vinyl-rotate-x", `${(.5 - y) * 5}deg`);
       vinylPlayer.style.setProperty("--vinyl-rotate-y", `${(x - .5) * 5}deg`);
       vinylPlayer.style.setProperty("--vinyl-glow-x", `${x * 100}%`);
