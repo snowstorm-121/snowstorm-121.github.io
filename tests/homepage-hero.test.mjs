@@ -164,17 +164,19 @@ test("desktop hero lane shifts both middle siblings left and resets below 1320px
   }
   assert.match(page, /\.hero-quote-area\s*\{[\s\S]*font-size: clamp\(21px, 2\.25vw, 34px\);/);
   assert.match(desktopPlayer, /width: clamp\(248px, 19vw, 284px\);/);
-  assert.match(desktopPlayer, /--vinyl-y: clamp\(-46px, -3vh, -22px\);/);
+  assert.match(desktopPlayer, /--vinyl-base-y: clamp\(-46px, -3vh, -22px\);/);
+  assert.match(desktopPlayer, /translate3d\(var\(--vinyl-x, 0px\), calc\(var\(--vinyl-base-y, 0px\) \+ var\(--vinyl-parallax-y, 0px\) \+ var\(--vinyl-lift, 0px\)\), 0\)/);
   assert.match(compactHero, /\.hero-top\s*\{[\s\S]*--hero-lane-offset: 0px;/);
   assert.match(compactHero, /\.hero-middle-stack\s*\{[\s\S]*transform: none;/);
   assert.match(compactHero, /\.hero-top > #hero-search-form\s*\{[\s\S]*transform: none;/);
-  assert.match(compactHero, /\.vinyl-player\s*\{[\s\S]*--vinyl-y: 0px;/);
+  assert.match(compactHero, /\.vinyl-player\s*\{[\s\S]*--vinyl-base-y: 0px;/);
 });
 
 test("tonearm enters the record only while playing and the compact layout reflows", () => {
   assert.match(page, /\.vinyl-tonearm\s*\{[\s\S]*transform: rotate\(-28deg\)/);
   assert.match(page, /\.vinyl-player\.is-playing \.vinyl-tonearm\s*\{\s*transform: rotate\(12deg\)/);
   assert.match(page, /@media \(max-width: 1200px\)[\s\S]*\.vinyl-player\s*\{[\s\S]*grid-template-columns: 1fr/);
+  assert.match(mediaBlock(page, "max-width\\s*:\\s*720px"), /\.vinyl-deck\s*\{\s*height: 210px;/);
 });
 
 test("hero renders a responsive vinyl turntable instead of the film clock", () => {
@@ -253,7 +255,8 @@ test("vinyl motion and the quote animator respect reduced motion", () => {
   assert.match(page, /function syncVinylParallaxListeners\(\)\s*\{[\s\S]*vinylPlayer\.removeEventListener\("pointermove", updateVinylParallax\);[\s\S]*vinylPlayer\.removeEventListener\("pointerleave", clearVinylParallax\);[\s\S]*clearVinylParallax\(\);[\s\S]*if \(reduceMotionQuery\.matches\) return;[\s\S]*vinylPlayer\.addEventListener\("pointermove", updateVinylParallax\);[\s\S]*vinylPlayer\.addEventListener\("pointerleave", clearVinylParallax\);/);
   assert.match(page, /reduceMotionQuery\.addEventListener\("change", syncVinylParallaxListeners\)/);
   assert.match(page, /if \(reduceMotionQuery\.matches\) return;/);
-  assert.match(page, /--vinyl-x[\s\S]*--vinyl-y[\s\S]*--vinyl-rotate-x[\s\S]*--vinyl-rotate-y[\s\S]*--vinyl-glow-x/);
+  assert.match(page, /--vinyl-x[\s\S]*--vinyl-parallax-y[\s\S]*--vinyl-rotate-x[\s\S]*--vinyl-rotate-y[\s\S]*--vinyl-glow-x/);
+  assert.doesNotMatch(page.match(/function updateVinylParallax\(event\)[\s\S]*?\n    \}/)?.[0] ?? "", /--vinyl-y/);
   assert.match(page, /\.vinyl-player:hover,[\s\S]*--vinyl-lift: -7px;[\s\S]*--vinyl-rotate-x: -1\.25deg;[\s\S]*--vinyl-rotate-y: 1\.5deg;/);
   assert.match(page, /\.vinyl-player\.is-playing \.vinyl-record \{ animation: vinyl-spin/);
   assert.match(page, /\.vinyl-player\.is-playing \.vinyl-tonearm \{ transform: rotate\(12deg\); \}/);
