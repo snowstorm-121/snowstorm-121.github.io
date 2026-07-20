@@ -66,6 +66,12 @@ test("hero retains supplied social contacts", () => {
   assert.match(page, /https:\/\/x\.com\/yongyi_121/);
 });
 
+test("social controls use local icon presentation without a CDN runtime stylesheet", () => {
+  assert.doesNotMatch(page, /https:\/\/cdnjs\.cloudflare\.com\//);
+  assert.doesNotMatch(page, /\bfa-(?:brands|solid|github|envelope|weixin|qq|youtube|x-twitter)\b/);
+  assert.equal((page.match(/class="social-icon" aria-hidden="true"/g) ?? []).length, 6);
+});
+
 test("hero code configures maximum gain", () => {
   assert.match(page, /profileTrackGain\.gain\.exponentialRampToValueAtTime\(1\.00, now \+ \.45\)/);
 });
@@ -90,9 +96,24 @@ test("vinyl motion and the quote animator respect reduced motion", () => {
 
 test("live reduced-motion changes invalidate quote animation before static rendering", () => {
   assert.match(page, /let quoteRun = 0;/);
-  assert.match(page, /function syncQuoteMotion\(\)\s*\{[\s\S]*quoteRun \+= 1;[\s\S]*window\.clearTimeout\(quoteTimer\);[\s\S]*if \(reduceMotionQuery\.matches\) \{[\s\S]*renderStaticPhrase\(\);[\s\S]*return;[\s\S]*void play\(quoteRun\);/);
+  assert.match(page, /function syncQuoteMotion\(\)\s*\{[\s\S]*quoteRun \+= 1;[\s\S]*window\.clearTimeout\(quoteTimer\);[\s\S]*if \(reduceMotionQuery\.matches\) \{[\s\S]*scheduleStaticPhrase\(quoteRun\);[\s\S]*return;[\s\S]*void play\(quoteRun\);/);
   assert.match(page, /reduceMotionQuery\.addEventListener\("change", syncQuoteMotion\)/);
   assert.match(page, /async function play\(run\) \{[\s\S]*while \(run === quoteRun && !reduceMotionQuery\.matches\)/);
+});
+
+test("reduced motion rotates complete quote pairs without a caret animation", () => {
+  assert.match(page, /function scheduleStaticPhrase\(run\)\s*\{[\s\S]*renderStaticPhrase\(\);[\s\S]*quoteTimer = window\.setTimeout\(\(\) => \{[\s\S]*phraseIndex = \(phraseIndex \+ 1\) % phrases\.length;[\s\S]*scheduleStaticPhrase\(run\);[\s\S]*\}, TIMING\.hold\);/);
+  assert.match(page, /function renderStaticPhrase\(\)\s*\{[\s\S]*lineNodes\.forEach\(\(lineNode, index\) => \{[\s\S]*lineNode\.textContent = current\.lines\[index\] \?\? "";/);
+  assert.match(page, /if \(reduceMotionQuery\.matches\) \{[\s\S]*scheduleStaticPhrase\(quoteRun\);[\s\S]*return;/);
+});
+
+test("reduced motion overrides active vinyl motion and reflection states", () => {
+  const reducedMotionBlock = page.match(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\n    \}/)?.[0] ?? "";
+  assert.match(reducedMotionBlock, /\.vinyl-player\.is-playing \.vinyl-record\s*\{\s*animation: none;/);
+  assert.match(reducedMotionBlock, /\.vinyl-player\.is-playing \.vinyl-tonearm\s*\{\s*transform: none;/);
+  assert.match(reducedMotionBlock, /\.vinyl-player:hover::before,[\s\S]*?\.vinyl-player\.is-expanded::before\s*\{[\s\S]*?transform: none;/);
+  assert.match(reducedMotionBlock, /\.vinyl-player\.is-switching #vinyl-cover,[\s\S]*?\.vinyl-player\.is-switching \.vinyl-metadata\s*\{[\s\S]*?transform: none;/);
+  assert.match(reducedMotionBlock, /\.caret,[\s\S]*?\{ animation: none; \}/);
 });
 
 test("player declares nine local audio tracks with display metadata", () => {

@@ -6,7 +6,6 @@
   <meta name="theme-color" content="#07101c">
   <title>SNOWSTORM的个人主页 ✦</title>
   <link rel="icon" href="./assets/homepage/profile-coast-backview.png" type="image/png">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" referrerpolicy="no-referrer">
   <style>
     :root {
       color-scheme: dark;
@@ -873,7 +872,12 @@
     .hero-socials button:hover,
     .hero-socials button:focus-visible { transform: translateY(-4px); background: rgba(101,203,229,.32); }
 
-    .hero-socials i { font-size: 20px; line-height: 1; }
+    .hero-socials .social-icon {
+      font-size: 12px;
+      font-weight: 720;
+      line-height: 1;
+      letter-spacing: -.04em;
+    }
 
     .contact-popover {
       position: absolute;
@@ -1298,6 +1302,16 @@
       .vinyl-player,
       .vinyl-record,
       .vinyl-tonearm { animation: none; transform: none; }
+      .vinyl-player.is-playing .vinyl-record { animation: none; }
+      .vinyl-player.is-playing .vinyl-tonearm { transform: none; }
+      .vinyl-player:hover,
+      .vinyl-player:focus-visible,
+      .vinyl-player.is-expanded { transform: none; }
+      .vinyl-player:hover::before,
+      .vinyl-player:focus-visible::before,
+      .vinyl-player.is-expanded::before { opacity: .42; transform: none; }
+      .vinyl-player.is-switching #vinyl-cover,
+      .vinyl-player.is-switching .vinyl-metadata { opacity: 1; transform: none; }
       .archive-card,
       [data-reveal],
       .card-media img,
@@ -1406,12 +1420,12 @@
 
     <div class="hero-footer">
       <nav class="hero-socials" aria-label="联系方式">
-        <a href="https://github.com/snowstorm-121" target="_blank" rel="noreferrer" aria-label="GitHub"><i class="fa-brands fa-github" aria-hidden="true"></i></a>
-        <a href="mailto:2971234387@qq.com" aria-label="发送邮件"><i class="fa-solid fa-envelope" aria-hidden="true"></i></a>
-        <button type="button" data-contact="wechat" aria-label="查看微信号"><i class="fa-brands fa-weixin" aria-hidden="true"></i></button>
-        <a href="https://wpa.qq.com/msgrd?v=3&uin=2971234387&site=qq&menu=yes" target="_blank" rel="noreferrer" data-contact="qq" aria-label="QQ 2971234387"><i class="fa-brands fa-qq" aria-hidden="true"></i></a>
-        <a href="https://www.youtube.com/@yongyiyan" target="_blank" rel="noreferrer" aria-label="YouTube"><i class="fa-brands fa-youtube" aria-hidden="true"></i></a>
-        <a href="https://x.com/yongyi_121" target="_blank" rel="noreferrer" aria-label="X"><i class="fa-brands fa-x-twitter" aria-hidden="true"></i></a>
+        <a href="https://github.com/snowstorm-121" target="_blank" rel="noreferrer" aria-label="GitHub"><span class="social-icon" aria-hidden="true">GH</span></a>
+        <a href="mailto:2971234387@qq.com" aria-label="发送邮件"><span class="social-icon" aria-hidden="true">@</span></a>
+        <button type="button" data-contact="wechat" aria-label="查看微信号"><span class="social-icon" aria-hidden="true">微</span></button>
+        <a href="https://wpa.qq.com/msgrd?v=3&uin=2971234387&site=qq&menu=yes" target="_blank" rel="noreferrer" data-contact="qq" aria-label="QQ 2971234387"><span class="social-icon" aria-hidden="true">QQ</span></a>
+        <a href="https://www.youtube.com/@yongyiyan" target="_blank" rel="noreferrer" aria-label="YouTube"><span class="social-icon" aria-hidden="true">▶</span></a>
+        <a href="https://x.com/yongyi_121" target="_blank" rel="noreferrer" aria-label="X"><span class="social-icon" aria-hidden="true">X</span></a>
       </nav>
       <span>THE ROAD DOES NOT PROMISE AN ANSWER</span>
       <a class="scroll-cue" href="#archives">
@@ -2055,12 +2069,22 @@
       }
     }
 
+    function scheduleStaticPhrase(run) {
+      if (run !== quoteRun || !reduceMotionQuery.matches) return;
+      renderStaticPhrase();
+      quoteTimer = window.setTimeout(() => {
+        if (run !== quoteRun || !reduceMotionQuery.matches) return;
+        phraseIndex = (phraseIndex + 1) % phrases.length;
+        scheduleStaticPhrase(run);
+      }, TIMING.hold);
+    }
+
     function syncQuoteMotion() {
       quoteRun += 1;
       window.clearTimeout(quoteTimer);
       quoteTimer = undefined;
       if (reduceMotionQuery.matches) {
-        renderStaticPhrase();
+        scheduleStaticPhrase(quoteRun);
         return;
       }
       void play(quoteRun);
