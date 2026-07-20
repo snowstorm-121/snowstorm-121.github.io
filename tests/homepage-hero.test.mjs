@@ -31,7 +31,7 @@ test("desktop hero uses an independent fixed middle anchor", () => {
   assert.match(desktopMain, /transform: translateX\(-50%\);/);
   assert.doesNotMatch(desktopMain, /justify-self|grid-column/);
   assert.match(page, /<main class="hero-main">[\s\S]*id="hero-title"[\s\S]*class="hero-middle-stack"[\s\S]*id="hero-search-form"[\s\S]*class="hero-quote-area"/);
-  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-main\s*\{[\s\S]*position: static;[\s\S]*width: 100%;[\s\S]*transform: none;/);
+  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-main\s*\{[\s\S]*position: static;[\s\S]*width: 100%;[\s\S]*max-width: none;[\s\S]*transform: none;/);
   assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-profile,\s*\.vinyl-player\s*\{\s*grid-column: auto;/);
 });
 
