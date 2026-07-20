@@ -17,23 +17,25 @@ test("hero locks search directly above a two-line quote stack", () => {
   assert.match(page, /\.sentence-wrap\s*\{[\s\S]*height: calc\(2 \* var\(--sentence-line-height\)\)/);
 });
 
-test("desktop hero locks the main top anchor while quote height changes", () => {
+test("desktop hero independently anchors the search stack while quote height changes", () => {
   const desktopHero = page.match(/\.hero-top\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
   const desktopMain = page.match(/\.hero-main\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
+  const desktopStack = page.match(/\.hero-middle-stack\s*\{[\s\S]*?\n    \}/)?.[0] ?? "";
 
   assert.match(desktopHero, /position: relative;/);
+  assert.match(desktopHero, /min-height: 100svh;/);
   assert.match(page, /\.hero-profile\s*\{[\s\S]*grid-column: 1;/);
   assert.match(page, /\.vinyl-player\s*\{[\s\S]*grid-column: 3;/);
-  assert.match(desktopMain, /position: absolute;/);
-  assert.match(desktopMain, /left: 50%;/);
-  assert.match(desktopMain, /top: 50%;/);
-  assert.match(desktopMain, /width: 520px;/);
-  assert.match(desktopMain, /max-width: calc\(100% - 676px\);/);
-  assert.match(desktopMain, /transform: translateX\(-50%\);/);
-  assert.doesNotMatch(desktopMain, /transform: translate\(-50%, -50%\);/);
-  assert.doesNotMatch(desktopMain, /justify-self|grid-column/);
+  assert.match(desktopStack, /position: absolute;/);
+  assert.match(desktopStack, /left: 50%;/);
+  assert.match(desktopStack, /top: clamp\(230px, 32vh, 320px\);/);
+  assert.match(desktopStack, /width: 520px;/);
+  assert.match(desktopStack, /max-width: calc\(100% - 676px\);/);
+  assert.match(desktopStack, /transform: translateX\(-50%\);/);
+  assert.doesNotMatch(desktopStack, /translateY|translate\(-50%, -50%\)|top: 50%/);
+  assert.doesNotMatch(desktopMain, /position: absolute;|left: 50%;|top: 50%;|transform: translateX\(-50%\)/);
   assert.match(page, /<main class="hero-main">[\s\S]*id="hero-title"[\s\S]*class="hero-middle-stack"[\s\S]*id="hero-search-form"[\s\S]*class="hero-quote-area"/);
-  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-main\s*\{[\s\S]*position: static;[\s\S]*top: auto;[\s\S]*left: auto;[\s\S]*width: 100%;[\s\S]*max-width: none;[\s\S]*transform: none;/);
+  assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-middle-stack\s*\{[\s\S]*position: static;[\s\S]*left: auto;[\s\S]*top: auto;[\s\S]*width: min\(520px, 100%\);[\s\S]*max-width: none;[\s\S]*transform: none;/);
   assert.match(page, /@media \(max-width: 1320px\)\s*\{[\s\S]*\.hero-profile,\s*\.vinyl-player\s*\{\s*grid-column: auto;/);
 });
 
