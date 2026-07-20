@@ -292,9 +292,14 @@ test("social controls use local SVG icons and retain accessible labels", () => {
 });
 
 test("hero reserves independent regions before compact player reflow", () => {
-  assert.match(page, /\.hero-top\s*\{[\s\S]*grid-template-columns:/);
-  assert.match(page, /\.hero-middle-stack\s*\{[\s\S]*min-width: 0/);
-  assert.match(page, /@media \(max-width: 1200px\)[\s\S]*\.hero-top\s*\{[\s\S]*grid-template-columns: 1fr/);
+  const desktopHero = selectorBlock(page, ".hero-top");
+  const desktopStack = selectorBlock(page, ".hero-middle-stack");
+  const compactHero = mediaBlock(page, "max-width\\s*:\\s*1200px");
+  const compactTop = selectorBlock(compactHero, ".hero-top");
+
+  assert.match(desktopHero, /grid-template-columns:/);
+  assert.match(desktopStack, /min-width: 0;/);
+  assert.match(compactTop, /grid-template-columns: 1fr;/);
 });
 
 test("hero code configures maximum gain", () => {
