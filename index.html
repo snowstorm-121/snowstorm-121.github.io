@@ -584,18 +584,18 @@
     }
 
     .vinyl-player {
-      --record-size: 238px;
+      --record-size: clamp(148px, 12vw, 164px);
       position: absolute;
       top: clamp(106px, 14vh, 150px);
       right: clamp(22px, 4vw, 62px);
       z-index: 2;
-      width: clamp(470px, 34vw, 540px);
+      width: clamp(304px, 25vw, 348px);
       min-height: 318px;
       display: grid;
-      grid-template-columns: minmax(260px, 1.15fr) minmax(170px, .85fr);
+      grid-template-columns: 1fr;
       align-items: center;
-      gap: clamp(18px, 2vw, 30px);
-      padding: 26px;
+      gap: 14px;
+      padding: 18px;
       overflow: hidden;
       isolation: isolate;
       border: 1px solid rgba(168, 224, 239, .38);
@@ -646,8 +646,8 @@
 
     .vinyl-deck {
       width: 100%;
-      min-width: 260px;
-      height: 266px;
+      min-width: 0;
+      height: 210px;
       display: grid;
       place-items: center;
     }
@@ -667,8 +667,8 @@
     }
 
     #vinyl-cover {
-      width: 43%;
-      height: 43%;
+      width: 70%;
+      height: 70%;
       display: block;
       border: 2px solid rgba(217, 233, 237, .55);
       border-radius: 50%;
@@ -691,12 +691,12 @@
 
     .vinyl-tonearm {
       position: absolute;
-      top: 0;
-      right: 1px;
-      width: 96px;
-      height: 222px;
-      transform-origin: 72px 29px;
-      transform: rotate(-18deg);
+      top: 5px;
+      right: calc(50% - 140px);
+      width: 128px;
+      height: 110px;
+      transform-origin: 104px 29px;
+      transform: rotate(-28deg);
       filter: drop-shadow(0 6px 5px rgba(0, 0, 0, .5));
       transition: transform .55s cubic-bezier(.2, .75, .2, 1);
     }
@@ -717,10 +717,10 @@
     .vinyl-tonearm::after {
       content: "";
       position: absolute;
-      top: 45px;
-      right: 31px;
+      top: 43px;
+      right: 41px;
       width: 8px;
-      height: 150px;
+      height: 54px;
       border-radius: 999px;
       background: linear-gradient(90deg, #74838a, #dce8eb 45%, #78868d);
       box-shadow: 0 0 0 1px rgba(3, 9, 14, .4);
@@ -730,8 +730,8 @@
 
     .vinyl-stylus {
       position: absolute;
-      right: 13px;
-      bottom: 16px;
+      right: 50px;
+      bottom: 9px;
       width: 35px;
       height: 17px;
       border: 1px solid rgba(213, 230, 233, .46);
@@ -821,7 +821,7 @@
     }
 
     .vinyl-player.is-playing .vinyl-record { animation: vinyl-spin 8s linear infinite; }
-    .vinyl-player.is-playing .vinyl-tonearm { transform: rotate(-3deg); }
+    .vinyl-player.is-playing .vinyl-tonearm { transform: rotate(12deg); }
 
     .vinyl-player.is-switching #vinyl-cover,
     .vinyl-player.is-switching .vinyl-metadata {
@@ -1197,6 +1197,10 @@
       .vinyl-metadata { width: 100%; text-align: center; }
     }
 
+    @media (max-width: 1200px) {
+      .vinyl-player { grid-template-columns: 1fr; }
+    }
+
     @media (max-width: 1320px) {
       .hero {
         display: block;
@@ -1222,8 +1226,8 @@
       .vinyl-player {
         position: relative;
         inset: auto;
-        width: min(430px, 100%);
-        grid-template-columns: minmax(0, 1fr);
+        width: min(348px, 100%);
+        grid-template-columns: 1fr;
         justify-items: center;
         margin: 34px auto 28px;
       }
@@ -1267,8 +1271,8 @@
       .eyebrow { margin-bottom: 18px; font-size: 8px; }
       .hero-quote-area { font-size: clamp(14px, 3.7vw, 19px); }
       .sentence { letter-spacing: 0; }
-      .vinyl-player { --record-size: 204px; padding: 20px 16px; }
-      .vinyl-deck { min-width: 0; height: 226px; }
+      .vinyl-player { padding: 16px; }
+      .vinyl-deck { height: 210px; }
       .progress { margin-top: 18px; gap: 5px; }
       .progress span { width: 8px; }
       .progress span.active { width: 26px; }
