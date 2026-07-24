@@ -90,6 +90,22 @@ test("quote reserves two lines from the sentence line-height length", () => {
   assert.ok(Number(lineHeight[2]) * 2 >= 2 * 30 * 1.6);
 });
 
+test("mobile quote keeps every logical phrase line on its assigned physical row", () => {
+  const phraseLines = [...script.matchAll(/lines: \["([^"]+)", "([^"]+)"\]/g)].flatMap((match) => match.slice(1));
+  const longestLineLength = Math.max(...phraseLines.map((line) => Array.from(line).length));
+  const mobileRules = styles.match(/@media \(max-width: 720px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+  const availableWidth = mobileRules.match(/--quote-mobile-available-width:\s*([\d.]+)px/);
+  const minimumFontSize = mobileRules.match(/--quote-mobile-font-size:\s*([\d.]+)px/);
+  const letterSpacing = mobileRules.match(/--quote-mobile-letter-spacing:\s*([\d.]+)px/);
+
+  assert.match(mobileRules, /\.sentence-line\s*\{[\s\S]*white-space:\s*nowrap/);
+  assert.ok(availableWidth, "mobile quote declares its smallest usable width");
+  assert.ok(minimumFontSize, "mobile quote declares its minimum readable font size");
+  assert.ok(letterSpacing, "mobile quote declares the spacing used by the capacity calculation");
+  const requiredWidth = longestLineLength * Number(minimumFontSize[1]) + (longestLineLength - 1) * Number(letterSpacing[1]);
+  assert.ok(requiredWidth <= Number(availableWidth[1]), `longest ${longestLineLength}-character line needs ${requiredWidth}px within the declared mobile width`);
+});
+
 test("quote preserves delete-before-type and reduced-motion static rendering", () => {
   assert.match(script, /async function deleteVisibleLines\(run\)/);
   assert.match(script, /await deleteLine\(lineNodes\[lineIndex\], run\)/);
