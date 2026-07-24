@@ -366,3 +366,57 @@ test("navigation, idle state, and close controls remain keyboard reachable", () 
   assert.match(styles, /:focus-visible\s*\{/);
   assert.match(styles, /@media \(max-width: 720px\)[\s\S]*\.section-rail\s*\{[\s\S]*display:\s*none/);
 });
+
+test("active section state drives reveal, light direction, and the bright Archive environment", () => {
+  assert.match(html, /class="origin-scroll-cue"[^>]*href="#identity"/);
+  const defaultSection = styles.match(/\.story-section > \.section-inner\s*\{[^}]*\}/)?.[0] ?? "";
+  const activeArchive = styles.match(/html\[data-active-section="archive"\]\s*\{[^}]*\}/)?.[0] ?? "";
+  const archiveReveal = styles.match(/html\[data-motion="full"\]\[data-active-section="archive"\]\s+#archive > \.section-inner\s*\{[^}]*\}/)?.[0] ?? "";
+  const backdrop = styles.match(/\.page-backdrop\s*\{[^}]*\}/)?.[0] ?? "";
+  const mainLight = styles.match(/\.page-backdrop::before\s*\{[^}]*\}/)?.[0] ?? "";
+  const scrollCue = styles.match(/\.origin-scroll-cue\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(defaultSection, /opacity:\s*1/);
+  assert.match(defaultSection, /transform:\s*none/);
+  assert.match(activeArchive, /--section-wash:\s*rgba\([^)]*\)/);
+  assert.match(activeArchive, /--main-light-x:/);
+  assert.match(activeArchive, /--backdrop-brightness:\s*1\.[1-9]/);
+  assert.match(archiveReveal, /opacity:\s*1/);
+  assert.match(archiveReveal, /transform:\s*none/);
+  assert.match(backdrop, /background-color:\s*var\(--section-wash\)/);
+  assert.match(mainLight, /var\(--main-light-x\)/);
+  assert.match(mainLight, /var\(--main-light-y\)/);
+  assert.match(scrollCue, /top:\s*calc\(100svh - 68px - \d+px\)/);
+});
+
+test("track, playback, Dock progress, and lyric accent states are consumed by CSS", () => {
+  assert.match(script, /style\.setProperty\("--track-accent", track\.accent\)/);
+  assert.match(script, /dataset\.playing = String\(!profileAudio\.paused\)/);
+  assert.match(script, /musicDock\.style\.setProperty\("--dock-progress", String\(progress\)\)/);
+  assert.match(styles, /#music-dock::before\s*\{[^}]*var\(--dock-progress\)[^}]*var\(--track-accent\)/);
+  assert.match(styles, /html\[data-playing="true"\]\s+#music-dock\s*\{[^}]*animation:\s*dock-breathe/);
+  assert.match(styles, /\.page-backdrop::after\s*\{[^}]*var\(--track-accent\)[^}]*var\(--lyric-accent\)/);
+  assert.match(styles, /\.page-backdrop::after\s*\{[^}]*transition:\s*background-color/);
+  assert.match(styles, /html\[data-playing="true"\]\s+\.page-backdrop::after\s*\{[^}]*animation:\s*spectrum-breathe/);
+});
+
+test("the closed music panel remains visually hidden despite its flex layout", () => {
+  assert.match(styles, /#music-panel\[hidden\]\s*\{\s*display:\s*none;\s*\}/);
+});
+
+test("idle only slows and weakens an existing ambient animation", () => {
+  const root = styles.match(/:root\s*\{[^}]*\}/)?.[0] ?? "";
+  const ambient = styles.match(/\.page-backdrop::before\s*\{[^}]*\}/)?.[0] ?? "";
+  const idle = styles.match(/html\[data-idle="true"\]\s*\{[^}]*\}/)?.[0] ?? "";
+  const baseDuration = Number(root.match(/--ambient-duration:\s*([\d.]+)s/)?.[1]);
+  const idleDuration = Number(idle.match(/--ambient-duration:\s*([\d.]+)s/)?.[1]);
+  const baseStrength = Number(root.match(/--ambient-strength:\s*([\d.]+)/)?.[1]);
+  const idleStrength = Number(idle.match(/--ambient-strength:\s*([\d.]+)/)?.[1]);
+
+  assert.match(ambient, /animation:\s*ambient-breathe var\(--ambient-duration\)/);
+  assert.doesNotMatch(idle, /\banimation\s*:/);
+  assert.ok(idleDuration > baseDuration, "idle ambient duration is slower than the ordinary state");
+  assert.ok(idleStrength < baseStrength, "idle ambient strength is lower than the ordinary state");
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation:\s*none !important/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*transform:\s*none !important/);
+});

@@ -53,7 +53,7 @@ let renderedLyricAccentIndex = -1;
 let pointerGlassEnabled = false;
 let idleTimer;
 const lyricCache = new Map();
-const lyricAccents = ["#8fc5d6", "#d7b28a", "#9db5d4"];
+const lyricAccents = ["#153a5b", "#8fc5d6", "#d7b28a"];
 
 function resetPointerGlass() {
   pointerGlassSurfaces.forEach((surface) => {
@@ -102,6 +102,7 @@ function setActiveSection(id) {
 
 function setupSectionObserver() {
   if (typeof IntersectionObserver !== "function") return;
+  setActiveSection(storySections[0]?.id ?? "origin");
   const observer = new IntersectionObserver((entries) => {
     const activeEntry = entries.filter((entry) => entry.isIntersecting)
       .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
@@ -169,6 +170,8 @@ function closeWeChatPopover({ returnFocus }) {
 
 function renderTrack() {
   const track = TRACKS[trackIndex];
+  document.documentElement.style.setProperty("--track-accent", track.accent);
+  document.documentElement.dataset.playing = String(!profileAudio.paused);
   musicCover.src = track.cover;
   musicCover.alt = `${track.title} — ${track.artist} 的封面`;
   musicDockCover.src = track.cover;
@@ -224,7 +227,9 @@ function syncLyrics() {
     renderLyricLines(activeIndex);
   }
   if (Number.isFinite(profileAudio.duration) && profileAudio.duration > 0) {
-    musicProgress.value = profileAudio.currentTime / profileAudio.duration;
+    const progress = profileAudio.currentTime / profileAudio.duration;
+    musicProgress.value = progress;
+    musicDock.style.setProperty("--dock-progress", String(progress));
   }
 }
 
@@ -264,6 +269,7 @@ function loadTrack(index, { autoplay = false } = {}) {
   profileAudio.src = track.src;
   profileAudio.load();
   musicProgress.value = 0;
+  musicDock.style.setProperty("--dock-progress", String(0));
   renderedLyricKey = "";
   void loadLyrics(track);
   renderTrack();
