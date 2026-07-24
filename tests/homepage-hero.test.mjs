@@ -105,7 +105,7 @@ function createMusicRuntime() {
     setAttribute(name, value) { this.attributes.set(name, String(value)); }
     removeAttribute(name) { this.attributes.delete(name); }
     focus() { document.activeElement = this; }
-    contains(target) { return target === this || this.children.includes(target); }
+    contains(target) { return target === this || this.children.some((child) => child.contains(target)); }
     querySelector() { return new FakeElement(); }
   }
 
@@ -143,7 +143,16 @@ function createMusicRuntime() {
     setTimeout: () => 0,
     clearTimeout() {},
   };
-  return { audio, currentLyric: elements.get("#current-lyric"), document, musicDockExpand: elements.get("#music-dock-expand"), musicPanel: elements.get("#music-panel"), window };
+  return {
+    audio,
+    currentLyric: elements.get("#current-lyric"),
+    document,
+    musicDockExpand: elements.get("#music-dock-expand"),
+    musicPanel: elements.get("#music-panel"),
+    wechatPopover: elements.get("#wechat-popover"),
+    wechatTrigger: elements.get("#wechat-trigger"),
+    window,
+  };
 }
 
 test("failed lyric fetch remains visible through timeupdate and outside-close restores Dock focus", async () => {
@@ -165,6 +174,31 @@ test("failed lyric fetch remains visible through timeupdate and outside-close re
   runtime.document.dispatch("click", { target: {} });
   assert.equal(runtime.musicPanel.hidden, true);
   assert.equal(runtime.document.activeElement, runtime.musicDockExpand);
+});
+
+test("WeChat popover remains open when a click bubbles from its SVG path", () => {
+  const runtime = createMusicRuntime();
+  vm.runInNewContext(script, { ...runtime, fetch: async () => ({ ok: false }), navigator: {} });
+
+  const icon = new runtime.wechatTrigger.constructor();
+  const path = new runtime.wechatTrigger.constructor();
+  icon.append(path);
+  runtime.wechatTrigger.append(icon);
+
+  runtime.wechatTrigger.dispatch("click", { target: path });
+  runtime.document.dispatch("click", { target: path });
+
+  assert.equal(runtime.wechatPopover.hidden, false);
+});
+
+test("WeChat popover closes when a click bubbles from outside its trigger", () => {
+  const runtime = createMusicRuntime();
+  vm.runInNewContext(script, { ...runtime, fetch: async () => ({ ok: false }), navigator: {} });
+
+  runtime.wechatTrigger.dispatch("click");
+  runtime.document.dispatch("click", { target: {} });
+
+  assert.equal(runtime.wechatPopover.hidden, true);
 });
 
 test("body reserves the desktop Dock bottom gap and keeps mobile safe-area spacing", () => {

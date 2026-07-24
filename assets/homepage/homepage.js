@@ -241,7 +241,7 @@ document.addEventListener("click", (event) => {
   if (!musicPanel.hidden && !musicPanel.contains(event.target) && !musicDock.contains(event.target)) {
     closeMusicPanel({ returnFocus: true });
   }
-  if (!wechatPopover.hidden && !wechatPopover.contains(event.target) && event.target !== wechatTrigger) {
+  if (!wechatPopover.hidden && !wechatPopover.contains(event.target) && !wechatTrigger.contains(event.target)) {
     closeWeChatPopover({ returnFocus: true });
   }
 });
