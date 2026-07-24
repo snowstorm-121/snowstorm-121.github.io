@@ -112,7 +112,7 @@ h3 { margin: 18px 0 12px; font-size: 30px; }
 
 .hero-search-label { color: var(--muted); font-size: 10px; letter-spacing: .14em; }
 .hero-search input { min-width: 0; border: 0; outline: 0; color: inherit; background: transparent; }
-.hero-search button, .social-links button, #music-dock button, #wechat-popover button {
+.hero-search button, .archive-preview-toggle, .social-links button, #music-dock button, #wechat-popover button {
   border: 1px solid var(--line);
   color: var(--ink);
   background: rgba(255, 255, 255, .06);
@@ -149,17 +149,25 @@ h3 { margin: 18px 0 12px; font-size: 30px; }
 .education-entry .education-period { color: var(--ink); font-size: 12px; font-weight: 700; letter-spacing: .07em; }
 
 .section-note { max-width: 690px; margin: 26px 0 0; color: var(--muted); line-height: 1.8; }
-.archive-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 54px; }
-.archive-card { display: flex; flex-direction: column; min-height: 290px; padding: 28px; border: 1px solid var(--line); background: var(--panel); }
+.archive-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) repeat(2, minmax(220px, .9fr)); grid-template-rows: repeat(2, minmax(178px, auto)); gap: 18px; margin-top: 54px; }
+.archive-card { display: flex; flex-direction: column; min-height: 290px; padding: 28px; border: 1px solid var(--line); background: var(--panel); transition: border-color .25s ease, background .25s ease; }
+.archive-card:first-child { grid-row: span 2; }
 .archive-label { margin: 0; color: var(--muted); font-size: 12px; letter-spacing: .08em; }
 .archive-card p:not(.card-index) { color: var(--muted); line-height: 1.75; }
+.archive-preview { display: none; margin-top: 8px; padding: 12px; border-left: 1px solid var(--accent); background: rgba(215, 178, 138, .08); }
+.archive-preview p { margin: 0; font-size: 13px; }
+.archive-preview-toggle { width: fit-content; margin-top: 14px; padding: 7px 10px; border-radius: 999px; }
+.archive-card.is-expanded { border-color: rgba(215, 178, 138, .72); background: rgba(15, 33, 55, .86); }
+.archive-card.is-expanded .archive-preview { display: block; }
+.archive-card.is-expanded .archive-preview-toggle { color: var(--accent); }
 .archive-card a { width: fit-content; margin-top: auto; color: var(--accent); }
 
 .connection { min-height: 56svh; text-align: center; }
 .connection-content h2 { margin-inline: auto; }
 .connection .eyebrow { margin-top: 0; }
 .social-links { flex-wrap: wrap; justify-content: center; margin-top: 42px; }
-.social-links a, .social-links button { padding: 11px 15px; border-radius: 999px; }
+.social-links a, .social-links button { display: grid; width: 42px; height: 42px; padding: 0; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: rgba(255, 255, 255, .06); cursor: pointer; }
+.social-icon { width: 18px; height: 18px; fill: currentColor; }
 
 #music-dock { position: fixed; right: 22px; bottom: 22px; z-index: 4; }
 #music-dock button { padding: 11px 15px; border-radius: 999px; letter-spacing: .1em; }
@@ -176,7 +184,19 @@ h3 { margin: 18px 0 12px; font-size: 30px; }
 .music-track { width: 100%; padding: 8px 10px; text-align: left; }
 .music-track[aria-current="true"] { border-color: var(--accent); color: var(--accent); }
 #music-lyrics { min-height: 1.5em; margin-top: 14px !important; color: var(--muted); font-size: 12px; line-height: 1.5; }
-#wechat-popover { left: 50%; bottom: 30px; display: flex; gap: 16px; align-items: center; transform: translateX(-50%); }
+#wechat-popover { left: 50%; bottom: 30px; width: min(320px, calc(100vw - 40px)); transform: translateX(-50%); }
+#wechat-popover p { margin: 0; }
+#wechat-popover p + p { margin-top: 10px; color: var(--muted); }
+.wechat-actions { display: flex; gap: 8px; margin-top: 16px; }
+.wechat-actions button { padding: 8px 10px; }
+
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid rgba(219, 243, 246, .94); outline-offset: 3px; }
+a:active, button:active { transform: translateY(1px); }
+
+@media (max-width: 1100px) {
+  .archive-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto; }
+  .archive-card:first-child { grid-row: auto; }
+}
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 

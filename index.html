@@ -86,25 +86,37 @@
         <h2 id="archive-title">山海辽阔，求索未止</h2>
         <p class="section-note">学习留下路径，生活保存回声，研究则把疑问交给现实。三处归档并非彼此分离，只是同一段路上不同的光。</p>
         <div class="archive-grid">
-          <article class="archive-card" id="learning">
+          <article class="archive-card" id="learning" data-preview>
             <p class="card-index">01 / KNOWLEDGE</p>
             <p class="archive-label">Learning Atlas</p>
             <h3>星野问津</h3>
             <p>将零散的知识整理成可以反复抵达的路径，记录每一次理解、验证与重构。</p>
+            <div class="archive-preview" id="learning-preview">
+              <p>从笔记、练习到复盘，每一次回看都能找到下一步的坐标。</p>
+            </div>
+            <button class="archive-preview-toggle" type="button" aria-controls="learning-preview" aria-expanded="false">展开预览</button>
             <a href="./learning/">进入此卷 <span aria-hidden="true">↗</span></a>
           </article>
-          <article class="archive-card" id="living">
+          <article class="archive-card" id="living" data-preview>
             <p class="card-index">02 / LIVING</p>
             <p class="archive-label">Living Journal</p>
             <h3>人间照影</h3>
             <p>收拢书页、山河与未曾说尽的念头，让时间经过之后，仍有一些回声可循。</p>
+            <div class="archive-preview" id="living-preview">
+              <p>随手写下的片段，会在日后照亮某个平常而具体的瞬间。</p>
+            </div>
+            <button class="archive-preview-toggle" type="button" aria-controls="living-preview" aria-expanded="false">展开预览</button>
             <a href="./living/">进入此卷 <span aria-hidden="true">↗</span></a>
           </article>
-          <article class="archive-card" id="research">
+          <article class="archive-card" id="research" data-preview>
             <p class="card-index">03 / RESEARCH</p>
             <p class="archive-label">Research Fieldnotes</p>
             <h3>烛微观澜</h3>
             <p>从一个具体的问题出发，在观察与实验之间往返，留下那些经得起验证的发现。</p>
+            <div class="archive-preview" id="research-preview">
+              <p>把问题拆成可验证的假设，让观察、实验与结论逐渐彼此照见。</p>
+            </div>
+            <button class="archive-preview-toggle" type="button" aria-controls="research-preview" aria-expanded="false">展开预览</button>
             <a href="./research/">进入此卷 <span aria-hidden="true">↗</span></a>
           </article>
         </div>
@@ -116,12 +128,12 @@
         <p class="eyebrow">KEEP THE DIRECTION · KEEP THE LIGHT</p>
         <h2 id="connection-title">在路上相见</h2>
         <nav class="social-links" aria-label="联系方式">
-          <a href="https://github.com/snowstorm-121" target="_blank" rel="noreferrer">GitHub</a>
-          <a href="mailto:2971234387@qq.com">Email</a>
-          <button id="wechat-trigger" type="button" aria-controls="wechat-popover" aria-expanded="false">WeChat</button>
-          <a href="https://wpa.qq.com/msgrd?v=3&uin=2971234387&site=qq&menu=yes" target="_blank" rel="noreferrer">QQ</a>
-          <a href="https://www.youtube.com/@yongyiyan" target="_blank" rel="noreferrer">YouTube</a>
-          <a href="https://x.com/yongyi_121" target="_blank" rel="noreferrer">X</a>
+          <a href="https://github.com/snowstorm-121" target="_blank" rel="noreferrer" aria-label="GitHub"><svg class="social-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.18-3.37-1.18-.46-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.61.07-.61 1 .07 1.52 1.02 1.52 1.02.89 1.52 2.33 1.08 2.9.83.09-.64.35-1.08.63-1.33-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.02-2.68-.1-.25-.44-1.27.1-2.65 0 0 .84-.27 2.75 1.02A9.5 9.5 0 0 1 12 6.46c.85 0 1.7.11 2.5.34 1.91-1.29 2.75-1.02 2.75-1.02.54 1.38.2 2.4.1 2.65.63.7 1.02 1.59 1.02 2.68 0 3.84-2.35 4.68-4.58 4.93.36.31.68.91.68 1.84v2.73c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg></a>
+          <a href="mailto:2971234387@qq.com" aria-label="发送邮件"><svg class="social-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 5h18v14H3V5Zm2 2v.51l7 4.67 7-4.67V7l-7 4.67L5 7Z"/></svg></a>
+          <button id="wechat-trigger" type="button" aria-label="查看微信号" aria-controls="wechat-popover" aria-expanded="false"><svg class="social-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12.05 4C7.63 4 4 6.96 4 10.59c0 2.04 1.14 3.88 3.05 5.11L6.3 18.3l2.84-1.5c.9.25 1.88.38 2.91.38 4.45 0 8.05-2.96 8.05-6.59C20.1 6.96 16.5 4 12.05 4Zm-2.7 6.84a1.03 1.03 0 1 1 0-2.06 1.03 1.03 0 0 1 0 2.06Zm5.4 0a1.03 1.03 0 1 1 0-2.06 1.03 1.03 0 0 1 0 2.06ZM20.1 11.2c-.3 3.17-3.69 5.63-7.86 5.63-.48 0-.95-.03-1.4-.1.87 1.9 3.06 3.27 5.67 3.27.69 0 1.35-.1 1.95-.28l2.18 1.15-.59-1.96c1.31-.91 2.12-2.22 2.12-3.67 0-1.51-.88-2.88-2.28-3.8Z"/></svg></button>
+          <a href="https://wpa.qq.com/msgrd?v=3&uin=2971234387&site=qq&menu=yes" target="_blank" rel="noreferrer" aria-label="QQ 2971234387"><svg class="social-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 3.2c-2.86 0-5.18 2.48-5.18 5.54 0 1.7.71 3.22 1.83 4.24l-.72 2.67 1.92-1.02c.67.28 1.4.44 2.15.44s1.48-.16 2.15-.44l1.92 1.02-.72-2.67a5.73 5.73 0 0 0 1.83-4.24C17.18 5.68 14.86 3.2 12 3.2Zm-1.9 5.32a.95.95 0 1 1 0-1.9.95.95 0 0 1 0 1.9Zm3.8 0a.95.95 0 1 1 0-1.9.95.95 0 0 1 0 1.9ZM6.1 14.92l-1.5 3.14 2.51-.65.92 2.5 1.12-3.3a7.67 7.67 0 0 1-3.05-1.69Zm11.8 0a7.67 7.67 0 0 1-3.05 1.69l1.12 3.3.92-2.5 2.51.65-1.5-3.14Z"/></svg></a>
+          <a href="https://www.youtube.com/@yongyiyan" target="_blank" rel="noreferrer" aria-label="YouTube"><svg class="social-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M21.58 7.19a2.99 2.99 0 0 0-2.1-2.12C17.63 4.57 12 4.57 12 4.57s-5.63 0-7.48.5a3 3 0 0 0-2.1 2.12C1.92 9.06 1.92 12 1.92 12s0 2.94.5 4.81a3 3 0 0 0 2.1 2.12c1.85.5 7.48.5 7.48.5s5.63 0 7.48-.5a2.99 2.99 0 0 0 2.1-2.12c.5-1.87.5-4.81.5-4.81s0-2.94-.5-4.81ZM10.16 15.04V8.96L15.5 12l-5.34 3.04Z"/></svg></a>
+          <a href="https://x.com/yongyi_121" target="_blank" rel="noreferrer" aria-label="X"><svg class="social-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4.8 3h3.83l3.72 5.1L16.7 3h2.5l-5.7 6.55L20 21h-3.83l-4.13-5.67L7.1 21H4.6l6.31-7.25L4.8 3Zm2.73 1.75 8.79 14.5h1.95L9.48 4.75H7.53Z"/></svg></a>
         </nav>
       </div>
     </section>
@@ -141,6 +153,13 @@
     <div id="music-track-list" aria-label="九首本地音乐"></div>
     <p id="music-lyrics" aria-live="polite">选择一首歌查看歌词</p>
   </section>
-  <section id="wechat-popover" hidden role="status"><span>微信：yan_yongyi</span><button type="button">关闭</button></section>
+  <section id="wechat-popover" hidden role="dialog" aria-modal="true" aria-labelledby="wechat-popover-title">
+    <p id="wechat-popover-title">微信</p>
+    <p>微信号：<span data-wechat-id>yan_yongyi</span></p>
+    <div class="wechat-actions">
+      <button id="wechat-copy" type="button">复制微信号</button>
+      <button id="wechat-close" type="button">关闭</button>
+    </div>
+  </section>
 </body>
 </html>

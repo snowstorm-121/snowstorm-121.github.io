@@ -23,7 +23,9 @@ const musicPlay = document.querySelector("#music-play");
 const musicNext = document.querySelector("#music-next");
 const wechatTrigger = document.querySelector("#wechat-trigger");
 const wechatPopover = document.querySelector("#wechat-popover");
-const closeWechat = wechatPopover.querySelector("button");
+const wechatCopy = document.querySelector("#wechat-copy");
+const closeWechat = document.querySelector("#wechat-close");
+const archiveCards = document.querySelectorAll(".archive-card[data-preview]");
 const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
 const heroSearchForm = document.querySelector("#hero-search-form");
 const heroSearchInput = document.querySelector("#hero-search-input");
@@ -37,6 +39,26 @@ const lyricCache = new Map();
 function togglePanel(button, panel) {
   panel.hidden = !panel.hidden;
   button.setAttribute("aria-expanded", String(!panel.hidden));
+}
+
+function setArchivePreview(card, expanded) {
+  archiveCards.forEach((archiveCard) => {
+    const isExpanded = archiveCard === card && expanded;
+    archiveCard.classList.toggle("is-expanded", isExpanded);
+    archiveCard.querySelector(".archive-preview-toggle").setAttribute("aria-expanded", String(isExpanded));
+  });
+}
+
+function openWeChatPopover() {
+  wechatPopover.hidden = false;
+  wechatTrigger.setAttribute("aria-expanded", "true");
+  closeWechat.focus();
+}
+
+function closeWeChatPopover({ returnFocus }) {
+  wechatPopover.hidden = true;
+  wechatTrigger.setAttribute("aria-expanded", "false");
+  if (returnFocus) wechatTrigger.focus();
 }
 
 function renderTrack() {
@@ -138,8 +160,29 @@ musicDock.addEventListener("click", () => togglePanel(musicDock, musicPanel));
 musicPlay.addEventListener("click", () => void toggleNativePlayback());
 musicPrevious.addEventListener("click", () => void selectTrack(trackIndex - 1));
 musicNext.addEventListener("click", () => void selectTrack(trackIndex + 1));
-wechatTrigger.addEventListener("click", () => togglePanel(wechatTrigger, wechatPopover));
-closeWechat.addEventListener("click", () => togglePanel(wechatTrigger, wechatPopover));
+archiveCards.forEach((card) => {
+  const previewToggle = card.querySelector(".archive-preview-toggle");
+  previewToggle.addEventListener("click", () => setArchivePreview(card, !card.classList.contains("is-expanded")));
+});
+wechatTrigger.addEventListener("click", openWeChatPopover);
+closeWechat.addEventListener("click", () => closeWeChatPopover({ returnFocus: true }));
+wechatCopy.addEventListener("click", async () => {
+  const wechatId = wechatPopover.querySelector("[data-wechat-id]").textContent;
+  try {
+    await navigator.clipboard?.writeText(wechatId);
+    wechatCopy.textContent = "已复制";
+  } catch {
+    wechatCopy.textContent = "请手动复制";
+  }
+});
+document.addEventListener("click", (event) => {
+  if (!wechatPopover.hidden && !wechatPopover.contains(event.target) && event.target !== wechatTrigger) {
+    closeWeChatPopover({ returnFocus: true });
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !wechatPopover.hidden) closeWeChatPopover({ returnFocus: true });
+});
 heroSearchForm.addEventListener("submit", (event) => {
   if (heroSearchInput.value.trim()) {
     heroSearchInput.removeAttribute("aria-invalid");

@@ -121,3 +121,20 @@ test("origin keeps the existing Google form and reports an empty submit accessib
   assert.match(script, /heroSearchForm\.addEventListener\("submit"/);
   assert.match(script, /heroSearchInput\.setAttribute\("aria-invalid", "true"\)/);
 });
+
+test("archive has one expandable preview at a time and keeps direct destinations", () => {
+  assert.equal((html.match(/class="archive-card"/g) ?? []).length, 3);
+  assert.equal((html.match(/data-preview/g) ?? []).length, 3);
+  assert.match(script, /function setArchivePreview\(card, expanded\)/);
+  assert.match(script, /document\.querySelectorAll\("\.archive-card\[data-preview\]"\)/);
+  assert.match(styles, /\.archive-card\.is-expanded\s*\{/);
+});
+
+test("QQ remains a direct link while WeChat is a copyable dialog", () => {
+  assert.match(html, /id="wechat-trigger"[^>]*aria-controls="wechat-popover"/);
+  assert.match(html, /id="wechat-popover"[^>]*role="dialog"/);
+  assert.match(html, /https:\/\/wpa\.qq\.com\/msgrd[^\"]+/);
+  assert.doesNotMatch(html, /data-contact="qq"/);
+  assert.match(script, /function closeWeChatPopover\(\{ returnFocus \}\)/);
+  assert.match(script, /navigator\.clipboard\?\.writeText/);
+});
