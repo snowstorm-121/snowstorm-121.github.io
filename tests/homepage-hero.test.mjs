@@ -91,6 +91,7 @@ function createMusicRuntime() {
       this.id = id;
       this.attributes = new Map();
       this.children = [];
+      this.parent = null;
       this.dataset = {};
       this.hidden = false;
       this.listeners = new Map();
@@ -99,9 +100,26 @@ function createMusicRuntime() {
       this.value = "";
     }
 
-    append(...children) { this.children.push(...children); }
+    append(...children) {
+      children.forEach((child) => { child.parent = this; });
+      this.children.push(...children);
+    }
     addEventListener(type, listener) { this.listeners.set(type, listener); }
-    dispatch(type, event = {}) { this.listeners.get(type)?.({ target: this, ...event }); }
+    dispatch(type, event = {}) { this.dispatchEvent({ type, bubbles: false, target: this, ...event }); }
+    dispatchEvent(event) {
+      let stopped = false;
+      const stopPropagation = event.stopPropagation;
+      event.stopPropagation = () => {
+        stopped = true;
+        stopPropagation?.call(event);
+      };
+      if (!event.target) event.target = this;
+      for (let current = this; current; current = current.parent) {
+        event.currentTarget = current;
+        current.listeners.get(event.type)?.(event);
+        if (!event.bubbles || stopped) break;
+      }
+    }
     setAttribute(name, value) { this.attributes.set(name, String(value)); }
     removeAttribute(name) { this.attributes.delete(name); }
     focus() { document.activeElement = this; }
@@ -129,6 +147,7 @@ function createMusicRuntime() {
 
   const document = {
     activeElement: null,
+    listeners: documentListeners,
     querySelector(selector) { return elements.get(selector) ?? new FakeElement(); },
     querySelectorAll(selector) {
       if (selector === ".sentence-line") return [new FakeElement(), new FakeElement()];
@@ -136,8 +155,14 @@ function createMusicRuntime() {
     },
     createElement() { return new FakeElement(); },
     addEventListener(type, listener) { documentListeners.set(type, listener); },
-    dispatch(type, event) { documentListeners.get(type)?.(event); },
+    dispatch(type, event = {}) { this.dispatchEvent({ type, bubbles: false, ...event }); },
+    dispatchEvent(event) {
+      if (!event.target) event.target = this;
+      event.currentTarget = this;
+      documentListeners.get(event.type)?.(event);
+    },
   };
+  for (const element of elements.values()) element.parent = document;
   const window = {
     matchMedia: () => ({ matches: false, addEventListener() {} }),
     setTimeout: () => 0,
@@ -176,7 +201,7 @@ test("failed lyric fetch remains visible through timeupdate and outside-close re
   assert.equal(runtime.document.activeElement, runtime.musicDockExpand);
 });
 
-test("WeChat popover remains open when a click bubbles from its SVG path", () => {
+test("WeChat popover remains open when one bubbling SVG-path click reaches document", () => {
   const runtime = createMusicRuntime();
   vm.runInNewContext(script, { ...runtime, fetch: async () => ({ ok: false }), navigator: {} });
 
@@ -185,18 +210,19 @@ test("WeChat popover remains open when a click bubbles from its SVG path", () =>
   icon.append(path);
   runtime.wechatTrigger.append(icon);
 
-  runtime.wechatTrigger.dispatch("click", { target: path });
-  runtime.document.dispatch("click", { target: path });
+  path.dispatchEvent({ type: "click", bubbles: true });
 
   assert.equal(runtime.wechatPopover.hidden, false);
 });
 
-test("WeChat popover closes when a click bubbles from outside its trigger", () => {
+test("WeChat popover closes when one bubbling click comes from outside its trigger", () => {
   const runtime = createMusicRuntime();
   vm.runInNewContext(script, { ...runtime, fetch: async () => ({ ok: false }), navigator: {} });
 
-  runtime.wechatTrigger.dispatch("click");
-  runtime.document.dispatch("click", { target: {} });
+  runtime.wechatTrigger.dispatchEvent({ type: "click", bubbles: true });
+  const outside = new runtime.wechatTrigger.constructor();
+  outside.parent = runtime.document;
+  outside.dispatchEvent({ type: "click", bubbles: true });
 
   assert.equal(runtime.wechatPopover.hidden, true);
 });

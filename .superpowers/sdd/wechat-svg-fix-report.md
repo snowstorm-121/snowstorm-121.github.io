@@ -15,3 +15,9 @@
 ## Boundaries
 
 No music, layout, dependency, or audio files were changed.
+
+## Fake DOM follow-up
+
+- Replaced the two-step WeChat SVG test with one `path.dispatchEvent({ type: "click", bubbles: true })` call.
+- Extended the local Fake DOM only: appended children receive a `parent`; `dispatchEvent` walks that chain when `bubbles` is true and stops when `stopPropagation()` is called.
+- The outside-close regression likewise uses one bubbling dispatch from an unrelated FakeElement.
