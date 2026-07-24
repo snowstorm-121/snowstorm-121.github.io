@@ -7,7 +7,7 @@
   --accent: #d7b28a;
   --search-slot-height: 82px;
   --origin-stack-gap: 52px;
-  --quote-line-height: 1.6em;
+  --quote-line-height: clamp(28.8px, 3.68vw, 48px);
   --quote-slot-height: calc(2 * var(--quote-line-height));
 }
 

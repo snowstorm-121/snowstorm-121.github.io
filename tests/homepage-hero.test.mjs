@@ -81,6 +81,15 @@ test("origin fixes search and quote into separate geometry slots", () => {
   assert.match(styles, /--quote-slot-height:\s*calc\(2 \* var\(--quote-line-height\)\)/);
 });
 
+test("quote reserves two lines from the sentence line-height length", () => {
+  const lineHeight = styles.match(/--quote-line-height:\s*clamp\(([\d.]+)px,\s*[\d.]+vw,\s*([\d.]+)px\)/);
+  assert.ok(lineHeight, "quote line-height is a parseable responsive length");
+  assert.match(styles, /--quote-slot-height:\s*calc\(2 \* var\(--quote-line-height\)\)/);
+  assert.match(styles, /\.sentence\s*\{[\s\S]*line-height:\s*var\(--quote-line-height\)/);
+  assert.ok(Number(lineHeight[1]) * 2 >= 2 * 18 * 1.6);
+  assert.ok(Number(lineHeight[2]) * 2 >= 2 * 30 * 1.6);
+});
+
 test("quote preserves delete-before-type and reduced-motion static rendering", () => {
   assert.match(script, /async function deleteVisibleLines\(run\)/);
   assert.match(script, /await deleteLine\(lineNodes\[lineIndex\], run\)/);
