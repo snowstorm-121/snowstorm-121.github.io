@@ -71,3 +71,28 @@ test("homepage honors reduced motion for scrolling, animations, and transitions"
   assert.match(reducedMotion, /transition:\s*none/);
   assert.match(reducedMotion, /\.caret/);
 });
+
+test("origin fixes search and quote into separate geometry slots", () => {
+  assert.match(html, /id="origin-search-slot"[\s\S]*id="hero-search-form"/);
+  assert.match(html, /id="origin-quote-slot"[\s\S]*class="sentence-line"[\s\S]*class="sentence-line"/);
+  assert.match(styles, /\.origin-story\s*\{[\s\S]*grid-template-rows:\s*var\(--search-slot-height\) var\(--origin-stack-gap\) var\(--quote-slot-height\)/);
+  assert.match(styles, /#origin-search-slot\s*\{[\s\S]*grid-row:\s*1/);
+  assert.match(styles, /#origin-quote-slot\s*\{[\s\S]*grid-row:\s*3[\s\S]*height:\s*var\(--quote-slot-height\)/);
+  assert.match(styles, /--quote-slot-height:\s*calc\(2 \* var\(--quote-line-height\)\)/);
+});
+
+test("quote preserves delete-before-type and reduced-motion static rendering", () => {
+  assert.match(script, /async function deleteVisibleLines\(run\)/);
+  assert.match(script, /await deleteLine\(lineNodes\[lineIndex\], run\)/);
+  assert.match(script, /async function play\(run\)[\s\S]*deleteVisibleLines\(run\)[\s\S]*phraseIndex = \(phraseIndex \+ 1\)/);
+  assert.match(script, /function renderStaticPhrase\(\)/);
+  assert.match(script, /if \(reduceMotionQuery\.matches\)[\s\S]*scheduleStaticPhrase\(quoteRun\)/);
+});
+
+test("origin keeps the existing Google form and reports an empty submit accessibly", () => {
+  assert.match(html, /id="hero-search-form"[^>]*action="https:\/\/www\.google\.com\/search"/);
+  assert.match(html, /id="hero-search-input"[^>]*name="q"/);
+  assert.match(html, /id="search-status"[^>]*aria-live="polite"/);
+  assert.match(script, /heroSearchForm\.addEventListener\("submit"/);
+  assert.match(script, /heroSearchInput\.setAttribute\("aria-invalid", "true"\)/);
+});

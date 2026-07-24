@@ -24,31 +24,46 @@
   <main>
     <section class="story-section origin" id="origin" aria-labelledby="origin-title">
       <div class="section-inner origin-content">
-        <p class="eyebrow">PERSONAL ARCHIVE / 121</p>
-        <h1 id="origin-title">STILL, I GO ON</h1>
-        <form id="hero-search-form" class="hero-search" action="https://www.google.com/search" method="get" target="_blank">
-          <label class="sr-only" for="hero-search-input">Google 搜索</label>
-          <span class="hero-search-label">SEARCH</span>
-          <input id="hero-search-input" name="q" type="search" placeholder="Google 搜索…" autocomplete="off">
-          <button type="submit" aria-label="搜索"><span aria-hidden="true">⌕</span></button>
-        </form>
-        <div class="origin-quote" aria-label="人生短句">
-          <p class="eyebrow" id="quote-meta">NOTES ON LIFE · 01 / 10</p>
-          <p class="sentence" id="sentence">
-            <span class="sentence-line" data-line="0"></span>
-            <span class="sentence-line" data-line="1"></span>
-          </p>
-          <div class="quote-progress" id="quote-progress" aria-label="文案播放进度"></div>
+        <div class="origin-declaration">
+          <p class="eyebrow">PERSONAL ARCHIVE / 121</p>
+          <h1 id="origin-title">STILL, I GO ON</h1>
+          <p>把每一段迟疑与抵达，收进这一页安静的记录。</p>
         </div>
+        <div class="origin-story">
+          <div id="origin-search-slot">
+            <form id="hero-search-form" class="hero-search" action="https://www.google.com/search" method="get" target="_blank">
+              <label class="sr-only" for="hero-search-input">Google 搜索</label>
+              <span class="hero-search-label">SEARCH</span>
+              <input id="hero-search-input" name="q" type="search" placeholder="Google 搜索…" autocomplete="off">
+              <button type="submit" aria-label="搜索"><span aria-hidden="true">⌕</span></button>
+            </form>
+            <p id="search-status" aria-live="polite"></p>
+          </div>
+          <div class="origin-quote-status" aria-hidden="true">
+            <p class="eyebrow" id="quote-meta">NOTES ON LIFE · 01 / 10</p>
+            <div class="quote-progress" id="quote-progress"></div>
+          </div>
+          <div id="origin-quote-slot" aria-label="人生短句">
+            <p class="sentence" id="sentence">
+              <span class="sentence-line" data-line="0"></span>
+              <span class="sentence-line" data-line="1"></span>
+            </p>
+          </div>
+        </div>
+        <button id="moon-ripple" type="button" aria-label="触发月光涟漪"><span aria-hidden="true"></span></button>
       </div>
     </section>
 
     <section class="story-section identity" id="identity" aria-labelledby="identity-title">
       <div class="section-inner identity-grid">
-        <img class="profile-image" src="./assets/homepage/profile-coast-backview.png" alt="SNOWSTORM 在海岸的背影">
-        <div>
+        <article class="identity-panel profile-panel">
+          <img class="profile-image" src="./assets/homepage/profile-coast-backview.png" alt="SNOWSTORM 在海岸的背影">
+          <p>SNOWSTORM</p>
+        </article>
+        <div class="identity-panel profile-copy">
           <p class="eyebrow">PROFILE / EDUCATION</p>
           <h2 id="identity-title">向海而行，向未知求索</h2>
+          <p>在人工智能与真实世界之间，持续学习、记录，并把下一步走得更清醒一些。</p>
           <div class="education-list">
             <article class="education-entry">
               <p class="education-period">2022—2026 · ARTIFICIAL INTELLIGENCE</p>

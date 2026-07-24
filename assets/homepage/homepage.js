@@ -25,6 +25,10 @@ const wechatTrigger = document.querySelector("#wechat-trigger");
 const wechatPopover = document.querySelector("#wechat-popover");
 const closeWechat = wechatPopover.querySelector("button");
 const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+const heroSearchForm = document.querySelector("#hero-search-form");
+const heroSearchInput = document.querySelector("#hero-search-input");
+const searchStatus = document.querySelector("#search-status");
+const moonRipple = document.querySelector("#moon-ripple");
 
 let trackIndex = 0;
 let lyricLines = [];
@@ -136,8 +140,25 @@ musicPrevious.addEventListener("click", () => void selectTrack(trackIndex - 1));
 musicNext.addEventListener("click", () => void selectTrack(trackIndex + 1));
 wechatTrigger.addEventListener("click", () => togglePanel(wechatTrigger, wechatPopover));
 closeWechat.addEventListener("click", () => togglePanel(wechatTrigger, wechatPopover));
+heroSearchForm.addEventListener("submit", (event) => {
+  if (heroSearchInput.value.trim()) {
+    heroSearchInput.removeAttribute("aria-invalid");
+    searchStatus.textContent = "";
+    return;
+  }
+  event.preventDefault();
+  heroSearchInput.setAttribute("aria-invalid", "true");
+  searchStatus.textContent = "请输入搜索内容。";
+  heroSearchInput.focus();
+});
+moonRipple.addEventListener("click", () => {
+  moonRipple.classList.remove("is-rippling");
+  void moonRipple.offsetWidth;
+  moonRipple.classList.add("is-rippling");
+});
+moonRipple.addEventListener("animationend", () => moonRipple.classList.remove("is-rippling"));
 
-const PHRASES = [
+const phrases = [
   { tone: "NOTES ON LIFE", lines: ["人生并不总在向前，", "许多看似停滞的时刻，也在悄然校正方向。"] },
   { tone: "KEEP MOVING", lines: ["真正的勇气，不是忽略代价，", "而是在看清代价之后，仍愿意承担。"] },
   { tone: "NOTES ON LIFE", lines: ["失败很少给出答案，", "却会逐渐排除那些并不适合的道路。"] },
@@ -156,7 +177,7 @@ const quoteMeta = document.querySelector("#quote-meta");
 const quoteProgress = document.querySelector("#quote-progress");
 const caret = document.createElement("span");
 caret.className = "caret";
-const marks = PHRASES.map(() => {
+const marks = phrases.map(() => {
   const mark = document.createElement("span");
   quoteProgress.append(mark);
   return mark;
@@ -168,8 +189,8 @@ const wait = (duration) => new Promise((resolve) => { quoteTimer = window.setTim
 const isQuoteRunCurrent = (run) => run === quoteRun && !reduceMotionQuery.matches;
 
 function updateQuoteMeta() {
-  const current = PHRASES[phraseIndex];
-  quoteMeta.textContent = `${current.tone} · ${String(phraseIndex + 1).padStart(2, "0")} / ${PHRASES.length}`;
+  const current = phrases[phraseIndex];
+  quoteMeta.textContent = `${current.tone} · ${String(phraseIndex + 1).padStart(2, "0")} / ${phrases.length}`;
   marks.forEach((mark, index) => mark.classList.toggle("active", index === phraseIndex));
 }
 
@@ -204,8 +225,16 @@ async function deleteLine(lineNode, run) {
   return true;
 }
 
+async function deleteVisibleLines(run) {
+  for (let lineIndex = lineNodes.length - 1; lineIndex >= 0; lineIndex -= 1) {
+    if (!(await deleteLine(lineNodes[lineIndex], run))) return false;
+    if (lineIndex) await wait(TIMING.deleteLineBreak);
+  }
+  return true;
+}
+
 function renderStaticPhrase() {
-  const current = PHRASES[phraseIndex];
+  const current = phrases[phraseIndex];
   lineNodes.forEach((lineNode, index) => { lineNode.textContent = current.lines[index] ?? ""; });
   updateQuoteMeta();
 }
@@ -214,15 +243,15 @@ function scheduleStaticPhrase(run) {
   renderStaticPhrase();
   quoteTimer = window.setTimeout(() => {
     if (run !== quoteRun || !reduceMotionQuery.matches) return;
-    phraseIndex = (phraseIndex + 1) % PHRASES.length;
+    phraseIndex = (phraseIndex + 1) % phrases.length;
     scheduleStaticPhrase(run);
   }, TIMING.hold);
 }
 
-async function playQuotes(run) {
+async function play(run) {
   while (run === quoteRun && !reduceMotionQuery.matches) {
-    const current = PHRASES[phraseIndex];
-    lineNodes.forEach((lineNode) => { lineNode.textContent = ""; });
+    if (!(await deleteVisibleLines(run))) return;
+    const current = phrases[phraseIndex];
     updateQuoteMeta();
     await wait(TIMING.between);
     for (let index = 0; index < current.lines.length; index += 1) {
@@ -230,11 +259,7 @@ async function playQuotes(run) {
       if (!(await typeLine(lineNodes[index], current.lines[index], run))) return;
     }
     await wait(TIMING.hold);
-    for (let index = current.lines.length - 1; index >= 0; index -= 1) {
-      if (!(await deleteLine(lineNodes[index], run))) return;
-      if (index) await wait(TIMING.deleteLineBreak);
-    }
-    phraseIndex = (phraseIndex + 1) % PHRASES.length;
+    phraseIndex = (phraseIndex + 1) % phrases.length;
   }
 }
 
@@ -245,7 +270,7 @@ function syncQuoteMotion() {
     scheduleStaticPhrase(quoteRun);
     return;
   }
-  void playQuotes(quoteRun);
+  void play(quoteRun);
 }
 
 reduceMotionQuery.addEventListener("change", syncQuoteMotion);
