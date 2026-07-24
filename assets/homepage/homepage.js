@@ -1,6 +1,6 @@
 const profileAudio = document.querySelector("#profileAudio");
 
-const TRACKS = [
+const TRACKS = Object.freeze([
   { title: "The Nights", artist: "Avicii", mood: "OPEN ROAD", accent: "#8fc5d6", src: "./assets/music/the-nights-avicii.mp3", lyrics: "assets/music/lyrics/the-nights-avicii.lrc", cover: "assets/music/covers/the-nights.png" },
   { title: "稻香", artist: "周杰伦", mood: "SUNLIT", accent: "#e4bb83", src: "./assets/music/daoxiang-jay-chou.mp3", lyrics: "assets/music/lyrics/daoxiang-jay-chou.lrc", cover: "assets/music/covers/daoxiang.png" },
   { title: "后来", artist: "刘若英", mood: "AFTERGLOW", accent: "#b38b9f", src: "./assets/music/houlai-rene-liu.mp3", lyrics: "assets/music/lyrics/houlai-rene-liu.lrc", cover: "assets/music/covers/houlai.png" },
@@ -10,17 +10,25 @@ const TRACKS = [
   { title: "倔强", artist: "五月天", mood: "YOUTH", accent: "#d49a82", src: "./assets/music/stubborn-mayday.mp3", lyrics: "assets/music/lyrics/stubborn-mayday.lrc", cover: "assets/music/covers/stubborn.png" },
   { title: "Counting Stars", artist: "OneRepublic", mood: "MOTION", accent: "#a7b9e7", src: "./assets/music/counting-stars-onerepublic.mp3", lyrics: "assets/music/lyrics/counting-stars-onerepublic.lrc", cover: "assets/music/covers/counting-stars.png" },
   { title: "好久不见", artist: "陈奕迅", mood: "MELANCHOLY", accent: "#8d89b8", src: "./assets/music/long-time-no-see-eason-chan.mp3", lyrics: "assets/music/lyrics/long-time-no-see-eason-chan.lrc", cover: "assets/music/covers/long-time-no-see.png" },
-];
+].map((track) => Object.freeze(track)));
 
-const musicDock = document.querySelector("#music-dock button");
+const musicDock = document.querySelector("#music-dock");
+const musicDockCover = document.querySelector("#music-dock-cover");
+const musicDockTitle = document.querySelector("#music-dock-title");
+const musicDockPlay = document.querySelector("#music-dock-play");
+const musicDockExpand = document.querySelector("#music-dock-expand");
 const musicPanel = document.querySelector("#music-panel");
+const musicClose = document.querySelector("#music-close");
 const musicTrackList = document.querySelector("#music-track-list");
 const musicCover = document.querySelector("#music-cover");
 const musicNowPlaying = document.querySelector("#music-now-playing");
-const musicLyrics = document.querySelector("#music-lyrics");
 const musicPrevious = document.querySelector("#music-previous");
 const musicPlay = document.querySelector("#music-play");
 const musicNext = document.querySelector("#music-next");
+const musicProgress = document.querySelector("#music-progress");
+const previousLyric = document.querySelector("#previous-lyric");
+const currentLyric = document.querySelector("#current-lyric");
+const nextLyric = document.querySelector("#next-lyric");
 const wechatTrigger = document.querySelector("#wechat-trigger");
 const wechatPopover = document.querySelector("#wechat-popover");
 const wechatCopy = document.querySelector("#wechat-copy");
@@ -34,11 +42,20 @@ const moonRipple = document.querySelector("#moon-ripple");
 
 let trackIndex = 0;
 let lyricLines = [];
+let lyricLoad = 0;
+let renderedLyricKey = "";
 const lyricCache = new Map();
 
-function togglePanel(button, panel) {
-  panel.hidden = !panel.hidden;
-  button.setAttribute("aria-expanded", String(!panel.hidden));
+function openMusicPanel() {
+  musicPanel.hidden = false;
+  musicDockExpand.setAttribute("aria-expanded", "true");
+  musicClose.focus();
+}
+
+function closeMusicPanel({ returnFocus }) {
+  musicPanel.hidden = true;
+  musicDockExpand.setAttribute("aria-expanded", "false");
+  if (returnFocus) musicDockExpand.focus();
 }
 
 function setArchivePreview(card, expanded) {
@@ -65,10 +82,15 @@ function renderTrack() {
   const track = TRACKS[trackIndex];
   musicCover.src = track.cover;
   musicCover.alt = `${track.title} — ${track.artist} 的封面`;
+  musicDockCover.src = track.cover;
+  musicDockTitle.textContent = `${track.title} · ${track.artist}`;
   musicNowPlaying.textContent = `${track.title} — ${track.artist}`;
-  musicPlay.textContent = profileAudio.paused ? "播放" : "暂停";
-  musicPlay.setAttribute("aria-pressed", String(!profileAudio.paused));
-  musicPlay.setAttribute("aria-label", `${profileAudio.paused ? "播放" : "暂停"} ${track.title}`);
+  const action = profileAudio.paused ? "播放" : "暂停";
+  [musicPlay, musicDockPlay].forEach((button) => {
+    button.textContent = action;
+    button.setAttribute("aria-pressed", String(!profileAudio.paused));
+    button.setAttribute("aria-label", `${action} ${track.title}`);
+  });
   [...musicTrackList.children].forEach((button, index) => button.setAttribute("aria-current", String(index === trackIndex)));
 }
 
@@ -81,19 +103,36 @@ function parseLrc(source) {
   }).sort((a, b) => a.time - b.time);
 }
 
-function renderLyricStatus(track, message) {
-  musicLyrics.textContent = `${track.title} · ${message}`;
+function renderLyricLines(index) {
+  const key = `${trackIndex}:${index}`;
+  if (key === renderedLyricKey) return;
+  renderedLyricKey = key;
+  previousLyric.textContent = lyricLines[index - 1]?.text ?? "—";
+  currentLyric.textContent = lyricLines[index]?.text ?? "等待歌词开始";
+  nextLyric.textContent = lyricLines[index + 1]?.text ?? "—";
+}
+
+function renderLyricStatus(message) {
+  const key = `${trackIndex}:status:${message}`;
+  if (key === renderedLyricKey) return;
+  renderedLyricKey = key;
+  previousLyric.textContent = "—";
+  currentLyric.textContent = message;
+  nextLyric.textContent = "—";
 }
 
 function syncLyrics() {
-  const track = TRACKS[trackIndex];
-  const current = lyricLines.reduce((last, line) => line.time <= profileAudio.currentTime ? line : last, lyricLines[0]);
-  if (current) musicLyrics.textContent = `${track.title} · ${current.text}`;
+  const activeIndex = lyricLines.reduce((last, line, index) => line.time <= profileAudio.currentTime ? index : last, -1);
+  renderLyricLines(activeIndex);
+  if (Number.isFinite(profileAudio.duration) && profileAudio.duration > 0) {
+    musicProgress.value = profileAudio.currentTime / profileAudio.duration;
+  }
 }
 
 async function loadLyrics(track) {
+  const request = ++lyricLoad;
   lyricLines = [];
-  renderLyricStatus(track, "加载歌词…");
+  renderLyricStatus("加载歌词…");
   try {
     let lines = lyricCache.get(track.lyrics);
     if (!lines) {
@@ -102,23 +141,26 @@ async function loadLyrics(track) {
       lines = parseLrc(await response.text());
       lyricCache.set(track.lyrics, lines);
     }
-    if (track !== TRACKS[trackIndex]) return;
+    if (request !== lyricLoad) return;
     lyricLines = lines;
-    if (!lyricLines.length) return renderLyricStatus(track, "歌词暂不可用");
+    if (!lyricLines.length) return renderLyricStatus("歌词暂不可用");
     syncLyrics();
   } catch {
-    if (track === TRACKS[trackIndex]) renderLyricStatus(track, "歌词暂不可用");
+    if (request === lyricLoad) renderLyricStatus("歌词暂不可用");
   }
 }
 
-function loadTrack(index) {
+function loadTrack(index, { autoplay = false } = {}) {
   trackIndex = (index + TRACKS.length) % TRACKS.length;
   const track = TRACKS[trackIndex];
   profileAudio.pause();
   profileAudio.src = track.src;
   profileAudio.load();
+  musicProgress.value = 0;
+  renderedLyricKey = "";
   void loadLyrics(track);
   renderTrack();
+  if (autoplay) void playCurrentTrack();
 }
 
 async function playCurrentTrack() {
@@ -126,13 +168,13 @@ async function playCurrentTrack() {
   try {
     await profileAudio.play();
   } catch {
-    renderLyricStatus(TRACKS[trackIndex], "此浏览器无法播放");
+    renderLyricStatus("此浏览器无法播放");
+    renderTrack();
   }
 }
 
-async function selectTrack(index) {
-  loadTrack(index);
-  await playCurrentTrack();
+function selectTrack(index) {
+  loadTrack(index, { autoplay: true });
 }
 
 async function toggleNativePlayback() {
@@ -156,8 +198,11 @@ profileAudio.addEventListener("play", renderTrack);
 profileAudio.addEventListener("pause", renderTrack);
 profileAudio.addEventListener("timeupdate", syncLyrics);
 profileAudio.addEventListener("ended", () => void selectTrack(trackIndex + 1));
-musicDock.addEventListener("click", () => togglePanel(musicDock, musicPanel));
+profileAudio.addEventListener("loadedmetadata", syncLyrics);
+musicDockExpand.addEventListener("click", openMusicPanel);
+musicClose.addEventListener("click", () => closeMusicPanel({ returnFocus: true }));
 musicPlay.addEventListener("click", () => void toggleNativePlayback());
+musicDockPlay.addEventListener("click", () => void toggleNativePlayback());
 musicPrevious.addEventListener("click", () => void selectTrack(trackIndex - 1));
 musicNext.addEventListener("click", () => void selectTrack(trackIndex + 1));
 archiveCards.forEach((card) => {
@@ -180,6 +225,9 @@ wechatCopy.addEventListener("click", async () => {
   }
 });
 document.addEventListener("click", (event) => {
+  if (!musicPanel.hidden && !musicPanel.contains(event.target) && !musicDock.contains(event.target)) {
+    closeMusicPanel({ returnFocus: false });
+  }
   if (!wechatPopover.hidden && !wechatPopover.contains(event.target) && event.target !== wechatTrigger) {
     closeWeChatPopover({ returnFocus: true });
   }
@@ -194,6 +242,7 @@ document.addEventListener("keydown", (event) => {
       wechatCopy.focus();
     }
   }
+  if (event.key === "Escape" && !musicPanel.hidden) closeMusicPanel({ returnFocus: true });
   if (event.key === "Escape" && !wechatPopover.hidden) closeWeChatPopover({ returnFocus: true });
 });
 heroSearchForm.addEventListener("submit", (event) => {
@@ -331,5 +380,5 @@ function syncQuoteMotion() {
 
 reduceMotionQuery.addEventListener("change", syncQuoteMotion);
 createTrackList();
-renderTrack();
+loadTrack(0, { autoplay: false });
 syncQuoteMotion();

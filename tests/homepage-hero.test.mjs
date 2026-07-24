@@ -41,6 +41,26 @@ test("music panel retains all nine local tracks and native playback controls", (
   assert.match(script, /trackButton\.dataset\.trackIndex/);
 });
 
+test("music Dock uses the sole native audio and all local track resources", async () => {
+  assert.equal((html.match(/<audio\s+id="profileAudio"/g) ?? []).length, 1);
+  assert.doesNotMatch(script, /new Audio\s*\(/);
+  assert.equal((script.match(/lyrics:\s*"assets\/music\/lyrics\/[^\"]+\.lrc"/g) ?? []).length, 9);
+  const covers = script.match(/cover:\s*"assets\/music\/covers\/[^\"]+\.png"/g) ?? [];
+  assert.equal(covers.length, 9);
+  assert.equal(new Set(covers).size, 9);
+  assert.match(html, /id="music-dock"[\s\S]*aria-controls="music-panel"/);
+  assert.match(html, /id="current-lyric"[^>]*aria-live="polite"/);
+});
+
+test("music panel has deterministic close and lyric interfaces", () => {
+  assert.match(script, /function openMusicPanel\(\)/);
+  assert.match(script, /function closeMusicPanel\(\{ returnFocus \}\)/);
+  assert.match(script, /function parseLrc\(source\)/);
+  assert.match(script, /function syncLyrics\(\)/);
+  assert.match(script, /profileAudio\.addEventListener\("timeupdate", syncLyrics\)/);
+  assert.match(script, /profileAudio\.addEventListener\("ended"/);
+});
+
 test("music now-playing surface renders the selected local cover", () => {
   assert.match(html, /<img[^>]+id="music-cover"[^>]+src="assets\/music\/covers\/the-nights\.png"/);
   assert.match(html, /id="music-cover"[^>]+alt="The Nights — Avicii 的封面"/);
