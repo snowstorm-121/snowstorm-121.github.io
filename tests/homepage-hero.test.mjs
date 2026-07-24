@@ -41,6 +41,13 @@ test("music panel retains all nine local tracks and native playback controls", (
   assert.match(script, /trackButton\.dataset\.trackIndex/);
 });
 
+test("music now-playing surface renders the selected local cover", () => {
+  assert.match(html, /<img[^>]+id="music-cover"[^>]+src="assets\/music\/covers\/the-nights\.png"/);
+  assert.match(html, /id="music-cover"[^>]+alt="The Nights — Avicii 的封面"/);
+  assert.match(script, /musicCover\.src = track\.cover/);
+  assert.match(script, /musicCover\.alt = `\$\{track\.title\} — \$\{track\.artist\} 的封面`/);
+});
+
 test("origin restores the ten original quotes with typing and deletion", () => {
   const phraseEntries = script.match(/\{ tone: ".*?", lines: \[".*?", ".*?"\] \}/g) ?? [];
   assert.equal(phraseEntries.length, 10);

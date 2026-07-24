@@ -131,6 +131,7 @@ h3 { margin: 18px 0 12px; font-size: 30px; }
 #music-panel { right: 22px; bottom: 74px; width: min(340px, calc(100vw - 44px)); }
 #music-panel p { margin: 0; }
 .music-panel-kicker { color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
+#music-cover { display: block; width: 82px; aspect-ratio: 1; margin-top: 14px; object-fit: cover; border: 1px solid var(--line); }
 #music-now-playing { margin-top: 8px; color: var(--muted); font-size: 13px; }
 .music-transport { display: flex; gap: 8px; margin-top: 14px; }
 .music-transport button, .music-track { border: 1px solid var(--line); color: var(--ink); background: rgba(255, 255, 255, .06); cursor: pointer; }

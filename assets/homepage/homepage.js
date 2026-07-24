@@ -15,6 +15,7 @@ const TRACKS = [
 const musicDock = document.querySelector("#music-dock button");
 const musicPanel = document.querySelector("#music-panel");
 const musicTrackList = document.querySelector("#music-track-list");
+const musicCover = document.querySelector("#music-cover");
 const musicNowPlaying = document.querySelector("#music-now-playing");
 const musicLyrics = document.querySelector("#music-lyrics");
 const musicPrevious = document.querySelector("#music-previous");
@@ -36,6 +37,8 @@ function togglePanel(button, panel) {
 
 function renderTrack() {
   const track = TRACKS[trackIndex];
+  musicCover.src = track.cover;
+  musicCover.alt = `${track.title} — ${track.artist} 的封面`;
   musicNowPlaying.textContent = `${track.title} — ${track.artist}`;
   musicPlay.textContent = profileAudio.paused ? "播放" : "暂停";
   musicPlay.setAttribute("aria-pressed", String(!profileAudio.paused));
