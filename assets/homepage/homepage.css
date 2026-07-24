@@ -61,6 +61,9 @@ button, input { font: inherit; }
 .site-nav, .social-links { display: flex; gap: clamp(14px, 2.5vw, 34px); }
 .site-nav { color: var(--muted); }
 .site-nav a:hover, .site-nav a:focus-visible { color: var(--ink); }
+.section-rail { position: fixed; top: 50%; right: clamp(12px, 2vw, 30px); z-index: 3; display: grid; gap: 8px; transform: translateY(-50%); }
+.section-rail a { display: grid; width: 28px; height: 28px; place-items: center; border: 1px solid var(--line); border-radius: 50%; color: var(--muted); font-size: 9px; font-weight: 700; background: rgba(6, 17, 31, .68); }
+.section-rail a[aria-current="page"] { border-color: var(--accent); color: var(--accent); }
 
 .story-section {
   display: grid;
@@ -142,6 +145,10 @@ h3 { margin: 18px 0 12px; font-size: 30px; }
 
 .identity-grid { display: grid; grid-template-columns: minmax(220px, .72fr) minmax(0, 1.28fr); gap: clamp(28px, 5vw, 72px); align-items: center; }
 .identity-panel { padding: clamp(22px, 4vw, 42px); border: 1px solid var(--line); background: rgba(9, 24, 43, .56); box-shadow: 0 18px 52px rgba(0, 0, 0, .16); backdrop-filter: blur(18px); }
+:is(.pointer-glass, .archive-card) { --pointer-x: 50%; --pointer-y: 50%; --tilt-x: 0deg; --tilt-y: 0deg; position: relative; overflow: hidden; transition: transform .24s ease; }
+:is(.pointer-glass, .archive-card)::after { position: absolute; inset: 0; pointer-events: none; content: ""; opacity: 0; background: radial-gradient(circle at var(--pointer-x) var(--pointer-y), rgba(143, 197, 214, .15), transparent 42%); transition: opacity .24s ease; }
+html[data-pointer-glass="true"] :is(.pointer-glass, .archive-card) { transform: perspective(700px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y)); }
+html[data-pointer-glass="true"] :is(.pointer-glass, .archive-card)::after { opacity: 1; }
 .profile-panel { text-align: center; }
 .profile-panel > p { margin: 18px 0 0; color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .16em; }
 .profile-image { display: block; width: 100%; max-width: 370px; aspect-ratio: 1; margin: auto; object-fit: cover; border: 1px solid var(--line); border-radius: 50%; }
@@ -177,6 +184,7 @@ h3 { margin: 18px 0 12px; font-size: 30px; }
 #music-dock-title { min-width: 0; margin: 0; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 #music-dock button, .music-transport button, .music-track, #music-close { border: 1px solid var(--line); color: var(--ink); background: rgba(255, 255, 255, .06); cursor: pointer; }
 #music-dock button { min-height: 38px; padding: 7px 10px; border-radius: 10px; }
+#music-dock button[aria-pressed="true"], .music-transport button[aria-pressed="true"] { border-color: #8fc5d6; color: #8fc5d6; background: rgba(143, 197, 214, .12); }
 #music-dock-expand { font-size: 0; }
 #music-dock-expand::after { content: "⌃"; font-size: 18px; }
 #music-panel, #wechat-popover { position: fixed; z-index: 5; padding: 18px; border: 1px solid var(--line); background: #0a1728; box-shadow: 0 18px 48px rgba(0, 0, 0, .35); }
@@ -203,6 +211,8 @@ h3 { margin: 18px 0 12px; font-size: 30px; }
 #wechat-popover p + p { margin-top: 10px; color: var(--muted); }
 .wechat-actions { display: flex; gap: 8px; margin-top: 16px; }
 .wechat-actions button { padding: 8px 10px; }
+html[data-idle="true"] .page-backdrop { animation: idle-breathe 8s ease-in-out infinite alternate; }
+@keyframes idle-breathe { from { opacity: 1; } to { opacity: .9; } }
 
 a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid rgba(219, 243, 246, .94); outline-offset: 3px; }
 a:active, button:active { transform: translateY(1px); }
@@ -223,6 +233,7 @@ a:active, button:active { transform: translateY(1px); }
   }
   .site-header { min-height: 58px; }
   .site-nav { gap: 12px; font-size: 10px; }
+  .section-rail { display: none; }
   .story-section { min-height: auto; padding-block: 84px; }
   .identity-grid, .archive-grid { grid-template-columns: 1fr; }
   .profile-image { max-width: 250px; }
@@ -241,4 +252,5 @@ a:active, button:active { transform: translateY(1px); }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .caret { display: none; }
+  .pointer-glass, .archive-card, .story-section, #moon-ripple.is-rippling::after, .spectrum-bar, .idle-breathe { transform: none !important; }
 }

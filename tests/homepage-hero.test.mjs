@@ -93,6 +93,7 @@ function createMusicRuntime() {
       this.children = [];
       this.parent = null;
       this.dataset = {};
+      this.style = { setProperty() {}, removeProperty() {} };
       this.hidden = false;
       this.listeners = new Map();
       this.classList = { add() {}, remove() {}, toggle() {}, contains() { return false; } };
@@ -121,6 +122,7 @@ function createMusicRuntime() {
       }
     }
     setAttribute(name, value) { this.attributes.set(name, String(value)); }
+    getAttribute(name) { return this.attributes.get(name) ?? null; }
     removeAttribute(name) { this.attributes.delete(name); }
     focus() { document.activeElement = this; }
     contains(target) { return target === this || this.children.some((child) => child.contains(target)); }
@@ -147,6 +149,7 @@ function createMusicRuntime() {
 
   const document = {
     activeElement: null,
+    documentElement: new FakeElement("html"),
     listeners: documentListeners,
     querySelector(selector) { return elements.get(selector) ?? new FakeElement(); },
     querySelectorAll(selector) {
@@ -344,4 +347,22 @@ test("WeChat copy reports manual copy when the clipboard API is unavailable or r
   assert.match(script, /wechatCopy\.textContent = "请手动复制";\s*return;/);
   assert.match(script, /await navigator\.clipboard\.writeText\(wechatId\)/);
   assert.match(script, /catch \{\s*wechatCopy\.textContent = "请手动复制";/);
+});
+
+test("motion is capability-gated and has a complete reduced-motion fallback", () => {
+  assert.match(script, /const reduceMotionQuery = window\.matchMedia\("\(prefers-reduced-motion: reduce\)"\)/);
+  assert.match(script, /function syncMotionPreferences\(\)/);
+  assert.match(script, /if \(reduceMotionQuery\.matches\) return;/);
+  assert.match(script, /window\.matchMedia\("\(hover: hover\) and \(pointer: fine\)"\)/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*scroll-behavior:\s*auto/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation:\s*none/);
+});
+
+test("navigation, idle state, and close controls remain keyboard reachable", () => {
+  assert.match(script, /function setupSectionObserver\(\)/);
+  assert.match(script, /document\.documentElement\.dataset\.activeSection/);
+  assert.match(script, /window\.setTimeout\([\s\S]*20000/);
+  assert.match(script, /event\.key === "Escape"/);
+  assert.match(styles, /:focus-visible\s*\{/);
+  assert.match(styles, /@media \(max-width: 720px\)[\s\S]*\.section-rail\s*\{[\s\S]*display:\s*none/);
 });

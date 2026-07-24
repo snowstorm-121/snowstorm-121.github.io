@@ -13,13 +13,20 @@
   <div class="page-backdrop" aria-hidden="true"></div>
 
   <header class="site-header">
-    <a class="brand" href="#origin">SNOWSTORM / PERSONAL ARCHIVE</a>
+    <a class="brand" href="#origin" data-section-link>SNOWSTORM / PERSONAL ARCHIVE</a>
     <nav class="site-nav" aria-label="主页分区">
-      <a href="#identity">身份</a>
-      <a href="#archive">归档</a>
-      <a href="#connection">联系</a>
+      <a href="#identity" data-section-link>身份</a>
+      <a href="#archive" data-section-link>归档</a>
+      <a href="#connection" data-section-link>联系</a>
     </nav>
   </header>
+
+  <nav class="section-rail" aria-label="章节进度">
+    <a href="#origin" data-section-link aria-label="起点">01</a>
+    <a href="#identity" data-section-link aria-label="身份">02</a>
+    <a href="#archive" data-section-link aria-label="归档">03</a>
+    <a href="#connection" data-section-link aria-label="联系">04</a>
+  </nav>
 
   <main>
     <section class="story-section origin" id="origin" aria-labelledby="origin-title">
@@ -56,11 +63,11 @@
 
     <section class="story-section identity" id="identity" aria-labelledby="identity-title">
       <div class="section-inner identity-grid">
-        <article class="identity-panel profile-panel">
+        <article class="identity-panel profile-panel pointer-glass">
           <img class="profile-image" src="./assets/homepage/profile-coast-backview.png" alt="SNOWSTORM 在海岸的背影">
           <p>SNOWSTORM</p>
         </article>
-        <div class="identity-panel profile-copy">
+        <div class="identity-panel profile-copy pointer-glass">
           <p class="eyebrow">PROFILE / EDUCATION</p>
           <h2 id="identity-title">向海而行，向未知求索</h2>
           <p>在人工智能与真实世界之间，持续学习、记录，并把下一步走得更清醒一些。</p>
@@ -140,7 +147,7 @@
   </main>
 
   <audio id="profileAudio" preload="metadata"></audio>
-  <aside id="music-dock" aria-label="音乐控制">
+  <aside id="music-dock" class="pointer-glass" aria-label="音乐控制">
     <img id="music-dock-cover" src="assets/music/covers/the-nights.png" alt="">
     <p id="music-dock-title">The Nights · Avicii</p>
     <button id="music-dock-play" type="button" aria-pressed="false">播放</button>

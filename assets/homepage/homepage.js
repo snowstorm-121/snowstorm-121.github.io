@@ -35,17 +35,97 @@ const wechatCopy = document.querySelector("#wechat-copy");
 const closeWechat = document.querySelector("#wechat-close");
 const archiveCards = document.querySelectorAll(".archive-card[data-preview]");
 const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+const pointerQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
 const heroSearchForm = document.querySelector("#hero-search-form");
 const heroSearchInput = document.querySelector("#hero-search-input");
 const searchStatus = document.querySelector("#search-status");
 const moonRipple = document.querySelector("#moon-ripple");
+const sectionLinks = document.querySelectorAll("[data-section-link]");
+const storySections = document.querySelectorAll(".story-section");
+const pointerGlassSurfaces = document.querySelectorAll(".pointer-glass, .archive-card");
 
 let trackIndex = 0;
 let lyricLines = [];
 let lyricLoad = 0;
 let lyricStatus = "";
 let renderedLyricKey = "";
+let renderedLyricAccentIndex = -1;
+let pointerGlassEnabled = false;
+let idleTimer;
 const lyricCache = new Map();
+const lyricAccents = ["#8fc5d6", "#d7b28a", "#9db5d4"];
+
+function resetPointerGlass() {
+  pointerGlassSurfaces.forEach((surface) => {
+    surface.style?.removeProperty("--pointer-x");
+    surface.style?.removeProperty("--pointer-y");
+    surface.style?.removeProperty("--tilt-x");
+    surface.style?.removeProperty("--tilt-y");
+  });
+}
+
+function syncMotionPreferences() {
+  const root = document.documentElement;
+  root.dataset.motion = reduceMotionQuery.matches ? "reduced" : "full";
+  root.dataset.pointerGlass = "false";
+  pointerGlassEnabled = false;
+  root.style?.removeProperty("--lyric-accent");
+  resetPointerGlass();
+  if (reduceMotionQuery.matches) return;
+  pointerGlassEnabled = pointerQuery.matches;
+  root.dataset.pointerGlass = String(pointerGlassEnabled);
+}
+
+function setupPointerGlass() {
+  pointerGlassSurfaces.forEach((surface) => {
+    surface.addEventListener("pointermove", (event) => {
+      if (!pointerGlassEnabled) return;
+      const bounds = surface.getBoundingClientRect();
+      const x = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
+      const y = Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height));
+      surface.style.setProperty("--pointer-x", `${x * 100}%`);
+      surface.style.setProperty("--pointer-y", `${y * 100}%`);
+      surface.style.setProperty("--tilt-x", `${(0.5 - y) * 4}deg`);
+      surface.style.setProperty("--tilt-y", `${(x - 0.5) * 4}deg`);
+    });
+    surface.addEventListener("pointerleave", resetPointerGlass);
+  });
+}
+
+function setActiveSection(id) {
+  document.documentElement.dataset.activeSection = id;
+  sectionLinks.forEach((link) => {
+    if (link.getAttribute("href") === `#${id}`) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
+}
+
+function setupSectionObserver() {
+  if (typeof IntersectionObserver !== "function") return;
+  const observer = new IntersectionObserver((entries) => {
+    const activeEntry = entries.filter((entry) => entry.isIntersecting)
+      .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0];
+    if (activeEntry) setActiveSection(activeEntry.target.id);
+  }, { rootMargin: "-35% 0px -45%", threshold: [0.1, 0.5, 0.9] });
+  storySections.forEach((section) => observer.observe(section));
+}
+
+function setIdleState(idle) {
+  document.documentElement.dataset.idle = String(idle);
+}
+
+function resetIdleTimer() {
+  window.clearTimeout(idleTimer);
+  setIdleState(false);
+  idleTimer = window.setTimeout(() => setIdleState(true), 20000);
+}
+
+function setupIdleTimer() {
+  ["pointerdown", "scroll", "touchstart", "keydown", "focusin"].forEach((eventName) => {
+    document.addEventListener(eventName, resetIdleTimer, { passive: eventName !== "keydown" && eventName !== "focusin" });
+  });
+  resetIdleTimer();
+}
 
 function openMusicPanel() {
   musicPanel.hidden = false;
@@ -65,6 +145,14 @@ function setArchivePreview(card, expanded) {
     archiveCard.classList.toggle("is-expanded", isExpanded);
     archiveCard.querySelector(".archive-preview-toggle").setAttribute("aria-expanded", String(isExpanded));
   });
+}
+
+function closeArchivePreview({ returnFocus }) {
+  const expandedCard = [...archiveCards].find((card) => card.classList.contains("is-expanded"));
+  if (!expandedCard) return false;
+  setArchivePreview(expandedCard, false);
+  if (returnFocus) expandedCard.querySelector(".archive-preview-toggle").focus();
+  return true;
 }
 
 function openWeChatPopover() {
@@ -111,6 +199,12 @@ function renderLyricLines(index) {
   previousLyric.textContent = lyricLines[index - 1]?.text ?? "—";
   currentLyric.textContent = lyricLines[index]?.text ?? "等待歌词开始";
   nextLyric.textContent = lyricLines[index + 1]?.text ?? "—";
+  if (index !== renderedLyricAccentIndex) {
+    renderedLyricAccentIndex = index;
+    if (!reduceMotionQuery.matches && index >= 0) {
+      document.documentElement.style.setProperty("--lyric-accent", lyricAccents[index % lyricAccents.length]);
+    }
+  }
 }
 
 function renderLyricStatus(message) {
@@ -255,8 +349,14 @@ document.addEventListener("keydown", (event) => {
       wechatCopy.focus();
     }
   }
-  if (event.key === "Escape" && !musicPanel.hidden) closeMusicPanel({ returnFocus: true });
-  if (event.key === "Escape" && !wechatPopover.hidden) closeWeChatPopover({ returnFocus: true });
+  if (event.key === "Escape") {
+    if (closeArchivePreview({ returnFocus: true })) return;
+    if (!wechatPopover.hidden) {
+      closeWeChatPopover({ returnFocus: true });
+      return;
+    }
+    if (!musicPanel.hidden) closeMusicPanel({ returnFocus: true });
+  }
 });
 heroSearchForm.addEventListener("submit", (event) => {
   if (heroSearchInput.value.trim()) {
@@ -270,6 +370,7 @@ heroSearchForm.addEventListener("submit", (event) => {
   heroSearchInput.focus();
 });
 moonRipple.addEventListener("click", () => {
+  if (reduceMotionQuery.matches) return;
   moonRipple.classList.remove("is-rippling");
   void moonRipple.offsetWidth;
   moonRipple.classList.add("is-rippling");
@@ -392,6 +493,12 @@ function syncQuoteMotion() {
 }
 
 reduceMotionQuery.addEventListener("change", syncQuoteMotion);
+reduceMotionQuery.addEventListener("change", syncMotionPreferences);
+pointerQuery.addEventListener("change", syncMotionPreferences);
 createTrackList();
 loadTrack(0, { autoplay: false });
 syncQuoteMotion();
+syncMotionPreferences();
+setupPointerGlass();
+setupSectionObserver();
+setupIdleTimer();
