@@ -52,7 +52,7 @@ function setArchivePreview(card, expanded) {
 function openWeChatPopover() {
   wechatPopover.hidden = false;
   wechatTrigger.setAttribute("aria-expanded", "true");
-  closeWechat.focus();
+  wechatCopy.focus();
 }
 
 function closeWeChatPopover({ returnFocus }) {
@@ -168,8 +168,12 @@ wechatTrigger.addEventListener("click", openWeChatPopover);
 closeWechat.addEventListener("click", () => closeWeChatPopover({ returnFocus: true }));
 wechatCopy.addEventListener("click", async () => {
   const wechatId = wechatPopover.querySelector("[data-wechat-id]").textContent;
+  if (typeof navigator.clipboard?.writeText !== "function") {
+    wechatCopy.textContent = "请手动复制";
+    return;
+  }
   try {
-    await navigator.clipboard?.writeText(wechatId);
+    await navigator.clipboard.writeText(wechatId);
     wechatCopy.textContent = "已复制";
   } catch {
     wechatCopy.textContent = "请手动复制";
@@ -181,6 +185,15 @@ document.addEventListener("click", (event) => {
   }
 });
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Tab" && !wechatPopover.hidden) {
+    if (event.shiftKey && document.activeElement === wechatCopy) {
+      event.preventDefault();
+      closeWechat.focus();
+    } else if (!event.shiftKey && document.activeElement === closeWechat) {
+      event.preventDefault();
+      wechatCopy.focus();
+    }
+  }
   if (event.key === "Escape" && !wechatPopover.hidden) closeWeChatPopover({ returnFocus: true });
 });
 heroSearchForm.addEventListener("submit", (event) => {

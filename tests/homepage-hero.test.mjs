@@ -138,3 +138,18 @@ test("QQ remains a direct link while WeChat is a copyable dialog", () => {
   assert.match(script, /function closeWeChatPopover\(\{ returnFocus \}\)/);
   assert.match(script, /navigator\.clipboard\?\.writeText/);
 });
+
+test("WeChat dialog traps Tab focus and returns it to its trigger when closed", () => {
+  assert.match(script, /event\.key === "Tab"/);
+  assert.match(script, /event\.shiftKey/);
+  assert.match(script, /event\.preventDefault\(\)/);
+  assert.match(script, /wechatCopy\.focus\(\)/);
+  assert.match(script, /if \(returnFocus\) wechatTrigger\.focus\(\)/);
+});
+
+test("WeChat copy reports manual copy when the clipboard API is unavailable or rejects", () => {
+  assert.match(script, /typeof navigator\.clipboard\?\.writeText !== "function"/);
+  assert.match(script, /wechatCopy\.textContent = "请手动复制";\s*return;/);
+  assert.match(script, /await navigator\.clipboard\.writeText\(wechatId\)/);
+  assert.match(script, /catch \{\s*wechatCopy\.textContent = "请手动复制";/);
+});
