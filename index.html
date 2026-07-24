@@ -151,22 +151,26 @@
       <p class="music-panel-kicker">LOCAL MUSIC ARCHIVE</p>
       <button id="music-close" type="button">关闭</button>
     </div>
-    <div class="music-now-playing">
-      <img id="music-cover" src="assets/music/covers/the-nights.png" alt="The Nights — Avicii 的封面">
-      <p id="music-now-playing">The Nights — Avicii</p>
+    <div class="music-panel-controls">
+      <div class="music-now-playing">
+        <img id="music-cover" src="assets/music/covers/the-nights.png" alt="The Nights — Avicii 的封面">
+        <p id="music-now-playing">The Nights — Avicii</p>
+      </div>
+      <div class="music-transport" aria-label="播放控制">
+        <button id="music-previous" type="button">上一首</button>
+        <button id="music-play" type="button" aria-pressed="false">播放</button>
+        <button id="music-next" type="button">下一首</button>
+      </div>
+      <progress id="music-progress" value="0" max="1">0%</progress>
     </div>
-    <div class="music-transport" aria-label="播放控制">
-      <button id="music-previous" type="button">上一首</button>
-      <button id="music-play" type="button" aria-pressed="false">播放</button>
-      <button id="music-next" type="button">下一首</button>
+    <div class="music-panel-scroll">
+      <div class="music-lyrics" aria-label="歌词">
+        <p id="previous-lyric">—</p>
+        <p id="current-lyric" aria-live="polite">选择一首歌查看歌词</p>
+        <p id="next-lyric">—</p>
+      </div>
+      <div id="music-track-list" aria-label="九首本地音乐"></div>
     </div>
-    <progress id="music-progress" value="0" max="1">0%</progress>
-    <div class="music-lyrics" aria-label="歌词">
-      <p id="previous-lyric">—</p>
-      <p id="current-lyric" aria-live="polite">选择一首歌查看歌词</p>
-      <p id="next-lyric">—</p>
-    </div>
-    <div id="music-track-list" aria-label="九首本地音乐"></div>
   </section>
   <section id="wechat-popover" hidden role="dialog" aria-modal="true" aria-labelledby="wechat-popover-title">
     <p id="wechat-popover-title">微信</p>

@@ -30,3 +30,10 @@
 - GREEN: `lyricStatus` now persists loading/unavailable states across `timeupdate` while progress continues to update; successful nonempty LRC data clears that state. Neither empty nor failed LRC loading pauses the native audio. Outside-click now closes with focus returning to `#music-dock-expand`.
 - Layout: `--dock-offset` centralizes the desktop 14px spacing in both Dock placement and `body` block-end padding, then resets to `0px` on mobile while preserving the safe-area inset.
 - Verification: focused regression suite 3 passed; full Node suite 19 passed; `node --check assets/homepage/homepage.js` and `git diff --check` both exited 0.
+
+## Reviewer P2 follow-up — mobile panel controls and behavioral coverage
+
+- RED: the new mobile layout contract failed because the panel lacked a dedicated `.music-panel-scroll`; after a 320×480 browser check also exposed the sticky site header covering the close row, the contract failed again until the mobile panel was raised above that header.
+- GREEN: `music-panel-header` and the now-playing/transport/progress controls stay outside `.music-panel-scroll`. The mobile panel remains bounded by `max-height: calc(100dvh - env(safe-area-inset-top))`, hides outer overflow, and gives the inner content/list its own vertical scroll. Its mobile `z-index: 11` keeps close and transport above the site header (`z-index: 10`).
+- Behavioral regression: a `node:test` FakeDocument/FakeAudio runtime executes the real `homepage.js`, rejects LRC fetch, dispatches `timeupdate`, then opens the panel and dispatches a document outside click. It asserts the unavailable lyric text persists, audio remains unpaused, the panel closes, and focus returns to the Dock expand button.
+- Browser result / screenshot captured: at 320×480, header spans y=17–59 and fixed controls y=59–228.5 while the internal scroll region spans y=228.5–464 (`overflow-y:auto`, 236px client height, 322px scroll height). Scrolling that region to its bottom (`scrollTop: 87`) left header and controls at those same coordinates; panel z-index was 11 against the site header's 10.

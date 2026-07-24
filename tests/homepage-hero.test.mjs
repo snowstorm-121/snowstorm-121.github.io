@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
+import vm from "node:vm";
 
 const readOptional = (path) => readFile(new URL(path, import.meta.url), "utf8").catch(() => "");
 const [html, styles, script] = await Promise.all([
@@ -72,6 +73,98 @@ test("unavailable lyrics remain unavailable after time updates without pausing a
 
 test("music outside-close returns focus to the Dock expand control", () => {
   assert.match(script, /if \(!musicPanel\.hidden && !musicPanel\.contains\(event\.target\) && !musicDock\.contains\(event\.target\)\) \{\s*closeMusicPanel\(\{ returnFocus: true \}\);\s*\}/);
+});
+
+test("mobile music panel keeps fixed controls above independently scrolling content", () => {
+  assert.match(html, /<div class="music-panel-scroll">[\s\S]*id="music-track-list"/);
+  const mobileMusicRules = styles.match(/@media \(max-width: 720px\)\s*\{[\s\S]*?#music-panel \{[\s\S]*?\}[\s\S]*?\}/)?.[0] ?? "";
+  assert.match(mobileMusicRules, /#music-panel\s*\{[\s\S]*?z-index:\s*11[\s\S]*?display:\s*flex[\s\S]*?overflow:\s*hidden/);
+  assert.match(mobileMusicRules, /\.music-panel-scroll\s*\{[\s\S]*?overflow-y:\s*auto/);
+});
+
+function createMusicRuntime() {
+  const documentListeners = new Map();
+  const elements = new Map();
+
+  class FakeElement {
+    constructor(id = "") {
+      this.id = id;
+      this.attributes = new Map();
+      this.children = [];
+      this.dataset = {};
+      this.hidden = false;
+      this.listeners = new Map();
+      this.classList = { add() {}, remove() {}, toggle() {}, contains() { return false; } };
+      this.textContent = "";
+      this.value = "";
+    }
+
+    append(...children) { this.children.push(...children); }
+    addEventListener(type, listener) { this.listeners.set(type, listener); }
+    dispatch(type, event = {}) { this.listeners.get(type)?.({ target: this, ...event }); }
+    setAttribute(name, value) { this.attributes.set(name, String(value)); }
+    removeAttribute(name) { this.attributes.delete(name); }
+    focus() { document.activeElement = this; }
+    contains(target) { return target === this || this.children.includes(target); }
+    querySelector() { return new FakeElement(); }
+  }
+
+  const audio = new FakeElement("profileAudio");
+  audio.paused = true;
+  audio.currentTime = 0;
+  audio.duration = 120;
+  audio.load = () => {};
+  audio.pause = () => { audio.paused = true; audio.dispatch("pause"); };
+  audio.play = async () => { audio.paused = false; audio.dispatch("play"); };
+  elements.set("#profileAudio", audio);
+  for (const id of [
+    "music-dock", "music-dock-cover", "music-dock-title", "music-dock-play", "music-dock-expand",
+    "music-panel", "music-close", "music-track-list", "music-cover", "music-now-playing",
+    "music-previous", "music-play", "music-next", "music-progress", "previous-lyric", "current-lyric",
+    "next-lyric", "wechat-trigger", "wechat-popover", "wechat-copy", "wechat-close", "hero-search-form",
+    "hero-search-input", "search-status", "moon-ripple", "quote-meta", "quote-progress",
+  ]) elements.set(`#${id}`, new FakeElement(id));
+  elements.get("#music-panel").hidden = true;
+  elements.get("#wechat-popover").hidden = true;
+
+  const document = {
+    activeElement: null,
+    querySelector(selector) { return elements.get(selector) ?? new FakeElement(); },
+    querySelectorAll(selector) {
+      if (selector === ".sentence-line") return [new FakeElement(), new FakeElement()];
+      return [];
+    },
+    createElement() { return new FakeElement(); },
+    addEventListener(type, listener) { documentListeners.set(type, listener); },
+    dispatch(type, event) { documentListeners.get(type)?.(event); },
+  };
+  const window = {
+    matchMedia: () => ({ matches: false, addEventListener() {} }),
+    setTimeout: () => 0,
+    clearTimeout() {},
+  };
+  return { audio, currentLyric: elements.get("#current-lyric"), document, musicDockExpand: elements.get("#music-dock-expand"), musicPanel: elements.get("#music-panel"), window };
+}
+
+test("failed lyric fetch remains visible through timeupdate and outside-close restores Dock focus", async () => {
+  const runtime = createMusicRuntime();
+  vm.runInNewContext(script, {
+    ...runtime,
+    fetch: async () => { throw new Error("blocked LRC"); },
+    navigator: {},
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  runtime.audio.paused = false;
+  runtime.audio.currentTime = 12;
+  runtime.audio.dispatch("timeupdate");
+  assert.equal(runtime.currentLyric.textContent, "歌词暂不可用");
+  assert.equal(runtime.audio.paused, false);
+
+  runtime.musicDockExpand.dispatch("click");
+  runtime.document.dispatch("click", { target: {} });
+  assert.equal(runtime.musicPanel.hidden, true);
+  assert.equal(runtime.document.activeElement, runtime.musicDockExpand);
 });
 
 test("body reserves the desktop Dock bottom gap and keeps mobile safe-area spacing", () => {
