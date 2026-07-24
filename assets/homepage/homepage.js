@@ -43,6 +43,7 @@ const moonRipple = document.querySelector("#moon-ripple");
 let trackIndex = 0;
 let lyricLines = [];
 let lyricLoad = 0;
+let lyricStatus = "";
 let renderedLyricKey = "";
 const lyricCache = new Map();
 
@@ -122,8 +123,12 @@ function renderLyricStatus(message) {
 }
 
 function syncLyrics() {
-  const activeIndex = lyricLines.reduce((last, line, index) => line.time <= profileAudio.currentTime ? index : last, -1);
-  renderLyricLines(activeIndex);
+  if (lyricStatus) {
+    renderLyricStatus(lyricStatus);
+  } else {
+    const activeIndex = lyricLines.reduce((last, line, index) => line.time <= profileAudio.currentTime ? index : last, -1);
+    renderLyricLines(activeIndex);
+  }
   if (Number.isFinite(profileAudio.duration) && profileAudio.duration > 0) {
     musicProgress.value = profileAudio.currentTime / profileAudio.duration;
   }
@@ -132,7 +137,8 @@ function syncLyrics() {
 async function loadLyrics(track) {
   const request = ++lyricLoad;
   lyricLines = [];
-  renderLyricStatus("加载歌词…");
+  lyricStatus = "加载歌词…";
+  renderLyricStatus(lyricStatus);
   try {
     let lines = lyricCache.get(track.lyrics);
     if (!lines) {
@@ -143,10 +149,17 @@ async function loadLyrics(track) {
     }
     if (request !== lyricLoad) return;
     lyricLines = lines;
-    if (!lyricLines.length) return renderLyricStatus("歌词暂不可用");
+    if (!lyricLines.length) {
+      lyricStatus = "歌词暂不可用";
+      return renderLyricStatus(lyricStatus);
+    }
+    lyricStatus = "";
     syncLyrics();
   } catch {
-    if (request === lyricLoad) renderLyricStatus("歌词暂不可用");
+    if (request === lyricLoad) {
+      lyricStatus = "歌词暂不可用";
+      renderLyricStatus(lyricStatus);
+    }
   }
 }
 
@@ -226,7 +239,7 @@ wechatCopy.addEventListener("click", async () => {
 });
 document.addEventListener("click", (event) => {
   if (!musicPanel.hidden && !musicPanel.contains(event.target) && !musicDock.contains(event.target)) {
-    closeMusicPanel({ returnFocus: false });
+    closeMusicPanel({ returnFocus: true });
   }
   if (!wechatPopover.hidden && !wechatPopover.contains(event.target) && event.target !== wechatTrigger) {
     closeWeChatPopover({ returnFocus: true });

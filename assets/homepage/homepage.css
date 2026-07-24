@@ -10,6 +10,7 @@
   --quote-line-height: clamp(28.8px, 3.68vw, 48px);
   --quote-slot-height: calc(2 * var(--quote-line-height));
   --dock-height: 68px;
+  --dock-offset: 14px;
 }
 
 * { box-sizing: border-box; }
@@ -19,7 +20,7 @@ html { scroll-behavior: smooth; }
 body {
   min-width: 320px;
   margin: 0;
-  padding-bottom: calc(var(--dock-height) + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--dock-height) + var(--dock-offset) + env(safe-area-inset-bottom));
   overflow-x: hidden;
   color: var(--ink);
   background: #07101c;
@@ -171,7 +172,7 @@ h3 { margin: 18px 0 12px; font-size: 30px; }
 .social-links a, .social-links button { display: grid; width: 42px; height: 42px; padding: 0; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: rgba(255, 255, 255, .06); cursor: pointer; }
 .social-icon { width: 18px; height: 18px; fill: currentColor; }
 
-#music-dock { position: fixed; right: 22px; bottom: max(14px, env(safe-area-inset-bottom)); z-index: 4; display: grid; grid-template-columns: 42px minmax(0, 1fr) auto auto; align-items: center; gap: 9px; width: min(430px, calc(100vw - 44px)); min-height: var(--dock-height); padding: 8px; border: 1px solid var(--line); border-radius: 18px; background: rgba(6, 17, 31, .9); box-shadow: 0 12px 32px rgba(0, 0, 0, .28); backdrop-filter: blur(16px); }
+#music-dock { position: fixed; right: 22px; bottom: max(var(--dock-offset), env(safe-area-inset-bottom)); z-index: 4; display: grid; grid-template-columns: 42px minmax(0, 1fr) auto auto; align-items: center; gap: 9px; width: min(430px, calc(100vw - 44px)); min-height: var(--dock-height); padding: 8px; border: 1px solid var(--line); border-radius: 18px; background: rgba(6, 17, 31, .9); box-shadow: 0 12px 32px rgba(0, 0, 0, .28); backdrop-filter: blur(16px); }
 #music-dock-cover { width: 42px; height: 42px; object-fit: cover; border-radius: 10px; }
 #music-dock-title { min-width: 0; margin: 0; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 #music-dock button, .music-transport button, .music-track, #music-close { border: 1px solid var(--line); color: var(--ink); background: rgba(255, 255, 255, .06); cursor: pointer; }
@@ -213,6 +214,7 @@ a:active, button:active { transform: translateY(1px); }
 
 @media (max-width: 720px) {
   :root {
+    --dock-offset: 0px;
     --quote-mobile-available-width: 280px;
     --quote-mobile-font-size: 13px;
     --quote-mobile-letter-spacing: 0px;

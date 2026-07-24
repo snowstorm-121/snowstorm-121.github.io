@@ -61,6 +61,25 @@ test("music panel has deterministic close and lyric interfaces", () => {
   assert.match(script, /profileAudio\.addEventListener\("ended"/);
 });
 
+test("unavailable lyrics remain unavailable after time updates without pausing audio", () => {
+  const loadLyrics = script.match(/async function loadLyrics\(track\) \{[\s\S]*?\n\}\n\nfunction loadTrack/)?.[0] ?? "";
+  assert.match(script, /let lyricStatus = "";/);
+  assert.match(script, /function syncLyrics\(\) \{\s*if \(lyricStatus\) \{\s*renderLyricStatus\(lyricStatus\);\s*\} else \{\s*const activeIndex/);
+  assert.match(loadLyrics, /if \(!lyricLines\.length\) \{\s*lyricStatus = "歌词暂不可用";\s*return renderLyricStatus\(lyricStatus\);\s*\}/);
+  assert.match(loadLyrics, /catch \{\s*if \(request === lyricLoad\) \{\s*lyricStatus = "歌词暂不可用";\s*renderLyricStatus\(lyricStatus\);\s*\}\s*\}/);
+  assert.doesNotMatch(loadLyrics, /profileAudio\.pause\(\)/);
+});
+
+test("music outside-close returns focus to the Dock expand control", () => {
+  assert.match(script, /if \(!musicPanel\.hidden && !musicPanel\.contains\(event\.target\) && !musicDock\.contains\(event\.target\)\) \{\s*closeMusicPanel\(\{ returnFocus: true \}\);\s*\}/);
+});
+
+test("body reserves the desktop Dock bottom gap and keeps mobile safe-area spacing", () => {
+  assert.match(styles, /--dock-offset:\s*14px/);
+  assert.match(styles, /body\s*\{[\s\S]*padding-bottom:\s*calc\(var\(--dock-height\) \+ var\(--dock-offset\) \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(styles, /@media \(max-width: 720px\)\s*\{[\s\S]*?:root\s*\{[\s\S]*?--dock-offset:\s*0px/);
+});
+
 test("music now-playing surface renders the selected local cover", () => {
   assert.match(html, /<img[^>]+id="music-cover"[^>]+src="assets\/music\/covers\/the-nights\.png"/);
   assert.match(html, /id="music-cover"[^>]+alt="The Nights — Avicii 的封面"/);
