@@ -434,7 +434,7 @@ test("browser validation keeps fixed archive previews clear of their controls", 
 
   assert.match(previewRules, /position:\s*absolute/);
   assert.match(previewRules, /height:\s*104px/);
-  assert.ok(previewBottom >= 120, "preview reserves space above both bottom controls");
+  assert.equal(previewBottom, 120, "preview uses the validated safe control clearance");
   assert.match(toggleRules, /margin-top:\s*auto/);
   assert.match(destinationRules, /margin-top:\s*12px/);
 });
@@ -574,8 +574,9 @@ test("browser validation uses accessible circular player icons and softened trac
   assert.match(iconControlRules, /border-radius:\s*50%/);
   assert.match(iconControlRules, /font-size:\s*0/);
   for (const id of ["music-previous", "music-play", "music-next", "music-close"]) {
-    assert.match(styles, new RegExp(`#${id}(?:\\[aria-pressed="true"\\])?::after\\s*\\{[^}]*content:`));
+    assert.match(styles, new RegExp(`#${id}::after\\s*\\{[^}]*content:\\s*""`));
   }
+  assert.match(styles, /#music-play\[aria-pressed="true"\]::after\s*\{[^}]*content:\s*""/);
   assert.match(trackRules, /border:\s*0/);
   assert.match(trackRules, /border-radius:\s*12px/);
   assert.match(trackRules, /background:\s*rgba\(255,\s*255,\s*255,\s*\.04\)/);

@@ -110,3 +110,47 @@ Final result: focused `3/3` passed, full suite `40/40` passed, and `git diff --c
 ## Concerns
 
 None known. The new responsive rules are deliberately height-gated; unusually short viewports outside the tested width ranges may still require separate product decisions, but the reported acceptance sizes and preserved `1440×900` / `720×900` layouts are covered.
+
+## Follow-up accessibility review fix
+
+Independent review of `8a81dbd` found that textual `::after` glyphs could pollute the expanded player controls' accessible names. The review also requested an exact archive-clearance assertion.
+
+The tests were changed first to require:
+
+- `bottom: 120px` exactly for the archive preview;
+- `content: ""` for Previous, Play, pressed Pause, Next, and Close generated visuals.
+
+Focused RED command:
+
+```sh
+/Users/yyy/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --test --test-name-pattern='fixed archive previews|accessible circular player icons' tests/homepage-hero.test.mjs
+```
+
+RED result: `2` focused tests, `1` passed and `1` failed. The exact archive clearance passed; the accessibility test failed on the existing textual `#music-previous::after` content, as expected.
+
+Minimal implementation:
+
+- Previous and Next use empty pseudo-elements with CSS borders and transforms.
+- Play uses an empty pseudo-element with a solid background and triangle clip path.
+- The pressed Pause state uses an empty pseudo-element with a two-bar linear gradient and continues to respond to `aria-pressed="true"`.
+- Close uses an empty pseudo-element with crossed linear gradients.
+- DOM button text, runtime IDs, and JavaScript state/data flow are unchanged.
+
+Focused/full GREEN command:
+
+```sh
+/Users/yyy/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --test --test-name-pattern='fixed archive previews|accessible circular player icons' tests/homepage-hero.test.mjs
+/Users/yyy/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --test tests/homepage-hero.test.mjs
+git diff --check
+```
+
+GREEN result: focused `2/2` passed, full suite `40/40` passed, and `git diff --check` exited `0` with no output.
+
+Live browser accessibility confirmation:
+
+- all four controls retained their DOM text;
+- their computed `::after` content was `""`;
+- browser names remained `上一首`, `播放 The Nights`, `下一首`, and `关闭` without generated glyph suffixes;
+- after activation, Play changed to `aria-pressed="true"` and the empty pseudo-element computed to the two-bar pause gradient with no clip path.
+
+Follow-up concerns: none known.
