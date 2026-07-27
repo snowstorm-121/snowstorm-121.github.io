@@ -380,7 +380,7 @@ test("archive has one expandable preview at a time and keeps direct destinations
   assert.match(styles, /\.archive-card\.is-expanded\s*\{/);
 });
 
-test("archive cards use three local images in equal media cards with fixed in-card previews", async () => {
+test("archive cards keep three columns at 1024px before a direct narrow single-column fallback", async () => {
   const cards = [...html.matchAll(/<article class="archive-card"[\s\S]*?<\/article>/g)].map(([card]) => card);
   const imagePaths = [
     "../assets/homepage/archive-learning.jpg",
@@ -395,13 +395,15 @@ test("archive cards use three local images in equal media cards with fixed in-ca
   });
 
   const archiveGrid = styles.match(/\.archive-grid\s*\{[^}]*\}/)?.[0] ?? "";
-  const compactArchiveGrid = styles.match(/@media \(max-width: 1100px\)\s*\{[\s\S]*?\.archive-grid\s*\{[^}]*\}/)?.[0] ?? "";
+  const compactArchiveGrid = styles.match(/@media \(max-width:\s*(\d+)px\)\s*\{\s*\.archive-grid\s*\{[^}]*\}/);
   const card = styles.match(/\.archive-card\s*\{[^}]*\}/)?.[0] ?? "";
   const media = styles.match(/\.archive-media\s*\{[^}]*\}/)?.[0] ?? "";
   const preview = styles.match(/\.archive-preview\s*\{[^}]*\}/)?.[0] ?? "";
 
   assert.match(archiveGrid, /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
-  assert.match(compactArchiveGrid, /grid-template-columns:\s*1fr/);
+  assert.ok(compactArchiveGrid, "archive has a direct narrow-screen fallback");
+  assert.ok(Number(compactArchiveGrid[1]) <= 900, "archive remains three columns at 1024px");
+  assert.match(compactArchiveGrid[0], /grid-template-columns:\s*1fr/);
   assert.doesNotMatch(styles, /grid-template-columns:\s*repeat\(2,/);
   assert.match(card, /height:\s*100%/);
   assert.doesNotMatch(styles, /\.archive-card:first-child/);
