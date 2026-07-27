@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const readOptional = (path) => readFile(new URL(path, import.meta.url), "utf8").catch(() => "");
@@ -378,6 +378,36 @@ test("archive has one expandable preview at a time and keeps direct destinations
   assert.match(script, /function setArchivePreview\(card, expanded\)/);
   assert.match(script, /document\.querySelectorAll\("\.archive-card\[data-preview\]"\)/);
   assert.match(styles, /\.archive-card\.is-expanded\s*\{/);
+});
+
+test("archive cards use three local images in equal media cards with fixed in-card previews", async () => {
+  const cards = [...html.matchAll(/<article class="archive-card"[\s\S]*?<\/article>/g)].map(([card]) => card);
+  const imagePaths = [
+    "../assets/homepage/archive-learning.jpg",
+    "../assets/homepage/archive-living.jpg",
+    "../assets/homepage/archive-research.jpg",
+  ];
+
+  assert.equal(cards.length, 3);
+  await Promise.all(imagePaths.map((path) => access(new URL(path, import.meta.url))));
+  cards.forEach((card, index) => {
+    assert.match(card, new RegExp(`<figure class="archive-media">[\\s\\S]*?<img[^>]+src="\\./assets/homepage/${imagePaths[index].split("/").at(-1)}"`));
+  });
+
+  const archiveGrid = styles.match(/\.archive-grid\s*\{[^}]*\}/)?.[0] ?? "";
+  const compactArchiveGrid = styles.match(/@media \(max-width: 1100px\)\s*\{[\s\S]*?\.archive-grid\s*\{[^}]*\}/)?.[0] ?? "";
+  const card = styles.match(/\.archive-card\s*\{[^}]*\}/)?.[0] ?? "";
+  const media = styles.match(/\.archive-media\s*\{[^}]*\}/)?.[0] ?? "";
+  const preview = styles.match(/\.archive-preview\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(archiveGrid, /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(compactArchiveGrid, /grid-template-columns:\s*1fr/);
+  assert.doesNotMatch(styles, /grid-template-columns:\s*repeat\(2,/);
+  assert.match(card, /height:\s*100%/);
+  assert.doesNotMatch(styles, /\.archive-card:first-child/);
+  assert.match(media, /aspect-ratio:\s*16\s*\/\s*9/);
+  assert.match(preview, /position:\s*absolute/);
+  assert.match(preview, /height:\s*\d+px/);
 });
 
 test("QQ remains a direct link while WeChat is a copyable dialog", () => {
