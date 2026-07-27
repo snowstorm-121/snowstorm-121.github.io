@@ -95,6 +95,9 @@ test("music controls are circular, mobile panel is a safe-area sheet, and playba
   assert.match(dockButtonRules, /height:\s*36px/);
   assert.match(dockButtonRules, /border-radius:\s*50%/);
   assert.match(styles, /#music-dock button\[aria-pressed="true"\][\s\S]*background:\s*rgba\(/);
+  assert.match(styles, /#music-dock-play::after\s*\{[^}]*content:\s*""[^}]*clip-path:\s*polygon/);
+  assert.match(styles, /#music-dock-play\[aria-pressed="true"\]::after\s*\{[^}]*content:\s*""[^}]*linear-gradient/);
+  assert.match(styles, /#music-dock-expand::after\s*\{[^}]*content:\s*""[^}]*border:/);
   assert.match(mobileMusicRules, /bottom:\s*0/);
   assert.match(mobileMusicRules, /padding-bottom:\s*calc\(16px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(mobileMusicRules, /border-radius:\s*22px 22px 0 0/);
@@ -299,16 +302,18 @@ test("body reserves the desktop Dock bottom gap and keeps mobile safe-area spaci
 test("browser validation removes the 320px floor and compacts medium and short origin layouts", () => {
   const bodyRules = styles.match(/body\s*\{[^}]*\}/)?.[0] ?? "";
   const mediumHeightRules = styles.match(/@media \(min-width: 721px\) and \(max-width: 1100px\) and \(max-height: 800px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+  const mobileRules = styles.match(/@media \(max-width: 720px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
   const shortMobileRules = styles.match(/@media \(max-width: 720px\) and \(max-height: 700px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
 
   assert.doesNotMatch(bodyRules, /min-width:\s*320px/);
-  assert.match(mediumHeightRules, /--origin-stack-gap:\s*20px/);
+  assert.match(mediumHeightRules, /--quote-status-slot-height:\s*34px/);
   assert.match(mediumHeightRules, /\.origin-content\s*\{[^}]*row-gap:\s*12px/);
   assert.match(mediumHeightRules, /\.origin-scroll-cue i\s*\{[^}]*height:\s*12px/);
-  assert.match(shortMobileRules, /--origin-stack-gap:\s*8px/);
-  assert.match(shortMobileRules, /\.origin\s*\{[^}]*padding-block:\s*36px calc\(var\(--dock-height\) \+ 24px \+ env\(safe-area-inset-bottom\)\)/);
-  assert.match(shortMobileRules, /\.origin-content\s*\{[^}]*row-gap:\s*8px/);
-  assert.match(shortMobileRules, /\.origin-scroll-cue i\s*\{[^}]*height:\s*12px/);
+  assert.match(mobileRules, /--quote-status-slot-height:\s*34px/);
+  assert.match(mobileRules, /--quote-line-height:\s*24px/);
+  assert.match(shortMobileRules, /\.origin\s*\{[^}]*padding-block:\s*32px calc\(var\(--dock-height\) \+ 24px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(shortMobileRules, /\.origin-content\s*\{[^}]*row-gap:\s*4px/);
+  assert.match(shortMobileRules, /\.origin-scroll-cue i\s*\{[^}]*height:\s*8px/);
 });
 
 test("music now-playing surface renders the selected local cover", () => {
@@ -343,10 +348,17 @@ test("homepage honors reduced motion for scrolling, animations, and transitions"
 });
 
 test("origin keeps search and quote in separate fixed story slots", () => {
-  assert.match(html, /id="origin-search-slot"[\s\S]*id="hero-search-form"/);
+  const quoteStatusRules = styles.match(/\.origin-quote-status\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(html, /id="origin-search-slot"[\s\S]*class="origin-quote-status"[\s\S]*id="origin-quote-slot"/);
   assert.match(html, /id="origin-quote-slot"[\s\S]*class="sentence-line"[\s\S]*class="sentence-line"/);
-  assert.match(styles, /\.origin-story\s*\{[\s\S]*grid-template-rows:\s*var\(--search-slot-height\) var\(--origin-stack-gap\) var\(--quote-slot-height\)/);
+  assert.match(styles, /--quote-status-slot-height:\s*52px/);
+  assert.match(styles, /\.origin-story\s*\{[\s\S]*grid-template-rows:\s*var\(--search-slot-height\) var\(--quote-status-slot-height\) var\(--quote-slot-height\)/);
   assert.match(styles, /#origin-search-slot\s*\{[\s\S]*grid-row:\s*1/);
+  assert.match(quoteStatusRules, /grid-row:\s*2/);
+  assert.match(quoteStatusRules, /height:\s*var\(--quote-status-slot-height\)/);
+  assert.match(quoteStatusRules, /position:\s*static/);
+  assert.doesNotMatch(quoteStatusRules, /\btop:/);
   assert.match(styles, /#origin-quote-slot\s*\{[\s\S]*grid-row:\s*3[\s\S]*height:\s*var\(--quote-slot-height\)/);
   assert.match(styles, /--quote-slot-height:\s*calc\(2 \* var\(--quote-line-height\)\)/);
 });

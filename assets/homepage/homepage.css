@@ -6,7 +6,7 @@
   --panel: rgba(6, 17, 31, .64);
   --accent: #d7b28a;
   --search-slot-height: 82px;
-  --origin-stack-gap: 52px;
+  --quote-status-slot-height: 52px;
   --quote-line-height: clamp(28.8px, 3.68vw, 48px);
   --quote-slot-height: calc(2 * var(--quote-line-height));
   --dock-height: 56px;
@@ -158,14 +158,14 @@ h3 { margin: 18px 0 12px; font-size: 30px; }
 .origin-story {
   grid-area: story;
   display: grid;
-  grid-template-rows: var(--search-slot-height) var(--origin-stack-gap) var(--quote-slot-height);
+  grid-template-rows: var(--search-slot-height) var(--quote-status-slot-height) var(--quote-slot-height);
   justify-items: center;
   position: relative;
   width: 100%;
 }
 #origin-search-slot { grid-row: 1; width: min(620px, 100%); height: var(--search-slot-height); }
 #origin-quote-slot { grid-row: 3; width: 100%; height: var(--quote-slot-height); overflow: hidden; }
-.origin-quote-status { position: absolute; top: calc(var(--search-slot-height) + 14px); right: 0; left: 0; pointer-events: none; }
+.origin-quote-status { position: static; grid-row: 2; display: grid; align-content: center; width: 100%; height: var(--quote-status-slot-height); pointer-events: none; }
 .origin-quote-status .eyebrow { margin-bottom: 0; }
 .sentence { margin: 0; font-family: Georgia, "Noto Serif SC", "Songti SC", serif; font-size: clamp(18px, 2.3vw, 30px); line-height: var(--quote-line-height); }
 .sentence-line { display: block; min-height: var(--quote-line-height); }
@@ -262,11 +262,11 @@ html[data-pointer-glass="true"] :is(.pointer-glass, .archive-card)::after { opac
 #music-dock-title { min-width: 0; margin: 0; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 #music-dock button, .music-transport button, .music-track, #music-close { border: 1px solid var(--line); color: var(--ink); background: rgba(255, 255, 255, .06); cursor: pointer; }
 #music-dock button { display: grid; width: 36px; height: 36px; padding: 0; place-items: center; border-radius: 50%; font-size: 0; }
-#music-dock button::after { font-size: 14px; line-height: 1; }
-#music-dock-play::after { content: "▶"; }
-#music-dock-play[aria-pressed="true"]::after { content: "Ⅱ"; }
+#music-dock button::after { display: block; }
+#music-dock-play::after { width: 10px; height: 11px; content: ""; transform: translateX(1px); background: currentColor; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+#music-dock-play[aria-pressed="true"]::after { width: 9px; height: 11px; content: ""; transform: none; background: linear-gradient(to right, currentColor 0 3px, transparent 3px 6px, currentColor 6px); clip-path: none; }
 #music-dock button[aria-pressed="true"], .music-transport button[aria-pressed="true"] { border-color: #8fc5d6; color: #8fc5d6; background: rgba(143, 197, 214, .12); }
-#music-dock-expand::after { content: "⌃"; font-size: 18px; }
+#music-dock-expand::after { width: 8px; height: 8px; content: ""; border: solid currentColor; border-width: 2px 2px 0 0; transform: rotate(-45deg) translate(-1px, 1px); }
 #music-panel, #wechat-popover { position: fixed; z-index: 5; padding: 18px; border: 1px solid var(--line); background: #0a1728; box-shadow: 0 18px 48px rgba(0, 0, 0, .35); }
 #music-panel[hidden] { display: none; }
 #music-panel { right: 22px; bottom: calc(var(--dock-height) + 24px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; width: min(380px, calc(100vw - 44px)); max-height: min(640px, calc(100dvh - 118px)); overflow: hidden; border-radius: 22px; background: rgba(6, 17, 31, .72); backdrop-filter: blur(20px); }
@@ -318,7 +318,7 @@ a:active, button:active { transform: translateY(1px); }
 }
 
 @media (min-width: 721px) and (max-width: 1100px) and (max-height: 800px) {
-  :root { --origin-stack-gap: 20px; }
+  :root { --quote-status-slot-height: 34px; }
   .origin-content { row-gap: 12px; }
   .origin-scroll-cue { gap: 4px; }
   .origin-scroll-cue i { height: 12px; }
@@ -329,6 +329,8 @@ a:active, button:active { transform: translateY(1px); }
 @media (max-width: 720px) {
   :root {
     --dock-offset: 0px;
+    --quote-status-slot-height: 34px;
+    --quote-line-height: 24px;
     --quote-mobile-available-width: 280px;
     --quote-mobile-font-size: 13px;
     --quote-mobile-letter-spacing: 0px;
@@ -352,11 +354,10 @@ a:active, button:active { transform: translateY(1px); }
 }
 
 @media (max-width: 720px) and (max-height: 700px) {
-  :root { --origin-stack-gap: 8px; }
-  .origin { padding-block: 36px calc(var(--dock-height) + 24px + env(safe-area-inset-bottom)); }
-  .origin-content { row-gap: 8px; }
+  .origin { padding-block: 32px calc(var(--dock-height) + 24px + env(safe-area-inset-bottom)); }
+  .origin-content { row-gap: 4px; }
   .origin-scroll-cue { gap: 4px; }
-  .origin-scroll-cue i { height: 12px; }
+  .origin-scroll-cue i { height: 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

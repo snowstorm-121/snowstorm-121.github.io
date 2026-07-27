@@ -154,3 +154,75 @@ Live browser accessibility confirmation:
 - after activation, Play changed to `aria-pressed="true"` and the empty pseudo-element computed to the two-bar pause gradient with no clip path.
 
 Follow-up concerns: none known.
+
+## Independent status-slot and Dock-icon fix
+
+Reviewed parent commit: `075ca37` (`fix: keep player icon names clean`).
+
+Independent browser reproduction before the change confirmed that the absolutely
+positioned quote status overlapped the quote:
+
+- `1024x768`: search `488.47..570.47`, status `584.47..611.47`, quote
+  `590.47..665.83`; status/quote intersection was true.
+- `320x568`: search `326.83..408.83`, status `422.83..449.83`, quote
+  `416.83..474.42`; status/quote intersection was true.
+- Both viewports had no horizontal overflow (`scrollWidth === clientWidth`).
+
+Root cause: the status used an absolute `top` offset inside a responsive spacer
+that shrank below the status content height. The search and quote had fixed
+rows, but the status did not own an independent normal-flow row.
+
+Tests were changed first to require:
+
+- explicit search/status/quote grid rows;
+- a static status row with a fixed responsive height and no `top` offset;
+- a fixed two-line mobile quote at `24px` line height;
+- empty generated content and CSS-drawn shapes for the Dock Play/Pause and
+  Expand icons.
+
+Focused RED command:
+
+```sh
+/Users/yyy/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --test --test-name-pattern='music controls are circular|removes the 320px floor|origin keeps search and quote' tests/homepage-hero.test.mjs
+```
+
+RED result: `3` tests, `0` passed, `3` failed on the missing empty Dock icons,
+responsive status-slot variable, and normal-flow status-row contracts.
+
+Minimal implementation:
+
+- introduced `--quote-status-slot-height` (`52px` default, `34px` at the
+  affected medium and mobile sizes);
+- changed `.origin-story` to explicit search/status/quote rows and placed
+  `.origin-quote-status` statically in row 2;
+- kept the quote in row 3 with exactly two reserved lines and used `24px`
+  mobile line height;
+- compacted only the short-mobile origin padding, row gap, and cue stem;
+- replaced Dock `▶`, `Ⅱ`, and `⌃` generated text with empty CSS-drawn shapes.
+
+Focused GREEN result: `3/3` passed. Full suite result: `40/40` passed.
+`git diff --check` exited `0` with no output.
+
+Final live browser rectangles:
+
+- `1024x768`: search `488.47..570.47`, status `570.47..604.47`, quote
+  `604.47..679.83`, cue `691.83..718.33`, Dock `698..754`; all required
+  text/slot overlap checks were false and `scrollWidth === clientWidth === 1009`.
+- `720x900`: search `345.12..427.12`, status `427.12..461.12`, quote
+  `461.12..509.12`, cue `554.12..597.62`, Dock `844..900`; all required
+  overlap checks were false and `scrollWidth === clientWidth === 705`.
+- `320x568`: search `318.83..400.83`, status `400.83..434.83`, quote
+  `434.83..482.83`, cue `486.83..509.33`, Dock `512..568`; every relevant
+  text/slot overlap check was false and `scrollWidth === clientWidth === 305`.
+- During a quote change from `01/10` to `03/10` at `720x900`, the search
+  rectangle stayed exactly `x=42.5, y=345.12, width=620, height=82`.
+- Dock Play and Expand computed `::after` content was `""`; the DOM snapshot
+  names remained `播放 The Nights` and `展开音乐面板`, with no glyph suffix.
+
+Commit scope: `assets/homepage/homepage.css`,
+`tests/homepage-hero.test.mjs`, and this appended report. Planned subject:
+`fix: isolate origin quote status slot`.
+
+Known risk: the mobile quote line height is intentionally tighter, but remains
+two fixed readable `24px` lines. IDs, audio/LRC behavior, and runtime data flow
+are unchanged.
