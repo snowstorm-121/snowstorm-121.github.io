@@ -441,6 +441,18 @@ test("QQ remains a direct link while WeChat is a copyable dialog", () => {
   assert.match(script, /navigator\.clipboard\?\.writeText/);
 });
 
+test("QQ stays a direct link with a filled penguin silhouette", () => {
+  const qqLink = html.match(/<a href="https:\/\/wpa\.qq\.com\/msgrd[^>]*aria-label="QQ 2971234387"[^>]*>[\s\S]*?<\/a>/)?.[0] ?? "";
+
+  assert.ok(qqLink, "QQ contact remains an anchor with its accessible label");
+  assert.doesNotMatch(qqLink, /aria-controls=|role="dialog"|data-contact=/);
+  assert.match(qqLink, /<svg[^>]*data-icon="qq-penguin"[^>]*fill="currentColor"/);
+  assert.match(qqLink, /<path[^>]*data-part="head-body"/);
+  assert.match(qqLink, /<path[^>]*data-part="left-wing"/);
+  assert.match(qqLink, /<path[^>]*data-part="right-wing"/);
+  assert.match(qqLink, /<path[^>]*data-part="feet"/);
+});
+
 test("WeChat dialog traps Tab focus and returns it to its trigger when closed", () => {
   assert.match(script, /event\.key === "Tab"/);
   assert.match(script, /event\.shiftKey/);
