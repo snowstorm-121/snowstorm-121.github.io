@@ -9,7 +9,7 @@
   --origin-stack-gap: 52px;
   --quote-line-height: clamp(28.8px, 3.68vw, 48px);
   --quote-slot-height: calc(2 * var(--quote-line-height));
-  --dock-height: 68px;
+  --dock-height: 56px;
   --dock-offset: 14px;
   --section-wash: rgba(4, 13, 27, .08);
   --main-light-x: 8%;
@@ -254,19 +254,21 @@ html[data-pointer-glass="true"] :is(.pointer-glass, .archive-card)::after { opac
 .social-links a, .social-links button { display: grid; width: 42px; height: 42px; padding: 0; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: rgba(255, 255, 255, .06); cursor: pointer; }
 .social-icon { width: 18px; height: 18px; fill: currentColor; }
 
-#music-dock { --dock-progress: 0; position: fixed; right: 22px; bottom: max(var(--dock-offset), env(safe-area-inset-bottom)); z-index: 4; display: grid; grid-template-columns: 42px minmax(0, 1fr) auto auto; align-items: center; gap: 9px; width: min(430px, calc(100vw - 44px)); min-height: var(--dock-height); padding: 8px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--track-accent) 28%, var(--line)); border-radius: 18px; background: rgba(6, 17, 31, .9); box-shadow: 0 12px 32px rgba(0, 0, 0, .28); backdrop-filter: blur(16px); animation: none; transition: border-color 1s ease, box-shadow 1s ease, background-color 1s ease; }
+#music-dock { --dock-progress: 0; position: fixed; right: 22px; bottom: max(var(--dock-offset), env(safe-area-inset-bottom)); z-index: 4; display: grid; grid-template-columns: 40px minmax(0, 1fr) 36px 36px; align-items: center; gap: 6px; width: clamp(240px, 23vw, 296px); height: var(--dock-height); padding: 7px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--track-accent) 32%, var(--line)); border-radius: 999px; background: rgba(6, 17, 31, .54); box-shadow: 0 10px 28px rgba(0, 0, 0, .24); backdrop-filter: blur(18px); animation: none; transition: border-color 1s ease, box-shadow 1s ease, background-color 1s ease; }
 #music-dock::before { position: absolute; right: 0; bottom: 0; left: 0; height: 2px; pointer-events: none; content: ""; transform: scaleX(var(--dock-progress)); transform-origin: left center; background: var(--track-accent); opacity: .72; transition: transform .24s linear, background-color 1s ease; }
 #music-dock > * { position: relative; z-index: 1; }
-#music-dock-cover { width: 42px; height: 42px; object-fit: cover; border-radius: 10px; transition: opacity .3s ease, filter 1s ease; }
+#music-dock-cover { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; transition: opacity .3s ease, filter 1s ease; }
 #music-dock-title { min-width: 0; margin: 0; overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 #music-dock button, .music-transport button, .music-track, #music-close { border: 1px solid var(--line); color: var(--ink); background: rgba(255, 255, 255, .06); cursor: pointer; }
-#music-dock button { min-height: 38px; padding: 7px 10px; border-radius: 10px; }
+#music-dock button { display: grid; width: 36px; height: 36px; padding: 0; place-items: center; border-radius: 50%; font-size: 0; }
+#music-dock button::after { font-size: 14px; line-height: 1; }
+#music-dock-play::after { content: "▶"; }
+#music-dock-play[aria-pressed="true"]::after { content: "Ⅱ"; }
 #music-dock button[aria-pressed="true"], .music-transport button[aria-pressed="true"] { border-color: #8fc5d6; color: #8fc5d6; background: rgba(143, 197, 214, .12); }
-#music-dock-expand { font-size: 0; }
 #music-dock-expand::after { content: "⌃"; font-size: 18px; }
 #music-panel, #wechat-popover { position: fixed; z-index: 5; padding: 18px; border: 1px solid var(--line); background: #0a1728; box-shadow: 0 18px 48px rgba(0, 0, 0, .35); }
 #music-panel[hidden] { display: none; }
-#music-panel { right: 22px; bottom: calc(var(--dock-height) + 30px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; width: min(380px, calc(100vw - 44px)); max-height: min(640px, calc(100dvh - 130px)); overflow: hidden; }
+#music-panel { right: 22px; bottom: calc(var(--dock-height) + 24px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; width: min(380px, calc(100vw - 44px)); max-height: min(640px, calc(100dvh - 118px)); overflow: hidden; border-radius: 22px; background: rgba(6, 17, 31, .72); backdrop-filter: blur(20px); }
 #music-panel p { margin: 0; }
 .music-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .music-panel-kicker { color: var(--accent); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
@@ -330,8 +332,8 @@ a:active, button:active { transform: translateY(1px); }
   .sentence { font-size: var(--quote-mobile-font-size); letter-spacing: var(--quote-mobile-letter-spacing); }
   .sentence-line { white-space: nowrap; }
   #moon-ripple { top: -34px; right: 8px; }
-  #music-dock { right: 0; bottom: 0; width: 100%; border-right: 0; border-bottom: 0; border-left: 0; border-radius: 0; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
-  #music-panel { right: 0; bottom: 0; z-index: 11; display: flex; flex-direction: column; width: 100%; max-height: calc(100dvh - env(safe-area-inset-top)); padding: 16px; overflow: hidden; border-right: 0; border-bottom: 0; border-left: 0; }
+  #music-dock { right: 0; bottom: 0; width: 100%; height: auto; min-height: var(--dock-height); border-right: 0; border-bottom: 0; border-left: 0; border-radius: 0; padding-bottom: calc(8px + env(safe-area-inset-bottom)); }
+  #music-panel { right: 0; bottom: 0; z-index: 11; display: flex; flex-direction: column; width: 100%; max-height: calc(100dvh - env(safe-area-inset-top)); padding: 16px; padding-bottom: calc(16px + env(safe-area-inset-bottom)); overflow: hidden; border-right: 0; border-bottom: 0; border-left: 0; border-radius: 22px 22px 0 0; }
   .music-panel-scroll { min-height: 0; overflow-y: auto; }
   #music-track-list { max-height: min(180px, 28dvh); }
 }
@@ -339,6 +341,7 @@ a:active, button:active { transform: translateY(1px); }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
+  #music-dock, #music-panel { transition: none !important; }
   .caret { display: none; }
   .story-section > .section-inner { opacity: 1 !important; }
   .pointer-glass, .archive-card, .story-section, .story-section > .section-inner, .page-backdrop::before, .page-backdrop::after, #moon-ripple.is-rippling::after, .spectrum-bar { transform: none !important; }

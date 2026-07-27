@@ -42,6 +42,41 @@ test("music panel retains all nine local tracks and native playback controls", (
   assert.match(script, /trackButton\.dataset\.trackIndex/);
 });
 
+test("music surfaces use a compact glass Dock and an anchored expanded panel", () => {
+  const dock = html.match(/<aside id="music-dock"[\s\S]*?<\/aside>/)?.[0] ?? "";
+  const dockRules = styles.match(/#music-dock\s*\{[^}]*\}/)?.[0] ?? "";
+  const panelRules = styles.match(/#music-panel\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(dock, /id="music-dock-cover"[\s\S]*id="music-dock-title"[\s\S]*id="music-dock-play"[\s\S]*id="music-dock-expand"/);
+  assert.equal((dock.match(/<button\b/g) ?? []).length, 2);
+  assert.match(styles, /--dock-height:\s*56px/);
+  assert.match(dockRules, /width:\s*clamp\(240px,\s*[\d.]+vw,\s*296px\)/);
+  assert.match(dockRules, /border-radius:\s*999px/);
+  assert.match(dockRules, /background:\s*rgba\([^)]*,\s*\.5/);
+  assert.match(dockRules, /backdrop-filter:\s*blur/);
+  assert.match(panelRules, /bottom:\s*calc\(var\(--dock-height\) \+ [\d.]+px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(panelRules, /border-radius:\s*22px/);
+  assert.match(panelRules, /background:\s*rgba\(/);
+  assert.match(panelRules, /backdrop-filter:\s*blur/);
+  assert.match(html, /id="music-panel"[\s\S]*class="music-panel-controls"[\s\S]*class="music-lyrics"[\s\S]*id="music-track-list"/);
+});
+
+test("music controls are circular, mobile panel is a safe-area sheet, and playback motion can stop", () => {
+  const dockButtonRules = styles.match(/#music-dock button\s*\{[^}]*\}/)?.[0] ?? "";
+  const mobileMusicRules = styles.match(/@media \(max-width: 720px\)\s*\{[\s\S]*?#music-panel \{[\s\S]*?\}[\s\S]*?\.music-panel-scroll \{[\s\S]*?\}/)?.[0] ?? "";
+  const reducedMotion = styles.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+
+  assert.match(dockButtonRules, /width:\s*36px/);
+  assert.match(dockButtonRules, /height:\s*36px/);
+  assert.match(dockButtonRules, /border-radius:\s*50%/);
+  assert.match(styles, /#music-dock button\[aria-pressed="true"\][\s\S]*background:\s*rgba\(/);
+  assert.match(mobileMusicRules, /bottom:\s*0/);
+  assert.match(mobileMusicRules, /padding-bottom:\s*calc\(16px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(mobileMusicRules, /border-radius:\s*22px 22px 0 0/);
+  assert.match(mobileMusicRules, /\.music-panel-scroll\s*\{[\s\S]*?overflow-y:\s*auto/);
+  assert.match(reducedMotion, /#music-dock, #music-panel[\s\S]*transition:\s*none !important/);
+});
+
 test("music Dock uses the sole native audio and all local track resources", async () => {
   assert.equal((html.match(/<audio\s+id="profileAudio"/g) ?? []).length, 1);
   assert.doesNotMatch(script, /new Audio\s*\(/);
