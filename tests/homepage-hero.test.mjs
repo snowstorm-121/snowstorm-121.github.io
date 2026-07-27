@@ -11,6 +11,26 @@ const [html, styles, script] = await Promise.all([
 ]);
 const page = `${html}\n${styles}\n${script}`;
 
+test("living journal presents one non-navigable semantic four-entry directory", async () => {
+  const living = await readFile(new URL("../living/index.html", import.meta.url), "utf8");
+  const directory = living.match(/<ul class="living-directory"[\s\S]*?<\/ul>/)?.[0] ?? "";
+  const entries = [
+    ["长夜微澜", "个人思考与随笔"],
+    ["纸上星河", "读书笔记"],
+    ["山河来信", "旅行日记"],
+    ["岁序留痕", "年度与阶段记录"],
+  ];
+
+  assert.match(living, /<main class="library-shell living-journal">/);
+  assert.ok(directory, "living journal exposes one semantic directory list");
+  assert.equal((living.match(/<ul class="living-directory"/g) ?? []).length, 1);
+  assert.equal((directory.match(/<li\b/g) ?? []).length, 4);
+  assert.doesNotMatch(directory, /<a\b/);
+  for (const [title, description] of entries) {
+    assert.match(directory, new RegExp(`<h2>${title}<\/h2>[\\s\\S]*?<p>${description}<\/p>`));
+  }
+});
+
 test("homepage uses a semantic four-act shell and one local runtime", () => {
   for (const id of ["origin", "identity", "archive", "connection"]) {
     assert.match(html, new RegExp(`<section[^>]+id="${id}"`));
