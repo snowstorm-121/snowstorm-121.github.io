@@ -267,13 +267,25 @@ test("homepage honors reduced motion for scrolling, animations, and transitions"
   assert.match(reducedMotion, /\.caret/);
 });
 
-test("origin fixes search and quote into separate geometry slots", () => {
+test("origin keeps search and quote in separate fixed story slots", () => {
   assert.match(html, /id="origin-search-slot"[\s\S]*id="hero-search-form"/);
   assert.match(html, /id="origin-quote-slot"[\s\S]*class="sentence-line"[\s\S]*class="sentence-line"/);
   assert.match(styles, /\.origin-story\s*\{[\s\S]*grid-template-rows:\s*var\(--search-slot-height\) var\(--origin-stack-gap\) var\(--quote-slot-height\)/);
   assert.match(styles, /#origin-search-slot\s*\{[\s\S]*grid-row:\s*1/);
   assert.match(styles, /#origin-quote-slot\s*\{[\s\S]*grid-row:\s*3[\s\S]*height:\s*var\(--quote-slot-height\)/);
   assert.match(styles, /--quote-slot-height:\s*calc\(2 \* var\(--quote-line-height\)\)/);
+});
+
+test("origin places its content, story, and desktop scroll cue in normal-flow rows", () => {
+  const originContent = html.match(/<div class="section-inner origin-content">[\s\S]*?<\/div>\s*<\/section>/)?.[0] ?? "";
+  const originRules = styles.match(/\.origin-content\s*\{[^}]*\}/)?.[0] ?? "";
+  const scrollCueRules = styles.match(/\.origin-scroll-cue\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(originContent, /class="origin-declaration"[\s\S]*class="origin-story"[\s\S]*class="origin-scroll-cue"/);
+  assert.match(originRules, /grid-template-areas:\s*"content"\s*"story"\s*"cue"/);
+  assert.match(originRules, /grid-template-rows:\s*auto auto auto/);
+  assert.match(scrollCueRules, /grid-area:\s*cue/);
+  assert.doesNotMatch(scrollCueRules, /position:\s*absolute/);
 });
 
 test("quote reserves two lines from the sentence line-height length", () => {
@@ -283,6 +295,14 @@ test("quote reserves two lines from the sentence line-height length", () => {
   assert.match(styles, /\.sentence\s*\{[\s\S]*line-height:\s*var\(--quote-line-height\)/);
   assert.ok(Number(lineHeight[1]) * 2 >= 2 * 18 * 1.6);
   assert.ok(Number(lineHeight[2]) * 2 >= 2 * 30 * 1.6);
+});
+
+test("origin supporting copy wraps responsively without orphaning its closing phrase", () => {
+  assert.match(html, /class="origin-supporting-copy"[\s\S]*class="origin-closing-phrase"/);
+  assert.match(styles, /\.origin-supporting-copy\s*\{[\s\S]*max-width:\s*100%[\s\S]*white-space:\s*nowrap/);
+  assert.match(styles, /\.origin-closing-phrase\s*\{[\s\S]*white-space:\s*nowrap/);
+  const narrowRules = styles.match(/@media \(max-width: 720px\)\s*\{[\s\S]*?\.origin-supporting-copy\s*\{[\s\S]*?\}[\s\S]*?\}/)?.[0] ?? "";
+  assert.match(narrowRules, /white-space:\s*normal/);
 });
 
 test("mobile quote keeps every logical phrase line on its assigned physical row", () => {
@@ -386,7 +406,8 @@ test("active section state drives reveal, light direction, and the bright Archiv
   assert.match(backdrop, /background-color:\s*var\(--section-wash\)/);
   assert.match(mainLight, /var\(--main-light-x\)/);
   assert.match(mainLight, /var\(--main-light-y\)/);
-  assert.match(scrollCue, /top:\s*calc\(100svh - 68px - \d+px\)/);
+  assert.match(scrollCue, /grid-area:\s*cue/);
+  assert.doesNotMatch(scrollCue, /position:\s*absolute/);
 });
 
 test("track, playback, Dock progress, and lyric accent states are consumed by CSS", () => {
