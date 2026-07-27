@@ -296,6 +296,21 @@ test("body reserves the desktop Dock bottom gap and keeps mobile safe-area spaci
   assert.match(styles, /@media \(max-width: 720px\)\s*\{[\s\S]*?:root\s*\{[\s\S]*?--dock-offset:\s*0px/);
 });
 
+test("browser validation removes the 320px floor and compacts medium and short origin layouts", () => {
+  const bodyRules = styles.match(/body\s*\{[^}]*\}/)?.[0] ?? "";
+  const mediumHeightRules = styles.match(/@media \(min-width: 721px\) and \(max-width: 1100px\) and \(max-height: 800px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+  const shortMobileRules = styles.match(/@media \(max-width: 720px\) and \(max-height: 700px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+
+  assert.doesNotMatch(bodyRules, /min-width:\s*320px/);
+  assert.match(mediumHeightRules, /--origin-stack-gap:\s*20px/);
+  assert.match(mediumHeightRules, /\.origin-content\s*\{[^}]*row-gap:\s*12px/);
+  assert.match(mediumHeightRules, /\.origin-scroll-cue i\s*\{[^}]*height:\s*12px/);
+  assert.match(shortMobileRules, /--origin-stack-gap:\s*8px/);
+  assert.match(shortMobileRules, /\.origin\s*\{[^}]*padding-block:\s*36px calc\(var\(--dock-height\) \+ 24px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(shortMobileRules, /\.origin-content\s*\{[^}]*row-gap:\s*8px/);
+  assert.match(shortMobileRules, /\.origin-scroll-cue i\s*\{[^}]*height:\s*12px/);
+});
+
 test("music now-playing surface renders the selected local cover", () => {
   assert.match(html, /<img[^>]+id="music-cover"[^>]+src="assets\/music\/covers\/the-nights\.png"/);
   assert.match(html, /id="music-cover"[^>]+alt="The Nights — Avicii 的封面"/);
@@ -409,6 +424,19 @@ test("archive has one expandable preview at a time and keeps direct destinations
   assert.match(script, /function setArchivePreview\(card, expanded\)/);
   assert.match(script, /document\.querySelectorAll\("\.archive-card\[data-preview\]"\)/);
   assert.match(styles, /\.archive-card\.is-expanded\s*\{/);
+});
+
+test("browser validation keeps fixed archive previews clear of their controls", () => {
+  const previewRules = styles.match(/\.archive-preview\s*\{[^}]*\}/)?.[0] ?? "";
+  const toggleRules = styles.match(/\.archive-preview-toggle\s*\{[^}]*\}/)?.[0] ?? "";
+  const destinationRules = styles.match(/\.archive-card a\s*\{[^}]*\}/)?.[0] ?? "";
+  const previewBottom = Number(previewRules.match(/bottom:\s*(\d+)px/)?.[1]);
+
+  assert.match(previewRules, /position:\s*absolute/);
+  assert.match(previewRules, /height:\s*104px/);
+  assert.ok(previewBottom >= 120, "preview reserves space above both bottom controls");
+  assert.match(toggleRules, /margin-top:\s*auto/);
+  assert.match(destinationRules, /margin-top:\s*12px/);
 });
 
 test("archive cards keep three columns at 1024px before a direct narrow single-column fallback", async () => {
@@ -529,6 +557,29 @@ test("track, playback, Dock progress, and lyric accent states are consumed by CS
   assert.match(styles, /\.page-backdrop::after\s*\{[^}]*var\(--track-accent\)[^}]*var\(--lyric-accent\)/);
   assert.match(styles, /\.page-backdrop::after\s*\{[^}]*transition:\s*background-color/);
   assert.match(styles, /html\[data-playing="true"\]\s+\.page-backdrop::after\s*\{[^}]*animation:\s*spectrum-breathe/);
+});
+
+test("browser validation uses accessible circular player icons and softened track rows", () => {
+  const transport = html.match(/<div class="music-transport"[\s\S]*?<\/div>/)?.[0] ?? "";
+  const iconControlRules = styles.match(/\.music-transport button,\s*#music-close\s*\{[^}]*\}/)?.[0] ?? "";
+  const trackRules = styles.match(/\.music-track\s*\{[^}]*\}/)?.[0] ?? "";
+  const activeTrackRules = styles.match(/\.music-track\[aria-current="true"\]\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(transport, /id="music-previous"[^>]*>上一首</);
+  assert.match(transport, /id="music-play"[^>]*>播放</);
+  assert.match(transport, /id="music-next"[^>]*>下一首</);
+  assert.match(html, /id="music-close"[^>]*>关闭</);
+  assert.match(iconControlRules, /width:\s*38px/);
+  assert.match(iconControlRules, /height:\s*38px/);
+  assert.match(iconControlRules, /border-radius:\s*50%/);
+  assert.match(iconControlRules, /font-size:\s*0/);
+  for (const id of ["music-previous", "music-play", "music-next", "music-close"]) {
+    assert.match(styles, new RegExp(`#${id}(?:\\[aria-pressed="true"\\])?::after\\s*\\{[^}]*content:`));
+  }
+  assert.match(trackRules, /border:\s*0/);
+  assert.match(trackRules, /border-radius:\s*12px/);
+  assert.match(trackRules, /background:\s*rgba\(255,\s*255,\s*255,\s*\.04\)/);
+  assert.match(activeTrackRules, /box-shadow:\s*inset 2px 0 var\(--accent\)/);
 });
 
 test("the closed music panel remains visually hidden despite its flex layout", () => {
