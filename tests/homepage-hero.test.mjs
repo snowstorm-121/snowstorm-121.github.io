@@ -12,7 +12,10 @@ const [html, styles, script] = await Promise.all([
 const page = `${html}\n${styles}\n${script}`;
 
 test("living journal presents one non-navigable semantic four-entry directory", async () => {
-  const living = await readFile(new URL("../living/index.html", import.meta.url), "utf8");
+  const [living, libraryStyles] = await Promise.all([
+    readFile(new URL("../living/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../assets/library.css", import.meta.url), "utf8"),
+  ]);
   const directory = living.match(/<ul class="living-directory"[\s\S]*?<\/ul>/)?.[0] ?? "";
   const entries = [
     ["长夜微澜", "个人思考与随笔"],
@@ -27,8 +30,10 @@ test("living journal presents one non-navigable semantic four-entry directory", 
   assert.equal((directory.match(/<li\b/g) ?? []).length, 4);
   assert.doesNotMatch(directory, /<a\b/);
   for (const [title, description] of entries) {
-    assert.match(directory, new RegExp(`<h2>${title}<\/h2>[\\s\\S]*?<p>${description}<\/p>`));
+    assert.match(directory, new RegExp(`<h3>${title}<\/h3>[\\s\\S]*?<p>${description}<\/p>`));
   }
+  assert.match(libraryStyles, /\.living-journal \.living-directory h3\s*\{/);
+  assert.doesNotMatch(libraryStyles, /\.living-journal \.living-directory h2\s*\{/);
 });
 
 test("homepage uses a semantic four-act shell and one local runtime", () => {
@@ -329,6 +334,12 @@ test("origin keeps search and quote in separate fixed story slots", () => {
   assert.match(styles, /#origin-search-slot\s*\{[\s\S]*grid-row:\s*1/);
   assert.match(styles, /#origin-quote-slot\s*\{[\s\S]*grid-row:\s*3[\s\S]*height:\s*var\(--quote-slot-height\)/);
   assert.match(styles, /--quote-slot-height:\s*calc\(2 \* var\(--quote-line-height\)\)/);
+});
+
+test("origin story fills its grid row to keep search geometry stable", () => {
+  const originStoryRules = styles.match(/\.origin-story\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(originStoryRules, /width:\s*100%/);
 });
 
 test("origin places its content, story, and desktop scroll cue in normal-flow rows", () => {

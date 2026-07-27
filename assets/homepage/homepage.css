@@ -162,6 +162,7 @@ h3 { margin: 18px 0 12px; font-size: 30px; }
   grid-template-rows: var(--search-slot-height) var(--origin-stack-gap) var(--quote-slot-height);
   justify-items: center;
   position: relative;
+  width: 100%;
 }
 #origin-search-slot { grid-row: 1; width: min(620px, 100%); height: var(--search-slot-height); }
 #origin-quote-slot { grid-row: 3; width: 100%; height: var(--quote-slot-height); overflow: hidden; }
