@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const readOptional = (path) => readFile(new URL(path, import.meta.url), "utf8").catch(() => "");
@@ -10,6 +10,31 @@ const [html, styles, script] = await Promise.all([
   readOptional("../assets/homepage/homepage.js"),
 ]);
 const page = `${html}\n${styles}\n${script}`;
+
+test("living journal presents one non-navigable semantic four-entry directory", async () => {
+  const [living, libraryStyles] = await Promise.all([
+    readFile(new URL("../living/index.html", import.meta.url), "utf8"),
+    readFile(new URL("../assets/library.css", import.meta.url), "utf8"),
+  ]);
+  const directory = living.match(/<ul class="living-directory"[\s\S]*?<\/ul>/)?.[0] ?? "";
+  const entries = [
+    ["长夜微澜", "个人思考与随笔"],
+    ["纸上星河", "读书笔记"],
+    ["山河来信", "旅行日记"],
+    ["岁序留痕", "年度与阶段记录"],
+  ];
+
+  assert.match(living, /<main class="library-shell living-journal">/);
+  assert.ok(directory, "living journal exposes one semantic directory list");
+  assert.equal((living.match(/<ul class="living-directory"/g) ?? []).length, 1);
+  assert.equal((directory.match(/<li\b/g) ?? []).length, 4);
+  assert.doesNotMatch(directory, /<a\b/);
+  for (const [title, description] of entries) {
+    assert.match(directory, new RegExp(`<h3>${title}<\/h3>[\\s\\S]*?<p>${description}<\/p>`));
+  }
+  assert.match(libraryStyles, /\.living-journal \.living-directory h3\s*\{/);
+  assert.doesNotMatch(libraryStyles, /\.living-journal \.living-directory h2\s*\{/);
+});
 
 test("homepage uses a semantic four-act shell and one local runtime", () => {
   for (const id of ["origin", "identity", "archive", "connection"]) {
@@ -40,6 +65,44 @@ test("music panel retains all nine local tracks and native playback controls", (
   assert.match(script, /await profileAudio\.play\(\)/);
   assert.match(script, /document\.createElement\("button"\)/);
   assert.match(script, /trackButton\.dataset\.trackIndex/);
+});
+
+test("music surfaces use a compact glass Dock and an anchored expanded panel", () => {
+  const dock = html.match(/<aside id="music-dock"[\s\S]*?<\/aside>/)?.[0] ?? "";
+  const dockRules = styles.match(/#music-dock\s*\{[^}]*\}/)?.[0] ?? "";
+  const panelRules = styles.match(/#music-panel\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(dock, /id="music-dock-cover"[\s\S]*id="music-dock-title"[\s\S]*id="music-dock-play"[\s\S]*id="music-dock-expand"/);
+  assert.equal((dock.match(/<button\b/g) ?? []).length, 2);
+  assert.match(styles, /--dock-height:\s*56px/);
+  assert.match(dockRules, /width:\s*clamp\(240px,\s*[\d.]+vw,\s*296px\)/);
+  assert.match(dockRules, /border-radius:\s*999px/);
+  assert.match(dockRules, /background:\s*rgba\([^)]*,\s*\.5/);
+  assert.match(dockRules, /backdrop-filter:\s*blur/);
+  assert.match(panelRules, /bottom:\s*calc\(var\(--dock-height\) \+ [\d.]+px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(panelRules, /border-radius:\s*22px/);
+  assert.match(panelRules, /background:\s*rgba\(/);
+  assert.match(panelRules, /backdrop-filter:\s*blur/);
+  assert.match(html, /id="music-panel"[\s\S]*class="music-panel-controls"[\s\S]*class="music-lyrics"[\s\S]*id="music-track-list"/);
+});
+
+test("music controls are circular, mobile panel is a safe-area sheet, and playback motion can stop", () => {
+  const dockButtonRules = styles.match(/#music-dock button\s*\{[^}]*\}/)?.[0] ?? "";
+  const mobileMusicRules = styles.match(/@media \(max-width: 720px\)\s*\{[\s\S]*?#music-panel \{[\s\S]*?\}[\s\S]*?\.music-panel-scroll \{[\s\S]*?\}/)?.[0] ?? "";
+  const reducedMotion = styles.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+
+  assert.match(dockButtonRules, /width:\s*36px/);
+  assert.match(dockButtonRules, /height:\s*36px/);
+  assert.match(dockButtonRules, /border-radius:\s*50%/);
+  assert.match(styles, /#music-dock button\[aria-pressed="true"\][\s\S]*background:\s*rgba\(/);
+  assert.match(styles, /#music-dock-play::after\s*\{[^}]*content:\s*""[^}]*clip-path:\s*polygon/);
+  assert.match(styles, /#music-dock-play\[aria-pressed="true"\]::after\s*\{[^}]*content:\s*""[^}]*linear-gradient/);
+  assert.match(styles, /#music-dock-expand::after\s*\{[^}]*content:\s*""[^}]*border:/);
+  assert.match(mobileMusicRules, /bottom:\s*0/);
+  assert.match(mobileMusicRules, /padding-bottom:\s*calc\(16px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(mobileMusicRules, /border-radius:\s*22px 22px 0 0/);
+  assert.match(mobileMusicRules, /\.music-panel-scroll\s*\{[\s\S]*?overflow-y:\s*auto/);
+  assert.match(reducedMotion, /#music-dock, #music-panel[\s\S]*transition:\s*none !important/);
 });
 
 test("music Dock uses the sole native audio and all local track resources", async () => {
@@ -236,6 +299,23 @@ test("body reserves the desktop Dock bottom gap and keeps mobile safe-area spaci
   assert.match(styles, /@media \(max-width: 720px\)\s*\{[\s\S]*?:root\s*\{[\s\S]*?--dock-offset:\s*0px/);
 });
 
+test("browser validation removes the 320px floor and compacts medium and short origin layouts", () => {
+  const bodyRules = styles.match(/body\s*\{[^}]*\}/)?.[0] ?? "";
+  const mediumHeightRules = styles.match(/@media \(min-width: 721px\) and \(max-width: 1100px\) and \(max-height: 800px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+  const mobileRules = styles.match(/@media \(max-width: 720px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+  const shortMobileRules = styles.match(/@media \(max-width: 720px\) and \(max-height: 700px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+
+  assert.doesNotMatch(bodyRules, /min-width:\s*320px/);
+  assert.match(mediumHeightRules, /--quote-status-slot-height:\s*34px/);
+  assert.match(mediumHeightRules, /\.origin-content\s*\{[^}]*row-gap:\s*12px/);
+  assert.match(mediumHeightRules, /\.origin-scroll-cue i\s*\{[^}]*height:\s*12px/);
+  assert.match(mobileRules, /--quote-status-slot-height:\s*34px/);
+  assert.match(mobileRules, /--quote-line-height:\s*24px/);
+  assert.match(shortMobileRules, /\.origin\s*\{[^}]*padding-block:\s*32px calc\(var\(--dock-height\) \+ 24px \+ env\(safe-area-inset-bottom\)\)/);
+  assert.match(shortMobileRules, /\.origin-content\s*\{[^}]*row-gap:\s*4px/);
+  assert.match(shortMobileRules, /\.origin-scroll-cue i\s*\{[^}]*height:\s*8px/);
+});
+
 test("music now-playing surface renders the selected local cover", () => {
   assert.match(html, /<img[^>]+id="music-cover"[^>]+src="assets\/music\/covers\/the-nights\.png"/);
   assert.match(html, /id="music-cover"[^>]+alt="The Nights — Avicii 的封面"/);
@@ -267,13 +347,38 @@ test("homepage honors reduced motion for scrolling, animations, and transitions"
   assert.match(reducedMotion, /\.caret/);
 });
 
-test("origin fixes search and quote into separate geometry slots", () => {
-  assert.match(html, /id="origin-search-slot"[\s\S]*id="hero-search-form"/);
+test("origin keeps search and quote in separate fixed story slots", () => {
+  const quoteStatusRules = styles.match(/\.origin-quote-status\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(html, /id="origin-search-slot"[\s\S]*class="origin-quote-status"[\s\S]*id="origin-quote-slot"/);
   assert.match(html, /id="origin-quote-slot"[\s\S]*class="sentence-line"[\s\S]*class="sentence-line"/);
-  assert.match(styles, /\.origin-story\s*\{[\s\S]*grid-template-rows:\s*var\(--search-slot-height\) var\(--origin-stack-gap\) var\(--quote-slot-height\)/);
+  assert.match(styles, /--quote-status-slot-height:\s*52px/);
+  assert.match(styles, /\.origin-story\s*\{[\s\S]*grid-template-rows:\s*var\(--search-slot-height\) var\(--quote-status-slot-height\) var\(--quote-slot-height\)/);
   assert.match(styles, /#origin-search-slot\s*\{[\s\S]*grid-row:\s*1/);
+  assert.match(quoteStatusRules, /grid-row:\s*2/);
+  assert.match(quoteStatusRules, /height:\s*var\(--quote-status-slot-height\)/);
+  assert.match(quoteStatusRules, /position:\s*static/);
+  assert.doesNotMatch(quoteStatusRules, /\btop:/);
   assert.match(styles, /#origin-quote-slot\s*\{[\s\S]*grid-row:\s*3[\s\S]*height:\s*var\(--quote-slot-height\)/);
   assert.match(styles, /--quote-slot-height:\s*calc\(2 \* var\(--quote-line-height\)\)/);
+});
+
+test("origin story fills its grid row to keep search geometry stable", () => {
+  const originStoryRules = styles.match(/\.origin-story\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(originStoryRules, /width:\s*100%/);
+});
+
+test("origin places its content, story, and desktop scroll cue in normal-flow rows", () => {
+  const originContent = html.match(/<div class="section-inner origin-content">[\s\S]*?<\/div>\s*<\/section>/)?.[0] ?? "";
+  const originRules = styles.match(/\.origin-content\s*\{[^}]*\}/)?.[0] ?? "";
+  const scrollCueRules = styles.match(/\.origin-scroll-cue\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(originContent, /class="origin-declaration"[\s\S]*class="origin-story"[\s\S]*class="origin-scroll-cue"/);
+  assert.match(originRules, /grid-template-areas:\s*"content"\s*"story"\s*"cue"/);
+  assert.match(originRules, /grid-template-rows:\s*auto auto auto/);
+  assert.match(scrollCueRules, /grid-area:\s*cue/);
+  assert.doesNotMatch(scrollCueRules, /position:\s*absolute/);
 });
 
 test("quote reserves two lines from the sentence line-height length", () => {
@@ -283,6 +388,14 @@ test("quote reserves two lines from the sentence line-height length", () => {
   assert.match(styles, /\.sentence\s*\{[\s\S]*line-height:\s*var\(--quote-line-height\)/);
   assert.ok(Number(lineHeight[1]) * 2 >= 2 * 18 * 1.6);
   assert.ok(Number(lineHeight[2]) * 2 >= 2 * 30 * 1.6);
+});
+
+test("origin supporting copy wraps responsively without orphaning its closing phrase", () => {
+  assert.match(html, /class="origin-supporting-copy"[\s\S]*class="origin-closing-phrase"/);
+  assert.match(styles, /\.origin-supporting-copy\s*\{[\s\S]*max-width:\s*100%[\s\S]*white-space:\s*nowrap/);
+  assert.match(styles, /\.origin-closing-phrase\s*\{[\s\S]*white-space:\s*nowrap/);
+  const narrowRules = styles.match(/@media \(max-width: 720px\)\s*\{[\s\S]*?\.origin-supporting-copy\s*\{[\s\S]*?\}[\s\S]*?\}/)?.[0] ?? "";
+  assert.match(narrowRules, /white-space:\s*normal/);
 });
 
 test("mobile quote keeps every logical phrase line on its assigned physical row", () => {
@@ -325,6 +438,51 @@ test("archive has one expandable preview at a time and keeps direct destinations
   assert.match(styles, /\.archive-card\.is-expanded\s*\{/);
 });
 
+test("browser validation keeps fixed archive previews clear of their controls", () => {
+  const previewRules = styles.match(/\.archive-preview\s*\{[^}]*\}/)?.[0] ?? "";
+  const toggleRules = styles.match(/\.archive-preview-toggle\s*\{[^}]*\}/)?.[0] ?? "";
+  const destinationRules = styles.match(/\.archive-card a\s*\{[^}]*\}/)?.[0] ?? "";
+  const previewBottom = Number(previewRules.match(/bottom:\s*(\d+)px/)?.[1]);
+
+  assert.match(previewRules, /position:\s*absolute/);
+  assert.match(previewRules, /height:\s*104px/);
+  assert.equal(previewBottom, 120, "preview uses the validated safe control clearance");
+  assert.match(toggleRules, /margin-top:\s*auto/);
+  assert.match(destinationRules, /margin-top:\s*12px/);
+});
+
+test("archive cards keep three columns at 1024px before a direct narrow single-column fallback", async () => {
+  const cards = [...html.matchAll(/<article class="archive-card"[\s\S]*?<\/article>/g)].map(([card]) => card);
+  const imagePaths = [
+    "../assets/homepage/archive-learning.jpg",
+    "../assets/homepage/archive-living.jpg",
+    "../assets/homepage/archive-research.jpg",
+  ];
+
+  assert.equal(cards.length, 3);
+  await Promise.all(imagePaths.map((path) => access(new URL(path, import.meta.url))));
+  cards.forEach((card, index) => {
+    assert.match(card, new RegExp(`<figure class="archive-media">[\\s\\S]*?<img[^>]+src="\\./assets/homepage/${imagePaths[index].split("/").at(-1)}"`));
+  });
+
+  const archiveGrid = styles.match(/\.archive-grid\s*\{[^}]*\}/)?.[0] ?? "";
+  const compactArchiveGrid = styles.match(/@media \(max-width:\s*(\d+)px\)\s*\{\s*\.archive-grid\s*\{[^}]*\}/);
+  const card = styles.match(/\.archive-card\s*\{[^}]*\}/)?.[0] ?? "";
+  const media = styles.match(/\.archive-media\s*\{[^}]*\}/)?.[0] ?? "";
+  const preview = styles.match(/\.archive-preview\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(archiveGrid, /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+  assert.ok(compactArchiveGrid, "archive has a direct narrow-screen fallback");
+  assert.ok(Number(compactArchiveGrid[1]) <= 900, "archive remains three columns at 1024px");
+  assert.match(compactArchiveGrid[0], /grid-template-columns:\s*1fr/);
+  assert.doesNotMatch(styles, /grid-template-columns:\s*repeat\(2,/);
+  assert.match(card, /height:\s*100%/);
+  assert.doesNotMatch(styles, /\.archive-card:first-child/);
+  assert.match(media, /aspect-ratio:\s*16\s*\/\s*9/);
+  assert.match(preview, /position:\s*absolute/);
+  assert.match(preview, /height:\s*\d+px/);
+});
+
 test("QQ remains a direct link while WeChat is a copyable dialog", () => {
   assert.match(html, /id="wechat-trigger"[^>]*aria-controls="wechat-popover"/);
   assert.match(html, /id="wechat-popover"[^>]*role="dialog"/);
@@ -332,6 +490,18 @@ test("QQ remains a direct link while WeChat is a copyable dialog", () => {
   assert.doesNotMatch(html, /data-contact="qq"/);
   assert.match(script, /function closeWeChatPopover\(\{ returnFocus \}\)/);
   assert.match(script, /navigator\.clipboard\?\.writeText/);
+});
+
+test("QQ stays a direct link with a filled penguin silhouette", () => {
+  const qqLink = html.match(/<a href="https:\/\/wpa\.qq\.com\/msgrd[^>]*aria-label="QQ 2971234387"[^>]*>[\s\S]*?<\/a>/)?.[0] ?? "";
+
+  assert.ok(qqLink, "QQ contact remains an anchor with its accessible label");
+  assert.doesNotMatch(qqLink, /aria-controls=|role="dialog"|data-contact=/);
+  assert.match(qqLink, /<svg[^>]*data-icon="qq-penguin"[^>]*fill="currentColor"/);
+  assert.match(qqLink, /<path[^>]*data-part="head-body"/);
+  assert.match(qqLink, /<path[^>]*data-part="left-wing"/);
+  assert.match(qqLink, /<path[^>]*data-part="right-wing"/);
+  assert.match(qqLink, /<path[^>]*data-part="feet"/);
 });
 
 test("WeChat dialog traps Tab focus and returns it to its trigger when closed", () => {
@@ -386,7 +556,8 @@ test("active section state drives reveal, light direction, and the bright Archiv
   assert.match(backdrop, /background-color:\s*var\(--section-wash\)/);
   assert.match(mainLight, /var\(--main-light-x\)/);
   assert.match(mainLight, /var\(--main-light-y\)/);
-  assert.match(scrollCue, /top:\s*calc\(100svh - 68px - \d+px\)/);
+  assert.match(scrollCue, /grid-area:\s*cue/);
+  assert.doesNotMatch(scrollCue, /position:\s*absolute/);
 });
 
 test("track, playback, Dock progress, and lyric accent states are consumed by CSS", () => {
@@ -398,6 +569,30 @@ test("track, playback, Dock progress, and lyric accent states are consumed by CS
   assert.match(styles, /\.page-backdrop::after\s*\{[^}]*var\(--track-accent\)[^}]*var\(--lyric-accent\)/);
   assert.match(styles, /\.page-backdrop::after\s*\{[^}]*transition:\s*background-color/);
   assert.match(styles, /html\[data-playing="true"\]\s+\.page-backdrop::after\s*\{[^}]*animation:\s*spectrum-breathe/);
+});
+
+test("browser validation uses accessible circular player icons and softened track rows", () => {
+  const transport = html.match(/<div class="music-transport"[\s\S]*?<\/div>/)?.[0] ?? "";
+  const iconControlRules = styles.match(/\.music-transport button,\s*#music-close\s*\{[^}]*\}/)?.[0] ?? "";
+  const trackRules = styles.match(/\.music-track\s*\{[^}]*\}/)?.[0] ?? "";
+  const activeTrackRules = styles.match(/\.music-track\[aria-current="true"\]\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(transport, /id="music-previous"[^>]*>上一首</);
+  assert.match(transport, /id="music-play"[^>]*>播放</);
+  assert.match(transport, /id="music-next"[^>]*>下一首</);
+  assert.match(html, /id="music-close"[^>]*>关闭</);
+  assert.match(iconControlRules, /width:\s*38px/);
+  assert.match(iconControlRules, /height:\s*38px/);
+  assert.match(iconControlRules, /border-radius:\s*50%/);
+  assert.match(iconControlRules, /font-size:\s*0/);
+  for (const id of ["music-previous", "music-play", "music-next", "music-close"]) {
+    assert.match(styles, new RegExp(`#${id}::after\\s*\\{[^}]*content:\\s*""`));
+  }
+  assert.match(styles, /#music-play\[aria-pressed="true"\]::after\s*\{[^}]*content:\s*""/);
+  assert.match(trackRules, /border:\s*0/);
+  assert.match(trackRules, /border-radius:\s*12px/);
+  assert.match(trackRules, /background:\s*rgba\(255,\s*255,\s*255,\s*\.04\)/);
+  assert.match(activeTrackRules, /box-shadow:\s*inset 2px 0 var\(--accent\)/);
 });
 
 test("the closed music panel remains visually hidden despite its flex layout", () => {
