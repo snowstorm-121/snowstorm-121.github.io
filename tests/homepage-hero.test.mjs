@@ -798,6 +798,21 @@ test("tidal-island panel exposes timing and a collapsed bounded queue", () => {
   assert.match(styles, /#music-panel\.is-queue-open\s+#music-track-list/);
 });
 
+test("tidal-island desktop panel stays compact when lyric metadata is long", () => {
+  const panelRules = styles.match(/#music-panel\s*\{[^}]*\}/)?.[0] ?? "";
+  const lyricsRules = styles.match(/\.music-lyrics\s*\{[^}]*\}/)?.[0] ?? "";
+  const lyricLineRules = styles.match(/\.music-lyrics p\s*\{[^}]*\}/)?.[0] ?? "";
+  const compactHeight = panelRules.match(/(?:^|[;{])\s*height:\s*min\((\d+)px,\s*calc\(100dvh - 118px\)\)/);
+
+  assert.ok(compactHeight, "desktop panel needs a viewport-safe explicit height");
+  assert.ok(Number(compactHeight[1]) >= 340 && Number(compactHeight[1]) <= 380);
+  assert.match(lyricsRules, /height:\s*82px/);
+  assert.match(lyricsRules, /grid-template-rows:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(lyricLineRules, /overflow:\s*hidden/);
+  assert.match(lyricLineRules, /text-overflow:\s*ellipsis/);
+  assert.match(lyricLineRules, /white-space:\s*nowrap/);
+});
+
 test("tidal-island reduced motion explicitly disables every new player effect", () => {
   const reducedMotion = styles.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
   const playerEffects = reducedMotion.match(/#music-panel,\s*#music-track-list,\s*\.music-cover-orbit,\s*#music-cover,\s*\.music-panel-mood,\s*\.music-lyrics,\s*\.music-lyrics p\s*\{[^}]*\}/)?.[0] ?? "";
