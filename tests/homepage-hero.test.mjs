@@ -100,6 +100,28 @@ test("music surfaces use a compact glass Dock and an anchored expanded panel", (
   assert.match(html, /id="music-panel"[\s\S]*class="music-panel-controls"[\s\S]*class="music-lyrics"[\s\S]*id="music-track-list"/);
 });
 
+test("prism glass music panel layers a low-alpha island, readable lyrics, and light controls", () => {
+  const panelRules = styles.match(/#music-panel\s*\{[^}]*\}/)?.[0] ?? "";
+  const prismRules = styles.match(/#music-panel::before\s*\{[^}]*\}/)?.[0] ?? "";
+  const lyricsRules = styles.match(/\.music-lyrics\s*\{[^}]*\}/)?.[0] ?? "";
+  const glassControls = styles.match(/#music-panel :is\(\.music-transport button, #music-close, #music-queue-toggle\)\s*\{[^}]*\}/)?.[0] ?? "";
+  const progressRules = styles.match(/#music-panel #music-progress\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(panelRules, /background:\s*rgba\(6,\s*17,\s*31,\s*\.42\)/);
+  assert.match(panelRules, /backdrop-filter:\s*blur\(26px\) saturate\(135%\)/);
+  assert.match(panelRules, /isolation:\s*isolate/);
+  assert.match(prismRules, /content:\s*""/);
+  assert.match(prismRules, /pointer-events:\s*none/);
+  assert.match(prismRules, /var\(--track-accent\)/);
+  assert.match(prismRules, /radial-gradient/);
+  assert.match(lyricsRules, /background:\s*rgba\(6,\s*17,\s*31,\s*\.58\)/);
+  assert.match(lyricsRules, /backdrop-filter:\s*blur\(16px\) saturate\(120%\)/);
+  assert.match(glassControls, /background:\s*rgba\(255,\s*255,\s*255,\s*\.1\)/);
+  assert.match(progressRules, /background:\s*rgba\(255,\s*255,\s*255,\s*\.16\)/);
+  assert.match(panelRules, /height:\s*min\(380px,\s*calc\(100dvh - 118px\)\)/);
+  assert.match(styles, /@media \(max-width: 720px\)[\s\S]*?#music-panel\s*\{[\s\S]*?max-height:\s*72dvh/);
+});
+
 test("music controls are circular, mobile panel is a bounded safe-area sheet, and playback motion can stop", () => {
   const dockButtonRules = styles.match(/#music-dock button\s*\{[^}]*\}/)?.[0] ?? "";
   const mobileMusicRules = styles.match(/@media \(max-width: 720px\)\s*\{[\s\S]*?#music-panel \{[\s\S]*?\}[\s\S]*?\.music-panel-scroll \{[\s\S]*?\}/)?.[0] ?? "";
