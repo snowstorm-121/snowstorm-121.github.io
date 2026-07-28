@@ -48,6 +48,20 @@ test("homepage uses a semantic four-act shell and one local runtime", () => {
   assert.doesNotMatch(html, /<script>(?:.|\n)*?<\/script>/);
 });
 
+test("homepage title uses ordered semantic lines and identity copy adapts its wrapping", () => {
+  const originTitle = html.match(/<h1 id="origin-title"[^>]*>([\s\S]*?)<\/h1>/)?.[1] ?? "";
+  const originLines = [...originTitle.matchAll(/<span class="origin-title-line">([^<]+)<\/span>/g)].map(([, text]) => text);
+  const desktopIdentity = styles.match(/@media \(min-width: 721px\)\s*\{[\s\S]*?#identity-title\s*\{([^}]*)\}/)?.[1] ?? "";
+  const mobileIdentity = styles.match(/@media \(max-width: 720px\)\s*\{[\s\S]*?#identity-title\s*\{([^}]*)\}/)?.[1] ?? "";
+
+  assert.deepEqual(originLines, ["STILL,", "I GO ON"]);
+  assert.match(html, /<h1 id="origin-title"[^>]*aria-label="STILL, I GO ON"/);
+  assert.match(styles, /#origin-title\s+\.origin-title-line\s*\{[^}]*display:\s*block/);
+  assert.match(desktopIdentity, /font-size:\s*clamp\(/);
+  assert.match(desktopIdentity, /white-space:\s*nowrap/);
+  assert.match(mobileIdentity, /white-space:\s*normal/);
+});
+
 test("music panel retains all nine local tracks and native playback controls", () => {
   const trackEntries = script.match(/\{ title: ".*?", artist: ".*?", mood: ".*?", accent: ".*?", src: ".*?", lyrics: ".*?", cover: ".*?" \}/g) ?? [];
   assert.equal(trackEntries.length, 9);
