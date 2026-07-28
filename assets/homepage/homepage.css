@@ -241,11 +241,14 @@ html[data-pointer-glass="true"] :is(.pointer-glass, .archive-card)::after { opac
 .archive-media img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .archive-label { margin: 0; color: var(--muted); font-size: 12px; letter-spacing: .08em; }
 .archive-card p:not(.card-index) { color: var(--muted); line-height: 1.75; }
-.archive-preview { position: absolute; right: 20px; bottom: 120px; left: 20px; display: none; height: 104px; margin-top: 8px; padding: 12px; overflow-y: auto; border-left: 1px solid var(--accent); background: rgba(15, 33, 55, .94); }
+.archive-copy-stage { display: grid; min-height: 104px; margin-top: 8px; }
+.archive-summary { grid-area: 1 / 1; margin: 0; opacity: 1; visibility: visible; pointer-events: auto; transition: opacity .22s ease, transform .22s ease, visibility 0s linear; }
+.archive-preview { grid-area: 1 / 1; height: 104px; padding: 12px; overflow-y: auto; border-left: 1px solid var(--accent); background: rgba(15, 33, 55, .94); opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(8px); transition: opacity .22s ease, transform .22s ease, visibility 0s linear .22s; }
 .archive-preview p { margin: 0; font-size: 13px; }
 .archive-preview-toggle { width: fit-content; margin-top: auto; padding: 7px 10px; border-radius: 999px; }
 .archive-card.is-expanded { border-color: rgba(215, 178, 138, .72); background: rgba(15, 33, 55, .86); }
-.archive-card.is-expanded .archive-preview { display: block; }
+.archive-card.is-expanded .archive-summary { opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-8px); transition-delay: 0s, 0s, .22s; }
+.archive-card.is-expanded .archive-preview { opacity: 1; visibility: visible; pointer-events: auto; transform: none; transition-delay: 0s; }
 .archive-card.is-expanded .archive-preview-toggle { color: var(--accent); }
 .archive-card a { width: fit-content; margin-top: 12px; color: var(--accent); }
 
@@ -389,6 +392,7 @@ a:active, button:active { transform: translateY(1px); }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   #music-dock, #music-panel { transition: none !important; }
   #music-panel, #music-track-list, .music-cover-orbit, #music-cover, .music-panel-mood, .music-lyrics, .music-lyrics p { animation: none !important; transition: none !important; }
+  .archive-summary, .archive-preview { transition: none !important; transform: none !important; }
   .caret { display: none; }
   .story-section > .section-inner { opacity: 1 !important; }
   .pointer-glass, .archive-card, .story-section, .story-section > .section-inner, .page-backdrop::before, .page-backdrop::after, #moon-ripple.is-rippling::after, .spectrum-bar { transform: none !important; }

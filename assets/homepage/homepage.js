@@ -159,7 +159,9 @@ function setArchivePreview(card, expanded) {
   archiveCards.forEach((archiveCard) => {
     const isExpanded = archiveCard === card && expanded;
     archiveCard.classList.toggle("is-expanded", isExpanded);
-    archiveCard.querySelector(".archive-preview-toggle").setAttribute("aria-expanded", String(isExpanded));
+    const previewToggle = archiveCard.querySelector(".archive-preview-toggle");
+    previewToggle.setAttribute("aria-expanded", String(isExpanded));
+    previewToggle.textContent = isExpanded ? "收起预览" : "展开预览";
   });
 }
 

@@ -171,9 +171,21 @@ function createMusicRuntime() {
       this.style = { setProperty() {}, removeProperty() {} };
       this.hidden = false;
       this.listeners = new Map();
-      this.classList = { add() {}, remove() {}, toggle() {}, contains() { return false; } };
+      const classes = new Set();
+      this.classList = {
+        add(...tokens) { tokens.forEach((token) => classes.add(token)); },
+        remove(...tokens) { tokens.forEach((token) => classes.delete(token)); },
+        toggle(token, force) {
+          const enabled = force === undefined ? !classes.has(token) : force;
+          if (enabled) classes.add(token);
+          else classes.delete(token);
+          return enabled;
+        },
+        contains(token) { return classes.has(token); },
+      };
       this.textContent = "";
       this.value = "";
+      this.queryElements = new Map();
     }
 
     append(...children) {
@@ -203,7 +215,7 @@ function createMusicRuntime() {
     removeAttribute(name) { this.attributes.delete(name); }
     focus() { document.activeElement = this; }
     contains(target) { return target === this || this.children.some((child) => child.contains(target)); }
-    querySelector() { return new FakeElement(); }
+    querySelector(selector) { return this.queryElements.get(selector) ?? new FakeElement(); }
   }
 
   const audio = new FakeElement("profileAudio");
@@ -224,6 +236,14 @@ function createMusicRuntime() {
   ]) elements.set(`#${id}`, new FakeElement(id));
   elements.get("#music-panel").hidden = true;
   elements.get("#wechat-popover").hidden = true;
+  const archiveCards = ["learning", "living", "research"].map((id) => {
+    const card = new FakeElement(id);
+    const toggle = new FakeElement(`${id}-toggle`);
+    toggle.textContent = "展开预览";
+    toggle.setAttribute("aria-expanded", "false");
+    card.queryElements.set(".archive-preview-toggle", toggle);
+    return card;
+  });
 
   const document = {
     activeElement: null,
@@ -232,6 +252,7 @@ function createMusicRuntime() {
     querySelector(selector) { return elements.get(selector) ?? new FakeElement(); },
     querySelectorAll(selector) {
       if (selector === ".sentence-line") return [new FakeElement(), new FakeElement()];
+      if (selector === ".archive-card[data-preview]") return archiveCards;
       return [];
     },
     createElement() { return new FakeElement(); },
@@ -248,6 +269,10 @@ function createMusicRuntime() {
     },
   };
   for (const element of elements.values()) element.parent = document;
+  archiveCards.forEach((card) => {
+    card.parent = document;
+    card.querySelector(".archive-preview-toggle").parent = card;
+  });
   const window = {
     matchMedia: () => ({ matches: false, addEventListener() {} }),
     setTimeout: () => 0,
@@ -255,6 +280,7 @@ function createMusicRuntime() {
   };
   return {
     audio,
+    archiveCards,
     currentLyric: elements.get("#current-lyric"),
     document,
     musicDuration: elements.get("#music-duration"),
@@ -462,17 +488,69 @@ test("archive has one expandable preview at a time and keeps direct destinations
   assert.match(styles, /\.archive-card\.is-expanded\s*\{/);
 });
 
-test("browser validation keeps fixed archive previews clear of their controls", () => {
+test("every archive card keeps its summary and preview in one fixed copy stage", () => {
+  const cards = [...html.matchAll(/<article class="archive-card"[\s\S]*?<\/article>/g)].map(([card]) => card);
+
+  assert.equal(cards.length, 3);
+  for (const card of cards) {
+    const stages = card.match(/<div class="archive-copy-stage">[\s\S]*?<\/div>\s*<\/div>/g) ?? [];
+    assert.equal(stages.length, 1, "each archive card has exactly one copy stage");
+    assert.match(stages[0], /<p class="archive-summary">[^<]+<\/p>/);
+    assert.match(stages[0], /<div class="archive-preview" id="[^"]+-preview">[\s\S]*?<p>[^<]+<\/p>/);
+  }
+});
+
+test("archive copy stage swaps summary and preview without a card-relative overlay", () => {
+  const stageRules = styles.match(/\.archive-copy-stage\s*\{[^}]*\}/)?.[0] ?? "";
+  const summaryRules = styles.match(/\.archive-summary\s*\{[^}]*\}/)?.[0] ?? "";
   const previewRules = styles.match(/\.archive-preview\s*\{[^}]*\}/)?.[0] ?? "";
+  const expandedSummary = styles.match(/\.archive-card\.is-expanded \.archive-summary\s*\{[^}]*\}/)?.[0] ?? "";
+  const expandedPreview = styles.match(/\.archive-card\.is-expanded \.archive-preview\s*\{[^}]*\}/)?.[0] ?? "";
   const toggleRules = styles.match(/\.archive-preview-toggle\s*\{[^}]*\}/)?.[0] ?? "";
   const destinationRules = styles.match(/\.archive-card a\s*\{[^}]*\}/)?.[0] ?? "";
-  const previewBottom = Number(previewRules.match(/bottom:\s*(\d+)px/)?.[1]);
+  const reducedMotion = styles.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
 
-  assert.match(previewRules, /position:\s*absolute/);
-  assert.match(previewRules, /height:\s*104px/);
-  assert.equal(previewBottom, 120, "preview uses the validated safe control clearance");
+  assert.match(stageRules, /display:\s*grid/);
+  assert.match(summaryRules, /grid-area:\s*1\s*\/\s*1/);
+  assert.match(previewRules, /grid-area:\s*1\s*\/\s*1/);
+  assert.match(previewRules, /opacity:\s*0/);
+  assert.match(previewRules, /visibility:\s*hidden/);
+  assert.match(previewRules, /pointer-events:\s*none/);
+  assert.doesNotMatch(previewRules, /position:\s*absolute|bottom:\s*120px/);
+  assert.match(expandedSummary, /opacity:\s*0/);
+  assert.match(expandedSummary, /visibility:\s*hidden/);
+  assert.match(expandedSummary, /pointer-events:\s*none/);
+  assert.match(expandedPreview, /opacity:\s*1/);
+  assert.match(expandedPreview, /visibility:\s*visible/);
+  assert.match(expandedPreview, /pointer-events:\s*auto/);
   assert.match(toggleRules, /margin-top:\s*auto/);
   assert.match(destinationRules, /margin-top:\s*12px/);
+  assert.match(reducedMotion, /\.archive-summary,\s*\.archive-preview\s*\{[^}]*transition:\s*none !important/);
+});
+
+test("archive toggles update labels, keep one preview open, and Escape restores focus", () => {
+  const runtime = createMusicRuntime();
+  vm.runInNewContext(script, { ...runtime, fetch: async () => ({ ok: false }), navigator: {} });
+  const [learning, living] = runtime.archiveCards;
+  const learningToggle = learning.querySelector(".archive-preview-toggle");
+  const livingToggle = living.querySelector(".archive-preview-toggle");
+
+  learningToggle.dispatch("click");
+  assert.equal(learning.classList.contains("is-expanded"), true);
+  assert.equal(learningToggle.getAttribute("aria-expanded"), "true");
+  assert.equal(learningToggle.textContent, "收起预览");
+
+  livingToggle.dispatch("click");
+  assert.equal(learning.classList.contains("is-expanded"), false);
+  assert.equal(learningToggle.textContent, "展开预览");
+  assert.equal(living.classList.contains("is-expanded"), true);
+  assert.equal(livingToggle.textContent, "收起预览");
+
+  runtime.document.dispatch("keydown", { key: "Escape" });
+  assert.equal(living.classList.contains("is-expanded"), false);
+  assert.equal(livingToggle.getAttribute("aria-expanded"), "false");
+  assert.equal(livingToggle.textContent, "展开预览");
+  assert.equal(runtime.document.activeElement, livingToggle);
 });
 
 test("archive cards keep three columns at 1024px before a direct narrow single-column fallback", async () => {
@@ -493,7 +571,6 @@ test("archive cards keep three columns at 1024px before a direct narrow single-c
   const compactArchiveGrid = styles.match(/@media \(max-width:\s*(\d+)px\)\s*\{\s*\.archive-grid\s*\{[^}]*\}/);
   const card = styles.match(/\.archive-card\s*\{[^}]*\}/)?.[0] ?? "";
   const media = styles.match(/\.archive-media\s*\{[^}]*\}/)?.[0] ?? "";
-  const preview = styles.match(/\.archive-preview\s*\{[^}]*\}/)?.[0] ?? "";
 
   assert.match(archiveGrid, /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
   assert.ok(compactArchiveGrid, "archive has a direct narrow-screen fallback");
@@ -503,8 +580,6 @@ test("archive cards keep three columns at 1024px before a direct narrow single-c
   assert.match(card, /height:\s*100%/);
   assert.doesNotMatch(styles, /\.archive-card:first-child/);
   assert.match(media, /aspect-ratio:\s*16\s*\/\s*9/);
-  assert.match(preview, /position:\s*absolute/);
-  assert.match(preview, /height:\s*\d+px/);
 });
 
 test("QQ remains a direct link while WeChat is a copyable dialog", () => {
