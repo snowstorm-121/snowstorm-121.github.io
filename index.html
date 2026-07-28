@@ -33,7 +33,7 @@
       <div class="section-inner origin-content">
         <div class="origin-declaration">
           <p class="eyebrow">PERSONAL ARCHIVE / 121</p>
-          <h1 id="origin-title">STILL, I GO ON</h1>
+          <h1 id="origin-title" aria-label="STILL, I GO ON"><span class="origin-title-line">STILL,</span><span class="origin-title-line">I GO ON</span></h1>
           <p class="origin-supporting-copy">把每一段迟疑与抵达，收进<span class="origin-closing-phrase">这一页安静的记录。</span></p>
         </div>
         <div class="origin-story">
@@ -104,9 +104,11 @@
             <p class="card-index">01 / KNOWLEDGE</p>
             <p class="archive-label">Learning Atlas</p>
             <h3>星野问津</h3>
-            <p>将零散的知识整理成可以反复抵达的路径，记录每一次理解、验证与重构。</p>
-            <div class="archive-preview" id="learning-preview">
-              <p>从笔记、练习到复盘，每一次回看都能找到下一步的坐标。</p>
+            <div class="archive-copy-stage">
+              <p class="archive-summary">将零散的知识整理成可以反复抵达的路径，记录每一次理解、验证与重构。</p>
+              <div class="archive-preview" id="learning-preview">
+                <p>从笔记、练习到复盘，每一次回看都能找到下一步的坐标。</p>
+              </div>
             </div>
             <button class="archive-preview-toggle" type="button" aria-controls="learning-preview" aria-expanded="false">展开预览</button>
             <a href="./learning/">进入此卷 <span aria-hidden="true">↗</span></a>
@@ -118,9 +120,11 @@
             <p class="card-index">02 / LIVING</p>
             <p class="archive-label">Living Journal</p>
             <h3>人间照影</h3>
-            <p>收拢书页、山河与未曾说尽的念头，让时间经过之后，仍有一些回声可循。</p>
-            <div class="archive-preview" id="living-preview">
-              <p>随手写下的片段，会在日后照亮某个平常而具体的瞬间。</p>
+            <div class="archive-copy-stage">
+              <p class="archive-summary">收拢书页、山河与未曾说尽的念头，让时间经过之后，仍有一些回声可循。</p>
+              <div class="archive-preview" id="living-preview">
+                <p>随手写下的片段，会在日后照亮某个平常而具体的瞬间。</p>
+              </div>
             </div>
             <button class="archive-preview-toggle" type="button" aria-controls="living-preview" aria-expanded="false">展开预览</button>
             <a href="./living/">进入此卷 <span aria-hidden="true">↗</span></a>
@@ -132,9 +136,11 @@
             <p class="card-index">03 / RESEARCH</p>
             <p class="archive-label">Research Fieldnotes</p>
             <h3>烛微观澜</h3>
-            <p>从一个具体的问题出发，在观察与实验之间往返，留下那些经得起验证的发现。</p>
-            <div class="archive-preview" id="research-preview">
-              <p>把问题拆成可验证的假设，让观察、实验与结论逐渐彼此照见。</p>
+            <div class="archive-copy-stage">
+              <p class="archive-summary">从一个具体的问题出发，在观察与实验之间往返，留下那些经得起验证的发现。</p>
+              <div class="archive-preview" id="research-preview">
+                <p>把问题拆成可验证的假设，让观察、实验与结论逐渐彼此照见。</p>
+              </div>
             </div>
             <button class="archive-preview-toggle" type="button" aria-controls="research-preview" aria-expanded="false">展开预览</button>
             <a href="./research/">进入此卷 <span aria-hidden="true">↗</span></a>
@@ -163,23 +169,53 @@
   <aside id="music-dock" class="pointer-glass" aria-label="音乐控制">
     <img id="music-dock-cover" src="assets/music/covers/the-nights.png" alt="">
     <p id="music-dock-title">The Nights · Avicii</p>
-    <button id="music-dock-play" type="button" aria-pressed="false">播放</button>
-    <button id="music-dock-expand" type="button" aria-controls="music-panel" aria-expanded="false">展开音乐面板</button>
+    <button id="music-dock-play" type="button" aria-pressed="false">
+      <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 24 24"><path class="icon-play" d="M8 5.5 18 12 8 18.5Z"/><g class="icon-pause"><path d="M7 5h3v14H7zM14 5h3v14h-3z"/></g></svg>
+      <span class="sr-only">播放</span>
+    </button>
+    <button id="music-dock-expand" type="button" aria-controls="music-panel" aria-expanded="false">
+      <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+      <span class="sr-only">展开音乐面板</span>
+    </button>
   </aside>
   <section id="music-panel" hidden role="dialog" aria-modal="false" aria-label="本地音乐">
     <div class="music-panel-header">
-      <p class="music-panel-kicker">LOCAL MUSIC ARCHIVE</p>
-      <button id="music-close" type="button">关闭</button>
+      <p class="music-panel-kicker">TIDAL LOCAL ARCHIVE</p>
+      <button id="music-close" type="button">
+        <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m7 7 10 10m0-10L7 17" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2"/></svg>
+        <span class="sr-only">关闭</span>
+      </button>
     </div>
     <div class="music-panel-controls">
       <div class="music-now-playing">
-        <img id="music-cover" src="assets/music/covers/the-nights.png" alt="The Nights — Avicii 的封面">
-        <p id="music-now-playing">The Nights — Avicii</p>
+        <div class="music-cover-orbit">
+          <img id="music-cover" src="assets/music/covers/the-nights.png" alt="The Nights — Avicii 的封面">
+        </div>
+        <div class="music-track-copy">
+          <p class="music-panel-mood">OPEN ROAD</p>
+          <p id="music-now-playing" aria-live="polite">
+            <span class="music-track-title">The Nights</span>
+            <span class="music-track-artist">Avicii</span>
+          </p>
+        </div>
       </div>
       <div class="music-transport" aria-label="播放控制">
-        <button id="music-previous" type="button">上一首</button>
-        <button id="music-play" type="button" aria-pressed="false">播放</button>
-        <button id="music-next" type="button">下一首</button>
+        <button id="music-previous" type="button">
+          <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M6 5v14M18 5.5 9 12l9 6.5Z"/></svg>
+          <span class="sr-only">上一首</span>
+        </button>
+        <button id="music-play" type="button" aria-pressed="false">
+          <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 24 24"><path class="icon-play" d="M8 5.5 18 12 8 18.5Z"/><g class="icon-pause"><path d="M7 5h3v14H7zM14 5h3v14h-3z"/></g></svg>
+          <span class="sr-only">播放</span>
+        </button>
+        <button id="music-next" type="button">
+          <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M18 5v14M6 5.5l9 6.5-9 6.5Z"/></svg>
+          <span class="sr-only">下一首</span>
+        </button>
+      </div>
+      <div class="music-timing" aria-label="播放时间">
+        <output id="music-elapsed">0:00</output>
+        <output id="music-duration">0:00</output>
       </div>
       <progress id="music-progress" value="0" max="1">0%</progress>
     </div>
@@ -189,7 +225,12 @@
         <p id="current-lyric" aria-live="polite">选择一首歌查看歌词</p>
         <p id="next-lyric">—</p>
       </div>
-      <div id="music-track-list" aria-label="九首本地音乐"></div>
+      <button id="music-queue-toggle" type="button" aria-label="展开播放队列" aria-controls="music-track-list" aria-expanded="false">
+        <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 7h9M5 12h9M5 17h9M18 14v6m-3-3h6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2"/></svg>
+        <span class="music-queue-label" aria-hidden="true">QUEUE · 9 TRACKS</span>
+        <span class="sr-only">展开播放队列</span>
+      </button>
+      <div id="music-track-list" aria-label="九首本地音乐" hidden></div>
     </div>
   </section>
   <section id="wechat-popover" hidden role="dialog" aria-modal="true" aria-labelledby="wechat-popover-title">

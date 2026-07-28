@@ -48,6 +48,20 @@ test("homepage uses a semantic four-act shell and one local runtime", () => {
   assert.doesNotMatch(html, /<script>(?:.|\n)*?<\/script>/);
 });
 
+test("homepage title uses ordered semantic lines and identity copy adapts its wrapping", () => {
+  const originTitle = html.match(/<h1 id="origin-title"[^>]*>([\s\S]*?)<\/h1>/)?.[1] ?? "";
+  const originLines = [...originTitle.matchAll(/<span class="origin-title-line">([^<]+)<\/span>/g)].map(([, text]) => text);
+  const desktopIdentity = styles.match(/@media \(min-width: 721px\)\s*\{[\s\S]*?#identity-title\s*\{([^}]*)\}/)?.[1] ?? "";
+  const mobileIdentity = styles.match(/@media \(max-width: 720px\)\s*\{[\s\S]*?#identity-title\s*\{([^}]*)\}/)?.[1] ?? "";
+
+  assert.deepEqual(originLines, ["STILL,", "I GO ON"]);
+  assert.match(html, /<h1 id="origin-title"[^>]*aria-label="STILL, I GO ON"/);
+  assert.match(styles, /#origin-title\s+\.origin-title-line\s*\{[^}]*display:\s*block/);
+  assert.match(desktopIdentity, /font-size:\s*clamp\(/);
+  assert.match(desktopIdentity, /white-space:\s*nowrap/);
+  assert.match(mobileIdentity, /white-space:\s*normal/);
+});
+
 test("music panel retains all nine local tracks and native playback controls", () => {
   const trackEntries = script.match(/\{ title: ".*?", artist: ".*?", mood: ".*?", accent: ".*?", src: ".*?", lyrics: ".*?", cover: ".*?" \}/g) ?? [];
   assert.equal(trackEntries.length, 9);
@@ -86,7 +100,7 @@ test("music surfaces use a compact glass Dock and an anchored expanded panel", (
   assert.match(html, /id="music-panel"[\s\S]*class="music-panel-controls"[\s\S]*class="music-lyrics"[\s\S]*id="music-track-list"/);
 });
 
-test("music controls are circular, mobile panel is a safe-area sheet, and playback motion can stop", () => {
+test("music controls are circular, mobile panel is a bounded safe-area sheet, and playback motion can stop", () => {
   const dockButtonRules = styles.match(/#music-dock button\s*\{[^}]*\}/)?.[0] ?? "";
   const mobileMusicRules = styles.match(/@media \(max-width: 720px\)\s*\{[\s\S]*?#music-panel \{[\s\S]*?\}[\s\S]*?\.music-panel-scroll \{[\s\S]*?\}/)?.[0] ?? "";
   const reducedMotion = styles.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
@@ -95,10 +109,8 @@ test("music controls are circular, mobile panel is a safe-area sheet, and playba
   assert.match(dockButtonRules, /height:\s*36px/);
   assert.match(dockButtonRules, /border-radius:\s*50%/);
   assert.match(styles, /#music-dock button\[aria-pressed="true"\][\s\S]*background:\s*rgba\(/);
-  assert.match(styles, /#music-dock-play::after\s*\{[^}]*content:\s*""[^}]*clip-path:\s*polygon/);
-  assert.match(styles, /#music-dock-play\[aria-pressed="true"\]::after\s*\{[^}]*content:\s*""[^}]*linear-gradient/);
-  assert.match(styles, /#music-dock-expand::after\s*\{[^}]*content:\s*""[^}]*border:/);
   assert.match(mobileMusicRules, /bottom:\s*0/);
+  assert.match(mobileMusicRules, /max-height:\s*72dvh/);
   assert.match(mobileMusicRules, /padding-bottom:\s*calc\(16px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(mobileMusicRules, /border-radius:\s*22px 22px 0 0/);
   assert.match(mobileMusicRules, /\.music-panel-scroll\s*\{[\s\S]*?overflow-y:\s*auto/);
@@ -145,9 +157,10 @@ test("mobile music panel keeps fixed controls above independently scrolling cont
   assert.match(mobileMusicRules, /\.music-panel-scroll\s*\{[\s\S]*?overflow-y:\s*auto/);
 });
 
-function createMusicRuntime() {
+function createMusicRuntime({ reducedMotion = false, finePointer = false } = {}) {
   const documentListeners = new Map();
   const elements = new Map();
+  const timers = [];
 
   class FakeElement {
     constructor(id = "") {
@@ -156,12 +169,29 @@ function createMusicRuntime() {
       this.children = [];
       this.parent = null;
       this.dataset = {};
-      this.style = { setProperty() {}, removeProperty() {} };
+      const properties = new Map();
+      this.style = {
+        setProperty(name, value) { properties.set(name, String(value)); },
+        removeProperty(name) { properties.delete(name); },
+        getPropertyValue(name) { return properties.get(name) ?? ""; },
+      };
       this.hidden = false;
       this.listeners = new Map();
-      this.classList = { add() {}, remove() {}, toggle() {}, contains() { return false; } };
+      const classes = new Set();
+      this.classList = {
+        add(...tokens) { tokens.forEach((token) => classes.add(token)); },
+        remove(...tokens) { tokens.forEach((token) => classes.delete(token)); },
+        toggle(token, force) {
+          const enabled = force === undefined ? !classes.has(token) : force;
+          if (enabled) classes.add(token);
+          else classes.delete(token);
+          return enabled;
+        },
+        contains(token) { return classes.has(token); },
+      };
       this.textContent = "";
       this.value = "";
+      this.queryElements = new Map();
     }
 
     append(...children) {
@@ -180,7 +210,9 @@ function createMusicRuntime() {
       if (!event.target) event.target = this;
       for (let current = this; current; current = current.parent) {
         event.currentTarget = current;
-        current.listeners.get(event.type)?.(event);
+        const listeners = current.listeners.get(event.type);
+        if (Array.isArray(listeners)) listeners.forEach((listener) => listener(event));
+        else listeners?.(event);
         if (!event.bubbles || stopped) break;
       }
     }
@@ -189,7 +221,7 @@ function createMusicRuntime() {
     removeAttribute(name) { this.attributes.delete(name); }
     focus() { document.activeElement = this; }
     contains(target) { return target === this || this.children.some((child) => child.contains(target)); }
-    querySelector() { return new FakeElement(); }
+    querySelector(selector) { return this.queryElements.get(selector) ?? new FakeElement(); }
   }
 
   const audio = new FakeElement("profileAudio");
@@ -204,11 +236,23 @@ function createMusicRuntime() {
     "music-dock", "music-dock-cover", "music-dock-title", "music-dock-play", "music-dock-expand",
     "music-panel", "music-close", "music-track-list", "music-cover", "music-now-playing",
     "music-previous", "music-play", "music-next", "music-progress", "previous-lyric", "current-lyric",
-    "next-lyric", "wechat-trigger", "wechat-popover", "wechat-copy", "wechat-close", "hero-search-form",
+    "next-lyric", "music-queue-toggle", "music-elapsed", "music-duration", "wechat-trigger",
+    "wechat-popover", "wechat-copy", "wechat-close", "hero-search-form",
     "hero-search-input", "search-status", "moon-ripple", "quote-meta", "quote-progress",
   ]) elements.set(`#${id}`, new FakeElement(id));
+  for (const selector of [".music-lyrics", ".music-panel-mood", ".music-track-title", ".music-track-artist"]) {
+    elements.set(selector, new FakeElement(selector.slice(1)));
+  }
   elements.get("#music-panel").hidden = true;
   elements.get("#wechat-popover").hidden = true;
+  const archiveCards = ["learning", "living", "research"].map((id) => {
+    const card = new FakeElement(id);
+    const toggle = new FakeElement(`${id}-toggle`);
+    toggle.textContent = "展开预览";
+    toggle.setAttribute("aria-expanded", "false");
+    card.queryElements.set(".archive-preview-toggle", toggle);
+    return card;
+  });
 
   const document = {
     activeElement: null,
@@ -217,29 +261,66 @@ function createMusicRuntime() {
     querySelector(selector) { return elements.get(selector) ?? new FakeElement(); },
     querySelectorAll(selector) {
       if (selector === ".sentence-line") return [new FakeElement(), new FakeElement()];
+      if (selector === ".archive-card[data-preview]") return archiveCards;
       return [];
     },
     createElement() { return new FakeElement(); },
-    addEventListener(type, listener) { documentListeners.set(type, listener); },
+    addEventListener(type, listener) {
+      const listeners = documentListeners.get(type) ?? [];
+      listeners.push(listener);
+      documentListeners.set(type, listeners);
+    },
     dispatch(type, event = {}) { this.dispatchEvent({ type, bubbles: false, ...event }); },
     dispatchEvent(event) {
       if (!event.target) event.target = this;
       event.currentTarget = this;
-      documentListeners.get(event.type)?.(event);
+      documentListeners.get(event.type)?.forEach((listener) => listener(event));
     },
   };
   for (const element of elements.values()) element.parent = document;
+  archiveCards.forEach((card) => {
+    card.parent = document;
+    card.querySelector(".archive-preview-toggle").parent = card;
+  });
   const window = {
-    matchMedia: () => ({ matches: false, addEventListener() {} }),
-    setTimeout: () => 0,
-    clearTimeout() {},
+    innerWidth: 1440,
+    innerHeight: 900,
+    matchMedia: (query) => ({
+      matches: query.includes("prefers-reduced-motion") ? reducedMotion : finePointer,
+      addEventListener() {},
+    }),
+    setTimeout(callback, duration) {
+      const timer = { callback, duration, active: true };
+      timers.push(timer);
+      return timer;
+    },
+    clearTimeout(timer) {
+      if (timer) timer.active = false;
+    },
   };
   return {
     audio,
+    archiveCards,
     currentLyric: elements.get("#current-lyric"),
     document,
+    musicDuration: elements.get("#music-duration"),
+    musicDock: elements.get("#music-dock"),
     musicDockExpand: elements.get("#music-dock-expand"),
+    musicElapsed: elements.get("#music-elapsed"),
+    musicLyrics: elements.get(".music-lyrics"),
+    musicNext: elements.get("#music-next"),
     musicPanel: elements.get("#music-panel"),
+    musicQueueToggle: elements.get("#music-queue-toggle"),
+    musicTrackArtist: elements.get(".music-track-artist"),
+    musicTrackList: elements.get("#music-track-list"),
+    musicTrackTitle: elements.get(".music-track-title"),
+    runTimers(duration) {
+      const ready = timers.filter((timer) => timer.active && timer.duration === duration);
+      ready.forEach((timer) => {
+        timer.active = false;
+        timer.callback();
+      });
+    },
     wechatPopover: elements.get("#wechat-popover"),
     wechatTrigger: elements.get("#wechat-trigger"),
     window,
@@ -438,17 +519,69 @@ test("archive has one expandable preview at a time and keeps direct destinations
   assert.match(styles, /\.archive-card\.is-expanded\s*\{/);
 });
 
-test("browser validation keeps fixed archive previews clear of their controls", () => {
+test("every archive card keeps its summary and preview in one fixed copy stage", () => {
+  const cards = [...html.matchAll(/<article class="archive-card"[\s\S]*?<\/article>/g)].map(([card]) => card);
+
+  assert.equal(cards.length, 3);
+  for (const card of cards) {
+    const stages = card.match(/<div class="archive-copy-stage">[\s\S]*?<\/div>\s*<\/div>/g) ?? [];
+    assert.equal(stages.length, 1, "each archive card has exactly one copy stage");
+    assert.match(stages[0], /<p class="archive-summary">[^<]+<\/p>/);
+    assert.match(stages[0], /<div class="archive-preview" id="[^"]+-preview">[\s\S]*?<p>[^<]+<\/p>/);
+  }
+});
+
+test("archive copy stage swaps summary and preview without a card-relative overlay", () => {
+  const stageRules = styles.match(/\.archive-copy-stage\s*\{[^}]*\}/)?.[0] ?? "";
+  const summaryRules = styles.match(/\.archive-summary\s*\{[^}]*\}/)?.[0] ?? "";
   const previewRules = styles.match(/\.archive-preview\s*\{[^}]*\}/)?.[0] ?? "";
+  const expandedSummary = styles.match(/\.archive-card\.is-expanded \.archive-summary\s*\{[^}]*\}/)?.[0] ?? "";
+  const expandedPreview = styles.match(/\.archive-card\.is-expanded \.archive-preview\s*\{[^}]*\}/)?.[0] ?? "";
   const toggleRules = styles.match(/\.archive-preview-toggle\s*\{[^}]*\}/)?.[0] ?? "";
   const destinationRules = styles.match(/\.archive-card a\s*\{[^}]*\}/)?.[0] ?? "";
-  const previewBottom = Number(previewRules.match(/bottom:\s*(\d+)px/)?.[1]);
+  const reducedMotion = styles.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
 
-  assert.match(previewRules, /position:\s*absolute/);
-  assert.match(previewRules, /height:\s*104px/);
-  assert.equal(previewBottom, 120, "preview uses the validated safe control clearance");
+  assert.match(stageRules, /display:\s*grid/);
+  assert.match(summaryRules, /grid-area:\s*1\s*\/\s*1/);
+  assert.match(previewRules, /grid-area:\s*1\s*\/\s*1/);
+  assert.match(previewRules, /opacity:\s*0/);
+  assert.match(previewRules, /visibility:\s*hidden/);
+  assert.match(previewRules, /pointer-events:\s*none/);
+  assert.doesNotMatch(previewRules, /position:\s*absolute|bottom:\s*120px/);
+  assert.match(expandedSummary, /opacity:\s*0/);
+  assert.match(expandedSummary, /visibility:\s*hidden/);
+  assert.match(expandedSummary, /pointer-events:\s*none/);
+  assert.match(expandedPreview, /opacity:\s*1/);
+  assert.match(expandedPreview, /visibility:\s*visible/);
+  assert.match(expandedPreview, /pointer-events:\s*auto/);
   assert.match(toggleRules, /margin-top:\s*auto/);
   assert.match(destinationRules, /margin-top:\s*12px/);
+  assert.match(reducedMotion, /\.archive-summary,\s*\.archive-preview\s*\{[^}]*transition:\s*none !important/);
+});
+
+test("archive toggles update labels, keep one preview open, and Escape restores focus", () => {
+  const runtime = createMusicRuntime();
+  vm.runInNewContext(script, { ...runtime, fetch: async () => ({ ok: false }), navigator: {} });
+  const [learning, living] = runtime.archiveCards;
+  const learningToggle = learning.querySelector(".archive-preview-toggle");
+  const livingToggle = living.querySelector(".archive-preview-toggle");
+
+  learningToggle.dispatch("click");
+  assert.equal(learning.classList.contains("is-expanded"), true);
+  assert.equal(learningToggle.getAttribute("aria-expanded"), "true");
+  assert.equal(learningToggle.textContent, "收起预览");
+
+  livingToggle.dispatch("click");
+  assert.equal(learning.classList.contains("is-expanded"), false);
+  assert.equal(learningToggle.textContent, "展开预览");
+  assert.equal(living.classList.contains("is-expanded"), true);
+  assert.equal(livingToggle.textContent, "收起预览");
+
+  runtime.document.dispatch("keydown", { key: "Escape" });
+  assert.equal(living.classList.contains("is-expanded"), false);
+  assert.equal(livingToggle.getAttribute("aria-expanded"), "false");
+  assert.equal(livingToggle.textContent, "展开预览");
+  assert.equal(runtime.document.activeElement, livingToggle);
 });
 
 test("archive cards keep three columns at 1024px before a direct narrow single-column fallback", async () => {
@@ -469,7 +602,6 @@ test("archive cards keep three columns at 1024px before a direct narrow single-c
   const compactArchiveGrid = styles.match(/@media \(max-width:\s*(\d+)px\)\s*\{\s*\.archive-grid\s*\{[^}]*\}/);
   const card = styles.match(/\.archive-card\s*\{[^}]*\}/)?.[0] ?? "";
   const media = styles.match(/\.archive-media\s*\{[^}]*\}/)?.[0] ?? "";
-  const preview = styles.match(/\.archive-preview\s*\{[^}]*\}/)?.[0] ?? "";
 
   assert.match(archiveGrid, /grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
   assert.ok(compactArchiveGrid, "archive has a direct narrow-screen fallback");
@@ -479,8 +611,6 @@ test("archive cards keep three columns at 1024px before a direct narrow single-c
   assert.match(card, /height:\s*100%/);
   assert.doesNotMatch(styles, /\.archive-card:first-child/);
   assert.match(media, /aspect-ratio:\s*16\s*\/\s*9/);
-  assert.match(preview, /position:\s*absolute/);
-  assert.match(preview, /height:\s*\d+px/);
 });
 
 test("QQ remains a direct link while WeChat is a copyable dialog", () => {
@@ -528,6 +658,73 @@ test("motion is capability-gated and has a complete reduced-motion fallback", ()
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation:\s*none/);
 });
 
+test("premium motion stages section copy, bounds glass lift and tilt, and adds two moon ripples", () => {
+  const stagedReveal = styles.match(/html\[data-motion="full"\]\[data-active-section\]\s+:where\([\s\S]*?\)\s*\{[^}]*\}/)?.[0] ?? "";
+  const activeReveal = styles.match(/html\[data-motion="full"\]\[data-active-section="archive"\]\s+#archive\s+:is\([^)]*\)\s*\{[^}]*\}/)?.[0] ?? "";
+  const pointerTransform = styles.match(/html\[data-pointer-glass="true"\]\s+:is\(\.pointer-glass,\s*\.archive-card\)\s*\{[^}]*\}/)?.[0] ?? "";
+  const finePointerHover = styles.match(/@media \(hover:\s*hover\) and \(pointer:\s*fine\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+
+  assert.match(stagedReveal, /opacity:\s*\.18/);
+  assert.match(stagedReveal, /--reveal-y:\s*20px/);
+  assert.match(stagedReveal, /filter:\s*blur\(5px\)/);
+  assert.match(stagedReveal, /transition-delay:\s*var\(--reveal-delay\)/);
+  assert.match(styles, /:not\(\.pointer-glass\):not\(\.archive-card\)\s*\{[^}]*translateY\(var\(--reveal-y\)\)/);
+  assert.match(styles, /\.archive-card:nth-child\(2\)\s*\{[^}]*--reveal-delay:\s*80ms/);
+  assert.match(styles, /\.archive-card:nth-child\(3\)\s*\{[^}]*--reveal-delay:\s*160ms/);
+  assert.match(activeReveal, /opacity:\s*1/);
+  assert.match(activeReveal, /--reveal-y:\s*0px/);
+  assert.match(activeReveal, /filter:\s*none/);
+  assert.match(pointerTransform, /translateY\(calc\(var\(--reveal-y,\s*0px\) \+ var\(--glass-lift\)\)\)/);
+  assert.match(pointerTransform, /rotateX\(var\(--tilt-x\)\)/);
+  assert.match(pointerTransform, /rotateY\(var\(--tilt-y\)\)/);
+  assert.match(finePointerHover, /--glass-lift:\s*-5px/);
+  assert.match(styles, /html\[data-motion="full"\]\[data-pointer-glass="true"\]\s+:is\(\.pointer-glass,\s*\.archive-card\):active\s*\{[^}]*--glass-lift:\s*1px/);
+  assert.match(styles, /html\[data-motion="full"\]\s+:is\(\.education-entry,\s*\.social-links a,\s*\.social-links button\):active\s*\{[^}]*scale\(\.985\)/);
+  assert.match(script, /--tilt-x", `\$\{\(0\.5 - y\) \* 4\}deg`/);
+  assert.match(script, /--tilt-y", `\$\{\(x - 0\.5\) \* 4\}deg`/);
+  assert.match(styles, /#moon-ripple\.is-rippling::after\s*\{[^}]*animation:\s*moon-ripple-primary/);
+  assert.match(styles, /#moon-ripple\.is-rippling span\s*\{[^}]*animation:\s*moon-ripple-secondary/);
+  assert.match(styles, /html\.is-moonlit\s+\.page-backdrop\s*\{[^}]*animation:\s*moonlight-brighten/);
+  assert.match(script, /document\.documentElement\.classList\.add\("is-moonlit"\)/);
+});
+
+test("active section reveal rules outrank the shared inactive reveal baseline", () => {
+  const sharedReveal = styles.match(/html\[data-motion="full"\]\[data-active-section\]\s+:where\([\s\S]*?\)\s*\{[^}]*\}/)?.[0] ?? "";
+  const sharedTranslation = styles.match(/html\[data-motion="full"\]\[data-active-section\]\s+:where\([\s\S]*?\):not\(\.pointer-glass\):not\(\.archive-card\)\s*\{[^}]*\}/)?.[0] ?? "";
+  const activeOrigin = styles.match(/html\[data-motion="full"\]\[data-active-section="origin"\]\s+#origin\s+:is\([^)]*\)\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(sharedReveal, /opacity:\s*\.18/);
+  assert.match(sharedTranslation, /translateY\(var\(--reveal-y\)\)/);
+  assert.match(activeOrigin, /--reveal-y:\s*0px/);
+  assert.match(activeOrigin, /opacity:\s*1/);
+  assert.match(activeOrigin, /filter:\s*none/);
+});
+
+test("scene-light pointer parallax is capped at twelve pixels and disabled with reduced motion", () => {
+  const fullMotion = createMusicRuntime({ finePointer: true });
+  vm.runInNewContext(script, { ...fullMotion, fetch: async () => ({ ok: false }), navigator: {} });
+  fullMotion.document.dispatch("pointermove", {
+    clientX: fullMotion.window.innerWidth,
+    clientY: 0,
+  });
+
+  assert.equal(fullMotion.document.documentElement.style.getPropertyValue("--scene-light-offset-x"), "12px");
+  assert.equal(fullMotion.document.documentElement.style.getPropertyValue("--scene-light-offset-y"), "-12px");
+
+  const reduced = createMusicRuntime({ reducedMotion: true, finePointer: true });
+  vm.runInNewContext(script, { ...reduced, fetch: async () => ({ ok: false }), navigator: {} });
+  reduced.document.dispatch("pointermove", {
+    clientX: reduced.window.innerWidth,
+    clientY: 0,
+  });
+
+  assert.equal(reduced.document.documentElement.style.getPropertyValue("--scene-light-offset-x"), "");
+  assert.equal(reduced.document.documentElement.style.getPropertyValue("--scene-light-offset-y"), "");
+  const reducedMotion = styles.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+  assert.match(reducedMotion, /filter:\s*none !important/);
+  assert.match(reducedMotion, /#moon-ripple\.is-rippling span/);
+});
+
 test("navigation, idle state, and close controls remain keyboard reachable", () => {
   assert.match(script, /function setupSectionObserver\(\)/);
   assert.match(script, /document\.documentElement\.dataset\.activeSection/);
@@ -571,28 +768,195 @@ test("track, playback, Dock progress, and lyric accent states are consumed by CS
   assert.match(styles, /html\[data-playing="true"\]\s+\.page-backdrop::after\s*\{[^}]*animation:\s*spectrum-breathe/);
 });
 
-test("browser validation uses accessible circular player icons and softened track rows", () => {
+test("tidal-island controls use accessible inline SVG icon boxes and softened track rows", () => {
+  const controlIds = [
+    "music-dock-play", "music-dock-expand", "music-close",
+    "music-previous", "music-play", "music-next", "music-queue-toggle",
+  ];
   const transport = html.match(/<div class="music-transport"[\s\S]*?<\/div>/)?.[0] ?? "";
   const iconControlRules = styles.match(/\.music-transport button,\s*#music-close\s*\{[^}]*\}/)?.[0] ?? "";
+  const iconRules = styles.match(/\.music-control-icon\s*\{[^}]*\}/)?.[0] ?? "";
   const trackRules = styles.match(/\.music-track\s*\{[^}]*\}/)?.[0] ?? "";
   const activeTrackRules = styles.match(/\.music-track\[aria-current="true"\]\s*\{[^}]*\}/)?.[0] ?? "";
 
-  assert.match(transport, /id="music-previous"[^>]*>上一首</);
-  assert.match(transport, /id="music-play"[^>]*>播放</);
-  assert.match(transport, /id="music-next"[^>]*>下一首</);
-  assert.match(html, /id="music-close"[^>]*>关闭</);
+  for (const id of controlIds) {
+    const button = html.match(new RegExp(`<button id="${id}"[\\s\\S]*?<\\/button>`))?.[0] ?? "";
+    assert.match(button, /<svg[^>]*class="music-control-icon"[^>]*aria-hidden="true"/);
+    assert.match(button, /<span class="sr-only">[^<]+<\/span>/);
+    assert.doesNotMatch(styles, new RegExp(`#${id}(?:\\[[^\\]]+\\])?::(?:before|after)\\s*\\{[^}]*content:`));
+  }
+  assert.match(transport, /id="music-previous"/);
+  assert.match(transport, /id="music-play"/);
+  assert.match(transport, /id="music-next"/);
   assert.match(iconControlRules, /width:\s*38px/);
   assert.match(iconControlRules, /height:\s*38px/);
   assert.match(iconControlRules, /border-radius:\s*50%/);
-  assert.match(iconControlRules, /font-size:\s*0/);
-  for (const id of ["music-previous", "music-play", "music-next", "music-close"]) {
-    assert.match(styles, new RegExp(`#${id}::after\\s*\\{[^}]*content:\\s*""`));
-  }
-  assert.match(styles, /#music-play\[aria-pressed="true"\]::after\s*\{[^}]*content:\s*""/);
+  assert.match(iconControlRules, /display:\s*grid/);
+  assert.match(iconControlRules, /place-items:\s*center/);
+  assert.match(iconRules, /display:\s*block/);
+  assert.match(iconRules, /width:\s*24px/);
+  assert.match(iconRules, /height:\s*24px/);
+  assert.match(styles, /\.icon-play\s*\{[^}]*transform:\s*translateX\(1px\)/);
   assert.match(trackRules, /border:\s*0/);
   assert.match(trackRules, /border-radius:\s*12px/);
   assert.match(trackRules, /background:\s*rgba\(255,\s*255,\s*255,\s*\.04\)/);
   assert.match(activeTrackRules, /box-shadow:\s*inset 2px 0 var\(--accent\)/);
+});
+
+test("tidal-island panel exposes timing and a collapsed bounded queue", () => {
+  const panel = html.match(/<section id="music-panel"[\s\S]*?<\/section>/)?.[0] ?? "";
+  const queue = panel.match(/<div id="music-track-list"[^>]*>/)?.[0] ?? "";
+  const queueRules = styles.match(/#music-track-list\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(panel, /class="music-cover-orbit"[\s\S]*id="music-cover"/);
+  assert.match(panel, /class="music-panel-mood"[\s\S]*class="music-track-title"[\s\S]*class="music-track-artist"/);
+  assert.match(panel, /class="music-lyrics"[\s\S]*id="previous-lyric"[\s\S]*id="current-lyric"[\s\S]*id="next-lyric"/);
+  assert.match(panel, /class="music-timing"[\s\S]*id="music-elapsed"[\s\S]*id="music-duration"/);
+  assert.match(panel, /id="music-queue-toggle"[^>]*aria-controls="music-track-list"[^>]*aria-expanded="false"/);
+  assert.match(queue, /\shidden(?:\s|>)/);
+  assert.match(queueRules, /max-height:\s*132px/);
+  assert.match(queueRules, /overflow-y:\s*auto/);
+  assert.match(styles, /#music-panel\.is-queue-open\s+#music-track-list/);
+});
+
+test("tidal-island collapsed queue exposes a visible nine-track label without growing the panel", () => {
+  const panel = html.match(/<section id="music-panel"[\s\S]*?<\/section>/)?.[0] ?? "";
+  const toggle = panel.match(/<button id="music-queue-toggle"[\s\S]*?<\/button>/)?.[0] ?? "";
+  const toggleRules = styles.match(/#music-queue-toggle\s*\{[^}]*\}/)?.[0] ?? "";
+  const panelRules = styles.match(/#music-panel\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(toggle, /aria-label="展开播放队列"/);
+  assert.match(toggle, /<span class="music-queue-label" aria-hidden="true">QUEUE · 9 TRACKS<\/span>/);
+  assert.match(toggleRules, /grid-template-columns:\s*24px auto/);
+  assert.match(toggleRules, /width:\s*max-content/);
+  assert.match(panelRules, /height:\s*min\(380px,\s*calc\(100dvh - 118px\)\)/);
+
+  const runtime = createMusicRuntime();
+  vm.runInNewContext(script, { ...runtime, fetch: async () => ({ ok: false }), navigator: {} });
+  runtime.musicQueueToggle.dispatch("click");
+  assert.equal(runtime.musicQueueToggle.getAttribute("aria-label"), "收起播放队列");
+});
+
+test("every tidal player SVG uses a centered twenty-four-pixel icon contract", () => {
+  const icons = [...html.matchAll(/<svg class="music-control-icon"[^>]*>/g)].map((match) => match[0]);
+  const iconRules = styles.match(/\.music-control-icon\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.equal(icons.length, 7);
+  icons.forEach((icon) => assert.match(icon, /viewBox="0 0 24 24"/));
+  assert.match(iconRules, /width:\s*24px/);
+  assert.match(iconRules, /height:\s*24px/);
+  assert.match(styles, /\.icon-play\s*\{[^}]*translateX\(1px\)/);
+  assert.doesNotMatch(styles, /\.music-control-icon\s*\{[^}]*transform:/);
+});
+
+test("track and lyric changes drive short-lived motion states while reduced motion stays immediate", async () => {
+  assert.match(script, /function triggerPlayerMotion\(element,\s*className\)/);
+  const runtime = createMusicRuntime();
+  vm.runInNewContext(script, {
+    ...runtime,
+    fetch: async () => ({ ok: true, text: async () => "[00:00.00]First\n[00:10.00]Second\n[00:20.00]Third" }),
+    navigator: {},
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  runtime.musicPanel.classList.remove("is-track-transitioning");
+  runtime.musicLyrics.classList.remove("is-lyric-transitioning");
+  runtime.musicNext.dispatch("click");
+  assert.equal(runtime.musicPanel.classList.contains("is-track-transitioning"), true);
+  assert.equal(runtime.document.documentElement.style.getPropertyValue("--previous-track-accent"), "#8fc5d6");
+  assert.equal(runtime.document.documentElement.style.getPropertyValue("--track-accent"), "#e4bb83");
+  assert.equal(runtime.musicTrackTitle.textContent, "稻香");
+  assert.equal(runtime.musicTrackArtist.textContent, "周杰伦");
+  runtime.runTimers(500);
+  assert.equal(runtime.musicPanel.classList.contains("is-track-transitioning"), false);
+
+  await new Promise((resolve) => setImmediate(resolve));
+  runtime.musicLyrics.classList.remove("is-lyric-transitioning");
+  runtime.audio.currentTime = 11;
+  runtime.audio.dispatch("timeupdate");
+  assert.equal(runtime.musicLyrics.classList.contains("is-lyric-transitioning"), true);
+  assert.equal(runtime.currentLyric.textContent, "Second");
+  runtime.runTimers(400);
+  assert.equal(runtime.musicLyrics.classList.contains("is-lyric-transitioning"), false);
+
+  const reduced = createMusicRuntime({ reducedMotion: true });
+  vm.runInNewContext(script, {
+    ...reduced,
+    fetch: async () => ({ ok: true, text: async () => "[00:00.00]First\n[00:10.00]Second" }),
+    navigator: {},
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  reduced.musicNext.dispatch("click");
+  reduced.audio.currentTime = 11;
+  reduced.audio.dispatch("timeupdate");
+  assert.equal(reduced.musicPanel.classList.contains("is-track-transitioning"), false);
+  assert.equal(reduced.musicLyrics.classList.contains("is-lyric-transitioning"), false);
+  assert.equal(reduced.musicTrackTitle.textContent, "稻香");
+});
+
+test("tidal-island desktop panel stays compact when lyric metadata is long", () => {
+  const panelRules = styles.match(/#music-panel\s*\{[^}]*\}/)?.[0] ?? "";
+  const lyricsRules = styles.match(/\.music-lyrics\s*\{[^}]*\}/)?.[0] ?? "";
+  const lyricLineRules = styles.match(/\.music-lyrics p\s*\{[^}]*\}/)?.[0] ?? "";
+  const compactHeight = panelRules.match(/(?:^|[;{])\s*height:\s*min\((\d+)px,\s*calc\(100dvh - 118px\)\)/);
+
+  assert.ok(compactHeight, "desktop panel needs a viewport-safe explicit height");
+  assert.ok(Number(compactHeight[1]) >= 340 && Number(compactHeight[1]) <= 380);
+  assert.match(lyricsRules, /height:\s*82px/);
+  assert.match(lyricsRules, /grid-template-rows:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/);
+  assert.match(lyricLineRules, /overflow:\s*hidden/);
+  assert.match(lyricLineRules, /text-overflow:\s*ellipsis/);
+  assert.match(lyricLineRules, /white-space:\s*nowrap/);
+});
+
+test("tidal-island reduced motion explicitly disables every new player effect", () => {
+  const reducedMotion = styles.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+  const playerEffects = reducedMotion.match(/#music-panel,\s*#music-track-list,\s*\.music-cover-orbit,\s*#music-cover,\s*\.music-panel-mood,\s*\.music-lyrics,\s*\.music-lyrics p\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(playerEffects, /animation:\s*none !important/);
+  assert.match(playerEffects, /transition:\s*none !important/);
+});
+
+test("tidal-island runtime updates time and gives an open queue Escape priority", () => {
+  assert.match(script, /function setMusicQueueOpen\(expanded\)/);
+  const runtime = createMusicRuntime();
+  vm.runInNewContext(script, { ...runtime, fetch: async () => ({ ok: false }), navigator: {} });
+
+  runtime.audio.currentTime = 65.8;
+  runtime.audio.duration = 130;
+  runtime.audio.dispatch("timeupdate");
+  assert.equal(runtime.musicElapsed.textContent, "1:05");
+  assert.equal(runtime.musicDuration.textContent, "2:10");
+
+  runtime.musicDockExpand.dispatch("click");
+  runtime.musicQueueToggle.dispatch("click");
+  assert.equal(runtime.musicQueueToggle.getAttribute("aria-expanded"), "true");
+  assert.equal(runtime.musicTrackList.hidden, false);
+
+  runtime.document.dispatch("keydown", { key: "Escape" });
+  assert.equal(runtime.musicQueueToggle.getAttribute("aria-expanded"), "false");
+  assert.equal(runtime.musicTrackList.hidden, true);
+  assert.equal(runtime.musicPanel.hidden, false);
+  assert.equal(runtime.document.activeElement, runtime.musicQueueToggle);
+
+  runtime.document.dispatch("keydown", { key: "Escape" });
+  assert.equal(runtime.musicPanel.hidden, true);
+  assert.equal(runtime.document.activeElement, runtime.musicDockExpand);
+});
+
+test("tidal-island nested SVG clicks inside the Dock or panel do not outside-close it", () => {
+  const runtime = createMusicRuntime();
+  vm.runInNewContext(script, { ...runtime, fetch: async () => ({ ok: false }), navigator: {} });
+  runtime.musicDockExpand.dispatch("click");
+
+  for (const surface of [runtime.musicDock, runtime.musicPanel]) {
+    const svg = new runtime.musicPanel.constructor();
+    const path = new runtime.musicPanel.constructor();
+    svg.append(path);
+    surface.append(svg);
+    path.dispatchEvent({ type: "click", bubbles: true });
+    assert.equal(runtime.musicPanel.hidden, false);
+  }
 });
 
 test("the closed music panel remains visually hidden despite its flex layout", () => {

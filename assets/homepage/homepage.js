@@ -26,6 +26,13 @@ const musicPrevious = document.querySelector("#music-previous");
 const musicPlay = document.querySelector("#music-play");
 const musicNext = document.querySelector("#music-next");
 const musicProgress = document.querySelector("#music-progress");
+const musicElapsed = document.querySelector("#music-elapsed");
+const musicDuration = document.querySelector("#music-duration");
+const musicQueueToggle = document.querySelector("#music-queue-toggle");
+const musicMood = document.querySelector(".music-panel-mood");
+const musicTrackTitle = document.querySelector(".music-track-title");
+const musicTrackArtist = document.querySelector(".music-track-artist");
+const musicLyrics = document.querySelector(".music-lyrics");
 const previousLyric = document.querySelector("#previous-lyric");
 const currentLyric = document.querySelector("#current-lyric");
 const nextLyric = document.querySelector("#next-lyric");
@@ -54,6 +61,19 @@ let pointerGlassEnabled = false;
 let idleTimer;
 const lyricCache = new Map();
 const lyricAccents = ["#153a5b", "#8fc5d6", "#d7b28a"];
+const playerMotionCycles = new WeakMap();
+
+function triggerPlayerMotion(element, className) {
+  const cycle = (playerMotionCycles.get(element) ?? 0) + 1;
+  playerMotionCycles.set(element, cycle);
+  element.classList.remove(className);
+  if (reduceMotionQuery.matches) return;
+  void element.offsetWidth;
+  element.classList.add(className);
+  window.setTimeout(() => {
+    if (playerMotionCycles.get(element) === cycle) element.classList.remove(className);
+  }, className === "is-lyric-transitioning" ? 400 : 500);
+}
 
 function resetPointerGlass() {
   pointerGlassSurfaces.forEach((surface) => {
@@ -64,19 +84,36 @@ function resetPointerGlass() {
   });
 }
 
+function resetSceneLight() {
+  const root = document.documentElement;
+  root.style?.removeProperty("--scene-light-offset-x");
+  root.style?.removeProperty("--scene-light-offset-y");
+}
+
 function syncMotionPreferences() {
   const root = document.documentElement;
   root.dataset.motion = reduceMotionQuery.matches ? "reduced" : "full";
   root.dataset.pointerGlass = "false";
+  root.classList.remove("is-moonlit");
   pointerGlassEnabled = false;
   root.style?.removeProperty("--lyric-accent");
+  musicPanel.classList.remove("is-track-transitioning");
+  musicLyrics.classList.remove("is-lyric-transitioning");
   resetPointerGlass();
+  resetSceneLight();
   if (reduceMotionQuery.matches) return;
   pointerGlassEnabled = pointerQuery.matches;
   root.dataset.pointerGlass = String(pointerGlassEnabled);
 }
 
 function setupPointerGlass() {
+  document.addEventListener("pointermove", (event) => {
+    if (!pointerGlassEnabled) return;
+    const x = Math.max(-12, Math.min(12, ((event.clientX / Math.max(window.innerWidth, 1)) - 0.5) * 24));
+    const y = Math.max(-12, Math.min(12, ((event.clientY / Math.max(window.innerHeight, 1)) - 0.5) * 24));
+    document.documentElement.style.setProperty("--scene-light-offset-x", `${Number(x.toFixed(2))}px`);
+    document.documentElement.style.setProperty("--scene-light-offset-y", `${Number(y.toFixed(2))}px`);
+  }, { passive: true });
   pointerGlassSurfaces.forEach((surface) => {
     surface.addEventListener("pointermove", (event) => {
       if (!pointerGlassEnabled) return;
@@ -134,7 +171,16 @@ function openMusicPanel() {
   musicClose.focus();
 }
 
+function setMusicQueueOpen(expanded) {
+  musicPanel.classList.toggle("is-queue-open", expanded);
+  musicQueueToggle.setAttribute("aria-expanded", String(expanded));
+  musicQueueToggle.setAttribute("aria-label", expanded ? "收起播放队列" : "展开播放队列");
+  musicQueueToggle.querySelector(".sr-only").textContent = expanded ? "收起播放队列" : "展开播放队列";
+  musicTrackList.hidden = !expanded;
+}
+
 function closeMusicPanel({ returnFocus }) {
+  setMusicQueueOpen(false);
   musicPanel.hidden = true;
   musicDockExpand.setAttribute("aria-expanded", "false");
   if (returnFocus) musicDockExpand.focus();
@@ -144,7 +190,9 @@ function setArchivePreview(card, expanded) {
   archiveCards.forEach((archiveCard) => {
     const isExpanded = archiveCard === card && expanded;
     archiveCard.classList.toggle("is-expanded", isExpanded);
-    archiveCard.querySelector(".archive-preview-toggle").setAttribute("aria-expanded", String(isExpanded));
+    const previewToggle = archiveCard.querySelector(".archive-preview-toggle");
+    previewToggle.setAttribute("aria-expanded", String(isExpanded));
+    previewToggle.textContent = isExpanded ? "收起预览" : "展开预览";
   });
 }
 
@@ -176,10 +224,13 @@ function renderTrack() {
   musicCover.alt = `${track.title} — ${track.artist} 的封面`;
   musicDockCover.src = track.cover;
   musicDockTitle.textContent = `${track.title} · ${track.artist}`;
-  musicNowPlaying.textContent = `${track.title} — ${track.artist}`;
+  musicMood.textContent = track.mood;
+  musicTrackTitle.textContent = track.title;
+  musicTrackArtist.textContent = track.artist;
+  musicNowPlaying.setAttribute("aria-label", `${track.title} — ${track.artist}`);
   const action = profileAudio.paused ? "播放" : "暂停";
   [musicPlay, musicDockPlay].forEach((button) => {
-    button.textContent = action;
+    button.querySelector(".sr-only").textContent = action;
     button.setAttribute("aria-pressed", String(!profileAudio.paused));
     button.setAttribute("aria-label", `${action} ${track.title}`);
   });
@@ -202,6 +253,7 @@ function renderLyricLines(index) {
   previousLyric.textContent = lyricLines[index - 1]?.text ?? "—";
   currentLyric.textContent = lyricLines[index]?.text ?? "等待歌词开始";
   nextLyric.textContent = lyricLines[index + 1]?.text ?? "—";
+  triggerPlayerMotion(musicLyrics, "is-lyric-transitioning");
   if (index !== renderedLyricAccentIndex) {
     renderedLyricAccentIndex = index;
     if (!reduceMotionQuery.matches && index >= 0) {
@@ -217,6 +269,19 @@ function renderLyricStatus(message) {
   previousLyric.textContent = "—";
   currentLyric.textContent = message;
   nextLyric.textContent = "—";
+  triggerPlayerMotion(musicLyrics, "is-lyric-transitioning");
+}
+
+function formatMusicTime(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+  const wholeSeconds = Math.floor(seconds);
+  const minutes = Math.floor(wholeSeconds / 60);
+  return `${minutes}:${String(wholeSeconds % 60).padStart(2, "0")}`;
+}
+
+function syncPlaybackTime() {
+  musicElapsed.textContent = formatMusicTime(profileAudio.currentTime);
+  musicDuration.textContent = formatMusicTime(profileAudio.duration);
 }
 
 function syncLyrics() {
@@ -231,6 +296,7 @@ function syncLyrics() {
     musicProgress.value = progress;
     musicDock.style.setProperty("--dock-progress", String(progress));
   }
+  syncPlaybackTime();
 }
 
 async function loadLyrics(track) {
@@ -263,6 +329,7 @@ async function loadLyrics(track) {
 }
 
 function loadTrack(index, { autoplay = false } = {}) {
+  const previousAccent = document.documentElement.style.getPropertyValue("--track-accent") || TRACKS[trackIndex].accent;
   trackIndex = (index + TRACKS.length) % TRACKS.length;
   const track = TRACKS[trackIndex];
   profileAudio.pause();
@@ -270,7 +337,11 @@ function loadTrack(index, { autoplay = false } = {}) {
   profileAudio.load();
   musicProgress.value = 0;
   musicDock.style.setProperty("--dock-progress", String(0));
+  musicElapsed.textContent = "0:00";
+  musicDuration.textContent = "0:00";
   renderedLyricKey = "";
+  document.documentElement.style.setProperty("--previous-track-accent", previousAccent);
+  triggerPlayerMotion(musicPanel, "is-track-transitioning");
   void loadLyrics(track);
   renderTrack();
   if (autoplay) void playCurrentTrack();
@@ -314,6 +385,7 @@ profileAudio.addEventListener("ended", () => void selectTrack(trackIndex + 1));
 profileAudio.addEventListener("loadedmetadata", syncLyrics);
 musicDockExpand.addEventListener("click", openMusicPanel);
 musicClose.addEventListener("click", () => closeMusicPanel({ returnFocus: true }));
+musicQueueToggle.addEventListener("click", () => setMusicQueueOpen(musicQueueToggle.getAttribute("aria-expanded") !== "true"));
 musicPlay.addEventListener("click", () => void toggleNativePlayback());
 musicDockPlay.addEventListener("click", () => void toggleNativePlayback());
 musicPrevious.addEventListener("click", () => void selectTrack(trackIndex - 1));
@@ -361,6 +433,11 @@ document.addEventListener("keydown", (event) => {
       closeWeChatPopover({ returnFocus: true });
       return;
     }
+    if (!musicPanel.hidden && musicQueueToggle.getAttribute("aria-expanded") === "true") {
+      setMusicQueueOpen(false);
+      musicQueueToggle.focus();
+      return;
+    }
     if (!musicPanel.hidden) closeMusicPanel({ returnFocus: true });
   }
 });
@@ -377,11 +454,17 @@ heroSearchForm.addEventListener("submit", (event) => {
 });
 moonRipple.addEventListener("click", () => {
   if (reduceMotionQuery.matches) return;
+  document.documentElement.classList.remove("is-moonlit");
   moonRipple.classList.remove("is-rippling");
   void moonRipple.offsetWidth;
+  document.documentElement.classList.add("is-moonlit");
   moonRipple.classList.add("is-rippling");
 });
-moonRipple.addEventListener("animationend", () => moonRipple.classList.remove("is-rippling"));
+moonRipple.addEventListener("animationend", (event) => {
+  if (event.target !== moonRipple) return;
+  document.documentElement.classList.remove("is-moonlit");
+  moonRipple.classList.remove("is-rippling");
+});
 
 const phrases = [
   { tone: "NOTES ON LIFE", lines: ["人生并不总在向前，", "许多看似停滞的时刻，也在悄然校正方向。"] },
@@ -502,6 +585,7 @@ reduceMotionQuery.addEventListener("change", syncQuoteMotion);
 reduceMotionQuery.addEventListener("change", syncMotionPreferences);
 pointerQuery.addEventListener("change", syncMotionPreferences);
 createTrackList();
+setMusicQueueOpen(false);
 loadTrack(0, { autoplay: false });
 syncQuoteMotion();
 syncMotionPreferences();
