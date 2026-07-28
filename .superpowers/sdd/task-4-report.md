@@ -1,39 +1,44 @@
-# Task 4 report — global Music Dock and lyrics panel
+# Task 4 report — richer premium page interaction
 
-## RED → GREEN
+## Scope
 
-- RED: added the two Task 4 music-interface tests, then ran the required name-pattern command. Both failed as expected: the page lacked `#current-lyric` and the script lacked `openMusicPanel()`.
-- GREEN: implemented the Dock/panel shared controls, immutable track data, native audio loading, LRC rendering, and deterministic close behavior. The same focused command passed 2/2.
+- `assets/homepage/homepage.css`: layered section reveals, bounded pointer glass lift/tilt/highlight, scene-light offsets, shared press feedback, dual moon ripples, temporary moonlit background, and reduced-motion overrides.
+- `assets/homepage/homepage.js`: fine-pointer-only scene-light updates capped at 12px, scene reset on capability changes, and moonlit state lifecycle through the existing moon interaction.
+- `tests/homepage-hero.test.mjs`: static motion contracts plus runtime checks for the full-motion and reduced-motion scene-light paths.
 
-## Changed files
+No HTML, player data, audio/LRC resources, dependencies, remote assets, or unrelated interfaces changed.
 
-- `index.html`: one `#profileAudio`, fixed Dock controls, expandable dialog panel, progress indicator, and previous/current/next lyric nodes. `#current-lyric` is the sole polite live region.
-- `assets/homepage/homepage.js`: one frozen `TRACKS` table; `loadTrack(index, { autoplay })`; Dock/panel rendering over the same audio; LRC cache and three-line rendering; guarded live-region writes; Escape/outside close plus focus return.
-- `assets/homepage/homepage.css`: responsive fixed Dock; desktop panel positioned above it; mobile bottom sheet with safe-area height, scrolling track/lyric content, and persistent close/control row.
-- `tests/homepage-hero.test.mjs`: the two required static interface/resource tests.
+## RED
+
+Command:
+
+`/Users/yyy/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --test --test-name-pattern='premium motion|scene-light pointer' tests/homepage-hero.test.mjs`
+
+Result: 0 passed, 2 failed as expected.
+
+- The premium-motion test failed because no staged reveal rule existed.
+- The scene-light runtime test failed because the fine-pointer move left `--scene-light-offset-x` empty instead of the required capped `12px`.
+
+A follow-up TDD cycle added explicit press-state precedence assertions. The focused premium-motion test failed against the initial selectors because hover specificity could mask press feedback.
+
+## GREEN
+
+- Active sections reveal eyebrow/title/copy/cards/contacts with 80ms short stagger steps, 20px vertical recovery, and 5px blur recovery.
+- Existing section state continues to drive background wash/direction; one passive pointer listener writes only `--scene-light-offset-x/y`, each clamped to `[-12px, 12px]`.
+- Existing pointer-glass surfaces retain their pointer highlight and use at most 2deg tilt, a 5px hover lift, edge glow, and a 1px press depth.
+- Education entries and social controls share the same 5px hover lift and compressed press response.
+- The existing moon button now drives two staggered ripples and one 1.35s background-brightening cycle; no timer was added.
+- Reduced motion does not enable pointer glass, removes scene offsets, suppresses moon/player/background animation through the existing media query, removes reveal blur/transform, and keeps all state/content logic active.
 
 ## Verification
 
-- `/Users/yyy/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --test --test-name-pattern='music Dock uses|music panel has' tests/homepage-hero.test.mjs` — 2 passed, 0 failed.
-- `/Users/yyy/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --test tests/homepage-hero.test.mjs` — 16 passed, 0 failed.
-- Browser check over a local-only HTTP server: every one of the nine track buttons selected its matching title and reported the shared native audio as unpaused; the `稻香` check advanced to `currentTime` 0.859s and rendered LRC. Escape closed the panel and returned focus to `#music-dock-expand`; clicking outside closed it. At 320×700, the panel was a bottom sheet from y=87.5 to y=700, with the close row visible at y=104.5–146.5.
-- `git diff --check` completed with no whitespace errors.
+- Focused motion tests: 2 passed, 0 failed.
+- Full `tests/homepage-hero.test.mjs`: 49 passed, 0 failed.
+- `node --check assets/homepage/homepage.js`: exit 0.
+- `git diff --check`: exit 0.
 
-## Self-check / concern
+## Self-check
 
-- Origin, Identity, Archive, Connection, QQ, and WeChat code paths were not changed.
-- The browser automation surface did not expose request interception, so I could not force one LRC fetch failure through DevTools. The implemented fetch `catch` preserves native playback and renders `歌词暂不可用`; this error path is code-reviewed but not browser-forced in this run.
-
-## Reviewer follow-up — persistent lyric status, outside focus, and Dock clearance
-
-- RED: added three focused static regressions. On the reviewed implementation, they failed because LRC failure state was only rendered to the DOM, outside-close passed `returnFocus: false`, and the body padding omitted the desktop 14px Dock gap.
-- GREEN: `lyricStatus` now persists loading/unavailable states across `timeupdate` while progress continues to update; successful nonempty LRC data clears that state. Neither empty nor failed LRC loading pauses the native audio. Outside-click now closes with focus returning to `#music-dock-expand`.
-- Layout: `--dock-offset` centralizes the desktop 14px spacing in both Dock placement and `body` block-end padding, then resets to `0px` on mobile while preserving the safe-area inset.
-- Verification: focused regression suite 3 passed; full Node suite 19 passed; `node --check assets/homepage/homepage.js` and `git diff --check` both exited 0.
-
-## Reviewer P2 follow-up — mobile panel controls and behavioral coverage
-
-- RED: the new mobile layout contract failed because the panel lacked a dedicated `.music-panel-scroll`; after a 320×480 browser check also exposed the sticky site header covering the close row, the contract failed again until the mobile panel was raised above that header.
-- GREEN: `music-panel-header` and the now-playing/transport/progress controls stay outside `.music-panel-scroll`. The mobile panel remains bounded by `max-height: calc(100dvh - env(safe-area-inset-top))`, hides outer overflow, and gives the inner content/list its own vertical scroll. Its mobile `z-index: 11` keeps close and transport above the site header (`z-index: 10`).
-- Behavioral regression: a `node:test` FakeDocument/FakeAudio runtime executes the real `homepage.js`, rejects LRC fetch, dispatches `timeupdate`, then opens the panel and dispatches a document outside click. It asserts the unavailable lyric text persists, audio remains unpaused, the panel closes, and focus returns to the Dock expand button.
-- Browser result / screenshot captured: at 320×480, header spans y=17–59 and fixed controls y=59–228.5 while the internal scroll region spans y=228.5–464 (`overflow-y:auto`, 236px client height, 322px scroll height). Scrolling that region to its bottom (`scrollTop: 87`) left header and controls at those same coordinates; panel z-index was 11 against the site header's 10.
+- Lift is exactly 5px, computed card tilt is bounded to +/-2deg, and scene-light parallax is hard-clamped to +/-12px.
+- Reveal translation uses a shared custom property so pointer tilt/lift and section entry motion compose instead of overriding each other.
+- Playback accent linkage (`data-playing`, track accent, lyric accent) remains unchanged and lower in visual intensity than content.

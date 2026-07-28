@@ -70,19 +70,34 @@ function resetPointerGlass() {
   });
 }
 
+function resetSceneLight() {
+  const root = document.documentElement;
+  root.style?.removeProperty("--scene-light-offset-x");
+  root.style?.removeProperty("--scene-light-offset-y");
+}
+
 function syncMotionPreferences() {
   const root = document.documentElement;
   root.dataset.motion = reduceMotionQuery.matches ? "reduced" : "full";
   root.dataset.pointerGlass = "false";
+  root.classList.remove("is-moonlit");
   pointerGlassEnabled = false;
   root.style?.removeProperty("--lyric-accent");
   resetPointerGlass();
+  resetSceneLight();
   if (reduceMotionQuery.matches) return;
   pointerGlassEnabled = pointerQuery.matches;
   root.dataset.pointerGlass = String(pointerGlassEnabled);
 }
 
 function setupPointerGlass() {
+  document.addEventListener("pointermove", (event) => {
+    if (!pointerGlassEnabled) return;
+    const x = Math.max(-12, Math.min(12, ((event.clientX / Math.max(window.innerWidth, 1)) - 0.5) * 24));
+    const y = Math.max(-12, Math.min(12, ((event.clientY / Math.max(window.innerHeight, 1)) - 0.5) * 24));
+    document.documentElement.style.setProperty("--scene-light-offset-x", `${Number(x.toFixed(2))}px`);
+    document.documentElement.style.setProperty("--scene-light-offset-y", `${Number(y.toFixed(2))}px`);
+  }, { passive: true });
   pointerGlassSurfaces.forEach((surface) => {
     surface.addEventListener("pointermove", (event) => {
       if (!pointerGlassEnabled) return;
@@ -418,11 +433,17 @@ heroSearchForm.addEventListener("submit", (event) => {
 });
 moonRipple.addEventListener("click", () => {
   if (reduceMotionQuery.matches) return;
+  document.documentElement.classList.remove("is-moonlit");
   moonRipple.classList.remove("is-rippling");
   void moonRipple.offsetWidth;
+  document.documentElement.classList.add("is-moonlit");
   moonRipple.classList.add("is-rippling");
 });
-moonRipple.addEventListener("animationend", () => moonRipple.classList.remove("is-rippling"));
+moonRipple.addEventListener("animationend", (event) => {
+  if (event.target !== moonRipple) return;
+  document.documentElement.classList.remove("is-moonlit");
+  moonRipple.classList.remove("is-rippling");
+});
 
 const phrases = [
   { tone: "NOTES ON LIFE", lines: ["人生并不总在向前，", "许多看似停滞的时刻，也在悄然校正方向。"] },

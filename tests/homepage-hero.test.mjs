@@ -157,7 +157,7 @@ test("mobile music panel keeps fixed controls above independently scrolling cont
   assert.match(mobileMusicRules, /\.music-panel-scroll\s*\{[\s\S]*?overflow-y:\s*auto/);
 });
 
-function createMusicRuntime() {
+function createMusicRuntime({ reducedMotion = false, finePointer = false } = {}) {
   const documentListeners = new Map();
   const elements = new Map();
 
@@ -168,7 +168,12 @@ function createMusicRuntime() {
       this.children = [];
       this.parent = null;
       this.dataset = {};
-      this.style = { setProperty() {}, removeProperty() {} };
+      const properties = new Map();
+      this.style = {
+        setProperty(name, value) { properties.set(name, String(value)); },
+        removeProperty(name) { properties.delete(name); },
+        getPropertyValue(name) { return properties.get(name) ?? ""; },
+      };
       this.hidden = false;
       this.listeners = new Map();
       const classes = new Set();
@@ -274,7 +279,12 @@ function createMusicRuntime() {
     card.querySelector(".archive-preview-toggle").parent = card;
   });
   const window = {
-    matchMedia: () => ({ matches: false, addEventListener() {} }),
+    innerWidth: 1440,
+    innerHeight: 900,
+    matchMedia: (query) => ({
+      matches: query.includes("prefers-reduced-motion") ? reducedMotion : finePointer,
+      addEventListener() {},
+    }),
     setTimeout: () => 0,
     clearTimeout() {},
   };
@@ -625,6 +635,61 @@ test("motion is capability-gated and has a complete reduced-motion fallback", ()
   assert.match(script, /window\.matchMedia\("\(hover: hover\) and \(pointer: fine\)"\)/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*scroll-behavior:\s*auto/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation:\s*none/);
+});
+
+test("premium motion stages section copy, bounds glass lift and tilt, and adds two moon ripples", () => {
+  const stagedReveal = styles.match(/html\[data-motion="full"\]\[data-active-section\]\s+:is\([\s\S]*?\)\s*\{[^}]*\}/)?.[0] ?? "";
+  const activeReveal = styles.match(/html\[data-motion="full"\]\[data-active-section="archive"\]\s+#archive\s+:is\([^)]*\)\s*\{[^}]*\}/)?.[0] ?? "";
+  const pointerTransform = styles.match(/html\[data-pointer-glass="true"\]\s+:is\(\.pointer-glass,\s*\.archive-card\)\s*\{[^}]*\}/)?.[0] ?? "";
+  const finePointerHover = styles.match(/@media \(hover:\s*hover\) and \(pointer:\s*fine\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+
+  assert.match(stagedReveal, /opacity:\s*\.18/);
+  assert.match(stagedReveal, /--reveal-y:\s*20px/);
+  assert.match(stagedReveal, /filter:\s*blur\(5px\)/);
+  assert.match(stagedReveal, /transition-delay:\s*var\(--reveal-delay\)/);
+  assert.match(styles, /:not\(\.pointer-glass\):not\(\.archive-card\)\s*\{[^}]*translateY\(var\(--reveal-y\)\)/);
+  assert.match(styles, /\.archive-card:nth-child\(2\)\s*\{[^}]*--reveal-delay:\s*80ms/);
+  assert.match(styles, /\.archive-card:nth-child\(3\)\s*\{[^}]*--reveal-delay:\s*160ms/);
+  assert.match(activeReveal, /opacity:\s*1/);
+  assert.match(activeReveal, /--reveal-y:\s*0px/);
+  assert.match(activeReveal, /filter:\s*none/);
+  assert.match(pointerTransform, /translateY\(calc\(var\(--reveal-y,\s*0px\) \+ var\(--glass-lift\)\)\)/);
+  assert.match(pointerTransform, /rotateX\(var\(--tilt-x\)\)/);
+  assert.match(pointerTransform, /rotateY\(var\(--tilt-y\)\)/);
+  assert.match(finePointerHover, /--glass-lift:\s*-5px/);
+  assert.match(styles, /html\[data-motion="full"\]\[data-pointer-glass="true"\]\s+:is\(\.pointer-glass,\s*\.archive-card\):active\s*\{[^}]*--glass-lift:\s*1px/);
+  assert.match(styles, /html\[data-motion="full"\]\s+:is\(\.education-entry,\s*\.social-links a,\s*\.social-links button\):active\s*\{[^}]*scale\(\.985\)/);
+  assert.match(script, /--tilt-x", `\$\{\(0\.5 - y\) \* 4\}deg`/);
+  assert.match(script, /--tilt-y", `\$\{\(x - 0\.5\) \* 4\}deg`/);
+  assert.match(styles, /#moon-ripple\.is-rippling::after\s*\{[^}]*animation:\s*moon-ripple-primary/);
+  assert.match(styles, /#moon-ripple\.is-rippling span\s*\{[^}]*animation:\s*moon-ripple-secondary/);
+  assert.match(styles, /html\.is-moonlit\s+\.page-backdrop\s*\{[^}]*animation:\s*moonlight-brighten/);
+  assert.match(script, /document\.documentElement\.classList\.add\("is-moonlit"\)/);
+});
+
+test("scene-light pointer parallax is capped at twelve pixels and disabled with reduced motion", () => {
+  const fullMotion = createMusicRuntime({ finePointer: true });
+  vm.runInNewContext(script, { ...fullMotion, fetch: async () => ({ ok: false }), navigator: {} });
+  fullMotion.document.dispatch("pointermove", {
+    clientX: fullMotion.window.innerWidth,
+    clientY: 0,
+  });
+
+  assert.equal(fullMotion.document.documentElement.style.getPropertyValue("--scene-light-offset-x"), "12px");
+  assert.equal(fullMotion.document.documentElement.style.getPropertyValue("--scene-light-offset-y"), "-12px");
+
+  const reduced = createMusicRuntime({ reducedMotion: true, finePointer: true });
+  vm.runInNewContext(script, { ...reduced, fetch: async () => ({ ok: false }), navigator: {} });
+  reduced.document.dispatch("pointermove", {
+    clientX: reduced.window.innerWidth,
+    clientY: 0,
+  });
+
+  assert.equal(reduced.document.documentElement.style.getPropertyValue("--scene-light-offset-x"), "");
+  assert.equal(reduced.document.documentElement.style.getPropertyValue("--scene-light-offset-y"), "");
+  const reducedMotion = styles.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+  assert.match(reducedMotion, /filter:\s*none !important/);
+  assert.match(reducedMotion, /#moon-ripple\.is-rippling span/);
 });
 
 test("navigation, idle state, and close controls remain keyboard reachable", () => {
