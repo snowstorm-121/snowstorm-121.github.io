@@ -160,6 +160,7 @@ test("mobile music panel keeps fixed controls above independently scrolling cont
 function createMusicRuntime({ reducedMotion = false, finePointer = false } = {}) {
   const documentListeners = new Map();
   const elements = new Map();
+  const timers = [];
 
   class FakeElement {
     constructor(id = "") {
@@ -239,6 +240,9 @@ function createMusicRuntime({ reducedMotion = false, finePointer = false } = {})
     "wechat-popover", "wechat-copy", "wechat-close", "hero-search-form",
     "hero-search-input", "search-status", "moon-ripple", "quote-meta", "quote-progress",
   ]) elements.set(`#${id}`, new FakeElement(id));
+  for (const selector of [".music-lyrics", ".music-panel-mood", ".music-track-title", ".music-track-artist"]) {
+    elements.set(selector, new FakeElement(selector.slice(1)));
+  }
   elements.get("#music-panel").hidden = true;
   elements.get("#wechat-popover").hidden = true;
   const archiveCards = ["learning", "living", "research"].map((id) => {
@@ -285,8 +289,14 @@ function createMusicRuntime({ reducedMotion = false, finePointer = false } = {})
       matches: query.includes("prefers-reduced-motion") ? reducedMotion : finePointer,
       addEventListener() {},
     }),
-    setTimeout: () => 0,
-    clearTimeout() {},
+    setTimeout(callback, duration) {
+      const timer = { callback, duration, active: true };
+      timers.push(timer);
+      return timer;
+    },
+    clearTimeout(timer) {
+      if (timer) timer.active = false;
+    },
   };
   return {
     audio,
@@ -297,9 +307,20 @@ function createMusicRuntime({ reducedMotion = false, finePointer = false } = {})
     musicDock: elements.get("#music-dock"),
     musicDockExpand: elements.get("#music-dock-expand"),
     musicElapsed: elements.get("#music-elapsed"),
+    musicLyrics: elements.get(".music-lyrics"),
+    musicNext: elements.get("#music-next"),
     musicPanel: elements.get("#music-panel"),
     musicQueueToggle: elements.get("#music-queue-toggle"),
+    musicTrackArtist: elements.get(".music-track-artist"),
     musicTrackList: elements.get("#music-track-list"),
+    musicTrackTitle: elements.get(".music-track-title"),
+    runTimers(duration) {
+      const ready = timers.filter((timer) => timer.active && timer.duration === duration);
+      ready.forEach((timer) => {
+        timer.active = false;
+        timer.callback();
+      });
+    },
     wechatPopover: elements.get("#wechat-popover"),
     wechatTrigger: elements.get("#wechat-trigger"),
     window,
@@ -773,8 +794,8 @@ test("tidal-island controls use accessible inline SVG icon boxes and softened tr
   assert.match(iconControlRules, /display:\s*grid/);
   assert.match(iconControlRules, /place-items:\s*center/);
   assert.match(iconRules, /display:\s*block/);
-  assert.match(iconRules, /width:\s*18px/);
-  assert.match(iconRules, /height:\s*18px/);
+  assert.match(iconRules, /width:\s*24px/);
+  assert.match(iconRules, /height:\s*24px/);
   assert.match(styles, /\.icon-play\s*\{[^}]*transform:\s*translateX\(1px\)/);
   assert.match(trackRules, /border:\s*0/);
   assert.match(trackRules, /border-radius:\s*12px/);
@@ -796,6 +817,81 @@ test("tidal-island panel exposes timing and a collapsed bounded queue", () => {
   assert.match(queueRules, /max-height:\s*132px/);
   assert.match(queueRules, /overflow-y:\s*auto/);
   assert.match(styles, /#music-panel\.is-queue-open\s+#music-track-list/);
+});
+
+test("tidal-island collapsed queue exposes a visible nine-track label without growing the panel", () => {
+  const panel = html.match(/<section id="music-panel"[\s\S]*?<\/section>/)?.[0] ?? "";
+  const toggle = panel.match(/<button id="music-queue-toggle"[\s\S]*?<\/button>/)?.[0] ?? "";
+  const toggleRules = styles.match(/#music-queue-toggle\s*\{[^}]*\}/)?.[0] ?? "";
+  const panelRules = styles.match(/#music-panel\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(toggle, /aria-label="展开播放队列"/);
+  assert.match(toggle, /<span class="music-queue-label" aria-hidden="true">QUEUE · 9 TRACKS<\/span>/);
+  assert.match(toggleRules, /grid-template-columns:\s*24px auto/);
+  assert.match(toggleRules, /width:\s*max-content/);
+  assert.match(panelRules, /height:\s*min\(380px,\s*calc\(100dvh - 118px\)\)/);
+
+  const runtime = createMusicRuntime();
+  vm.runInNewContext(script, { ...runtime, fetch: async () => ({ ok: false }), navigator: {} });
+  runtime.musicQueueToggle.dispatch("click");
+  assert.equal(runtime.musicQueueToggle.getAttribute("aria-label"), "收起播放队列");
+});
+
+test("every tidal player SVG uses a centered twenty-four-pixel icon contract", () => {
+  const icons = [...html.matchAll(/<svg class="music-control-icon"[^>]*>/g)].map((match) => match[0]);
+  const iconRules = styles.match(/\.music-control-icon\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.equal(icons.length, 7);
+  icons.forEach((icon) => assert.match(icon, /viewBox="0 0 24 24"/));
+  assert.match(iconRules, /width:\s*24px/);
+  assert.match(iconRules, /height:\s*24px/);
+  assert.match(styles, /\.icon-play\s*\{[^}]*translateX\(1px\)/);
+  assert.doesNotMatch(styles, /\.music-control-icon\s*\{[^}]*transform:/);
+});
+
+test("track and lyric changes drive short-lived motion states while reduced motion stays immediate", async () => {
+  assert.match(script, /function triggerPlayerMotion\(element,\s*className\)/);
+  const runtime = createMusicRuntime();
+  vm.runInNewContext(script, {
+    ...runtime,
+    fetch: async () => ({ ok: true, text: async () => "[00:00.00]First\n[00:10.00]Second\n[00:20.00]Third" }),
+    navigator: {},
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  runtime.musicPanel.classList.remove("is-track-transitioning");
+  runtime.musicLyrics.classList.remove("is-lyric-transitioning");
+  runtime.musicNext.dispatch("click");
+  assert.equal(runtime.musicPanel.classList.contains("is-track-transitioning"), true);
+  assert.equal(runtime.document.documentElement.style.getPropertyValue("--previous-track-accent"), "#8fc5d6");
+  assert.equal(runtime.document.documentElement.style.getPropertyValue("--track-accent"), "#e4bb83");
+  assert.equal(runtime.musicTrackTitle.textContent, "稻香");
+  assert.equal(runtime.musicTrackArtist.textContent, "周杰伦");
+  runtime.runTimers(500);
+  assert.equal(runtime.musicPanel.classList.contains("is-track-transitioning"), false);
+
+  await new Promise((resolve) => setImmediate(resolve));
+  runtime.musicLyrics.classList.remove("is-lyric-transitioning");
+  runtime.audio.currentTime = 11;
+  runtime.audio.dispatch("timeupdate");
+  assert.equal(runtime.musicLyrics.classList.contains("is-lyric-transitioning"), true);
+  assert.equal(runtime.currentLyric.textContent, "Second");
+  runtime.runTimers(400);
+  assert.equal(runtime.musicLyrics.classList.contains("is-lyric-transitioning"), false);
+
+  const reduced = createMusicRuntime({ reducedMotion: true });
+  vm.runInNewContext(script, {
+    ...reduced,
+    fetch: async () => ({ ok: true, text: async () => "[00:00.00]First\n[00:10.00]Second" }),
+    navigator: {},
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  reduced.musicNext.dispatch("click");
+  reduced.audio.currentTime = 11;
+  reduced.audio.dispatch("timeupdate");
+  assert.equal(reduced.musicPanel.classList.contains("is-track-transitioning"), false);
+  assert.equal(reduced.musicLyrics.classList.contains("is-lyric-transitioning"), false);
+  assert.equal(reduced.musicTrackTitle.textContent, "稻香");
 });
 
 test("tidal-island desktop panel stays compact when lyric metadata is long", () => {

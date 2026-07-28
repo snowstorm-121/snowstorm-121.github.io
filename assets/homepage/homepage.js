@@ -32,6 +32,7 @@ const musicQueueToggle = document.querySelector("#music-queue-toggle");
 const musicMood = document.querySelector(".music-panel-mood");
 const musicTrackTitle = document.querySelector(".music-track-title");
 const musicTrackArtist = document.querySelector(".music-track-artist");
+const musicLyrics = document.querySelector(".music-lyrics");
 const previousLyric = document.querySelector("#previous-lyric");
 const currentLyric = document.querySelector("#current-lyric");
 const nextLyric = document.querySelector("#next-lyric");
@@ -60,6 +61,19 @@ let pointerGlassEnabled = false;
 let idleTimer;
 const lyricCache = new Map();
 const lyricAccents = ["#153a5b", "#8fc5d6", "#d7b28a"];
+const playerMotionCycles = new WeakMap();
+
+function triggerPlayerMotion(element, className) {
+  const cycle = (playerMotionCycles.get(element) ?? 0) + 1;
+  playerMotionCycles.set(element, cycle);
+  element.classList.remove(className);
+  if (reduceMotionQuery.matches) return;
+  void element.offsetWidth;
+  element.classList.add(className);
+  window.setTimeout(() => {
+    if (playerMotionCycles.get(element) === cycle) element.classList.remove(className);
+  }, className === "is-lyric-transitioning" ? 400 : 500);
+}
 
 function resetPointerGlass() {
   pointerGlassSurfaces.forEach((surface) => {
@@ -83,6 +97,8 @@ function syncMotionPreferences() {
   root.classList.remove("is-moonlit");
   pointerGlassEnabled = false;
   root.style?.removeProperty("--lyric-accent");
+  musicPanel.classList.remove("is-track-transitioning");
+  musicLyrics.classList.remove("is-lyric-transitioning");
   resetPointerGlass();
   resetSceneLight();
   if (reduceMotionQuery.matches) return;
@@ -237,6 +253,7 @@ function renderLyricLines(index) {
   previousLyric.textContent = lyricLines[index - 1]?.text ?? "—";
   currentLyric.textContent = lyricLines[index]?.text ?? "等待歌词开始";
   nextLyric.textContent = lyricLines[index + 1]?.text ?? "—";
+  triggerPlayerMotion(musicLyrics, "is-lyric-transitioning");
   if (index !== renderedLyricAccentIndex) {
     renderedLyricAccentIndex = index;
     if (!reduceMotionQuery.matches && index >= 0) {
@@ -252,6 +269,7 @@ function renderLyricStatus(message) {
   previousLyric.textContent = "—";
   currentLyric.textContent = message;
   nextLyric.textContent = "—";
+  triggerPlayerMotion(musicLyrics, "is-lyric-transitioning");
 }
 
 function formatMusicTime(seconds) {
@@ -311,6 +329,7 @@ async function loadLyrics(track) {
 }
 
 function loadTrack(index, { autoplay = false } = {}) {
+  const previousAccent = document.documentElement.style.getPropertyValue("--track-accent") || TRACKS[trackIndex].accent;
   trackIndex = (index + TRACKS.length) % TRACKS.length;
   const track = TRACKS[trackIndex];
   profileAudio.pause();
@@ -321,6 +340,8 @@ function loadTrack(index, { autoplay = false } = {}) {
   musicElapsed.textContent = "0:00";
   musicDuration.textContent = "0:00";
   renderedLyricKey = "";
+  document.documentElement.style.setProperty("--previous-track-accent", previousAccent);
+  triggerPlayerMotion(musicPanel, "is-track-transitioning");
   void loadLyrics(track);
   renderTrack();
   if (autoplay) void playCurrentTrack();

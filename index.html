@@ -170,11 +170,11 @@
     <img id="music-dock-cover" src="assets/music/covers/the-nights.png" alt="">
     <p id="music-dock-title">The Nights · Avicii</p>
     <button id="music-dock-play" type="button" aria-pressed="false">
-      <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 18 18"><path class="icon-play" d="M5 3.5 14 9l-9 5.5Z"/><g class="icon-pause"><path d="M4.5 3.5h3v11h-3zM10.5 3.5h3v11h-3z"/></g></svg>
+      <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 24 24"><path class="icon-play" d="M8 5.5 18 12 8 18.5Z"/><g class="icon-pause"><path d="M7 5h3v14H7zM14 5h3v14h-3z"/></g></svg>
       <span class="sr-only">播放</span>
     </button>
     <button id="music-dock-expand" type="button" aria-controls="music-panel" aria-expanded="false">
-      <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 18 18"><path d="m4.5 11.5 4.5-5 4.5 5" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/></svg>
+      <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
       <span class="sr-only">展开音乐面板</span>
     </button>
   </aside>
@@ -182,7 +182,7 @@
     <div class="music-panel-header">
       <p class="music-panel-kicker">TIDAL LOCAL ARCHIVE</p>
       <button id="music-close" type="button">
-        <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 18 18"><path d="m4.5 4.5 9 9m0-9-9 9" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/></svg>
+        <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="m7 7 10 10m0-10L7 17" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2"/></svg>
         <span class="sr-only">关闭</span>
       </button>
     </div>
@@ -201,15 +201,15 @@
       </div>
       <div class="music-transport" aria-label="播放控制">
         <button id="music-previous" type="button">
-          <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 18 18"><path d="M5 4v10M14 4.5 7 9l7 4.5Z"/></svg>
+          <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M6 5v14M18 5.5 9 12l9 6.5Z"/></svg>
           <span class="sr-only">上一首</span>
         </button>
         <button id="music-play" type="button" aria-pressed="false">
-          <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 18 18"><path class="icon-play" d="M5 3.5 14 9l-9 5.5Z"/><g class="icon-pause"><path d="M4.5 3.5h3v11h-3zM10.5 3.5h3v11h-3z"/></g></svg>
+          <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 24 24"><path class="icon-play" d="M8 5.5 18 12 8 18.5Z"/><g class="icon-pause"><path d="M7 5h3v14H7zM14 5h3v14h-3z"/></g></svg>
           <span class="sr-only">播放</span>
         </button>
         <button id="music-next" type="button">
-          <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 18 18"><path d="M13 4v10M4 4.5 11 9l-7 4.5Z"/></svg>
+          <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M18 5v14M6 5.5l9 6.5-9 6.5Z"/></svg>
           <span class="sr-only">下一首</span>
         </button>
       </div>
@@ -225,8 +225,9 @@
         <p id="current-lyric" aria-live="polite">选择一首歌查看歌词</p>
         <p id="next-lyric">—</p>
       </div>
-      <button id="music-queue-toggle" type="button" aria-controls="music-track-list" aria-expanded="false">
-        <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 18 18"><path d="M3 5h8M3 9h8M3 13h8M14 11v4m-2-2h4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.6"/></svg>
+      <button id="music-queue-toggle" type="button" aria-label="展开播放队列" aria-controls="music-track-list" aria-expanded="false">
+        <svg class="music-control-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 7h9M5 12h9M5 17h9M18 14v6m-3-3h6" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2"/></svg>
+        <span class="music-queue-label" aria-hidden="true">QUEUE · 9 TRACKS</span>
         <span class="sr-only">展开播放队列</span>
       </button>
       <div id="music-track-list" aria-label="九首本地音乐" hidden></div>
