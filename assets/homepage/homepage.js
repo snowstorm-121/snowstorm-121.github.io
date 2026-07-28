@@ -50,6 +50,8 @@ const moonRipple = document.querySelector("#moon-ripple");
 const sectionLinks = document.querySelectorAll("[data-section-link]");
 const storySections = document.querySelectorAll(".story-section");
 const pointerGlassSurfaces = document.querySelectorAll(".pointer-glass, .archive-card");
+const NIGHT_NAVIGATION_STORAGE_KEY = "homepage-night-navigation";
+const NIGHT_NAVIGATION_CEREMONY_DURATION = 1350;
 
 let trackIndex = 0;
 let lyricLines = [];
@@ -59,6 +61,7 @@ let renderedLyricKey = "";
 let renderedLyricAccentIndex = -1;
 let pointerGlassEnabled = false;
 let idleTimer;
+let nightNavigationTimer;
 const lyricCache = new Map();
 const lyricAccents = ["#153a5b", "#8fc5d6", "#d7b28a"];
 const playerMotionCycles = new WeakMap();
@@ -90,11 +93,50 @@ function resetSceneLight() {
   root.style?.removeProperty("--scene-light-offset-y");
 }
 
+function readNightNavigation() {
+  try {
+    return globalThis.sessionStorage?.getItem(NIGHT_NAVIGATION_STORAGE_KEY) === "on";
+  } catch {
+    return false;
+  }
+}
+
+function saveNightNavigation(enabled) {
+  try {
+    globalThis.sessionStorage?.setItem(NIGHT_NAVIGATION_STORAGE_KEY, enabled ? "on" : "off");
+  } catch {
+    // Session storage is optional; the current page state remains usable without it.
+  }
+}
+
+function clearNightNavigationCeremony() {
+  window.clearTimeout(nightNavigationTimer);
+  document.documentElement.classList.remove("is-night-navigating", "is-moonlit");
+  moonRipple.classList.remove("is-rippling");
+}
+
+function setNightNavigation(enabled, { ceremony = false, persist = false } = {}) {
+  const root = document.documentElement;
+  clearNightNavigationCeremony();
+  root.dataset.nightNavigation = enabled ? "on" : "off";
+  moonRipple.setAttribute("aria-pressed", String(enabled));
+  moonRipple.setAttribute("aria-label", enabled ? "停用夜航模式" : "启用夜航模式");
+  if (persist) saveNightNavigation(enabled);
+  if (!enabled || reduceMotionQuery.matches || !ceremony) return;
+  root.classList.add("is-moonlit", "is-night-navigating");
+  moonRipple.classList.add("is-rippling");
+  nightNavigationTimer = window.setTimeout(clearNightNavigationCeremony, NIGHT_NAVIGATION_CEREMONY_DURATION);
+}
+
+function initializeNightNavigation() {
+  setNightNavigation(readNightNavigation());
+}
+
 function syncMotionPreferences() {
   const root = document.documentElement;
   root.dataset.motion = reduceMotionQuery.matches ? "reduced" : "full";
   root.dataset.pointerGlass = "false";
-  root.classList.remove("is-moonlit");
+  clearNightNavigationCeremony();
   pointerGlassEnabled = false;
   root.style?.removeProperty("--lyric-accent");
   musicPanel.classList.remove("is-track-transitioning");
@@ -453,17 +495,8 @@ heroSearchForm.addEventListener("submit", (event) => {
   heroSearchInput.focus();
 });
 moonRipple.addEventListener("click", () => {
-  if (reduceMotionQuery.matches) return;
-  document.documentElement.classList.remove("is-moonlit");
-  moonRipple.classList.remove("is-rippling");
-  void moonRipple.offsetWidth;
-  document.documentElement.classList.add("is-moonlit");
-  moonRipple.classList.add("is-rippling");
-});
-moonRipple.addEventListener("animationend", (event) => {
-  if (event.target !== moonRipple) return;
-  document.documentElement.classList.remove("is-moonlit");
-  moonRipple.classList.remove("is-rippling");
+  const enabled = document.documentElement.dataset.nightNavigation !== "on";
+  setNightNavigation(enabled, { ceremony: enabled, persist: true });
 });
 
 const phrases = [
@@ -589,6 +622,7 @@ setMusicQueueOpen(false);
 loadTrack(0, { autoplay: false });
 syncQuoteMotion();
 syncMotionPreferences();
+initializeNightNavigation();
 setupPointerGlass();
 setupSectionObserver();
 setupIdleTimer();

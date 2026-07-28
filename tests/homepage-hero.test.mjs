@@ -179,7 +179,7 @@ test("mobile music panel keeps fixed controls above independently scrolling cont
   assert.match(mobileMusicRules, /\.music-panel-scroll\s*\{[\s\S]*?overflow-y:\s*auto/);
 });
 
-function createMusicRuntime({ reducedMotion = false, finePointer = false } = {}) {
+function createMusicRuntime({ reducedMotion = false, finePointer = false, nightNavigationValue = null, storageFailure = false } = {}) {
   const documentListeners = new Map();
   const elements = new Map();
   const timers = [];
@@ -320,6 +320,18 @@ function createMusicRuntime({ reducedMotion = false, finePointer = false } = {})
       if (timer) timer.active = false;
     },
   };
+  const storage = new Map();
+  if (nightNavigationValue !== null) storage.set("homepage-night-navigation", nightNavigationValue);
+  const sessionStorage = {
+    getItem(key) {
+      if (storageFailure) throw new Error("storage unavailable");
+      return storage.get(key) ?? null;
+    },
+    setItem(key, value) {
+      if (storageFailure) throw new Error("storage unavailable");
+      storage.set(key, String(value));
+    },
+  };
   return {
     audio,
     archiveCards,
@@ -343,11 +355,53 @@ function createMusicRuntime({ reducedMotion = false, finePointer = false } = {})
         timer.callback();
       });
     },
+    moonRipple: elements.get("#moon-ripple"),
+    sessionStorage,
     wechatPopover: elements.get("#wechat-popover"),
     wechatTrigger: elements.get("#wechat-trigger"),
     window,
   };
 }
+
+test("night navigation persists an accessible stable state and bounds its ceremony", () => {
+  assert.match(html, /<button id="moon-ripple"[^>]*aria-pressed="false"[^>]*aria-label="启用夜航模式"/);
+  assert.match(script, /homepage-night-navigation/);
+  assert.match(styles, /html\[data-night-navigation="on"\]/);
+  assert.match(styles, /\.is-night-navigating/);
+
+  const restored = createMusicRuntime({ nightNavigationValue: "on" });
+  vm.runInNewContext(script, { ...restored, fetch: async () => ({ ok: false }), navigator: {}, sessionStorage: restored.sessionStorage });
+  assert.equal(restored.document.documentElement.dataset.nightNavigation, "on");
+  assert.equal(restored.moonRipple.getAttribute("aria-pressed"), "true");
+  assert.equal(restored.moonRipple.getAttribute("aria-label"), "停用夜航模式");
+
+  const runtime = createMusicRuntime();
+  vm.runInNewContext(script, { ...runtime, fetch: async () => ({ ok: false }), navigator: {}, sessionStorage: runtime.sessionStorage });
+  assert.equal(runtime.document.documentElement.dataset.nightNavigation, "off");
+  runtime.moonRipple.dispatch("click");
+  assert.equal(runtime.document.documentElement.dataset.nightNavigation, "on");
+  assert.equal(runtime.moonRipple.getAttribute("aria-pressed"), "true");
+  assert.equal(runtime.sessionStorage.getItem("homepage-night-navigation"), "on");
+  assert.equal(runtime.document.documentElement.classList.contains("is-night-navigating"), true);
+  runtime.runTimers(1350);
+  assert.equal(runtime.document.documentElement.classList.contains("is-night-navigating"), false);
+  runtime.moonRipple.dispatch("click");
+  assert.equal(runtime.document.documentElement.dataset.nightNavigation, "off");
+  assert.equal(runtime.sessionStorage.getItem("homepage-night-navigation"), "off");
+});
+
+test("night navigation handles unavailable storage and bypasses ceremony with reduced motion", () => {
+  const unavailableStorage = createMusicRuntime({ storageFailure: true });
+  vm.runInNewContext(script, { ...unavailableStorage, fetch: async () => ({ ok: false }), navigator: {}, sessionStorage: unavailableStorage.sessionStorage });
+  unavailableStorage.moonRipple.dispatch("click");
+  assert.equal(unavailableStorage.document.documentElement.dataset.nightNavigation, "on");
+
+  const reduced = createMusicRuntime({ reducedMotion: true });
+  vm.runInNewContext(script, { ...reduced, fetch: async () => ({ ok: false }), navigator: {}, sessionStorage: reduced.sessionStorage });
+  reduced.moonRipple.dispatch("click");
+  assert.equal(reduced.document.documentElement.dataset.nightNavigation, "on");
+  assert.equal(reduced.document.documentElement.classList.contains("is-night-navigating"), false);
+});
 
 test("failed lyric fetch remains visible through timeupdate and outside-close restores Dock focus", async () => {
   const runtime = createMusicRuntime();
@@ -707,7 +761,7 @@ test("premium motion stages section copy, bounds glass lift and tilt, and adds t
   assert.match(styles, /#moon-ripple\.is-rippling::after\s*\{[^}]*animation:\s*moon-ripple-primary/);
   assert.match(styles, /#moon-ripple\.is-rippling span\s*\{[^}]*animation:\s*moon-ripple-secondary/);
   assert.match(styles, /html\.is-moonlit\s+\.page-backdrop\s*\{[^}]*animation:\s*moonlight-brighten/);
-  assert.match(script, /document\.documentElement\.classList\.add\("is-moonlit"\)/);
+  assert.match(script, /root\.classList\.add\("is-moonlit", "is-night-navigating"\)/);
 });
 
 test("active section reveal rules outrank the shared inactive reveal baseline", () => {
