@@ -26,6 +26,12 @@ const musicPrevious = document.querySelector("#music-previous");
 const musicPlay = document.querySelector("#music-play");
 const musicNext = document.querySelector("#music-next");
 const musicProgress = document.querySelector("#music-progress");
+const musicElapsed = document.querySelector("#music-elapsed");
+const musicDuration = document.querySelector("#music-duration");
+const musicQueueToggle = document.querySelector("#music-queue-toggle");
+const musicMood = document.querySelector(".music-panel-mood");
+const musicTrackTitle = document.querySelector(".music-track-title");
+const musicTrackArtist = document.querySelector(".music-track-artist");
 const previousLyric = document.querySelector("#previous-lyric");
 const currentLyric = document.querySelector("#current-lyric");
 const nextLyric = document.querySelector("#next-lyric");
@@ -134,7 +140,16 @@ function openMusicPanel() {
   musicClose.focus();
 }
 
+function setMusicQueueOpen(expanded) {
+  musicPanel.classList.toggle("is-queue-open", expanded);
+  musicQueueToggle.setAttribute("aria-expanded", String(expanded));
+  musicQueueToggle.setAttribute("aria-label", expanded ? "收起播放队列" : "展开播放队列");
+  musicQueueToggle.querySelector(".sr-only").textContent = expanded ? "收起播放队列" : "展开播放队列";
+  musicTrackList.hidden = !expanded;
+}
+
 function closeMusicPanel({ returnFocus }) {
+  setMusicQueueOpen(false);
   musicPanel.hidden = true;
   musicDockExpand.setAttribute("aria-expanded", "false");
   if (returnFocus) musicDockExpand.focus();
@@ -176,10 +191,13 @@ function renderTrack() {
   musicCover.alt = `${track.title} — ${track.artist} 的封面`;
   musicDockCover.src = track.cover;
   musicDockTitle.textContent = `${track.title} · ${track.artist}`;
-  musicNowPlaying.textContent = `${track.title} — ${track.artist}`;
+  musicMood.textContent = track.mood;
+  musicTrackTitle.textContent = track.title;
+  musicTrackArtist.textContent = track.artist;
+  musicNowPlaying.setAttribute("aria-label", `${track.title} — ${track.artist}`);
   const action = profileAudio.paused ? "播放" : "暂停";
   [musicPlay, musicDockPlay].forEach((button) => {
-    button.textContent = action;
+    button.querySelector(".sr-only").textContent = action;
     button.setAttribute("aria-pressed", String(!profileAudio.paused));
     button.setAttribute("aria-label", `${action} ${track.title}`);
   });
@@ -219,6 +237,18 @@ function renderLyricStatus(message) {
   nextLyric.textContent = "—";
 }
 
+function formatMusicTime(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+  const wholeSeconds = Math.floor(seconds);
+  const minutes = Math.floor(wholeSeconds / 60);
+  return `${minutes}:${String(wholeSeconds % 60).padStart(2, "0")}`;
+}
+
+function syncPlaybackTime() {
+  musicElapsed.textContent = formatMusicTime(profileAudio.currentTime);
+  musicDuration.textContent = formatMusicTime(profileAudio.duration);
+}
+
 function syncLyrics() {
   if (lyricStatus) {
     renderLyricStatus(lyricStatus);
@@ -231,6 +261,7 @@ function syncLyrics() {
     musicProgress.value = progress;
     musicDock.style.setProperty("--dock-progress", String(progress));
   }
+  syncPlaybackTime();
 }
 
 async function loadLyrics(track) {
@@ -270,6 +301,8 @@ function loadTrack(index, { autoplay = false } = {}) {
   profileAudio.load();
   musicProgress.value = 0;
   musicDock.style.setProperty("--dock-progress", String(0));
+  musicElapsed.textContent = "0:00";
+  musicDuration.textContent = "0:00";
   renderedLyricKey = "";
   void loadLyrics(track);
   renderTrack();
@@ -314,6 +347,7 @@ profileAudio.addEventListener("ended", () => void selectTrack(trackIndex + 1));
 profileAudio.addEventListener("loadedmetadata", syncLyrics);
 musicDockExpand.addEventListener("click", openMusicPanel);
 musicClose.addEventListener("click", () => closeMusicPanel({ returnFocus: true }));
+musicQueueToggle.addEventListener("click", () => setMusicQueueOpen(musicQueueToggle.getAttribute("aria-expanded") !== "true"));
 musicPlay.addEventListener("click", () => void toggleNativePlayback());
 musicDockPlay.addEventListener("click", () => void toggleNativePlayback());
 musicPrevious.addEventListener("click", () => void selectTrack(trackIndex - 1));
@@ -359,6 +393,11 @@ document.addEventListener("keydown", (event) => {
     if (closeArchivePreview({ returnFocus: true })) return;
     if (!wechatPopover.hidden) {
       closeWeChatPopover({ returnFocus: true });
+      return;
+    }
+    if (!musicPanel.hidden && musicQueueToggle.getAttribute("aria-expanded") === "true") {
+      setMusicQueueOpen(false);
+      musicQueueToggle.focus();
       return;
     }
     if (!musicPanel.hidden) closeMusicPanel({ returnFocus: true });
@@ -502,6 +541,7 @@ reduceMotionQuery.addEventListener("change", syncQuoteMotion);
 reduceMotionQuery.addEventListener("change", syncMotionPreferences);
 pointerQuery.addEventListener("change", syncMotionPreferences);
 createTrackList();
+setMusicQueueOpen(false);
 loadTrack(0, { autoplay: false });
 syncQuoteMotion();
 syncMotionPreferences();

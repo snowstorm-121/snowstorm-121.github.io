@@ -100,7 +100,7 @@ test("music surfaces use a compact glass Dock and an anchored expanded panel", (
   assert.match(html, /id="music-panel"[\s\S]*class="music-panel-controls"[\s\S]*class="music-lyrics"[\s\S]*id="music-track-list"/);
 });
 
-test("music controls are circular, mobile panel is a safe-area sheet, and playback motion can stop", () => {
+test("music controls are circular, mobile panel is a bounded safe-area sheet, and playback motion can stop", () => {
   const dockButtonRules = styles.match(/#music-dock button\s*\{[^}]*\}/)?.[0] ?? "";
   const mobileMusicRules = styles.match(/@media \(max-width: 720px\)\s*\{[\s\S]*?#music-panel \{[\s\S]*?\}[\s\S]*?\.music-panel-scroll \{[\s\S]*?\}/)?.[0] ?? "";
   const reducedMotion = styles.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
@@ -109,10 +109,8 @@ test("music controls are circular, mobile panel is a safe-area sheet, and playba
   assert.match(dockButtonRules, /height:\s*36px/);
   assert.match(dockButtonRules, /border-radius:\s*50%/);
   assert.match(styles, /#music-dock button\[aria-pressed="true"\][\s\S]*background:\s*rgba\(/);
-  assert.match(styles, /#music-dock-play::after\s*\{[^}]*content:\s*""[^}]*clip-path:\s*polygon/);
-  assert.match(styles, /#music-dock-play\[aria-pressed="true"\]::after\s*\{[^}]*content:\s*""[^}]*linear-gradient/);
-  assert.match(styles, /#music-dock-expand::after\s*\{[^}]*content:\s*""[^}]*border:/);
   assert.match(mobileMusicRules, /bottom:\s*0/);
+  assert.match(mobileMusicRules, /max-height:\s*72dvh/);
   assert.match(mobileMusicRules, /padding-bottom:\s*calc\(16px \+ env\(safe-area-inset-bottom\)\)/);
   assert.match(mobileMusicRules, /border-radius:\s*22px 22px 0 0/);
   assert.match(mobileMusicRules, /\.music-panel-scroll\s*\{[\s\S]*?overflow-y:\s*auto/);
@@ -194,7 +192,9 @@ function createMusicRuntime() {
       if (!event.target) event.target = this;
       for (let current = this; current; current = current.parent) {
         event.currentTarget = current;
-        current.listeners.get(event.type)?.(event);
+        const listeners = current.listeners.get(event.type);
+        if (Array.isArray(listeners)) listeners.forEach((listener) => listener(event));
+        else listeners?.(event);
         if (!event.bubbles || stopped) break;
       }
     }
@@ -218,7 +218,8 @@ function createMusicRuntime() {
     "music-dock", "music-dock-cover", "music-dock-title", "music-dock-play", "music-dock-expand",
     "music-panel", "music-close", "music-track-list", "music-cover", "music-now-playing",
     "music-previous", "music-play", "music-next", "music-progress", "previous-lyric", "current-lyric",
-    "next-lyric", "wechat-trigger", "wechat-popover", "wechat-copy", "wechat-close", "hero-search-form",
+    "next-lyric", "music-queue-toggle", "music-elapsed", "music-duration", "wechat-trigger",
+    "wechat-popover", "wechat-copy", "wechat-close", "hero-search-form",
     "hero-search-input", "search-status", "moon-ripple", "quote-meta", "quote-progress",
   ]) elements.set(`#${id}`, new FakeElement(id));
   elements.get("#music-panel").hidden = true;
@@ -234,12 +235,16 @@ function createMusicRuntime() {
       return [];
     },
     createElement() { return new FakeElement(); },
-    addEventListener(type, listener) { documentListeners.set(type, listener); },
+    addEventListener(type, listener) {
+      const listeners = documentListeners.get(type) ?? [];
+      listeners.push(listener);
+      documentListeners.set(type, listeners);
+    },
     dispatch(type, event = {}) { this.dispatchEvent({ type, bubbles: false, ...event }); },
     dispatchEvent(event) {
       if (!event.target) event.target = this;
       event.currentTarget = this;
-      documentListeners.get(event.type)?.(event);
+      documentListeners.get(event.type)?.forEach((listener) => listener(event));
     },
   };
   for (const element of elements.values()) element.parent = document;
@@ -252,8 +257,12 @@ function createMusicRuntime() {
     audio,
     currentLyric: elements.get("#current-lyric"),
     document,
+    musicDuration: elements.get("#music-duration"),
     musicDockExpand: elements.get("#music-dock-expand"),
+    musicElapsed: elements.get("#music-elapsed"),
     musicPanel: elements.get("#music-panel"),
+    musicQueueToggle: elements.get("#music-queue-toggle"),
+    musicTrackList: elements.get("#music-track-list"),
     wechatPopover: elements.get("#wechat-popover"),
     wechatTrigger: elements.get("#wechat-trigger"),
     window,
@@ -585,28 +594,81 @@ test("track, playback, Dock progress, and lyric accent states are consumed by CS
   assert.match(styles, /html\[data-playing="true"\]\s+\.page-backdrop::after\s*\{[^}]*animation:\s*spectrum-breathe/);
 });
 
-test("browser validation uses accessible circular player icons and softened track rows", () => {
+test("tidal-island controls use accessible inline SVG icon boxes and softened track rows", () => {
+  const controlIds = [
+    "music-dock-play", "music-dock-expand", "music-close",
+    "music-previous", "music-play", "music-next", "music-queue-toggle",
+  ];
   const transport = html.match(/<div class="music-transport"[\s\S]*?<\/div>/)?.[0] ?? "";
   const iconControlRules = styles.match(/\.music-transport button,\s*#music-close\s*\{[^}]*\}/)?.[0] ?? "";
+  const iconRules = styles.match(/\.music-control-icon\s*\{[^}]*\}/)?.[0] ?? "";
   const trackRules = styles.match(/\.music-track\s*\{[^}]*\}/)?.[0] ?? "";
   const activeTrackRules = styles.match(/\.music-track\[aria-current="true"\]\s*\{[^}]*\}/)?.[0] ?? "";
 
-  assert.match(transport, /id="music-previous"[^>]*>上一首</);
-  assert.match(transport, /id="music-play"[^>]*>播放</);
-  assert.match(transport, /id="music-next"[^>]*>下一首</);
-  assert.match(html, /id="music-close"[^>]*>关闭</);
+  for (const id of controlIds) {
+    const button = html.match(new RegExp(`<button id="${id}"[\\s\\S]*?<\\/button>`))?.[0] ?? "";
+    assert.match(button, /<svg[^>]*class="music-control-icon"[^>]*aria-hidden="true"/);
+    assert.match(button, /<span class="sr-only">[^<]+<\/span>/);
+    assert.doesNotMatch(styles, new RegExp(`#${id}(?:\\[[^\\]]+\\])?::(?:before|after)\\s*\\{[^}]*content:`));
+  }
+  assert.match(transport, /id="music-previous"/);
+  assert.match(transport, /id="music-play"/);
+  assert.match(transport, /id="music-next"/);
   assert.match(iconControlRules, /width:\s*38px/);
   assert.match(iconControlRules, /height:\s*38px/);
   assert.match(iconControlRules, /border-radius:\s*50%/);
-  assert.match(iconControlRules, /font-size:\s*0/);
-  for (const id of ["music-previous", "music-play", "music-next", "music-close"]) {
-    assert.match(styles, new RegExp(`#${id}::after\\s*\\{[^}]*content:\\s*""`));
-  }
-  assert.match(styles, /#music-play\[aria-pressed="true"\]::after\s*\{[^}]*content:\s*""/);
+  assert.match(iconControlRules, /display:\s*grid/);
+  assert.match(iconControlRules, /place-items:\s*center/);
+  assert.match(iconRules, /display:\s*block/);
+  assert.match(iconRules, /width:\s*18px/);
+  assert.match(iconRules, /height:\s*18px/);
+  assert.match(styles, /\.icon-play\s*\{[^}]*transform:\s*translateX\(1px\)/);
   assert.match(trackRules, /border:\s*0/);
   assert.match(trackRules, /border-radius:\s*12px/);
   assert.match(trackRules, /background:\s*rgba\(255,\s*255,\s*255,\s*\.04\)/);
   assert.match(activeTrackRules, /box-shadow:\s*inset 2px 0 var\(--accent\)/);
+});
+
+test("tidal-island panel exposes timing and a collapsed bounded queue", () => {
+  const panel = html.match(/<section id="music-panel"[\s\S]*?<\/section>/)?.[0] ?? "";
+  const queue = panel.match(/<div id="music-track-list"[^>]*>/)?.[0] ?? "";
+  const queueRules = styles.match(/#music-track-list\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(panel, /class="music-cover-orbit"[\s\S]*id="music-cover"/);
+  assert.match(panel, /class="music-panel-mood"[\s\S]*class="music-track-title"[\s\S]*class="music-track-artist"/);
+  assert.match(panel, /class="music-lyrics"[\s\S]*id="previous-lyric"[\s\S]*id="current-lyric"[\s\S]*id="next-lyric"/);
+  assert.match(panel, /class="music-timing"[\s\S]*id="music-elapsed"[\s\S]*id="music-duration"/);
+  assert.match(panel, /id="music-queue-toggle"[^>]*aria-controls="music-track-list"[^>]*aria-expanded="false"/);
+  assert.match(queue, /\shidden(?:\s|>)/);
+  assert.match(queueRules, /max-height:\s*132px/);
+  assert.match(queueRules, /overflow-y:\s*auto/);
+  assert.match(styles, /#music-panel\.is-queue-open\s+#music-track-list/);
+});
+
+test("tidal-island runtime updates time and gives an open queue Escape priority", () => {
+  assert.match(script, /function setMusicQueueOpen\(expanded\)/);
+  const runtime = createMusicRuntime();
+  vm.runInNewContext(script, { ...runtime, fetch: async () => ({ ok: false }), navigator: {} });
+
+  runtime.audio.currentTime = 65.8;
+  runtime.audio.duration = 130;
+  runtime.audio.dispatch("timeupdate");
+  assert.equal(runtime.musicElapsed.textContent, "1:05");
+  assert.equal(runtime.musicDuration.textContent, "2:10");
+
+  runtime.musicDockExpand.dispatch("click");
+  runtime.musicQueueToggle.dispatch("click");
+  assert.equal(runtime.musicQueueToggle.getAttribute("aria-expanded"), "true");
+  assert.equal(runtime.musicTrackList.hidden, false);
+
+  runtime.document.dispatch("keydown", { key: "Escape" });
+  assert.equal(runtime.musicQueueToggle.getAttribute("aria-expanded"), "false");
+  assert.equal(runtime.musicTrackList.hidden, true);
+  assert.equal(runtime.musicPanel.hidden, false);
+
+  runtime.document.dispatch("keydown", { key: "Escape" });
+  assert.equal(runtime.musicPanel.hidden, true);
+  assert.equal(runtime.document.activeElement, runtime.musicDockExpand);
 });
 
 test("the closed music panel remains visually hidden despite its flex layout", () => {
