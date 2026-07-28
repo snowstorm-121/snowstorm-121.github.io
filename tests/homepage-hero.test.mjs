@@ -258,6 +258,7 @@ function createMusicRuntime() {
     currentLyric: elements.get("#current-lyric"),
     document,
     musicDuration: elements.get("#music-duration"),
+    musicDock: elements.get("#music-dock"),
     musicDockExpand: elements.get("#music-dock-expand"),
     musicElapsed: elements.get("#music-elapsed"),
     musicPanel: elements.get("#music-panel"),
@@ -645,6 +646,14 @@ test("tidal-island panel exposes timing and a collapsed bounded queue", () => {
   assert.match(styles, /#music-panel\.is-queue-open\s+#music-track-list/);
 });
 
+test("tidal-island reduced motion explicitly disables every new player effect", () => {
+  const reducedMotion = styles.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+  const playerEffects = reducedMotion.match(/#music-panel,\s*#music-track-list,\s*\.music-cover-orbit,\s*#music-cover,\s*\.music-panel-mood,\s*\.music-lyrics,\s*\.music-lyrics p\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(playerEffects, /animation:\s*none !important/);
+  assert.match(playerEffects, /transition:\s*none !important/);
+});
+
 test("tidal-island runtime updates time and gives an open queue Escape priority", () => {
   assert.match(script, /function setMusicQueueOpen\(expanded\)/);
   const runtime = createMusicRuntime();
@@ -665,10 +674,26 @@ test("tidal-island runtime updates time and gives an open queue Escape priority"
   assert.equal(runtime.musicQueueToggle.getAttribute("aria-expanded"), "false");
   assert.equal(runtime.musicTrackList.hidden, true);
   assert.equal(runtime.musicPanel.hidden, false);
+  assert.equal(runtime.document.activeElement, runtime.musicQueueToggle);
 
   runtime.document.dispatch("keydown", { key: "Escape" });
   assert.equal(runtime.musicPanel.hidden, true);
   assert.equal(runtime.document.activeElement, runtime.musicDockExpand);
+});
+
+test("tidal-island nested SVG clicks inside the Dock or panel do not outside-close it", () => {
+  const runtime = createMusicRuntime();
+  vm.runInNewContext(script, { ...runtime, fetch: async () => ({ ok: false }), navigator: {} });
+  runtime.musicDockExpand.dispatch("click");
+
+  for (const surface of [runtime.musicDock, runtime.musicPanel]) {
+    const svg = new runtime.musicPanel.constructor();
+    const path = new runtime.musicPanel.constructor();
+    svg.append(path);
+    surface.append(svg);
+    path.dispatchEvent({ type: "click", bubbles: true });
+    assert.equal(runtime.musicPanel.hidden, false);
+  }
 });
 
 test("the closed music panel remains visually hidden despite its flex layout", () => {

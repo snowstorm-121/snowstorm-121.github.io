@@ -388,6 +388,7 @@ a:active, button:active { transform: translateY(1px); }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   #music-dock, #music-panel { transition: none !important; }
+  #music-panel, #music-track-list, .music-cover-orbit, #music-cover, .music-panel-mood, .music-lyrics, .music-lyrics p { animation: none !important; transition: none !important; }
   .caret { display: none; }
   .story-section > .section-inner { opacity: 1 !important; }
   .pointer-glass, .archive-card, .story-section, .story-section > .section-inner, .page-backdrop::before, .page-backdrop::after, #moon-ripple.is-rippling::after, .spectrum-bar { transform: none !important; }
