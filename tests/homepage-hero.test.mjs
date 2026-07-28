@@ -638,7 +638,7 @@ test("motion is capability-gated and has a complete reduced-motion fallback", ()
 });
 
 test("premium motion stages section copy, bounds glass lift and tilt, and adds two moon ripples", () => {
-  const stagedReveal = styles.match(/html\[data-motion="full"\]\[data-active-section\]\s+:is\([\s\S]*?\)\s*\{[^}]*\}/)?.[0] ?? "";
+  const stagedReveal = styles.match(/html\[data-motion="full"\]\[data-active-section\]\s+:where\([\s\S]*?\)\s*\{[^}]*\}/)?.[0] ?? "";
   const activeReveal = styles.match(/html\[data-motion="full"\]\[data-active-section="archive"\]\s+#archive\s+:is\([^)]*\)\s*\{[^}]*\}/)?.[0] ?? "";
   const pointerTransform = styles.match(/html\[data-pointer-glass="true"\]\s+:is\(\.pointer-glass,\s*\.archive-card\)\s*\{[^}]*\}/)?.[0] ?? "";
   const finePointerHover = styles.match(/@media \(hover:\s*hover\) and \(pointer:\s*fine\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
@@ -665,6 +665,18 @@ test("premium motion stages section copy, bounds glass lift and tilt, and adds t
   assert.match(styles, /#moon-ripple\.is-rippling span\s*\{[^}]*animation:\s*moon-ripple-secondary/);
   assert.match(styles, /html\.is-moonlit\s+\.page-backdrop\s*\{[^}]*animation:\s*moonlight-brighten/);
   assert.match(script, /document\.documentElement\.classList\.add\("is-moonlit"\)/);
+});
+
+test("active section reveal rules outrank the shared inactive reveal baseline", () => {
+  const sharedReveal = styles.match(/html\[data-motion="full"\]\[data-active-section\]\s+:where\([\s\S]*?\)\s*\{[^}]*\}/)?.[0] ?? "";
+  const sharedTranslation = styles.match(/html\[data-motion="full"\]\[data-active-section\]\s+:where\([\s\S]*?\):not\(\.pointer-glass\):not\(\.archive-card\)\s*\{[^}]*\}/)?.[0] ?? "";
+  const activeOrigin = styles.match(/html\[data-motion="full"\]\[data-active-section="origin"\]\s+#origin\s+:is\([^)]*\)\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.match(sharedReveal, /opacity:\s*\.18/);
+  assert.match(sharedTranslation, /translateY\(var\(--reveal-y\)\)/);
+  assert.match(activeOrigin, /--reveal-y:\s*0px/);
+  assert.match(activeOrigin, /opacity:\s*1/);
+  assert.match(activeOrigin, /filter:\s*none/);
 });
 
 test("scene-light pointer parallax is capped at twelve pixels and disabled with reduced motion", () => {
