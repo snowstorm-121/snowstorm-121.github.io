@@ -179,7 +179,15 @@ test("mobile music panel keeps fixed controls above independently scrolling cont
   assert.match(mobileMusicRules, /\.music-panel-scroll\s*\{[\s\S]*?overflow-y:\s*auto/);
 });
 
-function createMusicRuntime({ reducedMotion = false, finePointer = false, nightNavigationValue = null, storageFailure = false } = {}) {
+function createMusicRuntime({
+  reducedMotion = false,
+  finePointer = false,
+  nightNavigationValue = null,
+  storageFailure = false,
+  visitorEndpoint = "",
+  visitorCookie = "",
+  cookieWritable = true,
+} = {}) {
   const documentListeners = new Map();
   const elements = new Map();
   const timers = [];
@@ -261,10 +269,12 @@ function createMusicRuntime({ reducedMotion = false, finePointer = false, nightN
     "next-lyric", "music-queue-toggle", "music-elapsed", "music-duration", "wechat-trigger",
     "wechat-popover", "wechat-copy", "wechat-close", "hero-search-form",
     "hero-search-input", "search-status", "moon-ripple", "quote-meta", "quote-progress",
+    "visitor-total", "visitor-today", "visitor-counter-status",
   ]) elements.set(`#${id}`, new FakeElement(id));
   for (const selector of [".music-lyrics", ".music-panel-mood", ".music-track-title", ".music-track-artist"]) {
     elements.set(selector, new FakeElement(selector.slice(1)));
   }
+  elements.set(".visitor-counter", new FakeElement("visitor-counter"));
   elements.get("#music-panel").hidden = true;
   elements.get("#wechat-popover").hidden = true;
   const archiveCards = ["learning", "living", "research"].map((id) => {
@@ -299,6 +309,15 @@ function createMusicRuntime({ reducedMotion = false, finePointer = false, nightN
       documentListeners.get(event.type)?.forEach((listener) => listener(event));
     },
   };
+  document.documentElement.dataset.visitorCounterEndpoint = visitorEndpoint;
+  let cookie = visitorCookie;
+  Object.defineProperty(document, "cookie", {
+    get() { return cookie; },
+    set(value) {
+      if (!cookieWritable) throw new Error("cookies unavailable");
+      cookie = String(value);
+    },
+  });
   for (const element of elements.values()) element.parent = document;
   archiveCards.forEach((card) => {
     card.parent = document;
@@ -359,9 +378,148 @@ function createMusicRuntime({ reducedMotion = false, finePointer = false, nightN
     sessionStorage,
     wechatPopover: elements.get("#wechat-popover"),
     wechatTrigger: elements.get("#wechat-trigger"),
+    visitorStatus: elements.get("#visitor-counter-status"),
+    visitorToday: elements.get("#visitor-today"),
+    visitorTotal: elements.get("#visitor-total"),
+    getCookie() { return cookie; },
     window,
   };
 }
+
+test("homepage places one semantic anonymous visitor card after contact links", () => {
+  const connection = html.match(/<section class="story-section connection"[\s\S]*?<\/section>/)?.[0] ?? "";
+  const socialIndex = connection.indexOf('<nav class="social-links"');
+  const cardIndex = connection.indexOf('<aside class="visitor-counter pointer-glass"');
+  const counterRules = [...styles.matchAll(/\.visitor-counter\s*\{[^}]*\}/g)].at(-1)?.[0] ?? "";
+
+  assert.match(html, /<html[^>]*data-visitor-counter-endpoint=""/);
+  assert.equal((html.match(/class="visitor-counter pointer-glass"/g) ?? []).length, 1);
+  assert.ok(socialIndex >= 0 && cardIndex > socialIndex, "visitor card follows social links");
+  assert.match(connection, /<aside class="visitor-counter pointer-glass"[^>]*aria-labelledby="visitor-counter-title"[^>]*aria-busy="true"[\s\S]*?<h3 id="visitor-counter-title">VISITOR LOG<\/h3>/);
+  assert.match(connection, /<dt>累计访客<\/dt>[\s\S]*?<output id="visitor-total">—<\/output>/);
+  assert.match(connection, /<dt>今日到访<\/dt>[\s\S]*?<output id="visitor-today">—<\/output>/);
+  assert.match(connection, /id="visitor-counter-status"[^>]*role="status"[^>]*>正在同步匿名访客统计/);
+  assert.match(connection, /仅作匿名统计，不记录 IP/);
+  assert.match(counterRules, /backdrop-filter:\s*blur/);
+  assert.match(counterRules, /background:\s*rgba\(/);
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.visitor-counter-stats\s*\{[^}]*grid-template-columns:\s*1fr/);
+  assert.doesNotMatch(script, /geolocation|fingerprint|userAgent|location\.pathname|analytics/i);
+});
+
+test("visitor counter creates a first-party random cookie and posts only it to a configured endpoint", async () => {
+  const endpoint = "https://example.workers.dev/v1/visit";
+  const runtime = createMusicRuntime({ visitorEndpoint: endpoint });
+  const requests = [];
+  const crypto = {
+    getRandomValues(bytes) {
+      for (let index = 0; index < bytes.length; index += 1) bytes[index] = index;
+      return bytes;
+    },
+  };
+  vm.runInNewContext(script, {
+    ...runtime,
+    crypto,
+    location: { protocol: "https:" },
+    navigator: {},
+    fetch: async (url, options = {}) => {
+      if (url === endpoint) {
+        requests.push({ url, options });
+        return { ok: true, json: async () => ({ totalVisitors: 1248, todayVisitors: 16 }) };
+      }
+      return { ok: false, text: async () => "" };
+    },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].options.method, "POST");
+  assert.equal(requests[0].options.headers["Content-Type"], "text/plain");
+  assert.equal(requests[0].options.credentials, "omit");
+  assert.match(requests[0].options.body, /^[0-9a-f]{32}$/);
+  assert.equal(requests[0].options.body, "000102030405060708090a0b0c0d0e0f");
+  assert.match(runtime.getCookie(), /homepage_visitor_id=000102030405060708090a0b0c0d0e0f/);
+  assert.match(runtime.getCookie(), /Max-Age=34560000/);
+  assert.match(runtime.getCookie(), /Path=\//);
+  assert.match(runtime.getCookie(), /SameSite=Lax/);
+  assert.match(runtime.getCookie(), /Secure/);
+  assert.equal(runtime.visitorTotal.textContent, "1,248");
+  assert.equal(runtime.visitorToday.textContent, "16");
+  assert.equal(runtime.visitorStatus.textContent, "匿名访客统计已同步");
+});
+
+test("visitor counter reuses its cookie and fails safely without a usable endpoint or response", async () => {
+  const reusedId = "homepage_visitor_id=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  const endpoint = "https://example.workers.dev/v1/visit";
+  const runtime = createMusicRuntime({ visitorEndpoint: endpoint, visitorCookie: reusedId });
+  let requestBody = "";
+  vm.runInNewContext(script, {
+    ...runtime,
+    crypto: { getRandomValues() { throw new Error("should reuse cookie"); } },
+    location: { protocol: "http:" },
+    navigator: {},
+    fetch: async (url, options = {}) => {
+      if (url === endpoint) {
+        requestBody = options.body;
+        return { ok: false, json: async () => ({}) };
+      }
+      return { ok: false, text: async () => "" };
+    },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(requestBody, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+  assert.equal(runtime.visitorTotal.textContent, "—");
+  assert.equal(runtime.visitorToday.textContent, "—");
+  assert.equal(runtime.visitorStatus.textContent, "统计暂时不可用");
+
+  const offline = createMusicRuntime();
+  let fetched = false;
+  vm.runInNewContext(script, {
+    ...offline,
+    crypto: { getRandomValues() { throw new Error("offline does not need an id"); } },
+    location: { protocol: "https:" },
+    navigator: {},
+    fetch: async (url) => {
+      if (url === "") fetched = true;
+      return { ok: false, text: async () => "" };
+    },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(fetched, false);
+  assert.equal(offline.visitorStatus.textContent, "统计暂时不可用");
+
+  for (const failure of ["network", "json"]) {
+    const broken = createMusicRuntime({ visitorEndpoint: endpoint });
+    vm.runInNewContext(script, {
+      ...broken,
+      crypto: { getRandomValues(bytes) { bytes.fill(1); return bytes; } },
+      location: { protocol: "https:" },
+      navigator: {},
+      fetch: async (url) => {
+        if (url !== endpoint) return { ok: false, text: async () => "" };
+        if (failure === "network") throw new Error("network unavailable");
+        return { ok: true, json: async () => { throw new Error("invalid json"); } };
+      },
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(broken.visitorStatus.textContent, "统计暂时不可用");
+  }
+
+  const cookieBlocked = createMusicRuntime({ visitorEndpoint: endpoint, cookieWritable: false });
+  let cookieBlockedRequests = 0;
+  vm.runInNewContext(script, {
+    ...cookieBlocked,
+    crypto: { getRandomValues(bytes) { bytes.fill(2); return bytes; } },
+    location: { protocol: "https:" },
+    navigator: {},
+    fetch: async (url) => {
+      if (url === endpoint) cookieBlockedRequests += 1;
+      return { ok: false, text: async () => "" };
+    },
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(cookieBlockedRequests, 0);
+  assert.equal(cookieBlocked.visitorStatus.textContent, "统计暂时不可用");
+});
 
 test("night navigation persists an accessible stable state and bounds its ceremony", () => {
   assert.match(html, /<button id="moon-ripple"[^>]*aria-pressed="false"[^>]*aria-label="启用夜航模式"/);
@@ -683,7 +841,7 @@ test("archive cards keep three columns at 1024px before a direct narrow single-c
   assert.ok(compactArchiveGrid, "archive has a direct narrow-screen fallback");
   assert.ok(Number(compactArchiveGrid[1]) <= 900, "archive remains three columns at 1024px");
   assert.match(compactArchiveGrid[0], /grid-template-columns:\s*1fr/);
-  assert.doesNotMatch(styles, /grid-template-columns:\s*repeat\(2,/);
+  assert.doesNotMatch(archiveGrid, /grid-template-columns:\s*repeat\(2,/);
   assert.match(card, /height:\s*100%/);
   assert.doesNotMatch(styles, /\.archive-card:first-child/);
   assert.match(media, /aspect-ratio:\s*16\s*\/\s*9/);
