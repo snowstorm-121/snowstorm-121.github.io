@@ -1,0 +1,12 @@
+name = "snowstorm-homepage-visitors"
+main = "src/index.mjs"
+compatibility_date = "2026-07-31"
+
+[[d1_databases]]
+binding = "VISITORS"
+database_name = "snowstorm-homepage-visitors"
+database_id = "REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[vars]
+ALLOWED_ORIGIN = "https://snowstorm-121.github.io"
