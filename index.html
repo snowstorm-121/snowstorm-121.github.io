@@ -162,19 +162,12 @@
           <a href="https://x.com/yongyi_121" target="_blank" rel="noreferrer" aria-label="X"><svg class="social-icon" aria-hidden="true" viewBox="0 0 24 24"><path d="M4.8 3h3.83l3.72 5.1L16.7 3h2.5l-5.7 6.55L20 21h-3.83l-4.13-5.67L7.1 21H4.6l6.31-7.25L4.8 3Zm2.73 1.75 8.79 14.5h1.95L9.48 4.75H7.53Z"/></svg></a>
         </nav>
         <aside class="visitor-counter pointer-glass" aria-labelledby="visitor-counter-title" aria-busy="true">
-          <p class="visitor-counter-kicker">ANONYMOUS PRESENCE</p>
-          <h3 id="visitor-counter-title">VISITOR LOG</h3>
+          <h3 id="visitor-counter-title" class="visitor-counter-label">VISITOR LOG</h3>
           <dl class="visitor-counter-stats">
-            <div>
-              <dt>累计访客</dt>
-              <dd><output id="visitor-total">—</output></dd>
-            </div>
-            <div>
-              <dt>今日到访</dt>
-              <dd><output id="visitor-today">—</output></dd>
-            </div>
+            <div><dt>总访客</dt><dd><output id="visitor-total">—</output></dd></div>
+            <div><dt>今日</dt><dd><output id="visitor-today">—</output></dd></div>
           </dl>
-          <p id="visitor-counter-status" role="status" aria-live="polite">正在同步匿名访客统计</p>
+          <p id="visitor-counter-status" class="sr-only" role="status" aria-live="polite">正在同步匿名访客统计</p>
           <p class="visitor-counter-privacy">仅作匿名统计，不记录 IP</p>
         </aside>
       </div>
