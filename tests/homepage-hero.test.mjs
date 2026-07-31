@@ -389,20 +389,24 @@ function createMusicRuntime({
 test("homepage places one semantic anonymous visitor card after contact links", () => {
   const connection = html.match(/<section class="story-section connection"[\s\S]*?<\/section>/)?.[0] ?? "";
   const socialIndex = connection.indexOf('<nav class="social-links"');
-  const cardIndex = connection.indexOf('<aside class="visitor-counter pointer-glass"');
-  const counterRules = [...styles.matchAll(/\.visitor-counter\s*\{[^}]*\}/g)].at(-1)?.[0] ?? "";
+  const cardIndex = connection.indexOf('<aside class="visitor-counter"');
+  const counterRules = styles.match(/\.visitor-counter\s*\{[^}]*\}[\s\S]*?\.visitor-counter,\s*\.visitor-counter-stats,\s*\.visitor-counter-stats div\s*\{[^}]*\}/)?.[0] ?? "";
 
   assert.match(html, /<html[^>]*data-visitor-counter-endpoint="https:\/\/snowstorm-homepage-visitors\.2971234387\.workers\.dev\/v1\/visit"/);
-  assert.equal((html.match(/class="visitor-counter pointer-glass"/g) ?? []).length, 1);
+  assert.equal((html.match(/<aside class="visitor-counter"/g) ?? []).length, 1);
   assert.ok(socialIndex >= 0 && cardIndex > socialIndex, "visitor card follows social links");
-  assert.match(connection, /<aside class="visitor-counter pointer-glass"[^>]*aria-labelledby="visitor-counter-title"[^>]*aria-busy="true"[\s\S]*?<h3 id="visitor-counter-title">VISITOR LOG<\/h3>/);
-  assert.match(connection, /<dt>累计访客<\/dt>[\s\S]*?<output id="visitor-total">—<\/output>/);
-  assert.match(connection, /<dt>今日到访<\/dt>[\s\S]*?<output id="visitor-today">—<\/output>/);
-  assert.match(connection, /id="visitor-counter-status"[^>]*role="status"[^>]*>正在同步匿名访客统计/);
+  assert.doesNotMatch(connection, /<aside[^>]*class="[^"]*\bpointer-glass\b[^"]*"/);
+  assert.match(connection, /<aside class="visitor-counter"[^>]*aria-labelledby="visitor-counter-title"[^>]*aria-busy="true"/);
+  assert.match(connection, /<h3 id="visitor-counter-title" class="visitor-counter-label">VISITOR LOG<\/h3>/);
+  assert.doesNotMatch(connection, /visitor-counter-kicker/);
+  assert.match(connection, /<dt>总访客<\/dt>[\s\S]*?<output id="visitor-total">—<\/output>/);
+  assert.match(connection, /<dt>今日<\/dt>[\s\S]*?<output id="visitor-today">—<\/output>/);
+  assert.match(connection, /id="visitor-counter-status" class="sr-only" role="status"/);
   assert.match(connection, /仅作匿名统计，不记录 IP/);
-  assert.match(counterRules, /backdrop-filter:\s*blur/);
-  assert.match(counterRules, /background:\s*rgba\(/);
-  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.visitor-counter-stats\s*\{[^}]*grid-template-columns:\s*1fr/);
+  assert.match(counterRules, /width:\s*min\(100%,\s*300px\)/);
+  assert.match(counterRules, /display:\s*flex/);
+  assert.doesNotMatch(styles, /\.visitor-counter-stats div\s*\{[^}]*padding:/);
+  assert.match(styles, /@media \(max-width: 480px\)[\s\S]*?\.visitor-counter\s*\{[^}]*max-width:\s*100%/);
   assert.doesNotMatch(script, /geolocation|fingerprint|userAgent|location\.pathname|analytics/i);
 });
 
