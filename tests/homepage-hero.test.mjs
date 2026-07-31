@@ -389,13 +389,14 @@ function createMusicRuntime({
 test("homepage places one semantic anonymous visitor card after contact links", () => {
   const connection = html.match(/<section class="story-section connection"[\s\S]*?<\/section>/)?.[0] ?? "";
   const socialIndex = connection.indexOf('<nav class="social-links"');
-  const cardIndex = connection.indexOf('<aside class="visitor-counter pointer-glass"');
+  const cardIndex = connection.indexOf('<aside class="visitor-counter"');
   const counterRules = styles.match(/\.visitor-counter\s*\{[^}]*\}[\s\S]*?\.visitor-counter,\s*\.visitor-counter-stats,\s*\.visitor-counter-stats div\s*\{[^}]*\}/)?.[0] ?? "";
 
   assert.match(html, /<html[^>]*data-visitor-counter-endpoint="https:\/\/snowstorm-homepage-visitors\.2971234387\.workers\.dev\/v1\/visit"/);
-  assert.equal((html.match(/class="visitor-counter pointer-glass"/g) ?? []).length, 1);
+  assert.equal((html.match(/<aside class="visitor-counter"/g) ?? []).length, 1);
   assert.ok(socialIndex >= 0 && cardIndex > socialIndex, "visitor card follows social links");
-  assert.match(connection, /<aside class="visitor-counter pointer-glass"[^>]*aria-labelledby="visitor-counter-title"[^>]*aria-busy="true"/);
+  assert.doesNotMatch(connection, /visitor-counter pointer-glass/);
+  assert.match(connection, /<aside class="visitor-counter"[^>]*aria-labelledby="visitor-counter-title"[^>]*aria-busy="true"/);
   assert.match(connection, /<h3 id="visitor-counter-title" class="visitor-counter-label">VISITOR LOG<\/h3>/);
   assert.doesNotMatch(connection, /visitor-counter-kicker/);
   assert.match(connection, /<dt>总访客<\/dt>[\s\S]*?<output id="visitor-total">—<\/output>/);
