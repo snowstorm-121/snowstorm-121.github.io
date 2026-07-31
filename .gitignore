@@ -1,2 +1,4 @@
 .superpowers/
 .worktrees/
+counter-worker/.wrangler/
+counter-worker/wrangler.local.toml

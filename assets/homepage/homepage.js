@@ -47,11 +47,18 @@ const heroSearchForm = document.querySelector("#hero-search-form");
 const heroSearchInput = document.querySelector("#hero-search-input");
 const searchStatus = document.querySelector("#search-status");
 const moonRipple = document.querySelector("#moon-ripple");
+const visitorCounter = document.querySelector(".visitor-counter");
+const visitorTotal = document.querySelector("#visitor-total");
+const visitorToday = document.querySelector("#visitor-today");
+const visitorCounterStatus = document.querySelector("#visitor-counter-status");
 const sectionLinks = document.querySelectorAll("[data-section-link]");
 const storySections = document.querySelectorAll(".story-section");
 const pointerGlassSurfaces = document.querySelectorAll(".pointer-glass, .archive-card");
 const NIGHT_NAVIGATION_STORAGE_KEY = "homepage-night-navigation";
 const NIGHT_NAVIGATION_CEREMONY_DURATION = 1350;
+const VISITOR_COUNTER_ENDPOINT = document.documentElement.dataset.visitorCounterEndpoint ?? "";
+const VISITOR_COOKIE_NAME = "homepage_visitor_id";
+const VISITOR_COOKIE_MAX_AGE = 400 * 24 * 60 * 60;
 
 let trackIndex = 0;
 let lyricLines = [];
@@ -91,6 +98,60 @@ function resetSceneLight() {
   const root = document.documentElement;
   root.style?.removeProperty("--scene-light-offset-x");
   root.style?.removeProperty("--scene-light-offset-y");
+}
+
+function setVisitorCounterUnavailable() {
+  visitorTotal.textContent = "—";
+  visitorToday.textContent = "—";
+  visitorCounterStatus.textContent = "统计暂时不可用";
+  visitorCounter.setAttribute("aria-busy", "false");
+}
+
+function readVisitorId() {
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${VISITOR_COOKIE_NAME}=([0-9a-f]{32})(?:;|$)`));
+  return match?.[1] ?? "";
+}
+
+function createVisitorId() {
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi || typeof cryptoApi.getRandomValues !== "function") throw new Error("secure random unavailable");
+  const bytes = cryptoApi.getRandomValues(new Uint8Array(16));
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function getOrCreateVisitorId() {
+  const existing = readVisitorId();
+  if (existing) return existing;
+  const visitorId = createVisitorId();
+  const secure = globalThis.location?.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${VISITOR_COOKIE_NAME}=${visitorId}; Max-Age=${VISITOR_COOKIE_MAX_AGE}; Path=/; SameSite=Lax${secure}`;
+  if (readVisitorId() !== visitorId) throw new Error("visitor cookie unavailable");
+  return visitorId;
+}
+
+async function syncVisitorCounter() {
+  if (!visitorCounter || !VISITOR_COUNTER_ENDPOINT) return setVisitorCounterUnavailable();
+  try {
+    const visitorId = getOrCreateVisitorId();
+    const response = await fetch(VISITOR_COUNTER_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: visitorId,
+      credentials: "omit",
+    });
+    if (!response.ok) throw new Error("visitor counter unavailable");
+    const counts = await response.json();
+    if (!Number.isSafeInteger(counts.totalVisitors) || counts.totalVisitors < 0 || !Number.isSafeInteger(counts.todayVisitors) || counts.todayVisitors < 0) {
+      throw new Error("invalid visitor counts");
+    }
+    const formatter = new Intl.NumberFormat("zh-CN");
+    visitorTotal.textContent = formatter.format(counts.totalVisitors);
+    visitorToday.textContent = formatter.format(counts.todayVisitors);
+    visitorCounterStatus.textContent = "匿名访客统计已同步";
+    visitorCounter.setAttribute("aria-busy", "false");
+  } catch {
+    setVisitorCounterUnavailable();
+  }
 }
 
 function readNightNavigation() {
@@ -626,3 +687,4 @@ initializeNightNavigation();
 setupPointerGlass();
 setupSectionObserver();
 setupIdleTimer();
+void syncVisitorCounter();
