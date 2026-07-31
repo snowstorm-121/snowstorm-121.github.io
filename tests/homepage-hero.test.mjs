@@ -395,7 +395,7 @@ test("homepage places one semantic anonymous visitor card after contact links", 
   assert.match(html, /<html[^>]*data-visitor-counter-endpoint="https:\/\/snowstorm-homepage-visitors\.2971234387\.workers\.dev\/v1\/visit"/);
   assert.equal((html.match(/<aside class="visitor-counter"/g) ?? []).length, 1);
   assert.ok(socialIndex >= 0 && cardIndex > socialIndex, "visitor card follows social links");
-  assert.doesNotMatch(connection, /visitor-counter pointer-glass/);
+  assert.doesNotMatch(connection, /<aside[^>]*class="[^"]*\bpointer-glass\b[^"]*"/);
   assert.match(connection, /<aside class="visitor-counter"[^>]*aria-labelledby="visitor-counter-title"[^>]*aria-busy="true"/);
   assert.match(connection, /<h3 id="visitor-counter-title" class="visitor-counter-label">VISITOR LOG<\/h3>/);
   assert.doesNotMatch(connection, /visitor-counter-kicker/);
