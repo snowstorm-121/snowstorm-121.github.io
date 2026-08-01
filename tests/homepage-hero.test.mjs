@@ -189,8 +189,12 @@ function createMusicRuntime({
   cookieWritable = true,
 } = {}) {
   const documentListeners = new Map();
+  const windowListeners = new Map();
   const elements = new Map();
   const timers = [];
+  const animationFrames = new Map();
+  const cancelledAnimationFrames = [];
+  let nextAnimationFrame = 0;
 
   class FakeElement {
     constructor(id = "") {
@@ -349,8 +353,24 @@ function createMusicRuntime({
     clearTimeout(timer) {
       if (timer) timer.active = false;
     },
-    requestAnimationFrame() { return 0; },
-    cancelAnimationFrame() {},
+    addEventListener(type, listener) {
+      const listeners = windowListeners.get(type) ?? [];
+      listeners.push(listener);
+      windowListeners.set(type, listeners);
+    },
+    removeEventListener(type, listener) {
+      const listeners = windowListeners.get(type) ?? [];
+      windowListeners.set(type, listeners.filter((registered) => registered !== listener));
+    },
+    requestAnimationFrame(callback) {
+      const frame = ++nextAnimationFrame;
+      animationFrames.set(frame, callback);
+      return frame;
+    },
+    cancelAnimationFrame(frame) {
+      cancelledAnimationFrames.push(frame);
+      animationFrames.delete(frame);
+    },
   };
   const storage = new Map();
   if (nightNavigationValue !== null) storage.set("homepage-night-navigation", nightNavigationValue);
@@ -386,6 +406,14 @@ function createMusicRuntime({
         timer.active = false;
         timer.callback();
       });
+    },
+    animationFrameCount() { return animationFrames.size; },
+    cancelledAnimationFrames,
+    runAnimationFrame(timestamp) {
+      const [frame, callback] = animationFrames.entries().next().value ?? [];
+      if (!callback) return;
+      animationFrames.delete(frame);
+      callback(timestamp);
     },
     moonRipple: elements.get("#moon-ripple"),
     sessionStorage,
@@ -945,6 +973,40 @@ test("bioluminescent shoal reuses one RAF loop for six-particle trails, targets,
   assert.match(styles, /#bioluminescent-shoal\.is-clustered \.shoal-particle\s*\{[^}]*opacity:/);
   assert.match(styles, /#bioluminescent-shoal\.is-scattering \.shoal-particle\s*\{[^}]*transition:/);
   assert.doesNotMatch(script, /document\.createElement\([^)]*\)[\s\S]{0,300}pointermove/);
+});
+
+test("bioluminescent shoal schedules one cancellable RAF and decays a retained trail over its settling window", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  let now = 0;
+  const context = {
+    ...runtime,
+    performance: { now: () => now },
+    fetch: async () => ({ ok: false }),
+    navigator: {},
+  };
+
+  vm.runInNewContext(script, context);
+
+  assert.equal(runtime.animationFrameCount(), 1, "setup schedules the first shoal frame");
+  const controller = vm.runInNewContext("shoalController", context);
+  runtime.document.dispatch("pointermove", { clientX: 10, clientY: 10 });
+  now = 16;
+  runtime.runAnimationFrame(now);
+  runtime.document.dispatch("pointermove", { clientX: 110, clientY: 10 });
+  now = 32;
+  runtime.runAnimationFrame(now);
+  const movingTrail = controller.trailStrength;
+  now = 382;
+  runtime.runAnimationFrame(now);
+  const settlingTrail = controller.trailStrength;
+  now = 732;
+  runtime.runAnimationFrame(now);
+
+  assert.ok(movingTrail > settlingTrail && settlingTrail > 0, `trail strength decays instead of resetting after one frame (${movingTrail}, ${settlingTrail})`);
+  assert.equal(controller.trailStrength, 0, "trail has settled after 700 ms");
+  const pendingFrame = controller.frame;
+  vm.runInNewContext("destroyBioluminescentShoal()", context);
+  assert.ok(runtime.cancelledAnimationFrames.includes(pendingFrame), "destroy cancels the scheduled shoal frame");
 });
 
 test("premium motion stages section copy, bounds glass lift and tilt, and adds two moon ripples", () => {

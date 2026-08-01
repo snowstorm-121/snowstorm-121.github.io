@@ -136,7 +136,8 @@ function createShoalLayer() {
     target: null,
     selecting: false,
     nativeTextTarget: false,
-    pointer: { x: 0, y: 0, previousX: 0, previousY: 0, updatedAt: 0 },
+    pointer: { x: 0, y: 0, previousX: 0, previousY: 0, updatedAt: null },
+    trailStrength: 0,
     particlePositions: Array.from({ length: SHOAL_PARTICLE_COUNT }, () => ({ x: 0, y: 0 })),
     scatterUntil: 0,
     scatterX: 0,
@@ -178,7 +179,9 @@ function renderShoalFrame(timestamp) {
   const { pointer } = controller;
   const speed = Math.hypot(pointer.x - pointer.previousX, pointer.y - pointer.previousY);
   const stretch = Math.min(18, speed * .18);
-  const resting = Math.min(1, (timestamp - pointer.updatedAt) / SHOAL_SETTLE_DURATION);
+  const resting = pointer.updatedAt === null ? 1 : Math.min(1, (timestamp - pointer.updatedAt) / SHOAL_SETTLE_DURATION);
+  const trailStrength = stretch * (1 - resting);
+  controller.trailStrength = trailStrength;
   const scattering = controller.scatterUntil > timestamp;
   let coreX = pointer.x;
   let coreY = pointer.y;
@@ -223,8 +226,8 @@ function renderShoalFrame(timestamp) {
       opacity = 1 - scatterProgress;
     } else {
       const offset = 3 * Math.sin((timestamp / 180) + phase);
-      const targetX = coreX + offset + (directionX * stretch * (1 - resting));
-      const targetY = coreY + (offset * .7) + (directionY * stretch * (1 - resting));
+      const targetX = coreX + offset + (directionX * trailStrength);
+      const targetY = coreY + (offset * .7) + (directionY * trailStrength);
       position.x += (targetX - position.x) * SHOAL_DAMPING[index];
       position.y += (targetY - position.y) * SHOAL_DAMPING[index];
       x = position.x;
@@ -237,8 +240,6 @@ function renderShoalFrame(timestamp) {
     particle.style.opacity = String(opacity);
   });
 
-  pointer.previousX = pointer.x;
-  pointer.previousY = pointer.y;
   shoalController.frame = window.requestAnimationFrame(renderShoalFrame);
 }
 
@@ -269,8 +270,8 @@ function setupBioluminescentShoal() {
     syncShoalVisibility(controller);
   });
   listen(document, "pointermove", (event) => {
-    const previousX = controller.pointer.updatedAt ? controller.pointer.x : event.clientX;
-    const previousY = controller.pointer.updatedAt ? controller.pointer.y : event.clientY;
+    const previousX = controller.pointer.updatedAt === null ? event.clientX : controller.pointer.x;
+    const previousY = controller.pointer.updatedAt === null ? event.clientY : controller.pointer.y;
     controller.pointer = {
       x: event.clientX,
       y: event.clientY,
@@ -301,7 +302,6 @@ function setupBioluminescentShoal() {
     if (event.target.closest(SHOAL_INTERACTIVE_SELECTOR)) return;
     scatterShoalAt(event.clientX, event.clientY);
   });
-  renderShoalFrame(getShoalTimestamp());
   return controller;
 }
 
@@ -327,6 +327,7 @@ function syncBioluminescentShoal() {
     return;
   }
   shoalController = setupBioluminescentShoal();
+  if (shoalController) renderShoalFrame(getShoalTimestamp());
   root.dataset.bioluminescentShoal = String(Boolean(shoalController));
 }
 
