@@ -59,6 +59,12 @@ const NIGHT_NAVIGATION_CEREMONY_DURATION = 1350;
 const VISITOR_COUNTER_ENDPOINT = document.documentElement.dataset.visitorCounterEndpoint ?? "";
 const VISITOR_COOKIE_NAME = "homepage_visitor_id";
 const VISITOR_COOKIE_MAX_AGE = 400 * 24 * 60 * 60;
+const SHOAL_PARTICLE_COUNT = 6;
+const SHOAL_SETTLE_DURATION = 700;
+const SHOAL_INTERACTIVE_SELECTOR = "a, button, [data-preview], #music-dock, #music-panel";
+const SHOAL_SCATTER_DURATION = 700;
+const SHOAL_PHASES = Object.freeze([0, 1.1, 2.2, 3.3, 4.4, 5.5]);
+const SHOAL_DAMPING = Object.freeze([.16, .13, .11, .09, .075, .06]);
 
 let trackIndex = 0;
 let lyricLines = [];
@@ -69,6 +75,7 @@ let renderedLyricAccentIndex = -1;
 let pointerGlassEnabled = false;
 let idleTimer;
 let nightNavigationTimer;
+let shoalController;
 const lyricCache = new Map();
 const lyricAccents = ["#153a5b", "#8fc5d6", "#d7b28a"];
 const playerMotionCycles = new WeakMap();
@@ -98,6 +105,245 @@ function resetSceneLight() {
   const root = document.documentElement;
   root.style?.removeProperty("--scene-light-offset-x");
   root.style?.removeProperty("--scene-light-offset-y");
+}
+
+function canRunBioluminescentShoal() {
+  return !reduceMotionQuery.matches && pointerQuery.matches;
+}
+
+function createShoalLayer() {
+  const layer = document.createElement("div");
+  layer.id = "bioluminescent-shoal";
+  layer.setAttribute("aria-hidden", "true");
+  const core = document.createElement("span");
+  core.className = "shoal-core";
+  layer.append(core);
+  const particles = [];
+  for (let index = 0; index < SHOAL_PARTICLE_COUNT; index += 1) {
+    const particle = document.createElement("span");
+    particle.className = "shoal-particle";
+    particle.style.setProperty("--shoal-index", String(index));
+    layer.append(particle);
+    particles.push(particle);
+  }
+  document.body.append(layer);
+  return {
+    layer,
+    core,
+    particles,
+    frame: 0,
+    visible: false,
+    target: null,
+    selecting: false,
+    nativeTextTarget: false,
+    pointer: { x: 0, y: 0, previousX: 0, previousY: 0, updatedAt: null },
+    trailStrength: 0,
+    particlePositions: Array.from({ length: SHOAL_PARTICLE_COUNT }, () => ({ x: 0, y: 0 })),
+    scatterUntil: 0,
+    scatterX: 0,
+    scatterY: 0,
+    listeners: [],
+  };
+}
+
+function isNativeTextTarget(target) {
+  return Boolean(target?.closest?.("input, textarea, [contenteditable]") ?? target?.matches?.("input, textarea, [contenteditable]"));
+}
+
+function syncShoalVisibility(controller) {
+  controller.layer.classList.toggle("is-visible", controller.visible && !controller.selecting && !controller.nativeTextTarget);
+}
+
+function setShoalTarget(element) {
+  if (!shoalController) return;
+  shoalController.target = element;
+  shoalController.layer.classList.toggle("is-clustered", Boolean(element));
+}
+
+function getShoalTimestamp() {
+  return globalThis.performance?.now?.() ?? Date.now();
+}
+
+function scatterShoalAt(x, y) {
+  if (!shoalController) return;
+  setShoalTarget(null);
+  shoalController.scatterX = x;
+  shoalController.scatterY = y;
+  shoalController.scatterUntil = getShoalTimestamp() + SHOAL_SCATTER_DURATION;
+  shoalController.layer.classList.add("is-scattering");
+}
+
+function renderShoalFrame(timestamp) {
+  if (!shoalController) return;
+  const controller = shoalController;
+  const { pointer } = controller;
+  const speed = Math.hypot(pointer.x - pointer.previousX, pointer.y - pointer.previousY);
+  const stretch = Math.min(18, speed * .18);
+  const resting = pointer.updatedAt === null ? 1 : Math.min(1, (timestamp - pointer.updatedAt) / SHOAL_SETTLE_DURATION);
+  const trailStrength = stretch * (1 - resting);
+  controller.trailStrength = trailStrength;
+  const scattering = controller.scatterUntil > timestamp;
+  let coreX = pointer.x;
+  let coreY = pointer.y;
+
+  if (controller.target) {
+    const bounds = controller.target.getBoundingClientRect();
+    coreX = bounds.left + (bounds.width / 2);
+    coreY = bounds.top + (bounds.height / 2);
+  } else if (scattering) {
+    coreX = controller.scatterX;
+    coreY = controller.scatterY;
+  } else if (controller.scatterUntil) {
+    controller.scatterUntil = 0;
+    controller.layer.classList.remove("is-scattering");
+    controller.particlePositions.forEach((position) => {
+      position.x = coreX;
+      position.y = coreY;
+    });
+  }
+
+  controller.core.style.transform = `translate3d(${coreX}px, ${coreY}px, 0) scale(1)`;
+  controller.core.style.opacity = "1";
+  const scatterProgress = scattering ? 1 - ((controller.scatterUntil - timestamp) / SHOAL_SCATTER_DURATION) : 0;
+  const directionX = speed ? (pointer.previousX - pointer.x) / speed : 0;
+  const directionY = speed ? (pointer.previousY - pointer.y) / speed : 0;
+
+  controller.particles.forEach((particle, index) => {
+    const phase = SHOAL_PHASES[index];
+    const position = controller.particlePositions[index];
+    let x;
+    let y;
+    let opacity = 1;
+    let scale = 1 - (index * .06);
+
+    if (controller.target) {
+      x = coreX + (Math.cos(phase) * 14);
+      y = coreY + (Math.sin(phase) * 14);
+    } else if (scattering) {
+      const distance = 10 + (42 * scatterProgress);
+      x = coreX + (Math.cos(phase) * distance);
+      y = coreY + (Math.sin(phase) * distance);
+      opacity = 1 - scatterProgress;
+    } else {
+      const offset = 3 * Math.sin((timestamp / 180) + phase);
+      const targetX = coreX + offset + (directionX * trailStrength);
+      const targetY = coreY + (offset * .7) + (directionY * trailStrength);
+      position.x += (targetX - position.x) * SHOAL_DAMPING[index];
+      position.y += (targetY - position.y) * SHOAL_DAMPING[index];
+      x = position.x;
+      y = position.y;
+    }
+
+    position.x = x;
+    position.y = y;
+    particle.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
+    particle.style.opacity = String(opacity);
+  });
+
+  shoalController.frame = window.requestAnimationFrame(renderShoalFrame);
+}
+
+function updateShoalPointer(controller, event) {
+  const resetPositions = controller.pointer.updatedAt === null || !controller.visible;
+  const previousX = resetPositions ? event.clientX : controller.pointer.x;
+  const previousY = resetPositions ? event.clientY : controller.pointer.y;
+  controller.pointer = {
+    x: event.clientX,
+    y: event.clientY,
+    previousX,
+    previousY,
+    updatedAt: getShoalTimestamp(),
+  };
+  if (resetPositions) {
+    controller.particlePositions.forEach((position) => {
+      position.x = event.clientX;
+      position.y = event.clientY;
+    });
+  }
+}
+
+function setupBioluminescentShoal() {
+  if (reduceMotionQuery.matches || !pointerQuery.matches) return;
+  const controller = createShoalLayer();
+  const root = document.documentElement;
+  const listen = (target, type, handler) => {
+    target.addEventListener(type, handler, { passive: true });
+    controller.listeners.push({ target, type, handler });
+  };
+
+  listen(document, "selectionchange", () => {
+    controller.selecting = Boolean(document.getSelection?.()?.toString());
+    if (controller.selecting) root.dataset.shoalSelecting = "true";
+    else delete root.dataset.shoalSelecting;
+    syncShoalVisibility(controller);
+  });
+  listen(document, "pointermove", (event) => {
+    updateShoalPointer(controller, event);
+    if (!controller.visible) {
+      controller.visible = true;
+      syncShoalVisibility(controller);
+    }
+  });
+  listen(document, "pointerover", (event) => {
+    if (event.relatedTarget === null) {
+      updateShoalPointer(controller, event);
+      controller.visible = true;
+    }
+    controller.nativeTextTarget = isNativeTextTarget(event.target);
+    if (controller.nativeTextTarget) {
+      syncShoalVisibility(controller);
+      return;
+    }
+    setShoalTarget(event.target.closest(SHOAL_INTERACTIVE_SELECTOR));
+    syncShoalVisibility(controller);
+  });
+  listen(document, "pointerout", (event) => {
+    if (event.relatedTarget === null) {
+      controller.visible = false;
+      controller.nativeTextTarget = false;
+      setShoalTarget(null);
+      syncShoalVisibility(controller);
+      return;
+    }
+    if (isNativeTextTarget(event.target) && !isNativeTextTarget(event.relatedTarget)) {
+      controller.nativeTextTarget = false;
+      syncShoalVisibility(controller);
+    }
+    if (!controller.target) return;
+    if (event.relatedTarget?.closest?.(SHOAL_INTERACTIVE_SELECTOR) !== controller.target) setShoalTarget(null);
+  });
+  listen(document, "pointerdown", (event) => {
+    if (event.target.closest("input, textarea, [contenteditable]")) return;
+    if (event.target.closest(SHOAL_INTERACTIVE_SELECTOR)) return;
+    scatterShoalAt(event.clientX, event.clientY);
+  });
+  return controller;
+}
+
+function destroyBioluminescentShoal() {
+  if (!shoalController) {
+    delete document.documentElement.dataset.bioluminescentShoal;
+    delete document.documentElement.dataset.shoalSelecting;
+    return;
+  }
+  window.cancelAnimationFrame(shoalController.frame);
+  shoalController.listeners.forEach(({ target, type, handler }) => target.removeEventListener(type, handler));
+  shoalController.layer.remove();
+  shoalController = undefined;
+  delete document.documentElement.dataset.bioluminescentShoal;
+  delete document.documentElement.dataset.shoalSelecting;
+}
+
+function syncBioluminescentShoal() {
+  destroyBioluminescentShoal();
+  const root = document.documentElement;
+  if (!canRunBioluminescentShoal()) {
+    root.dataset.bioluminescentShoal = "false";
+    return;
+  }
+  shoalController = setupBioluminescentShoal();
+  if (shoalController) renderShoalFrame(getShoalTimestamp());
+  root.dataset.bioluminescentShoal = String(Boolean(shoalController));
 }
 
 function setVisitorCounterUnavailable() {
@@ -204,9 +450,11 @@ function syncMotionPreferences() {
   musicLyrics.classList.remove("is-lyric-transitioning");
   resetPointerGlass();
   resetSceneLight();
-  if (reduceMotionQuery.matches) return;
-  pointerGlassEnabled = pointerQuery.matches;
-  root.dataset.pointerGlass = String(pointerGlassEnabled);
+  if (!reduceMotionQuery.matches) {
+    pointerGlassEnabled = pointerQuery.matches;
+    root.dataset.pointerGlass = String(pointerGlassEnabled);
+  }
+  syncBioluminescentShoal();
 }
 
 function setupPointerGlass() {
