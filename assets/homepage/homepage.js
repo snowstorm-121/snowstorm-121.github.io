@@ -243,11 +243,29 @@ function renderShoalFrame(timestamp) {
   shoalController.frame = window.requestAnimationFrame(renderShoalFrame);
 }
 
+function updateShoalPointer(controller, event) {
+  const resetPositions = controller.pointer.updatedAt === null || !controller.visible;
+  const previousX = resetPositions ? event.clientX : controller.pointer.x;
+  const previousY = resetPositions ? event.clientY : controller.pointer.y;
+  controller.pointer = {
+    x: event.clientX,
+    y: event.clientY,
+    previousX,
+    previousY,
+    updatedAt: getShoalTimestamp(),
+  };
+  if (resetPositions) {
+    controller.particlePositions.forEach((position) => {
+      position.x = event.clientX;
+      position.y = event.clientY;
+    });
+  }
+}
+
 function setupBioluminescentShoal() {
   if (reduceMotionQuery.matches || !pointerQuery.matches) return;
   const controller = createShoalLayer();
   const root = document.documentElement;
-  const pointerEventTarget = typeof window.addEventListener === "function" ? window : document;
   const listen = (target, type, handler) => {
     target.addEventListener(type, handler, { passive: true });
     controller.listeners.push({ target, type, handler });
@@ -259,39 +277,18 @@ function setupBioluminescentShoal() {
     else delete root.dataset.shoalSelecting;
     syncShoalVisibility(controller);
   });
-  listen(pointerEventTarget, "pointerenter", () => {
-    controller.visible = true;
-    syncShoalVisibility(controller);
-  });
-  listen(pointerEventTarget, "pointerleave", () => {
-    controller.visible = false;
-    controller.nativeTextTarget = false;
-    setShoalTarget(null);
-    syncShoalVisibility(controller);
-  });
   listen(document, "pointermove", (event) => {
+    updateShoalPointer(controller, event);
     if (!controller.visible) {
       controller.visible = true;
       syncShoalVisibility(controller);
     }
-    const firstPointerPosition = controller.pointer.updatedAt === null;
-    const previousX = firstPointerPosition ? event.clientX : controller.pointer.x;
-    const previousY = firstPointerPosition ? event.clientY : controller.pointer.y;
-    controller.pointer = {
-      x: event.clientX,
-      y: event.clientY,
-      previousX,
-      previousY,
-      updatedAt: getShoalTimestamp(),
-    };
-    if (firstPointerPosition) {
-      controller.particlePositions.forEach((position) => {
-        position.x = event.clientX;
-        position.y = event.clientY;
-      });
-    }
   });
   listen(document, "pointerover", (event) => {
+    if (event.relatedTarget === null) {
+      updateShoalPointer(controller, event);
+      controller.visible = true;
+    }
     controller.nativeTextTarget = isNativeTextTarget(event.target);
     if (controller.nativeTextTarget) {
       syncShoalVisibility(controller);
@@ -301,6 +298,13 @@ function setupBioluminescentShoal() {
     syncShoalVisibility(controller);
   });
   listen(document, "pointerout", (event) => {
+    if (event.relatedTarget === null) {
+      controller.visible = false;
+      controller.nativeTextTarget = false;
+      setShoalTarget(null);
+      syncShoalVisibility(controller);
+      return;
+    }
     if (isNativeTextTarget(event.target) && !isNativeTextTarget(event.relatedTarget)) {
       controller.nativeTextTarget = false;
       syncShoalVisibility(controller);

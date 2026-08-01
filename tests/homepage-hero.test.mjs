@@ -992,6 +992,34 @@ test("first in-page pointer movement reveals the shoal without a boundary entry"
   assert.equal(controller.layer.classList.contains("is-visible"), true);
 });
 
+test("document boundary events hide the shoal and reenter at the new pointer position", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  const context = {
+    ...runtime,
+    performance: { now: () => 16 },
+    fetch: async () => ({ ok: false }),
+    navigator: {},
+  };
+  const boundaryTarget = { closest() { return null; } };
+
+  vm.runInNewContext(script, context);
+  const controller = vm.runInNewContext("shoalController", context);
+
+  runtime.document.dispatch("pointermove", { target: boundaryTarget, clientX: 120, clientY: 80 });
+  assert.equal(controller.layer.classList.contains("is-visible"), true);
+  runtime.document.dispatch("pointerout", { target: boundaryTarget, relatedTarget: null, clientX: 120, clientY: 80 });
+  assert.equal(controller.layer.classList.contains("is-visible"), false);
+
+  runtime.document.dispatch("pointerover", { target: boundaryTarget, relatedTarget: null, clientX: 420, clientY: 260 });
+  assert.equal(controller.layer.classList.contains("is-visible"), true);
+  assert.deepEqual([controller.pointer.x, controller.pointer.y], [420, 260]);
+  assert.ok(controller.particlePositions.every((position) => position.x === 420 && position.y === 260));
+  runtime.runAnimationFrame(32);
+  assert.match(controller.core.style.transform, /translate3d\(420px, 260px/);
+  assert.equal(runtime.document.body.children.filter((element) => element.id === "bioluminescent-shoal").length, 1);
+  assert.equal(runtime.animationFrameCount(), 1);
+});
+
 test("first pointer position initializes particles without a viewport-wide corner streak", () => {
   const runtime = createMusicRuntime({ finePointer: true });
   const context = {
