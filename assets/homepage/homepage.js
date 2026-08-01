@@ -270,8 +270,13 @@ function setupBioluminescentShoal() {
     syncShoalVisibility(controller);
   });
   listen(document, "pointermove", (event) => {
-    const previousX = controller.pointer.updatedAt === null ? event.clientX : controller.pointer.x;
-    const previousY = controller.pointer.updatedAt === null ? event.clientY : controller.pointer.y;
+    if (!controller.visible) {
+      controller.visible = true;
+      syncShoalVisibility(controller);
+    }
+    const firstPointerPosition = controller.pointer.updatedAt === null;
+    const previousX = firstPointerPosition ? event.clientX : controller.pointer.x;
+    const previousY = firstPointerPosition ? event.clientY : controller.pointer.y;
     controller.pointer = {
       x: event.clientX,
       y: event.clientY,
@@ -279,6 +284,12 @@ function setupBioluminescentShoal() {
       previousY,
       updatedAt: getShoalTimestamp(),
     };
+    if (firstPointerPosition) {
+      controller.particlePositions.forEach((position) => {
+        position.x = event.clientX;
+        position.y = event.clientY;
+      });
+    }
   });
   listen(document, "pointerover", (event) => {
     controller.nativeTextTarget = isNativeTextTarget(event.target);

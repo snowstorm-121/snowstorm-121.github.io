@@ -951,8 +951,8 @@ test("bioluminescent shoal is dynamically mounted, capability-gated, and keeps n
   assert.match(script, /root\.dataset\.bioluminescentShoal = String\(Boolean\(shoalController\)\)/);
   assert.match(styles, /#bioluminescent-shoal\s*\{[^}]*pointer-events:\s*none/);
   assert.match(styles, /#bioluminescent-shoal\s*\{[^}]*position:\s*fixed/);
-  assert.match(styles, /html\[data-bioluminescent-shoal="true"\][\s\S]*?cursor:\s*none/);
-  assert.match(styles, /:is\(input, textarea, \[contenteditable\]\)[\s\S]*?cursor:\s*text/);
+  assert.match(styles, /html\[data-bioluminescent-shoal="true"\][\s\S]*?cursor:\s*none !important/);
+  assert.match(styles, /:is\(input, textarea, \[contenteditable\]\)[\s\S]*?cursor:\s*text !important/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?#bioluminescent-shoal\s*\{[^}]*display:\s*none/);
 });
 
@@ -971,8 +971,93 @@ test("bioluminescent shoal reuses one RAF loop for six-particle trails, targets,
   assert.match(script, /event\.target\.closest\(SHOAL_INTERACTIVE_SELECTOR\)/);
   assert.match(script, /if \(event\.target\.closest\("input, textarea, \[contenteditable\]"\)\) return;/);
   assert.match(styles, /#bioluminescent-shoal\.is-clustered \.shoal-particle\s*\{[^}]*opacity:/);
-  assert.match(styles, /#bioluminescent-shoal\.is-scattering \.shoal-particle\s*\{[^}]*transition:/);
+  assert.doesNotMatch(styles, /#bioluminescent-shoal\.is-scattering \.shoal-particle\s*\{[^}]*transition:\s*opacity/);
   assert.doesNotMatch(script, /document\.createElement\([^)]*\)[\s\S]{0,300}pointermove/);
+});
+
+test("first in-page pointer movement reveals the shoal without a boundary entry", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  const context = {
+    ...runtime,
+    performance: { now: () => 16 },
+    fetch: async () => ({ ok: false }),
+    navigator: {},
+  };
+
+  vm.runInNewContext(script, context);
+  const controller = vm.runInNewContext("shoalController", context);
+
+  assert.equal(controller.layer.classList.contains("is-visible"), false);
+  runtime.document.dispatch("pointermove", { clientX: 120, clientY: 80 });
+  assert.equal(controller.layer.classList.contains("is-visible"), true);
+});
+
+test("first pointer position initializes particles without a viewport-wide corner streak", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  const context = {
+    ...runtime,
+    performance: { now: () => 16 },
+    fetch: async () => ({ ok: false }),
+    navigator: {},
+  };
+
+  vm.runInNewContext(script, context);
+  const controller = vm.runInNewContext("shoalController", context);
+
+  runtime.document.dispatch("pointermove", { clientX: 120, clientY: 80 });
+  runtime.runAnimationFrame(16);
+
+  for (const position of controller.particlePositions) {
+    assert.ok(Math.hypot(position.x - 120, position.y - 80) < 4, `particle starts near the pointer (${position.x}, ${position.y})`);
+  }
+});
+
+test("scatter opacity follows RAF progress to near zero before restoring", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  let now = 0;
+  const context = {
+    ...runtime,
+    performance: { now: () => now },
+    fetch: async () => ({ ok: false }),
+    navigator: {},
+  };
+
+  vm.runInNewContext(script, context);
+  const controller = vm.runInNewContext("shoalController", context);
+  vm.runInNewContext("scatterShoalAt(120, 80)", context);
+
+  now = 350;
+  runtime.runAnimationFrame(now);
+  const halfwayOpacity = Number(controller.particles[0].style.getPropertyValue("opacity") || controller.particles[0].style.opacity);
+  now = 690;
+  runtime.runAnimationFrame(now);
+  const nearEndOpacity = Number(controller.particles[0].style.getPropertyValue("opacity") || controller.particles[0].style.opacity);
+  now = 701;
+  runtime.runAnimationFrame(now);
+  const restoredOpacity = Number(controller.particles[0].style.getPropertyValue("opacity") || controller.particles[0].style.opacity);
+
+  assert.ok(halfwayOpacity > nearEndOpacity, `scatter opacity decreases (${halfwayOpacity} > ${nearEndOpacity})`);
+  assert.ok(nearEndOpacity < .02, `scatter opacity is near zero before 700 ms (${nearEndOpacity})`);
+  assert.equal(restoredOpacity, 1);
+  assert.equal(controller.layer.classList.contains("is-scattering"), false);
+});
+
+test("reduced motion and coarse pointers skip the shoal while resync keeps one layer and RAF", () => {
+  for (const options of [{ reducedMotion: true, finePointer: true }, { finePointer: false }]) {
+    const runtime = createMusicRuntime(options);
+    const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
+    vm.runInNewContext(script, context);
+    assert.equal(runtime.document.documentElement.dataset.bioluminescentShoal, "false");
+    assert.equal(runtime.document.body.children.filter((element) => element.id === "bioluminescent-shoal").length, 0);
+    assert.equal(runtime.animationFrameCount(), 0);
+  }
+
+  const runtime = createMusicRuntime({ finePointer: true });
+  const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
+  vm.runInNewContext(script, context);
+  vm.runInNewContext("syncBioluminescentShoal()", context);
+  assert.equal(runtime.document.body.children.filter((element) => element.id === "bioluminescent-shoal").length, 1);
+  assert.equal(runtime.animationFrameCount(), 1);
 });
 
 test("bioluminescent shoal schedules one cancellable RAF and decays a retained trail over its settling window", () => {

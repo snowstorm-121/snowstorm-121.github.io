@@ -313,9 +313,8 @@ html[data-pointer-glass="true"] :is(.pointer-glass, .archive-card)::after { opac
 #bioluminescent-shoal .shoal-particle { width: 5px; height: 5px; border-radius: 50%; background: #8fe2ef; box-shadow: 0 0 9px rgba(116, 222, 239, .78); }
 #bioluminescent-shoal.is-clustered .shoal-core { box-shadow: 0 0 13px rgba(227, 250, 255, .95), 0 0 30px rgba(120, 225, 239, .55); }
 #bioluminescent-shoal.is-clustered .shoal-particle { opacity: 1; }
-#bioluminescent-shoal.is-scattering .shoal-particle { transition: opacity .7s ease; }
-html[data-bioluminescent-shoal="true"] :where(body, body *) { cursor: none; }
-html[data-bioluminescent-shoal="true"] :is(input, textarea, [contenteditable]), html[data-shoal-selecting="true"] :where(body, body *) { cursor: text; }
+html[data-bioluminescent-shoal="true"] :where(body, body *) { cursor: none !important; }
+html[data-bioluminescent-shoal="true"] :is(input, textarea, [contenteditable]), html[data-bioluminescent-shoal="true"] [contenteditable] *, html[data-shoal-selecting="true"] :where(body, body *) { cursor: text !important; }
 .profile-panel { text-align: center; }
 .profile-panel > p { margin: 18px 0 0; color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .16em; }
 .profile-image { display: block; width: 100%; max-width: 370px; aspect-ratio: 1; margin: auto; object-fit: cover; border: 1px solid var(--line); border-radius: 50%; }
