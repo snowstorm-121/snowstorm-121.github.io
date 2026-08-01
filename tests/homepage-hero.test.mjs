@@ -228,6 +228,11 @@ function createMusicRuntime({
       children.forEach((child) => { child.parent = this; });
       this.children.push(...children);
     }
+    remove() {
+      if (!this.parent?.children) return;
+      this.parent.children = this.parent.children.filter((child) => child !== this);
+      this.parent = null;
+    }
     addEventListener(type, listener) { this.listeners.set(type, listener); }
     dispatch(type, event = {}) { this.dispatchEvent({ type, bubbles: false, target: this, ...event }); }
     dispatchEvent(event) {
@@ -302,6 +307,10 @@ function createMusicRuntime({
       listeners.push(listener);
       documentListeners.set(type, listeners);
     },
+    removeEventListener(type, listener) {
+      const listeners = documentListeners.get(type) ?? [];
+      documentListeners.set(type, listeners.filter((registered) => registered !== listener));
+    },
     dispatch(type, event = {}) { this.dispatchEvent({ type, bubbles: false, ...event }); },
     dispatchEvent(event) {
       if (!event.target) event.target = this;
@@ -309,6 +318,8 @@ function createMusicRuntime({
       documentListeners.get(event.type)?.forEach((listener) => listener(event));
     },
   };
+  document.body = new FakeElement("body");
+  document.body.parent = document;
   document.documentElement.dataset.visitorCounterEndpoint = visitorEndpoint;
   let cookie = visitorCookie;
   Object.defineProperty(document, "cookie", {
@@ -338,6 +349,8 @@ function createMusicRuntime({
     clearTimeout(timer) {
       if (timer) timer.active = false;
     },
+    requestAnimationFrame() { return 0; },
+    cancelAnimationFrame() {},
   };
   const storage = new Map();
   if (nightNavigationValue !== null) storage.set("homepage-night-navigation", nightNavigationValue);
@@ -894,6 +907,25 @@ test("motion is capability-gated and has a complete reduced-motion fallback", ()
   assert.match(script, /window\.matchMedia\("\(hover: hover\) and \(pointer: fine\)"\)/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*scroll-behavior:\s*auto/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation:\s*none/);
+});
+
+test("bioluminescent shoal is dynamically mounted, capability-gated, and keeps native text cursors", () => {
+  assert.doesNotMatch(html, /id="bioluminescent-shoal"/);
+  assert.match(script, /const SHOAL_PARTICLE_COUNT = 6;/);
+  assert.match(script, /function setupBioluminescentShoal\(\)/);
+  assert.match(script, /function syncBioluminescentShoal\(\)/);
+  assert.match(script, /function destroyBioluminescentShoal\(\)/);
+  assert.match(script, /if \(reduceMotionQuery\.matches \|\| !pointerQuery\.matches\) return;/);
+  assert.match(script, /document\.createElement\("div"\)/);
+  assert.match(script, /layer\.id = "bioluminescent-shoal";/);
+  assert.match(script, /layer\.setAttribute\("aria-hidden", "true"\)/);
+  assert.match(script, /for \(let index = 0; index < SHOAL_PARTICLE_COUNT; index \+= 1\)/);
+  assert.match(script, /root\.dataset\.bioluminescentShoal = String\(Boolean\(shoalController\)\)/);
+  assert.match(styles, /#bioluminescent-shoal\s*\{[^}]*pointer-events:\s*none/);
+  assert.match(styles, /#bioluminescent-shoal\s*\{[^}]*position:\s*fixed/);
+  assert.match(styles, /html\[data-bioluminescent-shoal="true"\][\s\S]*?cursor:\s*none/);
+  assert.match(styles, /:is\(input, textarea, \[contenteditable\]\)[\s\S]*?cursor:\s*text/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?#bioluminescent-shoal\s*\{[^}]*display:\s*none/);
 });
 
 test("premium motion stages section copy, bounds glass lift and tilt, and adds two moon ripples", () => {

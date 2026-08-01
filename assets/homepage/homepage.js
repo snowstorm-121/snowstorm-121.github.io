@@ -59,6 +59,8 @@ const NIGHT_NAVIGATION_CEREMONY_DURATION = 1350;
 const VISITOR_COUNTER_ENDPOINT = document.documentElement.dataset.visitorCounterEndpoint ?? "";
 const VISITOR_COOKIE_NAME = "homepage_visitor_id";
 const VISITOR_COOKIE_MAX_AGE = 400 * 24 * 60 * 60;
+const SHOAL_PARTICLE_COUNT = 6;
+const SHOAL_SETTLE_DURATION = 700;
 
 let trackIndex = 0;
 let lyricLines = [];
@@ -69,6 +71,7 @@ let renderedLyricAccentIndex = -1;
 let pointerGlassEnabled = false;
 let idleTimer;
 let nightNavigationTimer;
+let shoalController;
 const lyricCache = new Map();
 const lyricAccents = ["#153a5b", "#8fc5d6", "#d7b28a"];
 const playerMotionCycles = new WeakMap();
@@ -98,6 +101,90 @@ function resetSceneLight() {
   const root = document.documentElement;
   root.style?.removeProperty("--scene-light-offset-x");
   root.style?.removeProperty("--scene-light-offset-y");
+}
+
+function canRunBioluminescentShoal() {
+  return !reduceMotionQuery.matches && pointerQuery.matches;
+}
+
+function createShoalLayer() {
+  const layer = document.createElement("div");
+  layer.id = "bioluminescent-shoal";
+  layer.setAttribute("aria-hidden", "true");
+  const core = document.createElement("span");
+  core.className = "shoal-core";
+  layer.append(core);
+  const particles = [];
+  for (let index = 0; index < SHOAL_PARTICLE_COUNT; index += 1) {
+    const particle = document.createElement("span");
+    particle.className = "shoal-particle";
+    particle.style.setProperty("--shoal-index", String(index));
+    layer.append(particle);
+    particles.push(particle);
+  }
+  document.body.append(layer);
+  return { layer, core, particles, frame: 0, visible: false, target: null, selecting: false, listeners: [] };
+}
+
+function isNativeTextTarget(target) {
+  return Boolean(target?.closest?.("input, textarea, [contenteditable]") ?? target?.matches?.("input, textarea, [contenteditable]"));
+}
+
+function syncShoalVisibility(controller) {
+  controller.layer.classList.toggle("is-visible", !controller.selecting && !controller.target);
+}
+
+function setupBioluminescentShoal() {
+  if (reduceMotionQuery.matches || !pointerQuery.matches) return;
+  const controller = createShoalLayer();
+  const root = document.documentElement;
+  const listen = (type, handler) => {
+    document.addEventListener(type, handler, { passive: true });
+    controller.listeners.push({ type, handler });
+  };
+
+  listen("selectionchange", () => {
+    controller.selecting = Boolean(document.getSelection?.()?.toString());
+    if (controller.selecting) root.dataset.shoalSelecting = "true";
+    else delete root.dataset.shoalSelecting;
+    syncShoalVisibility(controller);
+  });
+  listen("pointerover", (event) => {
+    if (!isNativeTextTarget(event.target)) return;
+    controller.target = event.target;
+    syncShoalVisibility(controller);
+  });
+  listen("pointerout", (event) => {
+    if (!isNativeTextTarget(event.target) || isNativeTextTarget(event.relatedTarget)) return;
+    controller.target = null;
+    syncShoalVisibility(controller);
+  });
+  return controller;
+}
+
+function destroyBioluminescentShoal() {
+  if (!shoalController) {
+    delete document.documentElement.dataset.bioluminescentShoal;
+    delete document.documentElement.dataset.shoalSelecting;
+    return;
+  }
+  window.cancelAnimationFrame(shoalController.frame);
+  shoalController.listeners.forEach(({ type, handler }) => document.removeEventListener(type, handler));
+  shoalController.layer.remove();
+  shoalController = undefined;
+  delete document.documentElement.dataset.bioluminescentShoal;
+  delete document.documentElement.dataset.shoalSelecting;
+}
+
+function syncBioluminescentShoal() {
+  destroyBioluminescentShoal();
+  const root = document.documentElement;
+  if (!canRunBioluminescentShoal()) {
+    root.dataset.bioluminescentShoal = "false";
+    return;
+  }
+  shoalController = setupBioluminescentShoal();
+  root.dataset.bioluminescentShoal = String(Boolean(shoalController));
 }
 
 function setVisitorCounterUnavailable() {
@@ -204,9 +291,11 @@ function syncMotionPreferences() {
   musicLyrics.classList.remove("is-lyric-transitioning");
   resetPointerGlass();
   resetSceneLight();
-  if (reduceMotionQuery.matches) return;
-  pointerGlassEnabled = pointerQuery.matches;
-  root.dataset.pointerGlass = String(pointerGlassEnabled);
+  if (!reduceMotionQuery.matches) {
+    pointerGlassEnabled = pointerQuery.matches;
+    root.dataset.pointerGlass = String(pointerGlassEnabled);
+  }
+  syncBioluminescentShoal();
 }
 
 function setupPointerGlass() {
