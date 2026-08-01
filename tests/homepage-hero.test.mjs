@@ -928,6 +928,25 @@ test("bioluminescent shoal is dynamically mounted, capability-gated, and keeps n
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?#bioluminescent-shoal\s*\{[^}]*display:\s*none/);
 });
 
+test("bioluminescent shoal reuses one RAF loop for six-particle trails, targets, and one-shot scatter", () => {
+  assert.match(script, /const SHOAL_INTERACTIVE_SELECTOR = "a, button, \[data-preview\], #music-dock, #music-panel";/);
+  assert.match(script, /function renderShoalFrame\(timestamp\)/);
+  assert.match(script, /shoalController\.frame = window\.requestAnimationFrame\(renderShoalFrame\);/);
+  assert.match(script, /window\.cancelAnimationFrame\(shoalController\.frame\);/);
+  assert.match(script, /const speed = Math\.hypot\(pointer\.x - pointer\.previousX, pointer\.y - pointer\.previousY\);/);
+  assert.match(script, /const stretch = Math\.min\(18, speed \* \.18\);/);
+  assert.match(script, /particle\.style\.transform = `translate3d\(\$\{x\}px, \$\{y\}px, 0\) scale\(\$\{scale\}\)`;/);
+  assert.match(script, /function setShoalTarget\(element\)/);
+  assert.match(script, /shoalController\.layer\.classList\.toggle\("is-clustered", Boolean\(element\)\);/);
+  assert.match(script, /function scatterShoalAt\(x, y\)/);
+  assert.match(script, /SHOAL_SETTLE_DURATION/);
+  assert.match(script, /event\.target\.closest\(SHOAL_INTERACTIVE_SELECTOR\)/);
+  assert.match(script, /if \(event\.target\.closest\("input, textarea, \[contenteditable\]"\)\) return;/);
+  assert.match(styles, /#bioluminescent-shoal\.is-clustered \.shoal-particle\s*\{[^}]*opacity:/);
+  assert.match(styles, /#bioluminescent-shoal\.is-scattering \.shoal-particle\s*\{[^}]*transition:/);
+  assert.doesNotMatch(script, /document\.createElement\([^)]*\)[\s\S]{0,300}pointermove/);
+});
+
 test("premium motion stages section copy, bounds glass lift and tilt, and adds two moon ripples", () => {
   const stagedReveal = styles.match(/html\[data-motion="full"\]\[data-active-section\]\s+:where\([\s\S]*?\)\s*\{[^}]*\}/)?.[0] ?? "";
   const activeReveal = styles.match(/html\[data-motion="full"\]\[data-active-section="archive"\]\s+#archive\s+:is\([^)]*\)\s*\{[^}]*\}/)?.[0] ?? "";
