@@ -1040,6 +1040,33 @@ test("control clicks scatter the shoal and target mode orbits instead of pinning
   assert.ok(controller.scatterUntil > now);
 });
 
+test("a stationary control pointer resumes its orbit when click scatter ends", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  let now = 0;
+  const context = {
+    ...runtime,
+    performance: { now: () => now },
+    fetch: async () => ({ ok: false }),
+    navigator: {},
+  };
+  const control = {
+    closest(selector) { return selector.includes("a, button") ? this : null; },
+    getBoundingClientRect() { return { left: 100, top: 50, width: 40, height: 20 }; },
+  };
+
+  vm.runInNewContext(script, context);
+  const controller = vm.runInNewContext("shoalController", context);
+
+  runtime.document.dispatch("pointerover", { target: control, clientX: 120, clientY: 60 });
+  runtime.document.dispatch("pointerdown", { target: control, clientX: 120, clientY: 60 });
+  assert.equal(controller.target, null, "scatter temporarily releases the active orbit target");
+  now = 521;
+  runtime.runAnimationFrame(now);
+
+  assert.equal(controller.target, control, "the still-hovered control regains its orbit target after scatter");
+  assert.equal(controller.layer.classList.contains("is-clustered"), true);
+});
+
 test("first in-page pointer movement reveals the shoal without a boundary entry", () => {
   const runtime = createMusicRuntime({ finePointer: true });
   const context = {
@@ -1180,6 +1207,19 @@ test("bioluminescent shoal schedules one cancellable RAF and clears its trail af
   const pendingFrame = controller.frame;
   vm.runInNewContext("destroyBioluminescentShoal()", context);
   assert.ok(runtime.cancelledAnimationFrames.includes(pendingFrame), "destroy cancels the scheduled shoal frame");
+});
+
+test("public shoal destroy restores the system cursor contract", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
+
+  vm.runInNewContext(script, context);
+  assert.equal(runtime.document.documentElement.dataset.bioluminescentShoal, "true");
+  vm.runInNewContext("window.MoonScaleShoal.destroy()", context);
+
+  assert.equal(runtime.document.documentElement.dataset.bioluminescentShoal, "false", "public teardown restores the native cursor");
+  assert.equal(runtime.document.body.children.filter((element) => element.id === "bioluminescent-shoal").length, 0);
+  assert.equal(runtime.animationFrameCount(), 0);
 });
 
 test("premium motion stages section copy, bounds glass lift and tilt, and adds two moon ripples", () => {

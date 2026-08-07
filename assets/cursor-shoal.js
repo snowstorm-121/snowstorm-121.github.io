@@ -41,6 +41,7 @@
       frame: 0,
       visible: false,
       target: null,
+      hoveredTarget: null,
       selecting: false,
       nativeTextTarget: false,
       pointer: { x: 0, y: 0, previousX: 0, previousY: 0, updatedAt: null },
@@ -106,6 +107,7 @@
     if (!scattering && state.scatterUntil) {
       state.scatterUntil = 0;
       state.layer.classList.remove("is-scattering");
+      setTarget(state.hoveredTarget);
     }
 
     let coreX = pointer.x;
@@ -181,17 +183,20 @@
       if (event.relatedTarget === null) updatePointer(state, event);
       state.visible = true;
       state.nativeTextTarget = textTarget(event.target);
-      setTarget(state.nativeTextTarget ? null : event.target.closest?.(INTERACTIVE_SELECTOR) ?? null);
+      state.hoveredTarget = state.nativeTextTarget ? null : event.target.closest?.(INTERACTIVE_SELECTOR) ?? null;
+      if (!state.scatterUntil) setTarget(state.hoveredTarget);
       syncVisibility(state);
     });
     listen(document, "pointerout", (event) => {
       if (event.relatedTarget === null) {
         state.visible = false;
         state.nativeTextTarget = false;
+        state.hoveredTarget = null;
         setTarget(null);
       } else {
         state.nativeTextTarget = textTarget(event.relatedTarget);
-        if (event.relatedTarget?.closest?.(INTERACTIVE_SELECTOR) !== state.target) setTarget(null);
+        state.hoveredTarget = state.nativeTextTarget ? null : event.relatedTarget?.closest?.(INTERACTIVE_SELECTOR) ?? null;
+        if (state.hoveredTarget !== state.target) setTarget(null);
       }
       syncVisibility(state);
     });
@@ -202,12 +207,14 @@
   }
 
   function destroy() {
-    if (!controller) return;
-    window.cancelAnimationFrame(controller.frame);
-    controller.listeners.forEach(({ target, type, handler }) => target.removeEventListener(type, handler));
-    controller.layer.remove();
-    controller = undefined;
+    if (controller) {
+      window.cancelAnimationFrame(controller.frame);
+      controller.listeners.forEach(({ target, type, handler }) => target.removeEventListener(type, handler));
+      controller.layer.remove();
+      controller = undefined;
+    }
     delete document.documentElement.dataset.shoalSelecting;
+    document.documentElement.dataset.bioluminescentShoal = "false";
   }
 
   function sync() {
