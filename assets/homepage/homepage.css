@@ -306,15 +306,6 @@ html.is-night-navigating .page-backdrop::after { animation: night-star-expansion
 :is(.pointer-glass, .archive-card)::after { position: absolute; inset: 0; pointer-events: none; content: ""; opacity: 0; background: radial-gradient(circle at var(--pointer-x) var(--pointer-y), rgba(143, 197, 214, .15), transparent 42%); transition: opacity .24s ease; }
 html[data-pointer-glass="true"] :is(.pointer-glass, .archive-card) { transform: perspective(700px) translateY(calc(var(--reveal-y, 0px) + var(--glass-lift))) rotateX(var(--tilt-x)) rotateY(var(--tilt-y)); }
 html[data-pointer-glass="true"] :is(.pointer-glass, .archive-card)::after { opacity: 1; }
-#bioluminescent-shoal { position: fixed; z-index: 20; inset: 0; pointer-events: none; opacity: 0; transition: opacity .16s ease; }
-#bioluminescent-shoal.is-visible { opacity: 1; }
-#bioluminescent-shoal :is(.shoal-core, .shoal-particle) { position: fixed; left: 0; top: 0; pointer-events: none; will-change: transform, opacity; }
-#bioluminescent-shoal .shoal-core { width: 9px; height: 9px; border-radius: 50%; background: #edf7ff; box-shadow: 0 0 10px rgba(213, 246, 255, .92), 0 0 24px rgba(112, 220, 237, .38); }
-#bioluminescent-shoal .shoal-particle { width: 5px; height: 5px; border-radius: 50%; background: #8fe2ef; box-shadow: 0 0 9px rgba(116, 222, 239, .78); }
-#bioluminescent-shoal.is-clustered .shoal-core { box-shadow: 0 0 13px rgba(227, 250, 255, .95), 0 0 30px rgba(120, 225, 239, .55); }
-#bioluminescent-shoal.is-clustered .shoal-particle { opacity: 1; }
-html[data-bioluminescent-shoal="true"] :where(body, body *) { cursor: none !important; }
-html[data-bioluminescent-shoal="true"] :is(input, textarea, [contenteditable]), html[data-bioluminescent-shoal="true"] [contenteditable] *, html[data-shoal-selecting="true"] :where(body, body *) { cursor: text !important; }
 .profile-panel { text-align: center; }
 .profile-panel > p { margin: 18px 0 0; color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: .16em; }
 .profile-image { display: block; width: 100%; max-width: 370px; aspect-ratio: 1; margin: auto; object-fit: cover; border: 1px solid var(--line); border-radius: 50%; }
@@ -531,7 +522,6 @@ a:active, button:active { transform: translateY(1px); }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  #bioluminescent-shoal { display: none; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   #music-dock, #music-panel { transition: none !important; }
   #music-panel, #music-track-list, .music-cover-orbit, #music-cover, .music-panel-mood, .music-lyrics, .music-lyrics p { animation: none !important; transition: none !important; }

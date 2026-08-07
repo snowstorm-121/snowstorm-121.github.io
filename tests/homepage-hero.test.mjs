@@ -4,11 +4,15 @@ import { access, readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const readOptional = (path) => readFile(new URL(path, import.meta.url), "utf8").catch(() => "");
-const [html, styles, script] = await Promise.all([
+const [html, homepageStyles, shoalStyles, sharedScript, homepageScript] = await Promise.all([
   readFile(new URL("../index.html", import.meta.url), "utf8"),
   readOptional("../assets/homepage/homepage.css"),
+  readOptional("../assets/cursor-shoal.css"),
+  readOptional("../assets/cursor-shoal.js"),
   readOptional("../assets/homepage/homepage.js"),
 ]);
+const styles = `${homepageStyles}\n${shoalStyles}`;
+const script = `${sharedScript}\n${homepageScript}`;
 const page = `${html}\n${styles}\n${script}`;
 
 test("living journal presents one non-navigable semantic four-entry directory", async () => {
@@ -937,42 +941,103 @@ test("motion is capability-gated and has a complete reduced-motion fallback", ()
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation:\s*none/);
 });
 
-test("bioluminescent shoal is dynamically mounted, capability-gated, and keeps native text cursors", () => {
+test("moon-scale shoal is shared by the homepage and three archive entries", async () => {
+  const entries = await Promise.all(["learning", "living", "research"].map((entry) => readFile(new URL(`../${entry}/index.html`, import.meta.url), "utf8")));
   assert.doesNotMatch(html, /id="bioluminescent-shoal"/);
-  assert.match(script, /const SHOAL_PARTICLE_COUNT = 6;/);
-  assert.match(script, /function setupBioluminescentShoal\(\)/);
-  assert.match(script, /function syncBioluminescentShoal\(\)/);
-  assert.match(script, /function destroyBioluminescentShoal\(\)/);
-  assert.match(script, /if \(reduceMotionQuery\.matches \|\| !pointerQuery\.matches\) return;/);
-  assert.match(script, /document\.createElement\("div"\)/);
-  assert.match(script, /layer\.id = "bioluminescent-shoal";/);
-  assert.match(script, /layer\.setAttribute\("aria-hidden", "true"\)/);
-  assert.match(script, /for \(let index = 0; index < SHOAL_PARTICLE_COUNT; index \+= 1\)/);
-  assert.match(script, /root\.dataset\.bioluminescentShoal = String\(Boolean\(shoalController\)\)/);
+  assert.match(html, /href="\.\/assets\/cursor-shoal\.css"/);
+  assert.match(html, /src="\.\/assets\/cursor-shoal\.js" defer/);
+  entries.forEach((entry) => {
+    assert.match(entry, /<html[^>]*data-moon-scale-shoal="true"/);
+    assert.match(entry, /href="\.\.\/assets\/cursor-shoal\.css"/);
+    assert.match(entry, /src="\.\.\/assets\/cursor-shoal\.js" defer/);
+  });
+  assert.match(sharedScript, /const PARTICLE_COUNT = 6;/);
+  assert.match(sharedScript, /function setup\(\)/);
+  assert.match(sharedScript, /function sync\(\)/);
+  assert.match(sharedScript, /function destroy\(\)/);
+  assert.match(sharedScript, /window\.matchMedia\("\(hover: hover\) and \(pointer: fine\)"\)/);
+  assert.match(sharedScript, /reduceMotionQuery\.addEventListener\("change", sync\)/);
+  assert.match(sharedScript, /pointerQuery\.addEventListener\("change", sync\)/);
+  assert.match(sharedScript, /document\.createElement\("div"\)/);
+  assert.match(sharedScript, /layer\.id = "bioluminescent-shoal";/);
+  assert.match(sharedScript, /layer\.setAttribute\("aria-hidden", "true"\)/);
+  assert.match(sharedScript, /Array\.from\(\{ length: PARTICLE_COUNT \}/);
   assert.match(styles, /#bioluminescent-shoal\s*\{[^}]*pointer-events:\s*none/);
   assert.match(styles, /#bioluminescent-shoal\s*\{[^}]*position:\s*fixed/);
+  assert.match(styles, /\.shoal-core\s*\{[^}]*width:\s*14px[^}]*height:\s*8px/);
+  assert.match(styles, /\.shoal-core::before\s*\{[^}]*clip-path:/);
   assert.match(styles, /html\[data-bioluminescent-shoal="true"\][\s\S]*?cursor:\s*none !important/);
   assert.match(styles, /:is\(input, textarea, \[contenteditable\]\)[\s\S]*?cursor:\s*text !important/);
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?#bioluminescent-shoal\s*\{[^}]*display:\s*none/);
+
+  const archiveRuntime = createMusicRuntime({ finePointer: true });
+  archiveRuntime.document.documentElement.dataset.moonScaleShoal = "true";
+  vm.runInNewContext(sharedScript, { ...archiveRuntime, fetch: async () => ({ ok: false }), navigator: {} });
+  assert.equal(archiveRuntime.document.body.children.filter((element) => element.id === "bioluminescent-shoal").length, 1);
+  assert.equal(archiveRuntime.animationFrameCount(), 1);
 });
 
-test("bioluminescent shoal reuses one RAF loop for six-particle trails, targets, and one-shot scatter", () => {
-  assert.match(script, /const SHOAL_INTERACTIVE_SELECTOR = "a, button, \[data-preview\], #music-dock, #music-panel";/);
-  assert.match(script, /function renderShoalFrame\(timestamp\)/);
-  assert.match(script, /shoalController\.frame = window\.requestAnimationFrame\(renderShoalFrame\);/);
-  assert.match(script, /window\.cancelAnimationFrame\(shoalController\.frame\);/);
-  assert.match(script, /const speed = Math\.hypot\(pointer\.x - pointer\.previousX, pointer\.y - pointer\.previousY\);/);
-  assert.match(script, /const stretch = Math\.min\(18, speed \* \.18\);/);
-  assert.match(script, /particle\.style\.transform = `translate3d\(\$\{x\}px, \$\{y\}px, 0\) scale\(\$\{scale\}\)`;/);
-  assert.match(script, /function setShoalTarget\(element\)/);
-  assert.match(script, /shoalController\.layer\.classList\.toggle\("is-clustered", Boolean\(element\)\);/);
-  assert.match(script, /function scatterShoalAt\(x, y\)/);
-  assert.match(script, /SHOAL_SETTLE_DURATION/);
-  assert.match(script, /event\.target\.closest\(SHOAL_INTERACTIVE_SELECTOR\)/);
-  assert.match(script, /if \(event\.target\.closest\("input, textarea, \[contenteditable\]"\)\) return;/);
+test("moon-scale shoal uses one RAF for vector steering, V formation, orbiting controls, and click return", () => {
+  assert.doesNotMatch(sharedScript, /INTERACTIVE_SELECTOR[^;]*\[data-preview\]/);
+  assert.match(sharedScript, /state\.frame = window\.requestAnimationFrame\(render\);/);
+  assert.match(sharedScript, /window\.cancelAnimationFrame\(controller\.frame\);/);
+  assert.match(sharedScript, /const TRAIL_DURATION = 180;/);
+  assert.match(sharedScript, /Math\.atan2\(deltaY, deltaX\)/);
+  assert.match(sharedScript, /speed > 12 \? \.38 : \.1/);
+  assert.match(sharedScript, /distance: 41, lateral: 12, damping: \.09/);
+  assert.match(sharedScript, /Math\.cos\(angle\) \* 18/);
+  assert.match(sharedScript, /32 \+ \(index \* 2\.8\)/);
+  assert.match(sharedScript, /controller\.goldUntil = now\(\) \+ 140;/);
   assert.match(styles, /#bioluminescent-shoal\.is-clustered \.shoal-particle\s*\{[^}]*opacity:/);
-  assert.doesNotMatch(styles, /#bioluminescent-shoal\.is-scattering \.shoal-particle\s*\{[^}]*transition:\s*opacity/);
-  assert.doesNotMatch(script, /document\.createElement\([^)]*\)[\s\S]{0,300}pointermove/);
+  assert.match(styles, /html\[data-night-navigation="on"\] #bioluminescent-shoal \.shoal-core/);
+  assert.match(styles, /html\[data-night-navigation="on"\] #bioluminescent-shoal\.is-clicking \.shoal-core/);
+  assert.doesNotMatch(sharedScript, /document\.createElement\([^)]*\)[\s\S]{0,300}pointermove/);
+});
+
+test("archive card surfaces remain free-following while real controls become shoal targets", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  const context = {
+    ...runtime,
+    performance: { now: () => 16 },
+    fetch: async () => ({ ok: false }),
+    navigator: {},
+  };
+  const archiveCard = { closest(selector) { return selector.includes("[data-preview]") ? this : null; } };
+  const control = { closest(selector) { return selector.includes("a, button") ? this : null; } };
+
+  vm.runInNewContext(script, context);
+  const controller = vm.runInNewContext("shoalController", context);
+
+  runtime.document.dispatch("pointerover", { target: archiveCard, clientX: 120, clientY: 80 });
+  assert.equal(controller.target, null);
+  runtime.document.dispatch("pointerover", { target: control, clientX: 160, clientY: 100 });
+  assert.equal(controller.target, control);
+});
+
+test("control clicks scatter the shoal and target mode orbits instead of pinning the core", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  let now = 0;
+  const context = {
+    ...runtime,
+    performance: { now: () => now },
+    fetch: async () => ({ ok: false }),
+    navigator: {},
+  };
+  const control = {
+    closest(selector) { return selector.includes("a, button") ? this : null; },
+    getBoundingClientRect() { return { left: 100, top: 50, width: 40, height: 20 }; },
+  };
+
+  vm.runInNewContext(script, context);
+  const controller = vm.runInNewContext("shoalController", context);
+
+  runtime.document.dispatch("pointerover", { target: control, clientX: 120, clientY: 60 });
+  now = 110;
+  runtime.runAnimationFrame(now);
+  assert.doesNotMatch(controller.core.style.transform, /translate3d\(120px, 60px/);
+  assert.doesNotMatch(controller.core.style.transform, /rotate\(0deg\)/);
+  runtime.document.dispatch("pointerdown", { target: control, clientX: 120, clientY: 60 });
+  assert.ok(controller.scatterUntil > now);
 });
 
 test("first in-page pointer movement reveals the shoal without a boundary entry", () => {
@@ -1036,11 +1101,11 @@ test("first pointer position initializes particles without a viewport-wide corne
   runtime.runAnimationFrame(16);
 
   for (const position of controller.particlePositions) {
-    assert.ok(Math.hypot(position.x - 120, position.y - 80) < 4, `particle starts near the pointer (${position.x}, ${position.y})`);
+    assert.ok(Math.hypot(position.x - 120, position.y - 80) < 12, `particle starts near the pointer (${position.x}, ${position.y})`);
   }
 });
 
-test("scatter opacity follows RAF progress to near zero before restoring", () => {
+test("scatter follows a visible arc before returning to the V formation", () => {
   const runtime = createMusicRuntime({ finePointer: true });
   let now = 0;
   const context = {
@@ -1054,20 +1119,15 @@ test("scatter opacity follows RAF progress to near zero before restoring", () =>
   const controller = vm.runInNewContext("shoalController", context);
   vm.runInNewContext("scatterShoalAt(120, 80)", context);
 
-  now = 350;
+  now = 260;
   runtime.runAnimationFrame(now);
-  const halfwayOpacity = Number(controller.particles[0].style.getPropertyValue("opacity") || controller.particles[0].style.opacity);
-  now = 690;
+  const halfwayDistance = Math.hypot(controller.particlePositions[0].x - 120, controller.particlePositions[0].y - 80);
+  now = 521;
   runtime.runAnimationFrame(now);
-  const nearEndOpacity = Number(controller.particles[0].style.getPropertyValue("opacity") || controller.particles[0].style.opacity);
-  now = 701;
-  runtime.runAnimationFrame(now);
-  const restoredOpacity = Number(controller.particles[0].style.getPropertyValue("opacity") || controller.particles[0].style.opacity);
 
-  assert.ok(halfwayOpacity > nearEndOpacity, `scatter opacity decreases (${halfwayOpacity} > ${nearEndOpacity})`);
-  assert.ok(nearEndOpacity < .02, `scatter opacity is near zero before 700 ms (${nearEndOpacity})`);
-  assert.equal(restoredOpacity, 1);
+  assert.ok(halfwayDistance > 3, `scatter leaves the core along an arc (${halfwayDistance})`);
   assert.equal(controller.layer.classList.contains("is-scattering"), false);
+  assert.equal(controller.layer.classList.contains("is-clicking"), false);
 });
 
 test("reduced motion and coarse pointers skip the shoal while resync keeps one layer and RAF", () => {
@@ -1088,7 +1148,7 @@ test("reduced motion and coarse pointers skip the shoal while resync keeps one l
   assert.equal(runtime.animationFrameCount(), 1);
 });
 
-test("bioluminescent shoal schedules one cancellable RAF and decays a retained trail over its settling window", () => {
+test("bioluminescent shoal schedules one cancellable RAF and clears its trail after 180ms", () => {
   const runtime = createMusicRuntime({ finePointer: true });
   let now = 0;
   const context = {
@@ -1109,14 +1169,14 @@ test("bioluminescent shoal schedules one cancellable RAF and decays a retained t
   now = 32;
   runtime.runAnimationFrame(now);
   const movingTrail = controller.trailStrength;
-  now = 382;
+  now = 106;
   runtime.runAnimationFrame(now);
   const settlingTrail = controller.trailStrength;
-  now = 732;
+  now = 213;
   runtime.runAnimationFrame(now);
 
   assert.ok(movingTrail > settlingTrail && settlingTrail > 0, `trail strength decays instead of resetting after one frame (${movingTrail}, ${settlingTrail})`);
-  assert.equal(controller.trailStrength, 0, "trail has settled after 700 ms");
+  assert.equal(controller.trailStrength, 0, "trail has settled after 180 ms");
   const pendingFrame = controller.frame;
   vm.runInNewContext("destroyBioluminescentShoal()", context);
   assert.ok(runtime.cancelledAnimationFrames.includes(pendingFrame), "destroy cancels the scheduled shoal frame");
