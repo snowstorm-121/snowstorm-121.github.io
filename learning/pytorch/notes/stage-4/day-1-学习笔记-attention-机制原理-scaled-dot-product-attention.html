@@ -15,7 +15,7 @@
 <p>学习目标：理解 Attention 的数据流和 shape 约定，能够手写并验证 Scaled Dot-Product Attention。</p>
 <p>本阶段重点：从阶段三 CNN 的局部感受野和特征提取，进入 Transformer 的全局动态加权。今天不展开 Multi-Head Attention、完整 Transformer 或 BERT，而是先把 Attention 最小计算单元吃透。</p>
 <p>今天主线：<code>Q/K/V -&gt; Q @ K^T -&gt; / sqrt(d_k) -&gt; mask -&gt; Softmax -&gt; attention_weights @ V -&gt; output</code>。</p>
-<p>本笔记对应 [PyTorch 暑期详细学习计划](PyTorch 暑期详细学习计划) 中第 6 周 Day 1。</p>
+<p>本笔记对应 <a href="/learning/pytorch/notes/overview/pytorch-%E6%9A%91%E6%9C%9F%E8%AF%A6%E7%BB%86%E5%AD%A6%E4%B9%A0%E8%AE%A1%E5%88%92.html">PyTorch 暑期详细学习计划</a> 中第 6 周 Day 1。</p>
 <p>关联笔记：前置 <a href="/learning/pytorch/notes/stage-3/day-5-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E9%98%B6%E6%AE%B5%E4%B8%89%E7%BB%93%E6%9E%9C%E5%A4%8D%E7%9B%98-cnn-%E4%B8%8E%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0.html">阶段三结果复盘</a>、<a href="/learning/pytorch/notes/stage-1/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-tensor%E5%9F%BA%E6%9C%AC%E6%93%8D%E4%BD%9C.html">Tensor 基本操作</a>、<a href="/learning/pytorch/notes/stage-1/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-pytorch-autograd-%E8%87%AA%E5%8A%A8%E5%BE%AE%E5%88%86%E5%9F%BA%E7%A1%80.html">Autograd</a>、<a href="/learning/pytorch/notes/stage-2/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-nn-module-%E4%B8%8E%E5%B8%B8%E7%94%A8%E5%B1%82%E5%85%A5%E9%97%A8.html">nn.Module 与常用层</a>。</p>
 <hr>
 <h2>〇、今天完成了什么</h2>

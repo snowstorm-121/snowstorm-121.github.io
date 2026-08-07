@@ -214,15 +214,15 @@ hidden states [B, L, d_model]
 <hr>
 <h2>十、Day 3 验收结果</h2>
 <ul>
-<li>[x] tokenizer 成功加载并完成批量编码；</li>
-<li>[x] 理解 <code>input_ids</code> 是词表编号，不是语义向量；</li>
-<li>[x] 理解 <code>attention_mask</code> 与 Attention 权重的区别；</li>
-<li>[x] 理解单句样本中 <code>token_type_ids</code> 全为 0 的原因；</li>
-<li>[x] 使用 PyTorch 原生 Dataset 完成样本封装；</li>
-<li>[x] 验证 DataLoader batch shape <code>[2, 12]</code>；</li>
-<li>[x] 验证 dtype 为 <code>torch.int64</code>；</li>
-<li>[x] 成功将 batch 迁移到 MPS；</li>
-<li>[x] 暂未进入 BERT 微调，符合 Day 3 范围。</li>
+<li><input type="checkbox" checked disabled> tokenizer 成功加载并完成批量编码；</li>
+<li><input type="checkbox" checked disabled> 理解 <code>input_ids</code> 是词表编号，不是语义向量；</li>
+<li><input type="checkbox" checked disabled> 理解 <code>attention_mask</code> 与 Attention 权重的区别；</li>
+<li><input type="checkbox" checked disabled> 理解单句样本中 <code>token_type_ids</code> 全为 0 的原因；</li>
+<li><input type="checkbox" checked disabled> 使用 PyTorch 原生 Dataset 完成样本封装；</li>
+<li><input type="checkbox" checked disabled> 验证 DataLoader batch shape <code>[2, 12]</code>；</li>
+<li><input type="checkbox" checked disabled> 验证 dtype 为 <code>torch.int64</code>；</li>
+<li><input type="checkbox" checked disabled> 成功将 batch 迁移到 MPS；</li>
+<li><input type="checkbox" checked disabled> 暂未进入 BERT 微调，符合 Day 3 范围。</li>
 </ul>
 <h2>十一、下一步行动</h2>
 <p>Day 4 使用今天已经得到的 batch，完成最小闭环：</p>

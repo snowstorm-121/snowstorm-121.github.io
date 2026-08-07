@@ -3,9 +3,11 @@
 import { createHash } from 'node:crypto';
 import {
   access,
+  lstat,
   mkdir,
   readFile,
   readdir,
+  realpath,
   rm,
   stat,
   writeFile,
@@ -16,6 +18,10 @@ import MarkdownIt from 'markdown-it';
 
 const SITE_ROOT = '/learning/pytorch';
 const MANIFEST_VERSION = 1;
+const MAX_TEXT_SCAN_BYTES = 1024 * 1024;
+const MAX_REMOTE_ASSET_BYTES = 10 * 1024 * 1024;
+const REMOTE_FETCH_TIMEOUT_MS = 15_000;
+const MAX_REMOTE_REDIRECTS = 5;
 const COLLATOR = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' });
 const STAGES = new Map([
   ['foundation_stage', { key: 'foundation', label: '基础阶段' }],
@@ -133,7 +139,7 @@ export function findRemoteImageUrls(markdown) {
 
 async function scanSecrets(notes, sourceRoot, allFiles) {
   const rules = [
-    ['private key', /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/],
+    ['private key', /-----BEGIN (?:(?:RSA|EC|OPENSSH|DSA|ENCRYPTED|PGP) )?PRIVATE KEY(?: BLOCK)?-----/],
     ['AWS credential', /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/],
     ['GitHub credential', /\bgh[pousr]_[A-Za-z0-9]{30,}\b/],
     ['OpenAI credential', /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/],
@@ -141,11 +147,35 @@ async function scanSecrets(notes, sourceRoot, allFiles) {
   ];
   const findings = [];
   const sources = notes.map((note) => ({ sourcePath: note.sourcePath, content: note.content }));
-  const textAttachments = allFiles.filter((file) => /\.(?:py|txt|json|ya?ml|toml|env|ini|cfg)$/i.test(file));
-  for (const absolutePath of textAttachments) {
+  const attachments = allFiles.filter((file) => path.extname(file).toLowerCase() !== '.md');
+  for (const absolutePath of attachments) {
+    const fileStat = await stat(absolutePath);
+    const sensitiveExtension = /\.(?:pem|key)$/i.test(absolutePath);
+    if (fileStat.size > MAX_TEXT_SCAN_BYTES) {
+      if (sensitiveExtension) {
+        throw new Error(`Credential scan stopped synchronization:\n${normalizePath(path.relative(sourceRoot, absolutePath))}: sensitive attachment is too large to scan`);
+      }
+      continue;
+    }
+    const buffer = await readFile(absolutePath);
+    let content;
+    try {
+      content = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+    } catch {
+      if (sensitiveExtension) {
+        throw new Error(`Credential scan stopped synchronization:\n${normalizePath(path.relative(sourceRoot, absolutePath))}: sensitive attachment is not UTF-8 text`);
+      }
+      continue;
+    }
+    if (content.includes('\0')) {
+      if (sensitiveExtension) {
+        throw new Error(`Credential scan stopped synchronization:\n${normalizePath(path.relative(sourceRoot, absolutePath))}: sensitive attachment is binary`);
+      }
+      continue;
+    }
     sources.push({
       sourcePath: normalizePath(path.relative(sourceRoot, absolutePath)),
-      content: await readFile(absolutePath, 'utf8'),
+      content,
     });
   }
   for (const source of sources) {
@@ -176,7 +206,13 @@ function buildNoteIndex(notes) {
 
 function splitTarget(rawTarget) {
   const [targetWithPath, heading = ''] = rawTarget.trim().split('#', 2);
-  return { target: targetWithPath.replace(/\.md$/i, ''), heading };
+  let decodedTarget = targetWithPath;
+  try {
+    decodedTarget = decodeURIComponent(targetWithPath);
+  } catch {
+    // Keep malformed percent sequences literal so unresolved links remain plain text.
+  }
+  return { target: decodedTarget.replace(/\.md$/i, ''), heading };
 }
 
 function resolveNoteTarget(rawTarget, currentNote, index) {
@@ -208,12 +244,9 @@ function noteUrl(note, heading = '') {
   return `${SITE_ROOT}/notes/${note.stageKey}/${encodeURIComponent(note.slug)}.html${suffix}`;
 }
 
-function remoteAssetPath(url) {
-  const urlPath = new URL(url).pathname;
-  const extension = path.extname(urlPath).toLowerCase();
-  const safeExtension = /^\.(?:png|jpe?g|gif|webp|svg|avif)$/.test(extension) ? extension : '.img';
+function remoteAssetPath(url, extension) {
   const digest = createHash('sha256').update(url).digest('hex').slice(0, 20);
-  return `assets/remote/${digest}${safeExtension}`;
+  return `assets/remote/${digest}${extension}`;
 }
 
 function isRemote(value) {
@@ -242,10 +275,235 @@ function attachmentDestination(file, currentNote) {
   return `assets/${currentNote.stageKey}/${name}`;
 }
 
-async function defaultFetchAsset(url) {
-  const response = await fetch(url, { redirect: 'follow' });
-  if (!response.ok) throw new Error(`Remote image download failed (${response.status}): ${url}`);
-  return Buffer.from(await response.arrayBuffer());
+function remoteHttpUrl(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error(`Invalid remote image URL: ${value}`);
+  }
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error(`Unsupported remote image protocol ${url.protocol}: ${value}`);
+  }
+  return url;
+}
+
+function rasterFormat(buffer) {
+  if (buffer.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex'))) {
+    return { name: 'PNG', extension: '.png', contentTypes: ['image/png'] };
+  }
+  if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return { name: 'JPEG', extension: '.jpg', contentTypes: ['image/jpeg'] };
+  }
+  const signature = buffer.subarray(0, 12).toString('ascii');
+  if (signature.startsWith('GIF87a') || signature.startsWith('GIF89a')) {
+    return { name: 'GIF', extension: '.gif', contentTypes: ['image/gif'] };
+  }
+  if (signature.startsWith('RIFF') && signature.slice(8, 12) === 'WEBP') {
+    return { name: 'WebP', extension: '.webp', contentTypes: ['image/webp'] };
+  }
+  if (buffer.subarray(4, 8).toString('ascii') === 'ftyp' && /avif|avis/.test(buffer.subarray(8, 32).toString('ascii'))) {
+    return { name: 'AVIF', extension: '.avif', contentTypes: ['image/avif'] };
+  }
+  return null;
+}
+
+function validateRasterAsset(data, { sourceUrl, finalUrl = sourceUrl, contentType = '', storedPath = '' }) {
+  const buffer = Buffer.from(data);
+  if (!buffer.length) throw new Error(`Remote image is empty: ${sourceUrl}`);
+  if (buffer.length > MAX_REMOTE_ASSET_BYTES) throw new Error(`Remote image is too large: ${sourceUrl}`);
+  const format = rasterFormat(buffer);
+  if (!format) throw new Error(`Remote image has no supported raster signature: ${sourceUrl}`);
+  const normalizedContentType = contentType.split(';', 1)[0].trim().toLowerCase();
+  if (normalizedContentType && !format.contentTypes.includes(normalizedContentType)) {
+    throw new Error(`Remote image Content-Type ${normalizedContentType} does not match ${format.name} signature: ${sourceUrl}`);
+  }
+  const extensionSource = storedPath || remoteHttpUrl(finalUrl).pathname;
+  const extension = path.extname(extensionSource).toLowerCase();
+  const expectedFormat = new Map([
+    ['.png', 'PNG'],
+    ['.jpg', 'JPEG'],
+    ['.jpeg', 'JPEG'],
+    ['.gif', 'GIF'],
+    ['.webp', 'WebP'],
+    ['.avif', 'AVIF'],
+    ['.svg', 'SVG'],
+  ]).get(extension);
+  if (expectedFormat && expectedFormat !== format.name) {
+    throw new Error(`Remote image extension ${extension} does not match ${format.name} signature: ${sourceUrl}`);
+  }
+  return { buffer, format };
+}
+
+async function readBoundedResponse(response, maxBytes, url) {
+  const contentLength = response.headers.get('content-length');
+  if (contentLength !== null) {
+    const declaredBytes = Number(contentLength);
+    if (!Number.isFinite(declaredBytes) || declaredBytes < 0 || declaredBytes > maxBytes) {
+      throw new Error(`Remote image is too large: ${url}`);
+    }
+  }
+  if (!response.body) return Buffer.alloc(0);
+  const reader = response.body.getReader();
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new Error(`Remote image is too large: ${url}`);
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks, total);
+}
+
+export async function defaultFetchAsset(url, {
+  fetchImpl = globalThis.fetch,
+  timeoutMs = REMOTE_FETCH_TIMEOUT_MS,
+  maxBytes = MAX_REMOTE_ASSET_BYTES,
+  maxRedirects = MAX_REMOTE_REDIRECTS,
+} = {}) {
+  let currentUrl = remoteHttpUrl(url);
+  const signal = AbortSignal.timeout(timeoutMs);
+  let redirects = 0;
+  try {
+    while (true) {
+      const response = await fetchImpl(currentUrl.href, { redirect: 'manual', signal });
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        if (redirects >= maxRedirects) throw new Error(`Remote image has too many redirects: ${url}`);
+        const location = response.headers.get('location');
+        if (!location) throw new Error(`Remote image redirect is missing Location: ${currentUrl.href}`);
+        currentUrl = remoteHttpUrl(new URL(location, currentUrl).href);
+        redirects += 1;
+        continue;
+      }
+      if (!response.ok) throw new Error(`Remote image download failed (${response.status}): ${currentUrl.href}`);
+      const finalUrl = remoteHttpUrl(response.url || currentUrl.href).href;
+      const contentType = response.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() || '';
+      if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif'].includes(contentType)) {
+        throw new Error(`Remote image Content-Type ${contentType || '(missing)'} is not allowed: ${url}`);
+      }
+      const data = await readBoundedResponse(response, maxBytes, url);
+      const validated = validateRasterAsset(data, { sourceUrl: url, finalUrl, contentType });
+      return { data: validated.buffer, contentType, finalUrl };
+    }
+  } catch (error) {
+    if (signal.aborted && (error === signal.reason || ['AbortError', 'TimeoutError'].includes(error.name))) {
+      throw new Error(`Remote image download timed out: ${url}`);
+    }
+    throw error;
+  }
+}
+
+function isEscaped(value, index) {
+  let backslashes = 0;
+  for (let cursor = index - 1; cursor >= 0 && value[cursor] === '\\'; cursor -= 1) backslashes += 1;
+  return backslashes % 2 === 1;
+}
+
+function findClosingDelimiter(value, start, open, close) {
+  let depth = 0;
+  for (let index = start; index < value.length; index += 1) {
+    if (isEscaped(value, index)) continue;
+    if (value[index] === open) depth += 1;
+    else if (value[index] === close && --depth === 0) return index;
+  }
+  return -1;
+}
+
+function markdownLinkTarget(rawTarget, note, noteIndex) {
+  const trimmed = rawTarget.trim();
+  const candidates = [{ target: trimmed, title: '' }];
+  const angled = trimmed.match(/^<([^>]*)>(\s+.*)?$/s);
+  if (angled) candidates.unshift({ target: angled[1], title: angled[2] || '' });
+  const titled = trimmed.match(/^(.+?)\s+("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\((?:[^()\\]|\\.)*\))$/s);
+  if (titled) candidates.push({ target: titled[1], title: ` ${titled[2]}` });
+  for (const candidate of candidates) {
+    const resolved = resolveNoteTarget(candidate.target, note, noteIndex);
+    if (resolved) return { url: noteUrl(resolved.note, resolved.heading), title: candidate.title };
+  }
+  return null;
+}
+
+function rewriteMarkdownNoteLinks(value, context) {
+  let output = '';
+  let cursor = 0;
+  while (cursor < value.length) {
+    if (value[cursor] !== '[' || isEscaped(value, cursor) || value[cursor - 1] === '!') {
+      output += value[cursor++];
+      continue;
+    }
+    const labelEnd = findClosingDelimiter(value, cursor, '[', ']');
+    if (labelEnd < 0 || value[labelEnd + 1] !== '(') {
+      output += value[cursor++];
+      continue;
+    }
+    const destinationEnd = findClosingDelimiter(value, labelEnd + 1, '(', ')');
+    if (destinationEnd < 0) {
+      output += value[cursor++];
+      continue;
+    }
+    const resolved = markdownLinkTarget(
+      value.slice(labelEnd + 2, destinationEnd),
+      context.note,
+      context.noteIndex,
+    );
+    if (!resolved) {
+      output += value.slice(cursor, destinationEnd + 1);
+      cursor = destinationEnd + 1;
+      continue;
+    }
+    output += `${value.slice(cursor, labelEnd + 1)}(${resolved.url}${resolved.title})`;
+    cursor = destinationEnd + 1;
+  }
+  return output;
+}
+
+function transformOutsideInlineCode(value, transform) {
+  let output = '';
+  let plainStart = 0;
+  let cursor = 0;
+  while (cursor < value.length) {
+    if (value[cursor] !== '`' || isEscaped(value, cursor)) {
+      cursor += 1;
+      continue;
+    }
+    const openerStart = cursor;
+    while (value[cursor] === '`') cursor += 1;
+    const openerLength = cursor - openerStart;
+    let closerStart = -1;
+    while (cursor < value.length) {
+      if (value[cursor] !== '`') {
+        cursor += 1;
+        continue;
+      }
+      const runStart = cursor;
+      while (value[cursor] === '`') cursor += 1;
+      if (cursor - runStart === openerLength) {
+        closerStart = runStart;
+        break;
+      }
+    }
+    if (closerStart < 0) continue;
+    output += transform(value.slice(plainStart, openerStart));
+    output += value.slice(openerStart, cursor);
+    plainStart = cursor;
+  }
+  return output + transform(value.slice(plainStart));
+}
+
+function openingFence(line) {
+  const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+  if (!match || (match[1][0] === '`' && match[2].includes('`'))) return null;
+  return { marker: match[1][0], length: match[1].length };
+}
+
+function closesFence(line, fence) {
+  const match = line.match(/^ {0,3}(`+|~+)[ \t]*$/);
+  return Boolean(match && match[1][0] === fence.marker && match[1].length >= fence.length);
 }
 
 function pageTemplate({ title, eyebrow, body }) {
@@ -269,22 +527,24 @@ function pageTemplate({ title, eyebrow, body }) {
 }
 
 function preprocessMarkdown(markdown, context) {
-  let inFence = false;
+  let fence = null;
   const placeholders = [];
   const lines = markdown.split(/\r?\n/).map((line, lineIndex) => {
-    if (/^\s*(```|~~~)/.test(line)) {
-      inFence = !inFence;
+    if (fence) {
+      if (closesFence(line, fence)) fence = null;
       return line;
     }
-    if (inFence) return line;
+    const opener = openingFence(line);
+    if (opener) {
+      fence = opener;
+      return line;
+    }
     let transformed = line.replace(/^(\s*)- \[([ xX])\]\s+/, (_, indent, checked) => {
       const marker = checked.toLowerCase() === 'x' ? 'PYTORCH_TASK_CHECKED' : 'PYTORCH_TASK_UNCHECKED';
       return `${indent}- ${marker} `;
     });
-    const segments = transformed.split(/(`+[^`]*`+)/g);
-    transformed = segments.map((segment, index) => {
-      if (index % 2) return segment;
-      return segment.replace(/(!?)\[\[([^\]]+)\]\]/g, (_, embed, body) => {
+    transformed = transformOutsideInlineCode(transformed, (segment) => {
+      const withWikiLinks = segment.replace(/(!?)\[\[([^\]]+)\]\]/g, (_, embed, body) => {
         const [rawTarget, rawLabel] = body.split('|', 2);
         const label = rawLabel || path.basename(rawTarget);
         const extension = path.extname(rawTarget.split('#', 1)[0]).toLowerCase();
@@ -315,7 +575,8 @@ function preprocessMarkdown(markdown, context) {
         }
         return `[${escapeMarkdownLabel(label)}](${noteUrl(resolved.note, resolved.heading)})`;
       });
-    }).join('');
+      return rewriteMarkdownNoteLinks(withWikiLinks, context);
+    });
     return transformed;
   });
   return { markdown: lines.join('\n'), placeholders };
@@ -420,7 +681,7 @@ async function fileExists(file) {
 
 async function readManifest(outputRoot) {
   try {
-    return JSON.parse(await readFile(path.join(outputRoot, 'manifest.json'), 'utf8'));
+    return JSON.parse(await readFile(await safeManagedPath(outputRoot, 'manifest.json'), 'utf8'));
   } catch (error) {
     if (error.code === 'ENOENT') return {};
     throw error;
@@ -434,38 +695,91 @@ async function buildRemoteAssets(notes, previousManifest, options) {
   const previous = previousManifest.remoteAssets || {};
   for (const url of [...urls].sort()) {
     if (previous[url]) {
-      const existing = path.join(options.outputRoot, previous[url]);
+      const existing = await safeManagedPath(options.outputRoot, previous[url]);
       if (!(await fileExists(existing))) throw new Error(`Missing localized remote image: ${previous[url]}`);
+      const data = await readFile(existing);
+      validateRasterAsset(data, { sourceUrl: url, storedPath: previous[url] });
       remoteAssets[url] = previous[url];
-      downloaded.set(previous[url], await readFile(existing));
+      downloaded.set(previous[url], data);
       continue;
     }
     if (!options.fetchRemoteAssets) throw new Error(`New remote image ${url}; run with --fetch-remote-assets`);
-    const destination = remoteAssetPath(url);
     const fetcher = options.fetchAsset || defaultFetchAsset;
+    const fetched = await fetcher(url);
+    const result = Buffer.isBuffer(fetched) || ArrayBuffer.isView(fetched)
+      ? { data: fetched, finalUrl: url, contentType: '' }
+      : fetched;
+    if (!result?.data) throw new Error(`Remote image fetcher returned no data: ${url}`);
+    const validated = validateRasterAsset(result.data, {
+      sourceUrl: url,
+      finalUrl: result.finalUrl || url,
+      contentType: result.contentType || '',
+    });
+    const destination = remoteAssetPath(url, validated.format.extension);
     remoteAssets[url] = destination;
-    downloaded.set(destination, Buffer.from(await fetcher(url)));
+    downloaded.set(destination, validated.buffer);
   }
   return { remoteAssets, downloaded };
 }
 
-function safeManagedPath(outputRoot, relativePath) {
+async function safeManagedPath(outputRoot, relativePath) {
+  if (typeof relativePath !== 'string') throw new Error(`Unsafe generated manifest path: ${relativePath}`);
   const normalized = normalizePath(relativePath);
-  if (!normalized || normalized.startsWith('/') || normalized.split('/').includes('..')) {
+  const parts = normalized.split('/');
+  if (!normalized || path.isAbsolute(relativePath) || parts.some((part) => !part || part === '.' || part === '..')) {
     throw new Error(`Unsafe generated manifest path: ${relativePath}`);
   }
-  const absolute = path.resolve(outputRoot, normalized);
-  if (!absolute.startsWith(`${path.resolve(outputRoot)}${path.sep}`)) throw new Error(`Unsafe generated manifest path: ${relativePath}`);
+  const root = path.resolve(outputRoot);
+  const absolute = path.resolve(root, normalized);
+  const relative = path.relative(root, absolute);
+  if (!relative || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error(`Unsafe generated manifest path: ${relativePath}`);
+  }
+
+  let rootRealPath = root;
+  try {
+    const rootInfo = await lstat(root);
+    if (rootInfo.isSymbolicLink()) throw new Error(`Unsafe symlink in managed path: ${root}`);
+    rootRealPath = await realpath(root);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+
+  let current = root;
+  for (const part of relative.split(path.sep)) {
+    current = path.join(current, part);
+    try {
+      const info = await lstat(current);
+      if (info.isSymbolicLink()) {
+        throw new Error(`Unsafe symlink in managed path: ${normalizePath(path.relative(root, current))}`);
+      }
+      const currentRealPath = await realpath(current);
+      if (currentRealPath !== rootRealPath && !currentRealPath.startsWith(`${rootRealPath}${path.sep}`)) {
+        throw new Error(`Unsafe generated manifest path: ${relativePath}`);
+      }
+    } catch (error) {
+      if (error.code === 'ENOENT') break;
+      throw error;
+    }
+  }
   return absolute;
 }
 
 async function writeOutputs(outputRoot, outputs, previousManifest) {
   const desired = new Set(outputs.keys());
+  const destinations = new Map();
+  const managedPaths = new Set([
+    ...outputs.keys(),
+    ...(previousManifest.generatedFiles || []).filter((oldPath) => !desired.has(oldPath)),
+  ]);
+  for (const relativePath of managedPaths) {
+    destinations.set(relativePath, await safeManagedPath(outputRoot, relativePath));
+  }
   for (const oldPath of previousManifest.generatedFiles || []) {
-    if (!desired.has(oldPath)) await rm(safeManagedPath(outputRoot, oldPath), { force: true });
+    if (!desired.has(oldPath)) await rm(destinations.get(oldPath), { force: true });
   }
   for (const [relativePath, content] of outputs) {
-    const destination = safeManagedPath(outputRoot, relativePath);
+    const destination = destinations.get(relativePath);
     await mkdir(path.dirname(destination), { recursive: true });
     await writeFile(destination, content);
   }
@@ -473,18 +787,26 @@ async function writeOutputs(outputRoot, outputs, previousManifest) {
 
 async function checkOutputs(outputRoot, outputs, previousManifest) {
   const drift = [];
+  const desired = new Set(outputs.keys());
+  const destinations = new Map();
+  const managedPaths = new Set([
+    ...outputs.keys(),
+    ...(previousManifest.generatedFiles || []).filter((oldPath) => !desired.has(oldPath)),
+  ]);
+  for (const relativePath of managedPaths) {
+    destinations.set(relativePath, await safeManagedPath(outputRoot, relativePath));
+  }
   for (const [relativePath, expected] of outputs) {
     try {
-      const actual = await readFile(safeManagedPath(outputRoot, relativePath));
+      const actual = await readFile(destinations.get(relativePath));
       if (!actual.equals(Buffer.from(expected))) drift.push(relativePath);
     } catch (error) {
       if (error.code === 'ENOENT') drift.push(relativePath);
       else throw error;
     }
   }
-  const desired = new Set(outputs.keys());
   for (const oldPath of previousManifest.generatedFiles || []) {
-    if (!desired.has(oldPath) && await fileExists(safeManagedPath(outputRoot, oldPath))) drift.push(oldPath);
+    if (!desired.has(oldPath) && await fileExists(destinations.get(oldPath))) drift.push(oldPath);
   }
   if (drift.length) throw new Error(`PyTorch archive is out of date (${drift.length} generated files differ)`);
 }

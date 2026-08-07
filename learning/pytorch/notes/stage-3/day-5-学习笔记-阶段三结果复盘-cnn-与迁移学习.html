@@ -14,7 +14,7 @@
     <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-3/">卷积网络</a></nav><article class="note-article"><h1>Day 5 学习笔记：阶段三结果复盘——CNN 与迁移学习</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
 <p>本阶段重点：复盘第 5 周已经完成的 CNN 与迁移学习实验，把实验事实、指标变化和模型解释连接起来。不重新追求一个固定 accuracy，而是学会从训练/验证行为判断模型状态，并说明 CNN 为什么比纯 MLP 更适合图像。</p>
 <p>今天主线：<code>实验边界 -&gt; 指标记录 -&gt; train / validation 行为分析 -&gt; CNN vs MLP -&gt; 阶段三结论</code>。</p>
-<p>本笔记对应 [PyTorch 暑期详细学习计划](PyTorch 暑期详细学习计划) 中第 5 周 Day 5。</p>
+<p>本笔记对应 <a href="/learning/pytorch/notes/overview/pytorch-%E6%9A%91%E6%9C%9F%E8%AF%A6%E7%BB%86%E5%AD%A6%E4%B9%A0%E8%AE%A1%E5%88%92.html">PyTorch 暑期详细学习计划</a> 中第 5 周 Day 5。</p>
 <p>关联笔记：前置 <a href="/learning/pytorch/notes/stage-3/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E5%8D%B7%E7%A7%AF%E6%93%8D%E4%BD%9C%E5%9F%BA%E7%A1%80-shape-%E4%B8%8E%E5%8F%82%E6%95%B0%E9%87%8F.html">卷积操作基础</a>、<a href="/learning/pytorch/notes/stage-3/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E7%BB%8F%E5%85%B8-cnn-lenet.html">LeNet</a>、<a href="/learning/pytorch/notes/stage-3/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%AE%8B%E5%B7%AE%E7%BD%91%E7%BB%9C-resnet-%E6%AE%8B%E5%B7%AE%E5%9D%97%E6%A0%B8%E5%BF%83.html">残差网络 ResNet</a>、<a href="/learning/pytorch/notes/stage-3/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0%E6%9C%80%E5%B0%8F%E5%AE%9E%E6%88%98-%E9%A2%84%E8%AE%AD%E7%BB%83-resnet18.html">ResNet18 迁移学习</a>。</p>
 <hr>
 <h2>〇、今天完成了什么</h2>
@@ -198,7 +198,7 @@ test       -&gt; 最终一次性评估
 <hr>
 <h2>七、下一步行动</h2>
 <ul>
-<li>将本笔记与 [Day 4 学习笔记：迁移学习最小实战——预训练 ResNet18](Day 4 学习笔记：迁移学习最小实战——预训练 ResNet18) 一起复习，重点回看 <code>best_state</code> 和 train / validation / test 的职责边界。</li>
+<li>将本笔记与 <a href="/learning/pytorch/notes/stage-3/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0%E6%9C%80%E5%B0%8F%E5%AE%9E%E6%88%98-%E9%A2%84%E8%AE%AD%E7%BB%83-resnet18.html">Day 4 学习笔记：迁移学习最小实战——预训练 ResNet18</a> 一起复习，重点回看 <code>best_state</code> 和 train / validation / test 的职责边界。</li>
 <li>进入第 6 周前，能够不看代码口述完整数据流：<code>图片 -&gt; backbone -&gt; 特征 -&gt; 分类头 -&gt; logits -&gt; loss -&gt; backward -&gt; 参数更新</code>。</li>
 <li>若之后想继续做实验，再单独设计“增加 epoch”或“解冻部分 backbone”的对照实验，不与本次 2 epoch 固定特征提取结果混在一起。</li>
 </ul>

@@ -13,9 +13,9 @@
     <p class="library-eyebrow">卷积网络</p>
     <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-3/">卷积网络</a></nav><article class="note-article"><h1>Day 4 学习笔记：迁移学习最小实战——预训练 ResNet18</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
 <p>参考书：PyTorch 官方迁移学习教程，PyTorch 官方 <code>torchvision.models.resnet18</code>、<code>torch.utils.data</code>、Saving and Loading Models 文档</p>
-<p>本阶段重点：在 [Day 3 学习笔记：残差网络 ResNet——残差块核心](Day 3 学习笔记：残差网络 ResNet——残差块核心) 已理解残差块和 shortcut 后，本日将“手写最小残差块”连接到 torchvision 提供的预训练 ResNet18，跑通一个完整、可验证的迁移学习闭环。</p>
+<p>本阶段重点：在 <a href="/learning/pytorch/notes/stage-3/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%AE%8B%E5%B7%AE%E7%BD%91%E7%BB%9C-resnet-%E6%AE%8B%E5%B7%AE%E5%9D%97%E6%A0%B8%E5%BF%83.html">Day 3 学习笔记：残差网络 ResNet——残差块核心</a> 已理解残差块和 shortcut 后，本日将“手写最小残差块”连接到 torchvision 提供的预训练 ResNet18，跑通一个完整、可验证的迁移学习闭环。</p>
 <p>今天主线：<code>预训练 ResNet18 -&gt; backbone / 分类头 -&gt; 冻结 -&gt; 替换 fc -&gt; CIFAR-10 预处理 -&gt; train / val / test -&gt; best_state -&gt; 最终测试</code>。本日完成固定特征提取器策略；不实施解冻 backbone 的 fine-tune，不把 1--2 epoch 的结果包装成最终性能结论。</p>
-<p>本笔记对应 [PyTorch 暑期详细学习计划](PyTorch 暑期详细学习计划) 中第 5 周 Day 4。</p>
+<p>本笔记对应 <a href="/learning/pytorch/notes/overview/pytorch-%E6%9A%91%E6%9C%9F%E8%AF%A6%E7%BB%86%E5%AD%A6%E4%B9%A0%E8%AE%A1%E5%88%92.html">PyTorch 暑期详细学习计划</a> 中第 5 周 Day 4。</p>
 <hr>
 <h2>〇、今天完成了什么</h2>
 <ol>

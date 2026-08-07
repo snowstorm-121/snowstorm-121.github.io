@@ -15,7 +15,7 @@
 <p>学习目标：理解 Multi-Head Attention 如何从单头 Attention 扩展为多个 head，能够手写并验证拆分、并行计算和合并的完整数据流。</p>
 <p>本阶段重点：在 <a href="/learning/pytorch/notes/stage-4/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-attention-%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86-scaled-dot-product-attention.html">Day 1：Scaled Dot-Product Attention</a> 中已经完成单头 Attention。今天把同一套 Attention 计算并行应用到多个特征子空间，并将结果重新合并。</p>
 <p>今天主线：<code>x -&gt; W_q/W_k/W_v -&gt; split heads -&gt; QK^T -&gt; / sqrt(d_k) -&gt; Softmax -&gt; attention @ V -&gt; merge heads -&gt; W_o</code>。</p>
-<p>本笔记对应 [PyTorch 暑期详细学习计划](PyTorch 暑期详细学习计划) 中第 6 周 Day 2。</p>
+<p>本笔记对应 <a href="/learning/pytorch/notes/overview/pytorch-%E6%9A%91%E6%9C%9F%E8%AF%A6%E7%BB%86%E5%AD%A6%E4%B9%A0%E8%AE%A1%E5%88%92.html">PyTorch 暑期详细学习计划</a> 中第 6 周 Day 2。</p>
 <p>关联笔记：<a href="/learning/pytorch/notes/stage-4/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-attention-%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86-scaled-dot-product-attention.html">Day 1：Attention 机制</a>、<a href="/learning/pytorch/notes/stage-1/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-tensor%E5%9F%BA%E6%9C%AC%E6%93%8D%E4%BD%9C.html">Tensor 基本操作</a>、<a href="/learning/pytorch/notes/stage-2/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-nn-module-%E4%B8%8E%E5%B8%B8%E7%94%A8%E5%B1%82%E5%85%A5%E9%97%A8.html">nn.Module 与常用层</a>、<a href="/learning/pytorch/notes/stage-3/day-5-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E9%98%B6%E6%AE%B5%E4%B8%89%E7%BB%93%E6%9E%9C%E5%A4%8D%E7%9B%98-cnn-%E4%B8%8E%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0.html">阶段三结果复盘</a>。</p>
 <hr>
 <h2>〇、今天完成了什么</h2>
