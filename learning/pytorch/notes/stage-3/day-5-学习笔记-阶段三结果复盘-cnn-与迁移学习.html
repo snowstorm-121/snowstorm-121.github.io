@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101c">
+  <title>Day 5 学习笔记：阶段三结果复盘——CNN 与迁移学习 · SNOWSTORM</title>
+  <link rel="stylesheet" href="/assets/library.css">
+</head>
+<body class="library-page">
+  <main class="library-shell">
+    <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
+    <p class="library-eyebrow">卷积网络</p>
+    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-3/">卷积网络</a></nav><article class="note-article"><h1>Day 5 学习笔记：阶段三结果复盘——CNN 与迁移学习</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+<p>本阶段重点：复盘第 5 周已经完成的 CNN 与迁移学习实验，把实验事实、指标变化和模型解释连接起来。不重新追求一个固定 accuracy，而是学会从训练/验证行为判断模型状态，并说明 CNN 为什么比纯 MLP 更适合图像。</p>
+<p>今天主线：<code>实验边界 -&gt; 指标记录 -&gt; train / validation 行为分析 -&gt; CNN vs MLP -&gt; 阶段三结论</code>。</p>
+<p>本笔记对应 [PyTorch 暑期详细学习计划](PyTorch 暑期详细学习计划) 中第 5 周 Day 5。</p>
+<p>关联笔记：前置 <a href="/learning/pytorch/notes/stage-3/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E5%8D%B7%E7%A7%AF%E6%93%8D%E4%BD%9C%E5%9F%BA%E7%A1%80-shape-%E4%B8%8E%E5%8F%82%E6%95%B0%E9%87%8F.html">卷积操作基础</a>、<a href="/learning/pytorch/notes/stage-3/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E7%BB%8F%E5%85%B8-cnn-lenet.html">LeNet</a>、<a href="/learning/pytorch/notes/stage-3/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%AE%8B%E5%B7%AE%E7%BD%91%E7%BB%9C-resnet-%E6%AE%8B%E5%B7%AE%E5%9D%97%E6%A0%B8%E5%BF%83.html">残差网络 ResNet</a>、<a href="/learning/pytorch/notes/stage-3/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0%E6%9C%80%E5%B0%8F%E5%AE%9E%E6%88%98-%E9%A2%84%E8%AE%AD%E7%BB%83-resnet18.html">ResNet18 迁移学习</a>。</p>
+<hr>
+<h2>〇、今天完成了什么</h2>
+<ol>
+<li>以 Day 4 的 CIFAR-10 + 预训练 ResNet18 实验作为阶段三代表实验。</li>
+<li>记录了模型、数据划分、冻结策略、设备、epoch，以及每个 epoch 的 train / validation 指标。</li>
+<li>根据验证集准确率选择 <code>best_state</code>，再使用最佳权重得到最终测试结果。</li>
+<li>根据 loss 与 accuracy 的变化分析训练状态，不把 2 个 epoch 的结果包装成最终性能结论。</li>
+<li>总结 CNN 相比纯 MLP 更适合图像的三个原因：局部空间结构、参数共享、层级特征提取。</li>
+</ol>
+<hr>
+<h2>一、复盘边界：这次复盘的是哪一个实验</h2>
+<p>本次不重新训练模型，也不把 Day 5 变成新的模型比较实验，而是复盘已经跑通的这一条迁移学习闭环：</p>
+<pre><code class="language-plain">CIFAR-10
+-&gt; ImageNet 预训练 ResNet18
+-&gt; 冻结 backbone
+-&gt; 将 Linear(512, 1000) 替换为 Linear(512, 10)
+-&gt; 只训练新的分类头
+-&gt; 根据 validation 选择 best_state
+-&gt; 加载最佳权重后进行最终 test
+</code></pre>
+<p>这属于固定特征提取器策略，不是 fine-tune。backbone 仍然参与 forward，将图片转换成特征；只是其参数不通过反向传播更新。分类头负责把 <code>[B, 512]</code> 特征映射为 <code>[B, 10]</code> 的 CIFAR-10 logits。</p>
+<hr>
+<h2>二、实验配置与结果记录</h2>
+<h3>2.1 实验配置</h3>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>记录</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>数据集</td>
+<td>CIFAR-10</td>
+</tr>
+<tr>
+<td>模型</td>
+<td>ImageNet 预训练 ResNet18</td>
+</tr>
+<tr>
+<td>输入</td>
+<td>Resize 后的 RGB 图像 <code>[B, 3, 224, 224]</code></td>
+</tr>
+<tr>
+<td>输出</td>
+<td>10 类 logits <code>[B, 10]</code></td>
+</tr>
+<tr>
+<td>训练策略</td>
+<td>冻结 backbone，只训练新的分类头</td>
+</tr>
+<tr>
+<td>数据划分</td>
+<td>train 45,000 / validation 5,000 / test 10,000</td>
+</tr>
+<tr>
+<td>设备</td>
+<td>Apple Silicon MPS</td>
+</tr>
+<tr>
+<td>epoch</td>
+<td>2</td>
+</tr>
+</tbody>
+</table>
+<h3>2.2 每个 epoch 的指标</h3>
+<table>
+<thead>
+<tr>
+<th>epoch</th>
+<th style="text-align:right">train loss</th>
+<th style="text-align:right">train acc</th>
+<th style="text-align:right">val loss</th>
+<th style="text-align:right">val acc</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 / 2</td>
+<td style="text-align:right">0.5802</td>
+<td style="text-align:right">81.85%</td>
+<td style="text-align:right">0.4149</td>
+<td style="text-align:right">85.26%</td>
+</tr>
+<tr>
+<td>2 / 2</td>
+<td style="text-align:right">0.3857</td>
+<td style="text-align:right">86.97%</td>
+<td style="text-align:right">0.3695</td>
+<td style="text-align:right">87.14%</td>
+</tr>
+</tbody>
+</table>
+<p>最佳验证准确率为 <code>87.14%</code>，出现在第 2 个 epoch。加载对应的 <code>best_state</code> 后，最终测试准确率为 <code>86.67%</code>。</p>
+<hr>
+<h2>三、如何分析训练与验证表现</h2>
+<h3>3.1 从曲线和指标观察事实</h3>
+<p>2 个 epoch 内：</p>
+<ul>
+<li>train loss 从 <code>0.5802</code> 降到 <code>0.3857</code>；</li>
+<li>val loss 从 <code>0.4149</code> 降到 <code>0.3695</code>；</li>
+<li>train accuracy 从 <code>81.85%</code> 升到 <code>86.97%</code>；</li>
+<li>val accuracy 从 <code>85.26%</code> 升到 <code>87.14%</code>。</li>
+</ul>
+<p>训练和验证 loss 都下降，训练和验证 accuracy 都上升，说明模型在这段训练过程中仍然在学习。因为验证集表现没有恶化，所以当前没有明显的过拟合证据。</p>
+<h3>3.2 为什么 validation accuracy 略高于 train accuracy</h3>
+<p>两轮中 validation accuracy 都略高于 train accuracy，这不一定表示代码错误，常见原因有：</p>
+<ol>
+<li>训练集使用了数据增强，样本更难；验证集使用未增强的图像，分布更稳定。</li>
+<li>训练阶段处于 <code>model.train()</code>，验证阶段处于 <code>model.eval()</code>。</li>
+<li>BatchNorm、Dropout 等层在训练和验证模式下行为不同。</li>
+</ol>
+<p>因此，不能单独根据“验证准确率高于训练准确率”就断定模型异常或数据泄漏。需要结合数据预处理和模块模式一起判断。</p>
+<h3>3.3 validation 与 test 的关系</h3>
+<p>最佳 validation accuracy 是 <code>87.14%</code>，最终 test accuracy 是 <code>86.67%</code>，相差 <code>0.47</code> 个百分点。两者接近，说明当前测试结果与验证阶段的泛化估计基本一致。</p>
+<p>这里必须保持职责边界：</p>
+<pre><code class="language-plain">train      -&gt; 更新参数
+validation -&gt; 选择 best_state
+test       -&gt; 最终一次性评估
+</code></pre>
+<p>不能因为测试结果不理想而反复查看 test 并据此调参，否则测试集就不再是独立的最终评估集。</p>
+<hr>
+<h2>四、为什么 CNN 比纯 MLP 更适合图像</h2>
+<h3>4.1 CNN 保留局部空间结构</h3>
+<p>图像中相邻像素通常具有更强的关系，边缘和纹理往往由局部区域构成。<code>Conv2d</code> 使用局部窗口处理输入，因此能够直接利用这些邻域关系。</p>
+<p>纯 MLP 往往先把图像展平为向量。展平后的数值仍然存在，但“哪些像素相邻”不再由模型结构显式表达，模型需要通过大量全连接权重自己学习这种关系。</p>
+<h3>4.2 CNN 使用参数共享</h3>
+<p>一个卷积核可以在整张图像的不同位置寻找同一种模式，例如水平边缘或垂直边缘。这个机制就是参数共享：同一组权重被重复应用到不同空间位置。</p>
+<p>MLP 通常为不同输入位置使用不同连接权重，参数量更大，也不能天然复用“同一种模式出现在别的位置”这一事实。</p>
+<h3>4.3 CNN 能逐层提取层级特征</h3>
+<p>CNN 的前面层可以学习边缘、颜色和简单纹理，中间层组合出局部形状，后面层进一步形成更复杂的物体部件和语义特征。</p>
+<p>Day 2 的 LeNet 已经体现了“卷积/池化 -&gt; 更高层特征 -&gt; 分类器”的数据流；Day 3 的 ResNet 则在更深网络中用残差连接改善特征传递；Day 4 的预训练 ResNet18 直接复用了这些已经学好的层级视觉特征。</p>
+<h3>4.4 对比总结</h3>
+<table>
+<thead>
+<tr>
+<th>对比点</th>
+<th>纯 MLP</th>
+<th>CNN</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>输入处理</td>
+<td>通常先展平</td>
+<td>保留 <code>[C, H, W]</code> 空间布局</td>
+</tr>
+<tr>
+<td>局部关系</td>
+<td>需要靠权重自己学习</td>
+<td>局部感受野显式建模</td>
+</tr>
+<tr>
+<td>参数使用</td>
+<td>不同位置通常使用不同权重</td>
+<td>卷积核跨位置共享</td>
+</tr>
+<tr>
+<td>特征学习</td>
+<td>缺少图像先验结构</td>
+<td>从局部到整体逐层提取</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>五、阶段三最终结论</h2>
+<p>本周通过卷积基础、LeNet、残差网络和 ResNet18 迁移学习，完成了从 CNN 基本操作到预训练模型应用的学习闭环。CNN 比纯 MLP 更适合图像，是因为它能够利用局部空间结构，通过参数共享复用视觉模式，并逐层提取从边缘到高层语义的层级特征。</p>
+<p>本次 ResNet18 实验在 2 个 epoch 内取得了最佳 validation accuracy <code>87.14%</code> 和最终 test accuracy <code>86.67%</code>。训练与验证指标都在改善，没有明显过拟合现象；但训练轮数较少，因此这个结果主要证明迁移学习流程已经跑通，不能视为充分训练后的最终性能。</p>
+<hr>
+<h2>六、易错点</h2>
+<ol>
+<li><code>requires_grad=False</code> 只控制参数是否参与梯度计算，不等于 <code>model.eval()</code>。</li>
+<li><code>model.eval()</code> 会切换 BatchNorm / Dropout 的行为，但不会自动关闭梯度；关闭梯度要使用 <code>torch.no_grad()</code>。</li>
+<li>冻结 backbone 后，新的分类头必须保持可训练；替换 <code>fc</code> 与冻结参数的顺序不能弄反。</li>
+<li>validation 用于选择最佳模型，test 只用于最终评估，不能根据 test 结果反复调参。</li>
+<li>验证准确率高于训练准确率不必然是错误，要结合数据增强、<code>train()</code> / <code>eval()</code> 和 BatchNorm 行为解释。</li>
+<li>2 个 epoch 的结果可以用于流程复盘，但不能直接当作模型最终上限。</li>
+</ol>
+<hr>
+<h2>七、下一步行动</h2>
+<ul>
+<li>将本笔记与 [Day 4 学习笔记：迁移学习最小实战——预训练 ResNet18](Day 4 学习笔记：迁移学习最小实战——预训练 ResNet18) 一起复习，重点回看 <code>best_state</code> 和 train / validation / test 的职责边界。</li>
+<li>进入第 6 周前，能够不看代码口述完整数据流：<code>图片 -&gt; backbone -&gt; 特征 -&gt; 分类头 -&gt; logits -&gt; loss -&gt; backward -&gt; 参数更新</code>。</li>
+<li>若之后想继续做实验，再单独设计“增加 epoch”或“解冻部分 backbone”的对照实验，不与本次 2 epoch 固定特征提取结果混在一起。</li>
+</ul>
+</div></article>
+  </main>
+</body>
+</html>

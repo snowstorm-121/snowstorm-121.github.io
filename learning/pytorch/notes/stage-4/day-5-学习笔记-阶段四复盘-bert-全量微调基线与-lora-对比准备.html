@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101c">
+  <title>Day 5 学习笔记：阶段四复盘——BERT 全量微调基线与 LoRA 对比准备 · SNOWSTORM</title>
+  <link rel="stylesheet" href="/assets/library.css">
+</head>
+<body class="library-page">
+  <main class="library-shell">
+    <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
+    <p class="library-eyebrow">Transformer 与 BERT</p>
+    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-4/">Transformer 与 BERT</a></nav><article class="note-article"><h1>Day 5 学习笔记：阶段四复盘——BERT 全量微调基线与 LoRA 对比准备</h1><div class="note-content"><h1>阶段四 Day 5 复盘：BERT 全量微调基线与 LoRA 对比准备</h1>
+<h2>〇、今天完成了什么</h2>
+<ul>
+<li>回顾了 BERT 在 SST-2 上的完整微调闭环。</li>
+<li>复习了 <code>BertForSequenceClassification</code> 的输入、输出和 shape。</li>
+<li>明确了 train、validation、test 的职责边界。</li>
+<li>分析了训练曲线、验证集 loss 和过拟合迹象。</li>
+<li>根据混淆矩阵理解 accuracy、precision、recall 和 F1。</li>
+<li>检查了 Day 4 代码中的路径、数据划分和复现注意点。</li>
+<li>初步理解 LoRA：冻结原始参数，只训练低秩更新参数。</li>
+<li>确认继续使用 SST-2 作为全量微调与 LoRA 的受控对比数据集。</li>
+</ul>
+<h2>一、Day 4 完整数据流</h2>
+<pre><code class="language-text">原始句子
+  → train / validation / test 划分
+  → tokenizer
+  → input_ids、attention_mask、token_type_ids
+  → Dataset / DataLoader
+  → batch
+  → BERT 分类模型
+  → logits、loss
+  → 预测与指标
+  → backward
+  → optimizer.step()
+  → validation
+  → 最终 test
+</code></pre>
+<p>一个训练 batch 的顺序是：</p>
+<pre><code class="language-text">取出 batch
+→ 移动到 MPS
+→ optimizer.zero_grad()
+→ 前向传播
+→ 得到 logits 和 loss
+→ 计算预测结果与指标
+→ loss.backward()
+→ optimizer.step()
+</code></pre>
+<p>验证阶段只进行前向计算和指标统计，不执行 <code>backward()</code> 或 <code>optimizer.step()</code>。</p>
+<h2>二、关键输入与输出 shape</h2>
+<p>设 batch size 为 <code>B</code>，序列最大长度为 <code>L</code>，二分类类别数为 <code>2</code>：</p>
+<pre><code class="language-text">input_ids       [B, L]
+attention_mask  [B, L]
+token_type_ids  [B, L]
+labels          [B]
+
+logits          [B, 2]
+loss            []  # 标量 Tensor
+predictions     [B]
+</code></pre>
+<p>在当前实验中：</p>
+<pre><code class="language-text">input_ids       [8, 64]
+attention_mask  [8, 64]
+token_type_ids  [8, 64]
+labels          [8]
+logits          [8, 2]
+loss            []
+</code></pre>
+<p><code>labels</code> 是 <code>[B]</code>，因为 SST-2 是句子级分类：每个句子只有一个情感标签，而不是每个 token 一个标签。</p>
+<p><code>logits.argmax(dim=1)</code> 将 <code>[B, 2]</code> 转换为 <code>[B]</code>，因此可以和 <code>labels</code> 逐样本比较。</p>
+<h2>三、数据边界与 checkpoint 规则</h2>
+<h3>3.1 三个 split 的职责</h3>
+<table>
+<thead>
+<tr>
+<th>数据集</th>
+<th style="text-align:right">是否更新参数</th>
+<th style="text-align:right">是否选择模型</th>
+<th>主要用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>train</td>
+<td style="text-align:right">是</td>
+<td style="text-align:right">否</td>
+<td>学习模型参数</td>
+</tr>
+<tr>
+<td>validation</td>
+<td style="text-align:right">否</td>
+<td style="text-align:right">是</td>
+<td>选择 checkpoint、调参</td>
+</tr>
+<tr>
+<td>test</td>
+<td style="text-align:right">否</td>
+<td style="text-align:right">否</td>
+<td>最终一次性报告结果</td>
+</tr>
+</tbody>
+</table>
+<p>当前实验只使用有标签数据，将原始 <code>train</code> 和 <code>validation</code> 合并后重新分层划分：</p>
+<pre><code class="language-text">80% train
+10% validation
+10% local held-out test
+</code></pre>
+<p>官方 SST-2 test 没有参与本次本地实验。因此当前测试结果是本地重新划分的 labeled held-out test 结果，不是官方 GLUE hidden-test leaderboard 结果。</p>
+<h3>3.2 选择最佳模型</h3>
+<p>当前验证集 loss 在 epoch 1 最低，为 <code>0.1452</code>。如果预先规定“validation loss 最低优先”，应选择 epoch 1 的 checkpoint，然后只在最后使用它评估 test。</p>
+<p>不能因为某个 epoch 的 test accuracy 更高，就事后改变 checkpoint 选择规则。</p>
+<h2>四、实验结果与过拟合分析</h2>
+<table>
+<thead>
+<tr>
+<th style="text-align:right">Epoch</th>
+<th style="text-align:right">Train Accuracy</th>
+<th style="text-align:right">Validation Accuracy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">1</td>
+<td style="text-align:right">0.9153</td>
+<td style="text-align:right">0.9488</td>
+</tr>
+<tr>
+<td style="text-align:right">2</td>
+<td style="text-align:right">0.9608</td>
+<td style="text-align:right">0.9381</td>
+</tr>
+<tr>
+<td style="text-align:right">3</td>
+<td style="text-align:right">0.9746</td>
+<td style="text-align:right">0.9506</td>
+</tr>
+</tbody>
+</table>
+<p>训练 accuracy 持续上升，说明模型越来越适应训练数据；验证集表现没有同步稳定提升，且 validation loss 在 epoch 1 后回升，说明继续训练后出现了过拟合迹象。</p>
+<p>判断模型是否变好，不能只看 train accuracy，还要观察 validation loss、validation accuracy 以及训练集与验证集之间的差距。</p>
+<h2>五、混淆矩阵与指标</h2>
+<p>当前混淆矩阵约定为“行是真实标签，列是预测标签”：</p>
+<pre><code class="language-text">              预测 0   预测 1
+真实 0          2852     169
+真实 1           151    3651
+</code></pre>
+<p>因此：</p>
+<pre><code class="language-text">TN = 2852
+FP = 169
+FN = 151
+TP = 3651
+</code></pre>
+<pre><code class="language-text">accuracy = (TP + TN) / 总样本数
+precision = TP / (TP + FP)
+recall = TP / (TP + FN)
+F1 = 2 × precision × recall / (precision + recall)
+</code></pre>
+<p>当前结果：</p>
+<pre><code class="language-text">test loss       = 0.1709
+test accuracy   = 0.9531
+正类 precision  ≈ 0.955
+正类 recall     ≈ 0.960
+正类 F1         ≈ 0.958
+</code></pre>
+<p>其中：</p>
+<ul>
+<li><code>FP=169</code>：真实为负面，但预测为正面；</li>
+<li><code>FN=151</code>：真实为正面，但预测为负面。</li>
+</ul>
+<p>后续失败案例分析可以分别抽取 FP 和 FN 的原始句子，观察否定、反讽、复杂从句和上下文冲突等现象。</p>
+<h2>六、代码与复现检查</h2>
+<p>代码使用：</p>
+<pre><code class="language-python">CODE_DIR = Path(__file__).resolve().parent.parent
+</code></pre>
+<p>相较于 <code>Path.cwd()</code>，它不依赖启动脚本时所在的目录，因此缓存和输出路径更稳定。</p>
+<p>当前关键配置：</p>
+<pre><code class="language-text">SEED = 42
+BATCH_SIZE = 8
+MAX_LENGTH = 64
+NUM_EPOCHS = 3
+LEARNING_RATE = 2e-5
+DEVICE = MPS（如果可用）
+</code></pre>
+<p><code>SEED=42</code> 主要保证数据划分一致；它不一定保证 MPS 上每次训练结果完全逐位一致。模型初始化、DataLoader shuffle 和硬件算子仍可能带来少量差异。</p>
+<h2>七、LoRA 最小概念</h2>
+<p>全量微调直接更新原始参数：</p>
+<pre><code class="language-text">W → W + ΔW
+</code></pre>
+<p>LoRA 冻结原始参数 <code>W</code>，只训练两个较小的矩阵 <code>A</code> 和 <code>B</code>：</p>
+<pre><code class="language-text">ΔW = B × A
+W' = W + B × A
+</code></pre>
+<p>因此：</p>
+<pre><code class="language-text">全量微调：更新 BERT 几乎所有原始参数
+LoRA：冻结原始参数，只训练少量 A、B 参数
+</code></pre>
+<p>后续对比实验的自变量是微调方法：全量微调 vs LoRA；控制变量包括数据划分、模型、tokenizer、最大长度、batch size、随机种子和评价流程。</p>
+<p>如果 LoRA 的 accuracy 接近全量微调，但可训练参数量大幅减少，说明 LoRA 可能以更低的训练成本取得接近的任务效果。</p>
+<h2>八、SST-2 作为求职项目的数据集边界</h2>
+<p>SST-2 是 GLUE 中的标准英文情感二分类任务，适合用来验证 BERT 微调、参数高效微调和实验评价流程。</p>
+<p>它适合本项目的原因：</p>
+<ul>
+<li>数据和任务容易解释；</li>
+<li>适合控制变量对比全量微调与 LoRA；</li>
+<li>可以同时记录参数量、训练时间、accuracy、F1、混淆矩阵和 MPS 资源占用；</li>
+<li>数据规模适合本地 MPS 实验。</li>
+</ul>
+<p>它的局限是情感分类较常见，业务相关性有限。因此简历中不应只强调 SST-2 accuracy，而应强调：</p>
+<pre><code class="language-text">可复现实验设计
+→ 全量微调与 LoRA 对比
+→ 参数效率分析
+→ 资源占用分析
+→ 失败案例分析
+</code></pre>
+<p>推荐的项目表述：</p>
+<blockquote>
+<p>基于 BERT 在 SST-2 上实现全量微调与 LoRA 参数高效微调对比实验，固定数据划分与训练配置，系统比较可训练参数量、训练时间、Accuracy、F1、混淆矩阵及 MPS 资源占用，并分析过拟合与误分类案例。</p>
+</blockquote>
+<p>项目中必须注明：测试结果来自本地重新划分的 labeled held-out test，不是官方 GLUE hidden-test leaderboard 结果。</p>
+<h2>九、今天的易错点</h2>
+<ol>
+<li>句子分类的 <code>labels</code> 是 <code>[B]</code>，不是 <code>[B, L]</code>。</li>
+<li><code>outputs.loss</code> 是标量，不是每个样本一个 <code>[B]</code> 的 Tensor。</li>
+<li>validation 用于选择模型，test 不能参与调参。</li>
+<li>train accuracy 上升不等于泛化能力一定提升。</li>
+<li><code>argmax(dim=1)</code> 后的预测 shape 是 <code>[B]</code>。</li>
+<li>LoRA 不是只训练“一个低秩矩阵”，而是训练两个小矩阵，其乘积构成低秩更新。</li>
+<li>本地 held-out test 结果不能写成官方 SST-2 leaderboard 结果。</li>
+</ol>
+<h2>十、下一步行动</h2>
+<ol>
+<li>学习 LoRA 论文的核心机制：低秩假设、冻结基座模型和增量更新。</li>
+<li>明确 LoRA 插入 BERT 哪些线性层，以及分类头是否训练。</li>
+<li>在相同 split 和评价流程下实现 LoRA 对比实验。</li>
+<li>记录可训练参数量、训练时间、accuracy、F1、混淆矩阵和 MPS 资源占用。</li>
+</ol>
+<h2>参考资料</h2>
+<ul>
+<li><a href="/learning/pytorch/notes/stage-4/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-bert-%E6%9C%80%E5%B0%8F%E5%BE%AE%E8%B0%83%E9%97%AD%E7%8E%AF.html">Day 4 学习笔记：BERT 最小微调闭环</a></li>
+<li><a href="https://aclanthology.org/W18-5446.pdf" rel="noreferrer">GLUE: A Multi-Task Benchmark and Analysis Platform for Natural Language Understanding</a></li>
+<li><a href="https://huggingface.co/datasets/nyu-mll/glue/blob/main/README.md" rel="noreferrer">Hugging Face GLUE 数据集卡片</a></li>
+<li><a href="https://arxiv.org/abs/2106.09685" rel="noreferrer">LoRA: Low-Rank Adaptation of Large Language Models</a></li>
+</ul>
+</div></article>
+  </main>
+</body>
+</html>

@@ -1,4 +1,5 @@
 {
+  "version": 1,
   "stages": [
     {
       "key": "foundation",
@@ -15,6 +16,18 @@
     {
       "key": "stage-3",
       "label": "卷积网络"
+    },
+    {
+      "key": "stage-4",
+      "label": "Transformer 与 BERT"
+    },
+    {
+      "key": "stage-5",
+      "label": "全量微调与 LoRA"
+    },
+    {
+      "key": "stage-6",
+      "label": "RAG"
     }
   ],
   "notes": [
@@ -23,179 +36,433 @@
       "stageLabel": "学习路线",
       "title": "PyTorch 暑期详细学习计划",
       "slug": "pytorch-暑期详细学习计划",
+      "sourcePath": "PyTorch 暑期详细学习计划.md",
       "isOverview": true
     },
     {
       "stageKey": "foundation",
       "stageLabel": "基础阶段",
       "title": "Day 1 学习笔记：Python 进阶语法",
-      "slug": "day-1-学习笔记-python-进阶语法"
+      "slug": "day-1-学习笔记-python-进阶语法",
+      "sourcePath": "Foundation_Stage/Day 1 学习笔记：Python 进阶语法.md"
     },
     {
       "stageKey": "foundation",
       "stageLabel": "基础阶段",
       "title": "Day 2 学习笔记：文件操作 + 异常处理 + 综合小项目",
-      "slug": "day-2-学习笔记-文件操作-异常处理-综合小项目"
+      "slug": "day-2-学习笔记-文件操作-异常处理-综合小项目",
+      "sourcePath": "Foundation_Stage/Day 2 学习笔记：文件操作 + 异常处理 + 综合小项目.md"
     },
     {
       "stageKey": "foundation",
       "stageLabel": "基础阶段",
       "title": "Day 3 学习笔记：NumPy 数组基础",
-      "slug": "day-3-学习笔记-numpy-数组基础"
+      "slug": "day-3-学习笔记-numpy-数组基础",
+      "sourcePath": "Foundation_Stage/Day 3 学习笔记：NumPy 数组基础.md"
     },
     {
       "stageKey": "foundation",
       "stageLabel": "基础阶段",
       "title": "Day 4 学习笔记：数组运算 · 矩阵乘法 · 转置 · 广播",
-      "slug": "day-4-学习笔记-数组运算-矩阵乘法-转置-广播"
+      "slug": "day-4-学习笔记-数组运算-矩阵乘法-转置-广播",
+      "sourcePath": "Foundation_Stage/Day 4 学习笔记：数组运算 · 矩阵乘法 · 转置 · 广播.md"
     },
     {
       "stageKey": "foundation",
       "stageLabel": "基础阶段",
       "title": "Day 5 学习笔记：统计函数 _ random 模块 _ 手写线性回归",
-      "slug": "day-5-学习笔记-统计函数-random-模块-手写线性回归"
+      "slug": "day-5-学习笔记-统计函数-random-模块-手写线性回归",
+      "sourcePath": "Foundation_Stage/Day 5 学习笔记：统计函数 _ random 模块 _ 手写线性回归.md"
     },
     {
       "stageKey": "foundation",
       "stageLabel": "基础阶段",
       "title": "Day 6 学习笔记：matplotlib学习",
-      "slug": "day-6-学习笔记-matplotlib学习"
+      "slug": "day-6-学习笔记-matplotlib学习",
+      "sourcePath": "Foundation_Stage/Day 6 学习笔记：matplotlib学习.md"
     },
     {
       "stageKey": "foundation",
       "stageLabel": "基础阶段",
       "title": "Day 7 学习笔记：DataFrame学习",
-      "slug": "day-7-学习笔记-dataframe学习"
+      "slug": "day-7-学习笔记-dataframe学习",
+      "sourcePath": "Foundation_Stage/Day 7 学习笔记：DataFrame学习.md"
     },
     {
       "stageKey": "foundation",
       "stageLabel": "基础阶段",
       "title": "Day 8 学习笔记： pandas进阶与numpy互转",
-      "slug": "day-8-学习笔记-pandas进阶与numpy互转"
+      "slug": "day-8-学习笔记-pandas进阶与numpy互转",
+      "sourcePath": "Foundation_Stage/Day 8 学习笔记： pandas进阶与numpy互转.md"
     },
     {
       "stageKey": "foundation",
       "stageLabel": "基础阶段",
       "title": "Day 9 学习笔记：Titanic 综合实战 —— 完整数据分析项目",
-      "slug": "day-9-学习笔记-titanic-综合实战-完整数据分析项目"
+      "slug": "day-9-学习笔记-titanic-综合实战-完整数据分析项目",
+      "sourcePath": "Foundation_Stage/Day 9 学习笔记：Titanic 综合实战 —— 完整数据分析项目.md"
     },
     {
       "stageKey": "foundation",
       "stageLabel": "基础阶段",
       "title": "Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习",
-      "slug": "day-10-学习笔记-查漏补缺-pytorch-预习"
+      "slug": "day-10-学习笔记-查漏补缺-pytorch-预习",
+      "sourcePath": "Foundation_Stage/Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习.md"
     },
     {
       "stageKey": "stage-1",
       "stageLabel": "Tensor 与自动微分",
       "title": "Day 1 学习笔记：Tensor基本操作",
-      "slug": "day-1-学习笔记-tensor基本操作"
+      "slug": "day-1-学习笔记-tensor基本操作",
+      "sourcePath": "Stage1/Day 1 学习笔记：Tensor基本操作.md"
     },
     {
       "stageKey": "stage-1",
       "stageLabel": "Tensor 与自动微分",
       "title": "Day 2 学习笔记：PyTorch Autograd 自动微分基础",
-      "slug": "day-2-学习笔记-pytorch-autograd-自动微分基础"
+      "slug": "day-2-学习笔记-pytorch-autograd-自动微分基础",
+      "sourcePath": "Stage1/Day 2 学习笔记：PyTorch Autograd 自动微分基础.md"
     },
     {
       "stageKey": "stage-1",
       "stageLabel": "Tensor 与自动微分",
       "title": "Day 3 学习笔记：手写线性回归（纯 Tensor 实现）",
-      "slug": "day-3-学习笔记-手写线性回归-纯-tensor-实现"
+      "slug": "day-3-学习笔记-手写线性回归-纯-tensor-实现",
+      "sourcePath": "Stage1/Day 3 学习笔记：手写线性回归（纯 Tensor 实现）.md"
     },
     {
       "stageKey": "stage-1",
       "stageLabel": "Tensor 与自动微分",
       "title": "Day 4 学习笔记：手写 Softmax 分类（纯 Tensor 实现）",
-      "slug": "day-4-学习笔记-手写-softmax-分类-纯-tensor-实现"
+      "slug": "day-4-学习笔记-手写-softmax-分类-纯-tensor-实现",
+      "sourcePath": "Stage1/Day 4 学习笔记：手写 Softmax 分类（纯 Tensor 实现）.md"
     },
     {
       "stageKey": "stage-2",
       "stageLabel": "模型与训练闭环",
       "title": "Day 1 学习笔记：nn.Module 与常用层入门",
-      "slug": "day-1-学习笔记-nn-module-与常用层入门"
+      "slug": "day-1-学习笔记-nn-module-与常用层入门",
+      "sourcePath": "Stage2/Day 1 学习笔记：nn.Module 与常用层入门.md"
     },
     {
       "stageKey": "stage-2",
       "stageLabel": "模型与训练闭环",
       "title": "Day 2 学习笔记：MLP 多层感知机与正则化",
-      "slug": "day-2-学习笔记-mlp-多层感知机与正则化"
+      "slug": "day-2-学习笔记-mlp-多层感知机与正则化",
+      "sourcePath": "Stage2/Day 2 学习笔记：MLP 多层感知机与正则化.md"
     },
     {
       "stageKey": "stage-2",
       "stageLabel": "模型与训练闭环",
       "title": "Day 3 学习笔记：自定义 Dataset 与 DataLoader 深入",
-      "slug": "day-3-学习笔记-自定义-dataset-与-dataloader-深入"
+      "slug": "day-3-学习笔记-自定义-dataset-与-dataloader-深入",
+      "sourcePath": "Stage2/Day 3 学习笔记：自定义 Dataset 与 DataLoader 深入.md"
     },
     {
       "stageKey": "stage-2",
       "stageLabel": "模型与训练闭环",
       "title": "Day 4 学习笔记：模型保存加载与可视化",
-      "slug": "day-4-学习笔记-模型保存加载与可视化"
+      "slug": "day-4-学习笔记-模型保存加载与可视化",
+      "sourcePath": "Stage2/Day 4 学习笔记：模型保存加载与可视化.md"
     },
     {
       "stageKey": "stage-2",
       "stageLabel": "模型与训练闭环",
       "title": "Day 5 学习笔记：MNIST 综合复盘实验",
-      "slug": "day-5-学习笔记-mnist-综合复盘实验"
+      "slug": "day-5-学习笔记-mnist-综合复盘实验",
+      "sourcePath": "Stage2/Day 5 学习笔记：MNIST 综合复盘实验.md"
     },
     {
       "stageKey": "stage-3",
       "stageLabel": "卷积网络",
       "title": "Day 1 学习笔记：卷积操作基础——shape 与参数量",
-      "slug": "day-1-学习笔记-卷积操作基础-shape-与参数量"
+      "slug": "day-1-学习笔记-卷积操作基础-shape-与参数量",
+      "sourcePath": "stage3/Day 1 学习笔记：卷积操作基础——shape 与参数量.md"
     },
     {
       "stageKey": "stage-3",
       "stageLabel": "卷积网络",
       "title": "Day 2 学习笔记：经典 CNN——LeNet",
-      "slug": "day-2-学习笔记-经典-cnn-lenet"
+      "slug": "day-2-学习笔记-经典-cnn-lenet",
+      "sourcePath": "stage3/Day 2 学习笔记：经典 CNN——LeNet.md"
     },
     {
       "stageKey": "stage-3",
       "stageLabel": "卷积网络",
       "title": "Day 3 学习笔记：残差网络 ResNet——残差块核心",
-      "slug": "day-3-学习笔记-残差网络-resnet-残差块核心"
+      "slug": "day-3-学习笔记-残差网络-resnet-残差块核心",
+      "sourcePath": "stage3/Day 3 学习笔记：残差网络 ResNet——残差块核心.md"
     },
     {
       "stageKey": "stage-3",
       "stageLabel": "卷积网络",
       "title": "Day 4 学习笔记：迁移学习最小实战——预训练 ResNet18",
-      "slug": "day-4-学习笔记-迁移学习最小实战-预训练-resnet18"
+      "slug": "day-4-学习笔记-迁移学习最小实战-预训练-resnet18",
+      "sourcePath": "stage3/Day 4 学习笔记：迁移学习最小实战——预训练 ResNet18.md"
+    },
+    {
+      "stageKey": "stage-3",
+      "stageLabel": "卷积网络",
+      "title": "Day 5 学习笔记：阶段三结果复盘——CNN 与迁移学习",
+      "slug": "day-5-学习笔记-阶段三结果复盘-cnn-与迁移学习",
+      "sourcePath": "stage3/Day 5 学习笔记：阶段三结果复盘——CNN 与迁移学习.md"
+    },
+    {
+      "stageKey": "stage-4",
+      "stageLabel": "Transformer 与 BERT",
+      "title": "Day 1 学习笔记：Attention 机制原理——Scaled Dot-Product Attention",
+      "slug": "day-1-学习笔记-attention-机制原理-scaled-dot-product-attention",
+      "sourcePath": "stage4/Day 1 学习笔记：Attention 机制原理——Scaled Dot-Product Attention.md"
+    },
+    {
+      "stageKey": "stage-4",
+      "stageLabel": "Transformer 与 BERT",
+      "title": "Day 2 学习笔记：Multi-Head Attention——拆分与合并",
+      "slug": "day-2-学习笔记-multi-head-attention-拆分与合并",
+      "sourcePath": "stage4/Day 2 学习笔记：Multi-Head Attention——拆分与合并.md"
+    },
+    {
+      "stageKey": "stage-4",
+      "stageLabel": "Transformer 与 BERT",
+      "title": "Day 3 学习笔记：HuggingFace BERT tokenizer 与 DataLoader",
+      "slug": "day-3-学习笔记-huggingface-bert-tokenizer-与-dataloader",
+      "sourcePath": "stage4/Day 3 学习笔记：HuggingFace BERT tokenizer 与 DataLoader.md"
+    },
+    {
+      "stageKey": "stage-4",
+      "stageLabel": "Transformer 与 BERT",
+      "title": "Day 4 学习笔记：BERT 最小微调闭环",
+      "slug": "day-4-学习笔记-bert-最小微调闭环",
+      "sourcePath": "stage4/Day 4 学习笔记：BERT 最小微调闭环.md"
+    },
+    {
+      "stageKey": "stage-4",
+      "stageLabel": "Transformer 与 BERT",
+      "title": "Day 5 学习笔记：阶段四复盘——BERT 全量微调基线与 LoRA 对比准备",
+      "slug": "day-5-学习笔记-阶段四复盘-bert-全量微调基线与-lora-对比准备",
+      "sourcePath": "stage4/Day 5 学习笔记：阶段四复盘——BERT 全量微调基线与 LoRA 对比准备.md"
+    },
+    {
+      "stageKey": "stage-5",
+      "stageLabel": "全量微调与 LoRA",
+      "title": "Stage 5 学习笔记：BERT 全量微调与 LoRA 参数高效微调对比实验",
+      "slug": "stage-5-学习笔记-bert-全量微调与-lora-参数高效微调对比实验",
+      "sourcePath": "stage5/Stage 5 学习笔记：BERT 全量微调与 LoRA 参数高效微调对比实验.md"
+    },
+    {
+      "stageKey": "stage-6",
+      "stageLabel": "RAG",
+      "title": "Stage 6 学习笔记：RAG 理论学习与复盘",
+      "slug": "stage-6-学习笔记-rag-理论学习与复盘",
+      "sourcePath": "stage6/Stage 6 学习笔记：RAG 理论学习与复盘.md"
     }
   ],
   "attachments": [
     {
-      "stageKey": "stage-1",
-      "name": "Pasted image 20260629213515.png"
+      "sourcePath": "Stage1/attachments/Pasted image 20260629213515.png",
+      "path": "assets/stage-1/Pasted image 20260629213515.png"
     },
     {
-      "stageKey": "stage-1",
-      "name": "Pasted image 20260629213537.png"
+      "sourcePath": "Stage1/attachments/Pasted image 20260629213537.png",
+      "path": "assets/stage-1/Pasted image 20260629213537.png"
     },
     {
-      "stageKey": "stage-1",
-      "name": "Pasted image 20260630155424.png"
+      "sourcePath": "Stage1/attachments/Pasted image 20260630155424.png",
+      "path": "assets/stage-1/Pasted image 20260630155424.png"
     },
     {
-      "stageKey": "stage-1",
-      "name": "Pasted image 20260630155530.png"
+      "sourcePath": "Stage1/attachments/Pasted image 20260630155530.png",
+      "path": "assets/stage-1/Pasted image 20260630155530.png"
     },
     {
-      "stageKey": "stage-2",
-      "name": "Pasted image 20260711131522.png"
+      "sourcePath": "Stage2/attachments/Pasted image 20260711131522.png",
+      "path": "assets/stage-2/Pasted image 20260711131522.png"
     },
     {
-      "stageKey": "stage-2",
-      "name": "Pasted image 20260713121044.png"
+      "sourcePath": "Stage2/attachments/Pasted image 20260713121044.png",
+      "path": "assets/stage-2/Pasted image 20260713121044.png"
     },
     {
-      "stageKey": "stage-3",
-      "name": "Day2_LeNet.png"
+      "sourcePath": "stage3/attachments/Day2_LeNet.png",
+      "path": "assets/stage-3/Day2_LeNet.png"
     },
     {
-      "stageKey": "stage-3",
-      "name": "Day2_MLP_LeNet对比.png"
+      "sourcePath": "stage3/attachments/Day2_MLP_LeNet对比.png",
+      "path": "assets/stage-3/Day2_MLP_LeNet对比.png"
+    },
+    {
+      "sourcePath": "stage4/Day5.py",
+      "path": "assets/stage-4/Day5.py"
+    },
+    {
+      "sourcePath": "stage4/attachments/test_confusion_matrix.png",
+      "path": "assets/stage-4/test_confusion_matrix.png"
+    },
+    {
+      "sourcePath": "stage4/attachments/training_curves.png",
+      "path": "assets/stage-4/training_curves.png"
+    },
+    {
+      "sourcePath": "stage5/attachments/full_test_confusion_matrix.png",
+      "path": "assets/stage-5/full_test_confusion_matrix.png"
+    },
+    {
+      "sourcePath": "stage5/attachments/lora_test_confusion_matrix.png",
+      "path": "assets/stage-5/lora_test_confusion_matrix.png"
+    },
+    {
+      "sourcePath": "stage5/attachments/training_curves_comparison.png",
+      "path": "assets/stage-5/training_curves_comparison.png"
     }
+  ],
+  "remoteAssets": {
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781157623066-cb5785bd-6712-4847-8ae6-6220854c594a.png": "assets/remote/9cf0b8c3d9b487b39653.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781333439590-e89f7757-8b29-42e8-99d7-4a71885bb266.png": "assets/remote/a9afc298cb30084866e7.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874425306-b615b54c-57f6-47c9-98b1-355cfb3ba47c.png": "assets/remote/15e2e36bca901bbec9d1.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874456260-ad93367e-bfce-4ca3-8bba-48108017f2d0.png": "assets/remote/c8a69a970da6c7ccdccc.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874496359-e9aa7774-f1a6-4a42-99d1-62d1eeddf292.png": "assets/remote/cd6b3f19b6b73953ca02.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874523893-8c3d6963-d69b-4848-a6ba-80f96e6714cb.png": "assets/remote/898f5b4cecc2201243dc.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874549796-6fc8c2b2-fa16-4d07-9d96-060794a31090.png": "assets/remote/db635b4434b0bdcb5ace.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874577908-26b5002c-ddbe-4ab6-8fc6-a8e83fa0b18c.png": "assets/remote/9bef385199da03838376.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874598402-630d402b-564d-4461-9f2b-54f4b79c1b71.png": "assets/remote/ed797ea5628a88b7b057.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874625276-87274ac5-0ad6-4492-b23b-f0a3662cbef8.png": "assets/remote/0771314eaf5e3e9661c0.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874646888-e6c81923-9bb5-4ab0-96fb-f39a2da66c5a.png": "assets/remote/2d33da6128b43f2709d6.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874675910-df073785-34bc-4fe3-a5df-91a7892d69c3.png": "assets/remote/ab49005b4c402c5adcb4.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874699080-ac42fdc9-5cd8-4b77-92c0-419a458e17e6.png": "assets/remote/4165507497c8562cdb9f.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874739163-c01cac98-96f7-4bbf-b873-baee45bccde9.png": "assets/remote/a27cf4a167fe8feddd18.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874768122-b3ae60c5-2af4-47b8-8a21-b51f32995c0f.png": "assets/remote/c7fb7f9e3efb1a8358dd.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781874795717-9968f736-1354-4051-a619-762860ea89d0.png": "assets/remote/6fe6dc5bac27e8cac9f9.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781955902034-af81b68a-7dad-4163-85dd-b8152a39a4fc.png": "assets/remote/0839d95098d2ffc82113.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781955924311-b9fb8d4d-046e-4e63-9154-c732f4d68941.png": "assets/remote/08cbe80dcd0a4d647e4b.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781955971086-61d869b5-503f-4231-9935-44536ef5794e.png": "assets/remote/12c55f31c2ac50953481.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781955986404-fce13b5f-ba17-45bd-99c2-0f2a3b6b6771.png": "assets/remote/04d4baeb91983acc3ee6.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781956001298-df1407db-14df-495f-aa5c-ca91e698f085.png": "assets/remote/dfe827470529f11aadda.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781956028108-b1fd1b90-cb88-4c6f-97a3-d8816bd705b8.png": "assets/remote/b40db8474ea537f5a619.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781956042946-e98b04a8-f01a-46a0-9e57-88c1d6777900.png": "assets/remote/a5942abbf7b4a415e617.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781956064269-db9bc0e9-c650-4bde-ae50-2644904e73e4.png": "assets/remote/e14f0e0e7157807781e3.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781956087362-e4df545e-f7ea-49ff-9abd-dbcf62d22756.png": "assets/remote/6e4bd90428d60262c0fe.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781956105091-52ee2101-04a3-40f7-b8d7-48b4e8c0f7ac.png": "assets/remote/4dc83280a2eba027d5ce.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781956137768-376f2a10-602c-4452-99d1-7db458346a3d.png": "assets/remote/07b1edf0b7889cfc38d3.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781956160121-275e7c36-76bd-4876-8082-c7fc8ee5deeb.png": "assets/remote/e72949d9a64bef034d1f.png",
+    "https://cdn.nlark.com/yuque/0/2026/png/40434945/1781956204841-6563aaa1-5161-4e9a-8ddc-493729d73275.png": "assets/remote/191e08d841b3b66e9973.png"
+  },
+  "warnings": [],
+  "generatedFiles": [
+    "assets/remote/2d33da6128b43f2709d6.png",
+    "assets/remote/04d4baeb91983acc3ee6.png",
+    "assets/remote/4dc83280a2eba027d5ce.png",
+    "assets/remote/6e4bd90428d60262c0fe.png",
+    "assets/remote/6fe6dc5bac27e8cac9f9.png",
+    "assets/remote/07b1edf0b7889cfc38d3.png",
+    "assets/remote/08cbe80dcd0a4d647e4b.png",
+    "assets/remote/9bef385199da03838376.png",
+    "assets/remote/9cf0b8c3d9b487b39653.png",
+    "assets/remote/12c55f31c2ac50953481.png",
+    "assets/remote/15e2e36bca901bbec9d1.png",
+    "assets/remote/191e08d841b3b66e9973.png",
+    "assets/remote/0839d95098d2ffc82113.png",
+    "assets/remote/898f5b4cecc2201243dc.png",
+    "assets/remote/0771314eaf5e3e9661c0.png",
+    "assets/remote/4165507497c8562cdb9f.png",
+    "assets/remote/a9afc298cb30084866e7.png",
+    "assets/remote/a27cf4a167fe8feddd18.png",
+    "assets/remote/a5942abbf7b4a415e617.png",
+    "assets/remote/ab49005b4c402c5adcb4.png",
+    "assets/remote/b40db8474ea537f5a619.png",
+    "assets/remote/c7fb7f9e3efb1a8358dd.png",
+    "assets/remote/c8a69a970da6c7ccdccc.png",
+    "assets/remote/cd6b3f19b6b73953ca02.png",
+    "assets/remote/db635b4434b0bdcb5ace.png",
+    "assets/remote/dfe827470529f11aadda.png",
+    "assets/remote/e14f0e0e7157807781e3.png",
+    "assets/remote/e72949d9a64bef034d1f.png",
+    "assets/remote/ed797ea5628a88b7b057.png",
+    "assets/stage-1/Pasted image 20260629213515.png",
+    "assets/stage-1/Pasted image 20260629213537.png",
+    "assets/stage-1/Pasted image 20260630155424.png",
+    "assets/stage-1/Pasted image 20260630155530.png",
+    "assets/stage-2/Pasted image 20260711131522.png",
+    "assets/stage-2/Pasted image 20260713121044.png",
+    "assets/stage-3/Day2_LeNet.png",
+    "assets/stage-3/Day2_MLP_LeNet对比.png",
+    "assets/stage-4/Day5.py",
+    "assets/stage-4/test_confusion_matrix.png",
+    "assets/stage-4/training_curves.png",
+    "assets/stage-5/full_test_confusion_matrix.png",
+    "assets/stage-5/lora_test_confusion_matrix.png",
+    "assets/stage-5/training_curves_comparison.png",
+    "foundation/index.html",
+    "index.html",
+    "manifest.json",
+    "markdown/foundation/day-1-学习笔记-python-进阶语法.md",
+    "markdown/foundation/day-2-学习笔记-文件操作-异常处理-综合小项目.md",
+    "markdown/foundation/day-3-学习笔记-numpy-数组基础.md",
+    "markdown/foundation/day-4-学习笔记-数组运算-矩阵乘法-转置-广播.md",
+    "markdown/foundation/day-5-学习笔记-统计函数-random-模块-手写线性回归.md",
+    "markdown/foundation/day-6-学习笔记-matplotlib学习.md",
+    "markdown/foundation/day-7-学习笔记-dataframe学习.md",
+    "markdown/foundation/day-8-学习笔记-pandas进阶与numpy互转.md",
+    "markdown/foundation/day-9-学习笔记-titanic-综合实战-完整数据分析项目.md",
+    "markdown/foundation/day-10-学习笔记-查漏补缺-pytorch-预习.md",
+    "markdown/overview/pytorch-暑期详细学习计划.md",
+    "markdown/stage-1/day-1-学习笔记-tensor基本操作.md",
+    "markdown/stage-1/day-2-学习笔记-pytorch-autograd-自动微分基础.md",
+    "markdown/stage-1/day-3-学习笔记-手写线性回归-纯-tensor-实现.md",
+    "markdown/stage-1/day-4-学习笔记-手写-softmax-分类-纯-tensor-实现.md",
+    "markdown/stage-2/day-1-学习笔记-nn-module-与常用层入门.md",
+    "markdown/stage-2/day-2-学习笔记-mlp-多层感知机与正则化.md",
+    "markdown/stage-2/day-3-学习笔记-自定义-dataset-与-dataloader-深入.md",
+    "markdown/stage-2/day-4-学习笔记-模型保存加载与可视化.md",
+    "markdown/stage-2/day-5-学习笔记-mnist-综合复盘实验.md",
+    "markdown/stage-3/day-1-学习笔记-卷积操作基础-shape-与参数量.md",
+    "markdown/stage-3/day-2-学习笔记-经典-cnn-lenet.md",
+    "markdown/stage-3/day-3-学习笔记-残差网络-resnet-残差块核心.md",
+    "markdown/stage-3/day-4-学习笔记-迁移学习最小实战-预训练-resnet18.md",
+    "markdown/stage-3/day-5-学习笔记-阶段三结果复盘-cnn-与迁移学习.md",
+    "markdown/stage-4/day-1-学习笔记-attention-机制原理-scaled-dot-product-attention.md",
+    "markdown/stage-4/day-2-学习笔记-multi-head-attention-拆分与合并.md",
+    "markdown/stage-4/day-3-学习笔记-huggingface-bert-tokenizer-与-dataloader.md",
+    "markdown/stage-4/day-4-学习笔记-bert-最小微调闭环.md",
+    "markdown/stage-4/day-5-学习笔记-阶段四复盘-bert-全量微调基线与-lora-对比准备.md",
+    "markdown/stage-5/stage-5-学习笔记-bert-全量微调与-lora-参数高效微调对比实验.md",
+    "markdown/stage-6/stage-6-学习笔记-rag-理论学习与复盘.md",
+    "notes/foundation/day-1-学习笔记-python-进阶语法.html",
+    "notes/foundation/day-2-学习笔记-文件操作-异常处理-综合小项目.html",
+    "notes/foundation/day-3-学习笔记-numpy-数组基础.html",
+    "notes/foundation/day-4-学习笔记-数组运算-矩阵乘法-转置-广播.html",
+    "notes/foundation/day-5-学习笔记-统计函数-random-模块-手写线性回归.html",
+    "notes/foundation/day-6-学习笔记-matplotlib学习.html",
+    "notes/foundation/day-7-学习笔记-dataframe学习.html",
+    "notes/foundation/day-8-学习笔记-pandas进阶与numpy互转.html",
+    "notes/foundation/day-9-学习笔记-titanic-综合实战-完整数据分析项目.html",
+    "notes/foundation/day-10-学习笔记-查漏补缺-pytorch-预习.html",
+    "notes/overview/pytorch-暑期详细学习计划.html",
+    "notes/stage-1/day-1-学习笔记-tensor基本操作.html",
+    "notes/stage-1/day-2-学习笔记-pytorch-autograd-自动微分基础.html",
+    "notes/stage-1/day-3-学习笔记-手写线性回归-纯-tensor-实现.html",
+    "notes/stage-1/day-4-学习笔记-手写-softmax-分类-纯-tensor-实现.html",
+    "notes/stage-2/day-1-学习笔记-nn-module-与常用层入门.html",
+    "notes/stage-2/day-2-学习笔记-mlp-多层感知机与正则化.html",
+    "notes/stage-2/day-3-学习笔记-自定义-dataset-与-dataloader-深入.html",
+    "notes/stage-2/day-4-学习笔记-模型保存加载与可视化.html",
+    "notes/stage-2/day-5-学习笔记-mnist-综合复盘实验.html",
+    "notes/stage-3/day-1-学习笔记-卷积操作基础-shape-与参数量.html",
+    "notes/stage-3/day-2-学习笔记-经典-cnn-lenet.html",
+    "notes/stage-3/day-3-学习笔记-残差网络-resnet-残差块核心.html",
+    "notes/stage-3/day-4-学习笔记-迁移学习最小实战-预训练-resnet18.html",
+    "notes/stage-3/day-5-学习笔记-阶段三结果复盘-cnn-与迁移学习.html",
+    "notes/stage-4/day-1-学习笔记-attention-机制原理-scaled-dot-product-attention.html",
+    "notes/stage-4/day-2-学习笔记-multi-head-attention-拆分与合并.html",
+    "notes/stage-4/day-3-学习笔记-huggingface-bert-tokenizer-与-dataloader.html",
+    "notes/stage-4/day-4-学习笔记-bert-最小微调闭环.html",
+    "notes/stage-4/day-5-学习笔记-阶段四复盘-bert-全量微调基线与-lora-对比准备.html",
+    "notes/stage-5/stage-5-学习笔记-bert-全量微调与-lora-参数高效微调对比实验.html",
+    "notes/stage-6/stage-6-学习笔记-rag-理论学习与复盘.html",
+    "stage-1/index.html",
+    "stage-2/index.html",
+    "stage-3/index.html",
+    "stage-4/index.html",
+    "stage-5/index.html",
+    "stage-6/index.html"
   ]
 }

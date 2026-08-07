@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101c">
+  <title>Day 2 学习笔记：Multi-Head Attention——拆分与合并 · SNOWSTORM</title>
+  <link rel="stylesheet" href="/assets/library.css">
+</head>
+<body class="library-page">
+  <main class="library-shell">
+    <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
+    <p class="library-eyebrow">Transformer 与 BERT</p>
+    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-4/">Transformer 与 BERT</a></nav><article class="note-article"><h1>Day 2 学习笔记：Multi-Head Attention——拆分与合并</h1><div class="note-content"><h1>Multi-Head Attention：拆分与合并</h1>
+<p>学习目标：理解 Multi-Head Attention 如何从单头 Attention 扩展为多个 head，能够手写并验证拆分、并行计算和合并的完整数据流。</p>
+<p>本阶段重点：在 <a href="/learning/pytorch/notes/stage-4/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-attention-%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86-scaled-dot-product-attention.html">Day 1：Scaled Dot-Product Attention</a> 中已经完成单头 Attention。今天把同一套 Attention 计算并行应用到多个特征子空间，并将结果重新合并。</p>
+<p>今天主线：<code>x -&gt; W_q/W_k/W_v -&gt; split heads -&gt; QK^T -&gt; / sqrt(d_k) -&gt; Softmax -&gt; attention @ V -&gt; merge heads -&gt; W_o</code>。</p>
+<p>本笔记对应 [PyTorch 暑期详细学习计划](PyTorch 暑期详细学习计划) 中第 6 周 Day 2。</p>
+<p>关联笔记：<a href="/learning/pytorch/notes/stage-4/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-attention-%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86-scaled-dot-product-attention.html">Day 1：Attention 机制</a>、<a href="/learning/pytorch/notes/stage-1/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-tensor%E5%9F%BA%E6%9C%AC%E6%93%8D%E4%BD%9C.html">Tensor 基本操作</a>、<a href="/learning/pytorch/notes/stage-2/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-nn-module-%E4%B8%8E%E5%B8%B8%E7%94%A8%E5%B1%82%E5%85%A5%E9%97%A8.html">nn.Module 与常用层</a>、<a href="/learning/pytorch/notes/stage-3/day-5-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E9%98%B6%E6%AE%B5%E4%B8%89%E7%BB%93%E6%9E%9C%E5%A4%8D%E7%9B%98-cnn-%E4%B8%8E%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0.html">阶段三结果复盘</a>。</p>
+<hr>
+<h2>〇、今天完成了什么</h2>
+<ol>
+<li>理解 Multi-Head Attention 为什么要使用多个 head：不同 head 可以学习不同的关注模式。</li>
+<li>理解 <code>d_model</code>、<code>num_heads</code> 和 <code>d_k</code> 的关系：<code>d_k = d_model // num_heads</code>。</li>
+<li>理解三个 <code>nn.Linear</code> 如何从输入 <code>x</code> 生成 Q、K、V。</li>
+<li>完成了 <code>[B, L, d_model] -&gt; [B, H, L, d_k]</code> 的 head 拆分。</li>
+<li>在多头维度下完成了 <code>Q @ K^T</code>、缩放、Softmax 和 <code>attention_weights @ V</code>。</li>
+<li>完成了 <code>[B, H, L, d_k] -&gt; [B, L, d_model]</code> 的 head 合并。</li>
+<li>理解输出投影 <code>W_o</code> 主要用于混合不同 head 的信息，并保持 <code>d_model</code> 以支持残差连接。</li>
+<li>使用小 Tensor 验证了关键 shape，并整理成 <code>MultiHeadAttention(nn.Module)</code>。</li>
+<li>预览了选做的 Transformer Encoder 组成：位置编码、残差、LayerNorm 和 FFN；这些内容只完成了概念理解，没有生成完成完整 Encoder 实现。</li>
+</ol>
+<hr>
+<h2>一、从单头 Attention 到 Multi-Head Attention</h2>
+<p>Day 1 的单头 Attention 使用一套 Q、K、V 表示一类注意力关系：</p>
+<pre><code>Q、K、V -&gt; QK^T -&gt; / sqrt(d_k) -&gt; Softmax -&gt; attention_weights @ V
+</code></pre>
+<p>真实序列中可能同时存在多种关系：</p>
+<ul>
+<li>局部邻近关系；</li>
+<li>语法关系；</li>
+<li>主语和谓语关系；</li>
+<li>远距离指代关系；</li>
+<li>语义相似关系。</li>
+</ul>
+<p>如果所有关系都由同一个 Attention 表示，可能会混在同一个特征空间中。Multi-Head Attention 把 <code>d_model</code> 拆成多个较小的特征子空间，让不同 head 使用不同的 Q/K/V 投影，分别学习不同的关注模式。</p>
+<p>重要区分：多个 head 不是把序列长度切成几段。每个 head 都能看到完整的序列 <code>L</code>，只是每个 head 使用 <code>d_k</code> 维的特征空间。</p>
+<pre><code>d_model = 16
+num_heads = 4
+d_k = 16 / 4 = 4
+
+一个 token 的 16 个特征
+-&gt; 4 个 head
+-&gt; 每个 head 4 个特征
+</code></pre>
+<p>要求：</p>
+<pre><code>d_model % num_heads == 0
+</code></pre>
+<p>否则无法把特征维度平均拆分给各个 head。</p>
+<hr>
+<h2>二、Q、K、V 与线性层的关系</h2>
+<p>Q、K、V 不是三种特殊的数据类型，而是输入 <code>x</code> 经过三套独立线性层得到的三个 Tensor：</p>
+<pre><code>Q = W_q(x)
+K = W_k(x)
+V = W_v(x)
+</code></pre>
+<p>如果：</p>
+<pre><code>x: [B, L, d_model]
+</code></pre>
+<p>通常使用：</p>
+<pre><code>W_q = nn.Linear(d_model, d_model)
+W_k = nn.Linear(d_model, d_model)
+W_v = nn.Linear(d_model, d_model)
+</code></pre>
+<p>于是：</p>
+<pre><code>Q/K/V: [B, L, d_model]
+</code></pre>
+<p><code>nn.Linear</code> 只作用于最后一维，不改变 batch 数量 <code>B</code> 和序列长度 <code>L</code>。</p>
+<h3>2.1 为什么不能每次直接用随机数生成 QKV</h3>
+<p>Day 1 使用随机 Q/K/V 是为了验证矩阵运算、shape、Softmax 和 mask。真正的模型中，Q/K/V 必须依赖输入 <code>x</code>。</p>
+<pre><code>随机初始化的线性层：参数初始随机，但输出依赖 x，并且参数可以通过梯度更新
+每次直接随机生成 QKV：不依赖 x，也没有稳定的可学习参数
+</code></pre>
+<p>线性层的参数满足：</p>
+<pre><code>Q = xW_q + b_q
+K = xW_k + b_k
+V = xW_v + b_v
+</code></pre>
+<p>训练时，反向传播会计算 <code>W_q</code>、<code>W_k</code>、<code>W_v</code> 的梯度，优化器再更新它们。</p>
+<h3>2.2 为什么不直接令 Q=K=V=x</h3>
+<p>可以做简化实验，但三个角色会使用完全相同的表示，无法分别学习：</p>
+<pre><code>Q：我想找什么
+K：我有什么可被匹配的特征
+V：我最终提供什么内容
+</code></pre>
+<p>三套线性层让这三个角色拥有独立的可学习表示空间。</p>
+<hr>
+<h2>三、拆分 heads</h2>
+<p>输入 Q、K、V 在拆分前都是：</p>
+<pre><code>[B, L, d_model]
+</code></pre>
+<p>以：</p>
+<pre><code>B = 2
+L = 5
+d_model = 16
+num_heads = 4
+d_k = 4
+</code></pre>
+<p>为例。</p>
+<p>先把最后一维重新解释成 <code>num_heads * d_k</code>：</p>
+<pre><code>[B, L, d_model]
+-&gt; reshape
+[B, L, num_heads, d_k]
+
+[2, 5, 16]
+-&gt; [2, 5, 4, 4]
+</code></pre>
+<p>再交换序列长度维和 head 维：</p>
+<pre><code>[B, L, H, d_k]
+-&gt; transpose(1, 2)
+-&gt; [B, H, L, d_k]
+
+[2, 5, 4, 4]
+-&gt; [2, 4, 5, 4]
+</code></pre>
+<p>这里：</p>
+<ul>
+<li><code>reshape</code>：重新组织形状；</li>
+<li><code>transpose</code>：交换两个维度的位置。</li>
+</ul>
+<p>拆分后的每个 head 都保留完整序列长度 <code>L=5</code>，只是每个 head 的特征维度为 <code>d_k=4</code>。</p>
+<hr>
+<h2>四、每个 head 独立计算 Attention</h2>
+<p>拆分后：</p>
+<pre><code>Q/K/V: [B, H, L, d_k]
+</code></pre>
+<p>例如：</p>
+<pre><code>Q/K/V: [2, 4, 5, 4]
+</code></pre>
+<p>转置 K 的最后两个维度：</p>
+<pre><code>K.transpose(-2, -1): [B, H, d_k, L]
+                      [2, 4, 4, 5]
+</code></pre>
+<p>矩阵乘法：</p>
+<pre><code>Q @ K^T
+[B, H, L, d_k]
+@
+[B, H, d_k, L]
+-&gt; [B, H, L, L]
+
+[2, 4, 5, 4]
+@
+[2, 4, 4, 5]
+-&gt; [2, 4, 5, 5]
+</code></pre>
+<p>最后两个维度 <code>[L, L]</code> 表示：</p>
+<ul>
+<li>第一个 <code>L</code>：query 位置；</li>
+<li>第二个 <code>L</code>：key 位置。</li>
+</ul>
+<p>因此每个样本、每个 head 都有一张自己的注意力分数矩阵。</p>
+<p>之后与 Day 1 完全同构：</p>
+<pre><code>scores = Q @ K^T / sqrt(d_k)
+attention_weights = softmax(scores, dim=-1)
+head_output = attention_weights @ V
+</code></pre>
+<p>shape：</p>
+<pre><code>scores:            [B, H, L, L]
+attention_weights: [B, H, L, L]
+V:                 [B, H, L, d_k]
+head_output:       [B, H, L, d_k]
+</code></pre>
+<p>Multi-Head Attention 没有改变 Day 1 的 Attention 公式，只是让这套公式在多个 head 上并行运行。</p>
+<hr>
+<h2>五、合并 heads</h2>
+<p>每个 head 计算完成后：</p>
+<pre><code>out: [B, H, L, d_k]
+</code></pre>
+<p>要重新变回每个 token 的完整特征：</p>
+<pre><code>[B, H, L, d_k]
+-&gt; transpose(1, 2)
+-&gt; [B, L, H, d_k]
+-&gt; reshape
+-&gt; [B, L, H * d_k]
+-&gt; [B, L, d_model]
+</code></pre>
+<p>例如：</p>
+<pre><code>[2, 4, 5, 4]
+-&gt; [2, 5, 4, 4]
+-&gt; [2, 5, 16]
+</code></pre>
+<p>合并前必须先 transpose。不能直接对 <code>[B, H, L, d_k]</code> 做 reshape，因为此时 head 维和序列维的顺序还没有恢复，直接 reshape 虽然元素总数正确，但会错误交错不同 token 和不同 head 的数据。</p>
+<hr>
+<h2>六、输出投影 W_o</h2>
+<p>合并 heads 后通常再使用：</p>
+<pre><code>W_o = nn.Linear(d_model, d_model)
+
+[B, L, d_model]
+-&gt; W_o
+-&gt; [B, L, d_model]
+</code></pre>
+<p><code>W_o</code> 的主要作用是学习如何混合不同 head 的输出信息，不是为了改变 shape。</p>
+<p>在完整 Transformer 中，Attention 输出通常要和输入做残差连接：</p>
+<pre><code>output + x
+</code></pre>
+<p>因此通常保持：</p>
+<pre><code>output: [B, L, d_model]
+x:      [B, L, d_model]
+</code></pre>
+<p>严格来说，<code>W_o</code> 可以设计成改变最后一维；但标准 Transformer 为了保持残差结构，通常使用 <code>d_model -&gt; d_model</code>。</p>
+<hr>
+<h2>七、最小实现</h2>
+<pre><code>import math
+import torch
+import torch.nn as nn
+
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, d_model, num_heads):
+        super().__init__()
+
+        assert d_model % num_heads == 0
+
+        self.d_k = d_model // num_heads
+        self.num_heads = num_heads
+
+        self.W_q = nn.Linear(d_model, d_model)
+        self.W_k = nn.Linear(d_model, d_model)
+        self.W_v = nn.Linear(d_model, d_model)
+        self.W_o = nn.Linear(d_model, d_model)
+
+    def split_heads(self, x):
+        # x: [B, L, d_model]
+        B, L, _ = x.shape
+
+        # [B, L, d_model]
+        # -&gt; [B, L, num_heads, d_k]
+        # -&gt; [B, num_heads, L, d_k]
+        return x.reshape(
+            B, L, self.num_heads, self.d_k
+        ).transpose(1, 2)
+
+    def forward(self, x):
+        B, L, _ = x.shape
+
+        Q = self.split_heads(self.W_q(x))
+        K = self.split_heads(self.W_k(x))
+        V = self.split_heads(self.W_v(x))
+
+        # Q: [B, H, L, d_k]
+        # K^T: [B, H, d_k, L]
+        scores = torch.matmul(
+            Q,
+            K.transpose(-2, -1)
+        ) / math.sqrt(self.d_k)
+
+        attn = torch.softmax(scores, dim=-1)
+
+        # [B, H, L, L] @ [B, H, L, d_k]
+        # -&gt; [B, H, L, d_k]
+        out = torch.matmul(attn, V)
+
+        # [B, H, L, d_k]
+        # -&gt; [B, L, H, d_k]
+        # -&gt; [B, L, d_model]
+        out = out.transpose(1, 2).reshape(B, L, -1)
+
+        return self.W_o(out)
+</code></pre>
+<hr>
+<h2>八、MPS 小 Tensor 验证</h2>
+<pre><code>device = torch.device(
+    &quot;mps&quot; if torch.backends.mps.is_available() else &quot;cpu&quot;
+)
+
+mha = MultiHeadAttention(
+    d_model=16,
+    num_heads=4,
+).to(device)
+
+x = torch.randn(
+    2,
+    5,
+    16,
+    device=device,
+)
+
+output = mha(x)
+print(output.shape)
+</code></pre>
+<p>预期：</p>
+<pre><code>torch.Size([2, 5, 16])
+</code></pre>
+<p>模型和输入必须在同一设备：</p>
+<pre><code>mha = MultiHeadAttention(16, 4).to(device)
+x = torch.randn(2, 5, 16, device=device)
+</code></pre>
+<p>本次完成的是前向和 shape 验证，没有加入 mask、损失函数、反向传播和训练循环。Multi-Head Attention 仍然可以作为完整训练流程中的一个 <code>nn.Module</code>，参与：</p>
+<pre><code>forward -&gt; loss -&gt; backward -&gt; optimizer.step()
+</code></pre>
+<hr>
+<h2>九、关键 shape 验证结果</h2>
+<p>本次使用：</p>
+<pre><code>B = 2
+L = 5
+d_model = 16
+num_heads = 4
+d_k = 4
+
+x:                [2, 5, 16]
+Q/K/V:            [2, 4, 5, 4]
+raw_scores:       [2, 4, 5, 5]
+attention_weight: [2, 4, 5, 5]
+head_output:      [2, 4, 5, 4]
+merged_output:    [2, 5, 16]
+final_output:     [2, 5, 16]
+</code></pre>
+<hr>
+<h2>十、与已有知识的连接</h2>
+<h3>10.1 与 Day 1 手写 Attention</h3>
+<p>每个 head 都复用了 Day 1 的核心公式：</p>
+<pre><code>QK^T / sqrt(d_k)
+-&gt; Softmax
+-&gt; attention_weights @ V
+</code></pre>
+<p>变化只是多了一个 head 维度 <code>H</code>：</p>
+<pre><code>[B, L, d_k]
+-&gt; [B, H, L, d_k]
+</code></pre>
+<h3>10.2 与 Tensor 矩阵运算</h3>
+<p>今天的核心仍然是：</p>
+<pre><code>reshape -&gt; transpose -&gt; matmul -&gt; softmax -&gt; reshape
+</code></pre>
+<p>重点不是死记代码，而是每一次运算都能说清输入和输出 shape。</p>
+<h3>10.3 与 MLP 线性层</h3>
+<p><code>W_q/W_k/W_v/W_o</code> 都是 <code>nn.Linear</code>。它们和 MLP 中的线性层一样，通过可学习参数变换最后一维；不同之处是它们服务于 Attention 的查询、匹配、内容和输出混合。</p>
+<h3>10.4 与 CNN 特征提取</h3>
+<p>CNN 使用多个通道并行提取不同局部特征；Multi-Head Attention 使用多个 head 并行学习不同的 token 关系。两者最后都需要把并行分支的结果组织回统一表示。</p>
+<h3>10.5 与完整训练流程</h3>
+<pre><code>DataLoader batch
+-&gt; embedding
+-&gt; Multi-Head Attention
+-&gt; 后续 Transformer 层
+-&gt; logits
+-&gt; loss
+-&gt; backward
+-&gt; optimizer.step()
+</code></pre>
+<hr>
+<h2>十一、选做部分概念预览</h2>
+<p>本日计划中的选做/后置内容是阅读《动手学深度学习》10.6–10.7 节、Transformer 图解，并从零补齐完整 Transformer Encoder。今天完成了概念预览，但没有把完整 Encoder 写成已完成实验。</p>
+<h3>11.1 位置编码</h3>
+<p>Self-Attention 不会自动知道 token 的先后顺序，因此需要把位置编码加入 token embedding：</p>
+<pre><code>token_embedding:   [B, L, d_model]
+position_encoding: [L, d_model]
+
+x = token_embedding + position_encoding
+</code></pre>
+<p>通过广播，结果仍然是：</p>
+<pre><code>[B, L, d_model]
+</code></pre>
+<p>位置编码可以是：</p>
+<ul>
+<li>可学习的位置向量：类似 <code>nn.Embedding</code>，训练中更新；</li>
+<li>Sinusoidal 位置编码：由正弦和余弦公式生成，不是可训练参数。</li>
+</ul>
+<h3>11.2 残差与 LayerNorm</h3>
+<p>Attention 子层后通常使用：</p>
+<pre><code>attention_output + x
+-&gt; LayerNorm(d_model)
+</code></pre>
+<p>残差连接保留原始信息并改善梯度传播，这与 ResNet 的思想相同。<code>LayerNorm(d_model)</code> 作用在每个 token 的最后一个特征维度上，输入输出 shape 不变。</p>
+<h3>11.3 前馈网络 FFN</h3>
+<p>FFN 本质上是对每个 token 独立使用的 MLP：</p>
+<pre><code>[B, L, d_model]
+-&gt; Linear(d_model, d_ff)
+-&gt; 激活函数
+-&gt; Linear(d_ff, d_model)
+-&gt; [B, L, d_model]
+</code></pre>
+<p>例如：</p>
+<pre><code>[2, 5, 16]
+-&gt; [2, 5, 64]
+-&gt; [2, 5, 16]
+</code></pre>
+<p>Attention 负责不同 token 之间的信息交流；FFN 负责每个 token 自己的非线性特征加工。扩展到 <code>d_ff</code> 后，模型可以在更大的隐藏空间中组合特征；激活函数提供非线性，使 FFN 不只是两个线性层的简单合并。</p>
+<h3>11.4 简化 Encoder Block 数据流</h3>
+<pre><code>x
+-&gt; Multi-Head Attention
+-&gt; 残差 + LayerNorm
+-&gt; FFN
+-&gt; 残差 + LayerNorm
+-&gt; 输出
+</code></pre>
+<p>完整位置编码和 Encoder Block 实现留作后续选做内容，不与今天已经完成的 Multi-Head Attention 实验混淆。</p>
+<hr>
+<h2>十二、Day 2 验收结论</h2>
+<ul>
+<li>能解释为什么 Multi-Head Attention 使用多个 head；</li>
+<li>能计算 <code>d_k = d_model // num_heads</code>；</li>
+<li>能解释三个线性层如何生成 Q、K、V；</li>
+<li>能完成 <code>[B, L, d_model] -&gt; [B, H, L, d_k]</code>；</li>
+<li>能解释 <code>[B, H, L, d_k] @ [B, H, d_k, L] -&gt; [B, H, L, L]</code>；</li>
+<li>能完成每个 head 的 Scaled Dot-Product Attention；</li>
+<li>能完成 <code>[B, H, L, d_k] -&gt; [B, L, d_model]</code>；</li>
+<li>能解释合并前为什么必须 transpose；</li>
+<li>能解释 <code>W_o</code> 为什么主要负责混合 head 信息；</li>
+<li>已用小 Tensor 验证关键 shape；</li>
+<li>已整理出可运行的 <code>MultiHeadAttention(nn.Module)</code>；</li>
+<li>已理解位置编码、残差、LayerNorm 和 FFN 的基本作用，但未声称完成完整 Transformer Encoder。</li>
+</ul>
+<p>Day 2 完成。下一主线是 Day 3–4：HuggingFace BERT 的 tokenizer、DataLoader 和最小微调闭环。</p>
+</div></article>
+  </main>
+</body>
+</html>

@@ -1,4 +1,4 @@
-**适用背景**：人工智能硕士新生，Python 有基础，NumPy/Pandas 接触过，目标进入头部大厂算法/开发岗  
+ **适用背景**：人工智能硕士新生，Python 有基础，NumPy/Pandas 接触过，目标进入头部大厂算法/开发岗  
 **学习节奏**：每周5天学习日（上午 9:00–11:30 主攻 PyTorch），2天轻松休息日，中间保留旅游留白  
 **核心资料**：《动手学深度学习》PyTorch版（zh.d2l.ai）+ PyTorch 官方文档
 
@@ -904,7 +904,7 @@ print("输出:", block(x).shape)   # 应该是 (4, 128, 16, 16)
 
 **实验 14：用预训练 ResNet18 跑通图像分类迁移流程**
 
-```
+```python
 import torch
 import torch.nn as nn
 import torchvision.models as models
@@ -1002,7 +1002,7 @@ criterion = nn.CrossEntropyLoss()
 
 **实验 16：手写 Scaled Dot-Product Attention**
 
-```
+```python
 import torch
 import torch.nn.functional as F
 import math
@@ -1046,7 +1046,7 @@ print("注意力权重行和（应为1）:", weights.sum(dim=-1))
 
 **实验 17：实现 Multi-Head Attention**
 
-```
+```python
 import torch
 import torch.nn as nn
 import math
@@ -1097,11 +1097,11 @@ print("输出 shape:", mha(x).shape)   # 应该是 (2, 10, 512)
 
 **实验 18：BERT 文本情感分类**
 
-```
+```python
 pip install transformers datasets
 ```
 
-```
+```python
 from transformers import BertTokenizer, BertForSequenceClassification
 from datasets import load_dataset
 import torch
@@ -1259,15 +1259,15 @@ python train.py --config configs/default.yaml
 
 ## 开学时的目标成果
 
-|   |   |
-|---|---|
-|成果|验收标准|
-|GitHub 项目|1个完整复现项目，README 清晰，陌生人10分钟能看懂|
-|LeetCode|约100道，覆盖链表/树/动态规划/图|
-|PyTorch 能力|闭眼能默写完整训练循环|
-|论文积累|精读过3–5篇方向内经典论文，能口头讲清楚|
-|方向决策|确定主攻 NLP / CV / 推荐系统中的一个|
-|简历|初稿完成，项目经历用 STAR 法则撰写|
+|            |                               |
+| ---------- | ----------------------------- |
+| 成果         | 验收标准                          |
+| GitHub 项目  | 1个完整复现项目，README 清晰，陌生人10分钟能看懂 |
+| LeetCode   | 约100道，覆盖链表/树/动态规划/图           |
+| PyTorch 能力 | 闭眼能默写完整训练循环                   |
+| 论文积累       | 精读过3–5篇方向内经典论文，能口头讲清楚         |
+| 方向决策       | 确定主攻 NLP / CV / 推荐系统中的一个      |
+| 简历         | 初稿完成，项目经历用 STAR 法则撰写          |
 
 ---
 

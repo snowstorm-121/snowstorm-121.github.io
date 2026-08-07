@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101c">
+  <title>Day 3 学习笔记：HuggingFace BERT tokenizer 与 DataLoader · SNOWSTORM</title>
+  <link rel="stylesheet" href="/assets/library.css">
+</head>
+<body class="library-page">
+  <main class="library-shell">
+    <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
+    <p class="library-eyebrow">Transformer 与 BERT</p>
+    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-4/">Transformer 与 BERT</a></nav><article class="note-article"><h1>Day 3 学习笔记：HuggingFace BERT tokenizer 与 DataLoader</h1><div class="note-content"><h1>HuggingFace BERT tokenizer 与 DataLoader</h1>
+<p>学习目标：理解文本如何经过 tokenizer 转换为 BERT 可以接收的 Tensor，并使用 PyTorch 原生 <code>Dataset</code> 与 <code>DataLoader</code> 组织成 batch，完成 shape、dtype 和 MPS 检查。</p>
+<p>本笔记对应 <a href="/learning/pytorch/notes/overview/pytorch-%E6%9A%91%E6%9C%9F%E8%AF%A6%E7%BB%86%E5%AD%A6%E4%B9%A0%E8%AE%A1%E5%88%92.html">PyTorch 暑期详细学习计划</a> 中第 6 周 Day 3。前置：<a href="/learning/pytorch/notes/stage-4/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-attention-%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86-scaled-dot-product-attention.html">Day 1：Scaled Dot-Product Attention</a>、<a href="/learning/pytorch/notes/stage-4/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-multi-head-attention-%E6%8B%86%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6.html">Day 2：Multi-Head Attention</a>。</p>
+<p>主线：<code>文本 -&gt; tokenizer -&gt; input_ids / attention_mask / token_type_ids -&gt; Dataset -&gt; DataLoader -&gt; batch -&gt; MPS</code>。</p>
+<hr>
+<h2>〇、今天完成了什么</h2>
+<ol>
+<li>使用 <code>BertTokenizer.from_pretrained(&quot;bert-base-uncased&quot;)</code> 对少量英文文本编码。</li>
+<li>检查 <code>input_ids</code>、<code>attention_mask</code> 和 <code>token_type_ids</code>。</li>
+<li>理解 batch 中的三条独立样本，不等于一条样本中的三个句子，因此单句输入的 <code>token_type_ids</code> 全为 0。</li>
+<li>使用 PyTorch 原生 <code>torch.utils.data.Dataset</code> 封装 tokenizer 输出。</li>
+<li>使用 <code>DataLoader(batch_size=2)</code> 组织 batch。</li>
+<li>验证 batch 字段的 shape、dtype，并成功迁移到 Apple Silicon 的 MPS。</li>
+<li>没有加载 BERT、计算 loss 或微调；这些内容留到 Day 4。</li>
+</ol>
+<p>最终数据流：</p>
+<pre><code class="language-text">原始文本 -&gt; tokenizer -&gt; 三个字段 -&gt; Dataset -&gt; DataLoader -&gt; batch [B, L] -&gt; MPS
+</code></pre>
+<hr>
+<h2>一、为什么文本需要 tokenizer</h2>
+<p>MLP、CNN 和 Attention 接收的是 Tensor，而原始文本是字符串：</p>
+<pre><code class="language-text">&quot;I like cats.&quot;
+</code></pre>
+<p>字符串不能直接参与矩阵乘法，因此需要先切分为 token，再根据词表转换为整数编号：</p>
+<pre><code class="language-text">&quot;I like cats.&quot; -&gt; [&quot;I&quot;, &quot;like&quot;, &quot;cats&quot;, &quot;.&quot;] -&gt; [1045, 2066, 8870, 1012]
+</code></pre>
+<p>BERT tokenizer 还会添加特殊 token：</p>
+<pre><code class="language-text">[CLS] I like cats . [SEP]
+</code></pre>
+<p>它负责切分文本、查词表、添加特殊 token、截断、padding，以及生成 Attention 所需的辅助字段。</p>
+<p>重要区分：<code>input_ids</code> 是词表中的编号，不是语义向量。后续 BERT 会通过 Embedding 层将它转换为向量：</p>
+<pre><code class="language-text">input_ids [B, L] -&gt; Embedding -&gt; hidden_states [B, L, hidden_size]
+</code></pre>
+<hr>
+<h2>二、三个主要 tokenizer 字段</h2>
+<h3>2.1 <code>input_ids</code></h3>
+<p>表示每个位置对应的 token 编号。单条样本通常是 <code>[L]</code>，一个 batch 通常是 <code>[B, L]</code>。</p>
+<p>本次实验中：</p>
+<pre><code class="language-text">101 -&gt; [CLS]
+102 -&gt; [SEP]
+0   -&gt; [PAD]
+</code></pre>
+<p>第一条文本的结果：</p>
+<pre><code class="language-text">[101, 1045, 2066, 8870, 1012, 102, 0, 0, 0, 0, 0, 0]
+</code></pre>
+<p>对应：<code>[CLS] I like cats . [SEP] [PAD] ...</code>。</p>
+<h3>2.2 <code>attention_mask</code></h3>
+<p>表示哪些位置是真实 token，哪些位置是 padding：</p>
+<pre><code class="language-text">1 -&gt; 有效 token
+0 -&gt; padding，应被 Attention 屏蔽
+</code></pre>
+<p>它不是 Attention 权重。Attention 权重表示关注程度；<code>attention_mask</code> 是二值屏蔽信号，通常在 Softmax 前作用于分数：</p>
+<pre><code class="language-python">scores = scores.masked_fill(mask == 0, float(&quot;-inf&quot;))
+</code></pre>
+<p>本次三条文本的有效长度为 <code>encoded[&quot;attention_mask&quot;].sum(dim=1) -&gt; tensor([6, 7, 7])</code>。</p>
+<h3>2.3 <code>token_type_ids</code></h3>
+<p>用于区分同一条样本中的句子 A 和句子 B：</p>
+<pre><code class="language-text">句子 A -&gt; 0
+句子 B -&gt; 1
+</code></pre>
+<p>本次输入是 batch 中的三条独立单句，而不是一条包含三个句子的样本。因此每一行都只有句子 A，<code>token_type_ids</code> 全为 0 是正确结果。</p>
+<pre><code class="language-text">3 条独立样本 != 1 条样本中的 3 个句子
+</code></pre>
+<p>如果调用 <code>tokenizer(&quot;The cat is cute.&quot;, &quot;It is sleeping.&quot;)</code> 输入句子对，同一条样本中才会出现前半段为 0、后半段为 1 的 <code>token_type_ids</code>。</p>
+<hr>
+<h2>三、加载 tokenizer 并进行批量编码</h2>
+<pre><code class="language-python">from transformers import BertTokenizer
+
+tokenizer = BertTokenizer.from_pretrained(&quot;bert-base-uncased&quot;)
+texts = [&quot;I like cats.&quot;, &quot;The weather is good.&quot;, &quot;This movie is terrible.&quot;]
+
+encoded = tokenizer(
+    texts,
+    padding=&quot;max_length&quot;,
+    truncation=True,
+    max_length=12,
+    return_tensors=&quot;pt&quot;,
+)
+</code></pre>
+<p>参数含义：<code>padding=&quot;max_length&quot;</code> 统一补齐；<code>truncation=True</code> 截断过长文本；<code>max_length=12</code> 设定序列长度 <code>L</code>；<code>return_tensors=&quot;pt&quot;</code> 直接返回 PyTorch Tensor。</p>
+<p>实际字段 shape：</p>
+<pre><code class="language-text">input_ids [3, 12]
+token_type_ids [3, 12]
+attention_mask [3, 12]
+
+---
+
+## 四、为什么本次使用 PyTorch 原生 Dataset
+
+本次使用：
+
+```python
+from torch.utils.data import Dataset, DataLoader
+</code></pre>
+<p><code>torch.utils.data.Dataset</code> 是 PyTorch 的 Dataset 基类，通常需要实现：</p>
+<pre><code class="language-python">__len__()      # 数据集有多少条样本
+__getitem__()  # 如何取第 i 条样本
+</code></pre>
+<p>它更贴近此前学习过的数据流：<code>Dataset</code> 返回一条样本，<code>DataLoader</code> 组织成一个 batch。</p>
+<p>HuggingFace 的 <code>datasets.Dataset</code> 也可以使用，优势是提供 <code>map</code>、<code>shuffle</code>、<code>select</code>、<code>set_format</code> 等文本数据处理功能；后续加载 SST-2 等真实数据集时更方便。但今天的小样本实验不依赖它。</p>
+<h2>五、实现 TokenizedTextDataset</h2>
+<pre><code class="language-python">class TokenizedTextDataset(Dataset):
+    def __init__(self, encodings):
+        self.encodings = encodings
+
+    def __len__(self):
+        return self.encodings[&quot;input_ids&quot;].shape[0]
+
+    def __getitem__(self, index):
+        return {
+            key: value[index]
+            for key, value in self.encodings.items()
+        }
+
+dataset = TokenizedTextDataset(encoded)
+</code></pre>
+<p>整体 <code>encoded</code> 字段是 <code>[B, L] = [3, 12]</code>。<code>dataset[0]</code> 取出一条样本后，三个字段都是 <code>[12]</code>：</p>
+<pre><code class="language-text">input_ids [12]
+token_type_ids [12]
+attention_mask [12]
+</code></pre>
+<p><code>__getitem__</code> 对每个字段执行 <code>value[index]</code>，从 <code>[B, L]</code> 取出一行，变成 <code>[L]</code>。</p>
+<h2>六、使用 DataLoader 组成 batch</h2>
+<pre><code class="language-python">data_loader = DataLoader(
+    dataset,
+    batch_size=2,
+    shuffle=False,
+)
+
+batch = next(iter(data_loader))
+</code></pre>
+<p>数据流：</p>
+<pre><code class="language-text">dataset[0][&quot;input_ids&quot;] -&gt; [12]
+dataset[1][&quot;input_ids&quot;] -&gt; [12]
+DataLoader -&gt; batch[&quot;input_ids&quot;] -&gt; [2, 12]
+</code></pre>
+<p>实际验证结果：</p>
+<pre><code class="language-text">input_ids torch.Size([2, 12]) torch.int64
+token_type_ids torch.Size([2, 12]) torch.int64
+attention_mask torch.Size([2, 12]) torch.int64
+</code></pre>
+<p>这说明三个字段都被正确保留，并从单条样本的 <code>[12]</code> 组织成了 batch 的 <code>[2, 12]</code>。</p>
+<hr>
+<h2>七、MPS 设备检查</h2>
+<pre><code class="language-python">if torch.backends.mps.is_available():
+    device = torch.device(&quot;mps&quot;)
+else:
+    device = torch.device(&quot;cpu&quot;)
+
+batch_on_device = {
+    key: value.to(device)
+    for key, value in batch.items()
+}
+</code></pre>
+<p>实际验证结果：</p>
+<pre><code class="language-text">device: mps
+input_ids shape: torch.Size([2, 12]) dtype: torch.int64 device: mps:0
+token_type_ids shape: torch.Size([2, 12]) dtype: torch.int64 device: mps:0
+attention_mask shape: torch.Size([2, 12]) dtype: torch.int64 device: mps:0
+</code></pre>
+<p>设备迁移只改变 Tensor 所在设备，不改变 shape、dtype 和字段含义。本日没有进行 BERT 前向计算，只验证文本 batch 可以迁移到后续模型将使用的 MPS 设备。</p>
+<hr>
+<h2>八、报错记录</h2>
+<h3>8.1 <code>transformers</code> 未安装</h3>
+<p>错误：</p>
+<pre><code class="language-text">ModuleNotFoundError: No module named 'transformers'
+</code></pre>
+<p>在当前虚拟环境中使用同一个 Python 安装：</p>
+<pre><code class="language-bash">python -m pip install transformers
+</code></pre>
+<h3>8.2 <code>datasets</code> 未安装</h3>
+<p>错误：</p>
+<pre><code class="language-text">ModuleNotFoundError: No module named 'datasets'
+</code></pre>
+<p>后来确认本次小样本实验不需要 HuggingFace <code>datasets.Dataset</code>，改用 PyTorch 原生 <code>Dataset</code>，因此没有把额外的 <code>datasets</code> 依赖加入当前最小实验。</p>
+<p>经验：使用 <code>python -m pip</code> 比单独使用 <code>pip</code> 更稳妥，因为它能确保依赖安装到当前运行脚本的 Python 环境中。</p>
+<h2>九、与已有知识的连接</h2>
+<h3>9.1 与 Tensor 和 shape 的连接</h3>
+<p>今天仍然沿用“先看 shape，再写模型”的习惯：</p>
+<pre><code class="language-text">单条 input_ids: [L]
+batch input_ids: [B, L]
+</code></pre>
+<p>这和之前图像数据的 <code>[C, H, W] -&gt; [B, C, H, W]</code> 是同一个 batch 组织思想。</p>
+<h3>9.2 与 MLP、CNN 训练流程的连接</h3>
+<p>以前的流程是：</p>
+<pre><code class="language-text">Dataset -&gt; DataLoader -&gt; batch features -&gt; model -&gt; loss
+</code></pre>
+<p>今天变成：</p>
+<pre><code class="language-text">Dataset -&gt; DataLoader -&gt; batch 字典 -&gt; BERT -&gt; loss
+</code></pre>
+<p>训练循环整体结构没有改变，只是模型输入从一个 feature Tensor 变成多个命名字段。</p>
+<h3>9.3 与 Attention 的连接</h3>
+<p>后续 BERT 会接收 <code>input_ids</code>、<code>attention_mask</code> 和 <code>token_type_ids</code>。大致数据流是：</p>
+<pre><code class="language-text">input_ids [B, L]
+    -&gt; Embedding
+hidden states [B, L, d_model]
+    -&gt; Q/K/V 线性投影
+    -&gt; Multi-Head Attention
+</code></pre>
+<p><code>attention_mask</code> 会在 Attention 分数进入 Softmax 前屏蔽 padding 位置，这正好连接 Day 1 的 mask 机制。</p>
+<hr>
+<h2>十、Day 3 验收结果</h2>
+<ul>
+<li>[x] tokenizer 成功加载并完成批量编码；</li>
+<li>[x] 理解 <code>input_ids</code> 是词表编号，不是语义向量；</li>
+<li>[x] 理解 <code>attention_mask</code> 与 Attention 权重的区别；</li>
+<li>[x] 理解单句样本中 <code>token_type_ids</code> 全为 0 的原因；</li>
+<li>[x] 使用 PyTorch 原生 Dataset 完成样本封装；</li>
+<li>[x] 验证 DataLoader batch shape <code>[2, 12]</code>；</li>
+<li>[x] 验证 dtype 为 <code>torch.int64</code>；</li>
+<li>[x] 成功将 batch 迁移到 MPS；</li>
+<li>[x] 暂未进入 BERT 微调，符合 Day 3 范围。</li>
+</ul>
+<h2>十一、下一步行动</h2>
+<p>Day 4 使用今天已经得到的 batch，完成最小闭环：</p>
+<pre><code class="language-text">batch -&gt; BERT -&gt; logits / loss -&gt; backward -&gt; optimizer.step() -&gt; 1 个 epoch -&gt; 简单验证
+</code></pre>
+<p>进入 Day 4 前，应该能够不看代码口述：文本为什么要 tokenizer、三个字段分别是什么、Dataset 如何返回一条样本、DataLoader 如何组成 <code>[B, L]</code>，以及 <code>attention_mask</code> 为什么需要传给 BERT。</p>
+</div></article>
+  </main>
+</body>
+</html>

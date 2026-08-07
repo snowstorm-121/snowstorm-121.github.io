@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101c">
+  <title>Day 4 学习笔记：BERT 最小微调闭环 · SNOWSTORM</title>
+  <link rel="stylesheet" href="/assets/library.css">
+</head>
+<body class="library-page">
+  <main class="library-shell">
+    <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
+    <p class="library-eyebrow">Transformer 与 BERT</p>
+    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-4/">Transformer 与 BERT</a></nav><article class="note-article"><h1>Day 4 学习笔记：BERT 最小微调闭环</h1><div class="note-content"><h1>BERT 最小微调闭环</h1>
+<p>学习目标：使用 Day 3 的 batch 接入 BERT，完成 <code>BERT -&gt; logits / loss -&gt; backward -&gt; optimizer.step()</code>，再组织成 1 个 epoch，并使用独立验证数据检查流程。</p>
+<p>本笔记对应 <a href="/learning/pytorch/notes/overview/pytorch-%E6%9A%91%E6%9C%9F%E8%AF%A6%E7%BB%86%E5%AD%A6%E4%B9%A0%E8%AE%A1%E5%88%92.html">PyTorch 暑期详细学习计划</a> 中第 6 周 Day 4。前置：<a href="/learning/pytorch/notes/stage-4/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-huggingface-bert-tokenizer-%E4%B8%8E-dataloader.html">Day 3：HuggingFace BERT tokenizer 与 DataLoader</a>。</p>
+<p>主线：<code>batch -&gt; BERT -&gt; logits / loss -&gt; backward -&gt; optimizer.step() -&gt; 1 个 epoch -&gt; validation</code>。</p>
+<hr>
+<h2>〇、今天完成了什么</h2>
+<ol>
+<li>使用 <code>BertForSequenceClassification.from_pretrained(&quot;bert-base-uncased&quot;, num_labels=2)</code> 加载预训练 BERT 分类模型。</li>
+<li>理解 <code>input_ids</code>、<code>attention_mask</code>、<code>token_type_ids</code> 和句子级 <code>labels</code>。</li>
+<li>使用 MPS 完成 BERT 前向计算，得到 <code>logits</code> 和 <code>loss</code>。</li>
+<li>使用 <code>loss.backward()</code> 计算梯度。</li>
+<li>使用 <code>AdamW</code> 和 <code>optimizer.step()</code> 更新模型参数。</li>
+<li>使用当前小样本跑通 1 个 epoch。</li>
+<li>使用独立验证数据完成 <code>model.eval()</code>、<code>torch.no_grad()</code>、验证 loss 和准确率。</li>
+<li>没有使用完整 SST-2 数据集进行正式训练；完整数据集实验属于后置任务。</li>
+</ol>
+<p>最终数据流：</p>
+<pre><code class="language-text">batch 字典 -&gt; BERT Encoder + 分类头 -&gt; logits -&gt; loss
+    -&gt; loss.backward() -&gt; optimizer.step() -&gt; 1 个 epoch -&gt; validation
+</code></pre>
+<hr>
+<h2>一、BERT 到底是什么</h2>
+<p>BERT 是一个已经预训练过的 Transformer Encoder，负责根据上下文理解输入文本，并将 token 编号转换为有语义的向量表示。</p>
+<pre><code class="language-text">Tokenizer：文本 -&gt; token 编号
+BERT：token 编号 -&gt; 上下文表示
+分类头：上下文表示 -&gt; 类别分数
+</code></pre>
+<p>BERT 不是 tokenizer，也不是标签。Day 3 的 tokenizer 负责准备 BERT 的输入；Day 4 才让 BERT 对这些字段进行前向计算。</p>
+<p>BERT 内部会使用 Day 1、Day 2 学过的结构：</p>
+<pre><code class="language-text">输入 token 向量 -&gt; Q/K/V 投影 -&gt; Multi-Head Self-Attention
+    -&gt; 残差连接与 LayerNorm -&gt; 前馈网络 -&gt; 多层 Encoder
+</code></pre>
+<hr>
+<h2>二、BERT 分类模型的输入和输出</h2>
+<p>本次 batch 的字段：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th style="text-align:right">shape</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>input_ids</code></td>
+<td style="text-align:right"><code>[B, L]</code></td>
+<td>token 的词表编号</td>
+</tr>
+<tr>
+<td><code>attention_mask</code></td>
+<td style="text-align:right"><code>[B, L]</code></td>
+<td>区分真实 token 与 padding</td>
+</tr>
+<tr>
+<td><code>token_type_ids</code></td>
+<td style="text-align:right"><code>[B, L]</code></td>
+<td>区分句子 A 与句子 B</td>
+</tr>
+<tr>
+<td><code>labels</code></td>
+<td style="text-align:right"><code>[B]</code></td>
+<td>每条句子的分类标签</td>
+</tr>
+</tbody>
+</table>
+<p>本次：</p>
+<pre><code class="language-text">B = 2, L = 12, num_labels = 2
+input_ids / attention_mask / token_type_ids -&gt; [2, 12]
+labels -&gt; [2]
+</code></pre>
+<p>这是句子级分类，因此每条句子只有一个 label。<code>labels</code> 不是 <code>[B, L]</code>。</p>
+<pre><code class="language-python">model = BertForSequenceClassification.from_pretrained(
+    &quot;bert-base-uncased&quot;,
+    num_labels=2,
+)
+</code></pre>
+<p>模型可以理解为：</p>
+<pre><code class="language-text">BERT Encoder + 句子分类头
+</code></pre>
+<p>分类头大致是 <code>Linear(768, 2)</code>，所以：</p>
+<pre><code class="language-text">logits.shape == [B, 2] == [2, 2]
+</code></pre>
+<p><code>logits</code> 是原始类别分数，不是概率；预测类别可以使用：</p>
+<pre><code class="language-python">predictions = outputs.logits.argmax(dim=1)
+</code></pre>
+<hr>
+<h2>三、为什么会出现 <code>UNEXPECTED</code> 和 <code>MISSING</code></h2>
+<p>加载报告中出现过：</p>
+<pre><code class="language-text">cls.predictions.*       UNEXPECTED
+cls.seq_relationship.*  UNEXPECTED
+classifier.weight       MISSING
+classifier.bias         MISSING
+</code></pre>
+<p>这不是加载失败。</p>
+<p><code>cls.predictions.*</code> 属于 BERT 预训练时的掩码语言模型头，用于预测被遮住的 token；<code>cls.seq_relationship.*</code> 属于下一句预测头，用于判断句子 B 是否是句子 A 的下一句。当前情感分类任务不用它们，因此显示为 <code>UNEXPECTED</code>。</p>
+<p><code>classifier.weight</code> 和 <code>classifier.bias</code> 是当前句子分类任务需要的参数。原始 BERT 检查点没有当前情感分类任务，所以分类层被新建并随机初始化，显示为 <code>MISSING</code>，之后会通过微调训练。</p>
+<pre><code class="language-text">UNEXPECTED -&gt; 预训练检查点中的旧任务头，当前不用
+MISSING    -&gt; 当前任务需要、但检查点中没有的新分类头
+</code></pre>
+<p>易混淆点：</p>
+<pre><code class="language-text">[CLS] token != cls.* 模块
+</code></pre>
+<p><code>[CLS]</code> 是输入开头的特殊 token；<code>cls.*</code> 是模型内部预训练任务头的模块命名空间。</p>
+<hr>
+<h2>四、BERT 前向计算：得到 logits 和 loss</h2>
+<p>模型和 batch 必须位于同一个设备：</p>
+<pre><code class="language-python">model = model.to(device)
+
+batch_on_device = {
+    key: value.to(device)
+    for key, value in batch.items()
+}
+</code></pre>
+<p>前向计算：</p>
+<pre><code class="language-python">outputs = model(
+    input_ids=batch_on_device[&quot;input_ids&quot;],
+    attention_mask=batch_on_device[&quot;attention_mask&quot;],
+    token_type_ids=batch_on_device[&quot;token_type_ids&quot;],
+    labels=batch_on_device[&quot;labels&quot;],
+)
+
+logits = outputs.logits
+loss = outputs.loss
+</code></pre>
+<p>内部数据流大致是：</p>
+<pre><code class="language-text">input_ids [2, 12] -&gt; Embedding [2, 12, 768]
+    -&gt; Transformer Encoder -&gt; 句子表示 -&gt; 分类头 -&gt; logits [2, 2]
+</code></pre>
+<p>传入 <code>labels</code> 后，模型会根据 <code>logits</code> 和正确答案计算 loss。实际验证：</p>
+<pre><code class="language-text">logits shape: torch.Size([2, 2])
+loss shape: torch.Size([])
+</code></pre>
+<p><code>loss.shape == torch.Size([])</code> 表示 loss 是一个标量。</p>
+<hr>
+<h2>五、反向传播和参数更新</h2>
+<p>创建优化器：</p>
+<pre><code class="language-python">optimizer = torch.optim.AdamW(
+    model.parameters(),
+    lr=2e-5,
+)
+</code></pre>
+<p>单个 batch 的训练步骤：</p>
+<pre><code class="language-python">optimizer.zero_grad()
+
+outputs = model(
+    input_ids=batch_on_device[&quot;input_ids&quot;],
+    attention_mask=batch_on_device[&quot;attention_mask&quot;],
+    token_type_ids=batch_on_device[&quot;token_type_ids&quot;],
+    labels=batch_on_device[&quot;labels&quot;],
+)
+
+loss = outputs.loss
+loss.backward()
+optimizer.step()
+</code></pre>
+<p><code>loss.backward()</code> 只计算梯度；<code>optimizer.step()</code> 才根据梯度修改参数。</p>
+<p>实际验证结果：</p>
+<pre><code class="language-text">classifier.weight.grad shape: torch.Size([2, 768])
+classifier.bias.grad shape: torch.Size([2])
+classifier.weight.grad exists: True
+classifier.bias.grad exists: True
+weight changed: True
+bias changed: True
+</code></pre>
+<p>这说明分类层已经获得梯度，并且在 <code>optimizer.step()</code> 后发生了参数更新。</p>
+<hr>
+<h2>六、1 个 epoch 的最小训练闭环</h2>
+<pre><code class="language-python">model.train()
+
+for batch in data_loader:
+    batch_on_device = {
+        key: value.to(device)
+        for key, value in batch.items()
+    }
+
+    optimizer.zero_grad()
+
+    outputs = model(
+        input_ids=batch_on_device[&quot;input_ids&quot;],
+        attention_mask=batch_on_device[&quot;attention_mask&quot;],
+        token_type_ids=batch_on_device[&quot;token_type_ids&quot;],
+        labels=batch_on_device[&quot;labels&quot;],
+    )
+
+    loss = outputs.loss
+    loss.backward()
+    optimizer.step()
+</code></pre>
+<p>一个 epoch 表示 DataLoader 中所有 batch 都被模型看过一次。小样本实验中有 2 条样本、<code>batch_size=2</code>，因此 1 个 epoch 只有 1 个 batch。</p>
+<p>实际验证结果：</p>
+<pre><code class="language-text">epoch 1/1, average loss: 0.7208
+</code></pre>
+<p>这里的目标是验证训练闭环，不是要求一次更新后 loss 立刻显著下降。</p>
+<hr>
+<h2>七、独立验证</h2>
+<p>验证阶段不更新参数：</p>
+<pre><code class="language-python">model.eval()
+
+with torch.no_grad():
+    outputs = model(
+        input_ids=batch_on_device[&quot;input_ids&quot;],
+        attention_mask=batch_on_device[&quot;attention_mask&quot;],
+        token_type_ids=batch_on_device[&quot;token_type_ids&quot;],
+        labels=batch_on_device[&quot;labels&quot;],
+    )
+</code></pre>
+<p>训练与验证的区别：</p>
+<table>
+<thead>
+<tr>
+<th>训练</th>
+<th>验证</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>model.train()</code></td>
+<td><code>model.eval()</code></td>
+</tr>
+<tr>
+<td>计算梯度</td>
+<td><code>torch.no_grad()</code></td>
+</tr>
+<tr>
+<td><code>loss.backward()</code></td>
+<td>不执行</td>
+</tr>
+<tr>
+<td><code>optimizer.step()</code></td>
+<td>不执行</td>
+</tr>
+</tbody>
+</table>
+<p>预测与准确率：</p>
+<pre><code class="language-python">predictions = outputs.logits.argmax(dim=1)
+correct += (predictions == labels).sum().item()
+accuracy = correct / total
+</code></pre>
+<p>实际验证结果：</p>
+<pre><code class="language-text">validation loss: 0.710591197013855
+validation accuracy: 0.5
+correct: 1
+total: 2
+</code></pre>
+<p>验证集只有 2 条样本，因此这个准确率只用于确认流程，不能作为模型泛化能力的可靠结论。</p>
+<hr>
+<h2>八、Day 4 必做任务验收结果</h2>
+<ul>
+<li><input type="checkbox" checked disabled> 理解 BERT 是预训练 Transformer Encoder，不是 tokenizer。</li>
+<li><input type="checkbox" checked disabled> 理解 <code>BertForSequenceClassification</code> 是 BERT Encoder 加句子分类头。</li>
+<li><input type="checkbox" checked disabled> 理解四个输入字段及其 shape。</li>
+<li><input type="checkbox" checked disabled> 理解 <code>labels</code> 是句子级标签，shape 为 <code>[B]</code>。</li>
+<li><input type="checkbox" checked disabled> 成功在 MPS 上加载并运行 BERT。</li>
+<li><input type="checkbox" checked disabled> 成功得到 <code>logits.shape == [2, 2]</code>。</li>
+<li><input type="checkbox" checked disabled> 成功得到标量 loss。</li>
+<li><input type="checkbox" checked disabled> 成功执行 <code>loss.backward()</code>。</li>
+<li><input type="checkbox" checked disabled> 检查到分类层梯度存在。</li>
+<li><input type="checkbox" checked disabled> 成功执行 <code>optimizer.step()</code>。</li>
+<li><input type="checkbox" checked disabled> 确认分类层参数发生变化。</li>
+<li><input type="checkbox" checked disabled> 成功跑通 1 个 epoch。</li>
+<li><input type="checkbox" checked disabled> 使用独立验证数据完成 <code>eval()</code> 和 <code>no_grad()</code>。</li>
+<li><input type="checkbox" checked disabled> 没有把最终测试集用于训练或调参。</li>
+</ul>
+<p>最终闭环：</p>
+<pre><code class="language-text">batch -&gt; BERT -&gt; logits / loss -&gt; backward -&gt; optimizer.step() -&gt; 1 个 epoch -&gt; validation
+</code></pre>
+<hr>
+<h2>九、后置实验边界</h2>
+<p>Day 4 必做任务已经完成。完整数据集实验不属于今天的硬性验收。</p>
+<p>后置实验路线：</p>
+<pre><code class="language-text">完整 SST-2 数据集
+    -&gt; batch_size=16 先跑 50 step 测速
+    -&gt; 重新加载干净的 BERT
+    -&gt; 完整训练集跑 1 个 epoch
+    -&gt; 独立 validation
+    -&gt; 再决定是否跑 3 个 epoch
+</code></pre>
+<p>已完成的后置准备与测速结果：</p>
+<pre><code class="language-text">设备：MPS
+batch_size=8 时完成 50 step 测速
+50 step 用时：10.057424333994277 秒
+平均每 step：0.20114848667988552 秒
+训练集 batch 数：8419
+估算 batch_size=8 时单 epoch：约 28 分钟
+</code></pre>
+<p>后续使用 <code>M5、16GB</code> 的 <code>batch_size=16</code> 时，应先重新跑 50 step 测速；如果出现 MPS 内存错误，则退回 <code>batch_size=8</code>。</p>
+<p>保持数据边界：</p>
+<pre><code class="language-text">train -&gt; 更新参数
+validation -&gt; 检查实验设置
+test -&gt; 最终实验完成后再评估
+</code></pre>
+<hr>
+<h2>十一、完整数据集后置实验结果</h2>
+<h3>11.1 实验设置</h3>
+<p>这次后置实验只使用有标签数据：</p>
+<pre><code class="language-text">原始 train + 原始 validation
+    -&gt; 合并
+    -&gt; 过滤 label ∈ {0, 1}
+    -&gt; 80% train / 10% validation / 10% test
+</code></pre>
+<p>原始 HuggingFace 官方 <code>test</code> split 没有参与本次实验。训练配置：</p>
+<pre><code class="language-text">设备：MPS
+芯片：Apple M5
+内存：16GB 统一内存
+batch_size：8
+max_length：64
+learning rate：2e-5
+epoch：3
+模型：bert-base-uncased + sequence classification head
+</code></pre>
+<h3>11.2 每个 epoch 的结果</h3>
+<table>
+<thead>
+<tr>
+<th style="text-align:right">epoch</th>
+<th style="text-align:right">用时</th>
+<th style="text-align:right">train loss</th>
+<th style="text-align:right">train accuracy</th>
+<th style="text-align:right">validation loss</th>
+<th style="text-align:right">validation accuracy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:right">1</td>
+<td style="text-align:right">22.74 min</td>
+<td style="text-align:right">0.2170</td>
+<td style="text-align:right">0.9153</td>
+<td style="text-align:right">0.1452</td>
+<td style="text-align:right">0.9488</td>
+</tr>
+<tr>
+<td style="text-align:right">2</td>
+<td style="text-align:right">21.50 min</td>
+<td style="text-align:right">0.1139</td>
+<td style="text-align:right">0.9608</td>
+<td style="text-align:right">0.1866</td>
+<td style="text-align:right">0.9381</td>
+</tr>
+<tr>
+<td style="text-align:right">3</td>
+<td style="text-align:right">20.98 min</td>
+<td style="text-align:right">0.0766</td>
+<td style="text-align:right">0.9746</td>
+<td style="text-align:right">0.1651</td>
+<td style="text-align:right">0.9506</td>
+</tr>
+</tbody>
+</table>
+<p>总训练时间约为 65.22 分钟。训练 loss 持续下降，但 validation loss 在第 1 个 epoch 后回升，说明继续训练后出现了轻微过拟合迹象。validation accuracy 在第 3 个 epoch 为 0.9506，略高于第 1 个 epoch 的 0.9488。</p>
+<h3>11.3 最终 test 结果</h3>
+<pre><code class="language-text">test loss: 0.1709
+test accuracy: 0.9531
+</code></pre>
+<p>混淆矩阵的行是真实标签，列是预测标签：</p>
+<pre><code class="language-text">              预测 0   预测 1
+真实 0          2852     169
+真实 1           151    3651
+</code></pre>
+<p>因此：</p>
+<pre><code class="language-text">真实为 0 且预测为 0：2852
+真实为 0 但预测为 1：169
+真实为 1 但预测为 0：151
+真实为 1 且预测为 1：3651
+</code></pre>
+<p>正确预测数量为 <code>2852 + 3651 = 6503</code>，测试准确率为 <code>0.9531</code>。</p>
+<h3>11.4 结果图</h3>
+<p>训练曲线：</p>
+<p><img src="/learning/pytorch/assets/stage-4/training_curves.png" alt="training_curves.png" loading="lazy"></p>
+<p>测试集混淆矩阵：</p>
+<p><img src="/learning/pytorch/assets/stage-4/test_confusion_matrix.png" alt="test_confusion_matrix.png" loading="lazy"></p>
+<h3>11.5 结果解释</h3>
+<ul>
+<li>训练集准确率从 <code>0.9153</code> 上升到 <code>0.9746</code>，说明模型在训练集上持续拟合。</li>
+<li>validation accuracy 始终约为 <code>0.94–0.95</code>，说明模型具有较好的泛化表现。</li>
+<li>第 1 个 epoch 的 validation loss 最低；如果实验事先规定固定训练 3 个 epoch，使用第 3 个 epoch 的最终模型评估 test 是一致的。</li>
+<li>如果后续要根据 validation 选择最佳模型，应提前规定选择指标，例如选择 validation loss 最低的 checkpoint，然后只在最后对该 checkpoint 做一次 test 评估。</li>
+<li>当前 test accuracy <code>0.9531</code> 只能说明这次重新划分出的有标签测试集结果，不能与官方隐藏 test 的排行榜结果直接等同。</li>
+</ul>
+<hr>
+<h2>十二、完整实验代码</h2>
+<p>当前实际运行的完整脚本已复制到本笔记同级目录：</p>
+<pre><code class="language-text">stage4/Day5.py
+</code></pre>
+<p>也可以直接打开：<a href="/learning/pytorch/assets/stage-4/Day5.py" title="download">Day5 完整训练代码</a>。</p>
+<p>下面直接嵌入当前完整脚本：</p>
+<details class="source-attachment"><summary>Day5.py</summary><a href="/learning/pytorch/assets/stage-4/Day5.py" download>Download source</a><pre><code class="language-python">from pathlib import Path
+import time
+
+import matplotlib.pyplot as plt
+import torch
+from datasets import concatenate_datasets, load_dataset
+from torch.utils.data import DataLoader
+from transformers import BertForSequenceClassification, BertTokenizer
+
+
+# ============================================================
+# 1. 配置
+# ============================================================
+
+CODE_DIR = Path(__file__).resolve().parent.parent
+CACHE_DIR = CODE_DIR / &quot;data&quot; / &quot;huggingface_cache&quot;
+OUTPUT_DIR = CODE_DIR / &quot;data&quot; / &quot;outputs&quot;
+
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+TRAIN_RATIO = 0.8
+VAL_RATIO = 0.1
+TEST_RATIO = 0.1
+SEED = 42
+
+BATCH_SIZE = 8
+MAX_LENGTH = 64
+NUM_EPOCHS = 3
+LEARNING_RATE = 2e-5
+
+
+# ============================================================
+# 2. 设备
+# ============================================================
+
+if torch.backends.mps.is_available():
+    device = torch.device(&quot;mps&quot;)
+else:
+    device = torch.device(&quot;cpu&quot;)
+
+print(&quot;device:&quot;, device)
+print(&quot;cache dir:&quot;, CACHE_DIR)
+print(&quot;output dir:&quot;, OUTPUT_DIR)
+
+
+# ============================================================
+# 3. 加载并重新划分有标签数据
+# ============================================================
+
+raw_dataset = load_dataset(
+    &quot;nyu-mll/glue&quot;,
+    &quot;sst2&quot;,
+    cache_dir=str(CACHE_DIR),
+)
+
+# 只合并原始 train 和 validation；官方 test 不参与本实验。
+labeled_dataset = concatenate_datasets(
+    [raw_dataset[&quot;train&quot;], raw_dataset[&quot;validation&quot;]]
+)
+
+# 显式过滤标签，确保后续三个 split 都是有标签数据。
+labeled_dataset = labeled_dataset.filter(
+    lambda row: row[&quot;label&quot;] in (0, 1)
+)
+
+# 第一次：80% train，20% 临时数据。
+first_split = labeled_dataset.train_test_split(
+    test_size=1.0 - TRAIN_RATIO,
+    seed=SEED,
+    stratify_by_column=&quot;label&quot;,
+)
+
+# 第二次：把临时数据等分为 10% validation 和 10% test。
+second_split = first_split[&quot;test&quot;].train_test_split(
+    test_size=TEST_RATIO / (VAL_RATIO + TEST_RATIO),
+    seed=SEED,
+    stratify_by_column=&quot;label&quot;,
+)
+
+split_dataset = {
+    &quot;train&quot;: first_split[&quot;train&quot;],
+    &quot;validation&quot;: second_split[&quot;train&quot;],
+    &quot;test&quot;: second_split[&quot;test&quot;],
+}
+
+print(&quot;split sizes:&quot;)
+for split_name, split in split_dataset.items():
+    print(split_name, len(split))
+
+
+# ============================================================
+# 4. Tokenizer
+# ============================================================
+
+tokenizer = BertTokenizer.from_pretrained(
+    &quot;bert-base-uncased&quot;,
+    cache_dir=str(CACHE_DIR),
+)
+
+
+def tokenize_batch(batch):
+    return tokenizer(
+        batch[&quot;sentence&quot;],
+        padding=&quot;max_length&quot;,
+        truncation=True,
+        max_length=MAX_LENGTH,
+    )
+
+
+tokenized_dataset = {
+    split_name: split.map(tokenize_batch, batched=True)
+    for split_name, split in split_dataset.items()
+}
+
+
+# ============================================================
+# 5. Tensor 格式与 DataLoader
+# ============================================================
+
+model_columns = [
+    &quot;input_ids&quot;,
+    &quot;attention_mask&quot;,
+    &quot;token_type_ids&quot;,
+    &quot;label&quot;,
+]
+
+for split in tokenized_dataset.values():
+    split.set_format(
+        type=&quot;torch&quot;,
+        columns=model_columns,
+    )
+
+train_loader = DataLoader(
+    tokenized_dataset[&quot;train&quot;],
+    batch_size=BATCH_SIZE,
+    shuffle=True,
+)
+
+val_loader = DataLoader(
+    tokenized_dataset[&quot;validation&quot;],
+    batch_size=BATCH_SIZE,
+    shuffle=False,
+)
+
+test_loader = DataLoader(
+    tokenized_dataset[&quot;test&quot;],
+    batch_size=BATCH_SIZE,
+    shuffle=False,
+)
+
+batch = next(iter(train_loader))
+print(&quot;batch keys:&quot;, batch.keys())
+print(&quot;input_ids shape:&quot;, batch[&quot;input_ids&quot;].shape)
+print(&quot;attention_mask shape:&quot;, batch[&quot;attention_mask&quot;].shape)
+print(&quot;token_type_ids shape:&quot;, batch[&quot;token_type_ids&quot;].shape)
+print(&quot;label shape:&quot;, batch[&quot;label&quot;].shape)
+print(&quot;label dtype:&quot;, batch[&quot;label&quot;].dtype)
+
+
+# ============================================================
+# 6. 模型与优化器
+# ============================================================
+
+model = BertForSequenceClassification.from_pretrained(
+    &quot;bert-base-uncased&quot;,
+    num_labels=2,
+    cache_dir=str(CACHE_DIR),
+).to(device)
+
+optimizer = torch.optim.AdamW(
+    model.parameters(),
+    lr=LEARNING_RATE,
+)
+
+
+def move_batch_to_device(batch):
+    return {
+        key: value.to(device)
+        for key, value in batch.items()
+    }
+
+
+def run_epoch(model, data_loader, optimizer=None):
+    training = optimizer is not None
+    model.train() if training else model.eval()
+
+    total_loss = 0.0
+    total_correct = 0
+    total_samples = 0
+
+    with torch.set_grad_enabled(training):
+        for batch in data_loader:
+            batch = move_batch_to_device(batch)
+            labels = batch[&quot;label&quot;]
+
+            if training:
+                optimizer.zero_grad()
+
+            outputs = model(
+                input_ids=batch[&quot;input_ids&quot;],
+                attention_mask=batch[&quot;attention_mask&quot;],
+                token_type_ids=batch[&quot;token_type_ids&quot;],
+                labels=labels,
+            )
+
+            loss = outputs.loss
+            predictions = outputs.logits.argmax(dim=1)
+
+            if training:
+                loss.backward()
+                optimizer.step()
+
+            batch_size = labels.size(0)
+            total_loss += loss.item() * batch_size
+            total_correct += (predictions == labels).sum().item()
+            total_samples += batch_size
+
+    return (
+        total_loss / total_samples,
+        total_correct / total_samples,
+    )
+
+
+# ============================================================
+# 7. 训练与验证
+# ============================================================
+
+history = {
+    &quot;train_loss&quot;: [],
+    &quot;train_accuracy&quot;: [],
+    &quot;val_loss&quot;: [],
+    &quot;val_accuracy&quot;: [],
+}
+
+for epoch in range(NUM_EPOCHS):
+    start_time = time.perf_counter()
+
+    train_loss, train_accuracy = run_epoch(
+        model,
+        train_loader,
+        optimizer=optimizer,
+    )
+
+    val_loss, val_accuracy = run_epoch(
+        model,
+        val_loader,
+    )
+
+    elapsed = time.perf_counter() - start_time
+
+    history[&quot;train_loss&quot;].append(train_loss)
+    history[&quot;train_accuracy&quot;].append(train_accuracy)
+    history[&quot;val_loss&quot;].append(val_loss)
+    history[&quot;val_accuracy&quot;].append(val_accuracy)
+
+    print(
+        f&quot;epoch {epoch + 1}/{NUM_EPOCHS}, &quot;
+        f&quot;time: {elapsed / 60:.2f} min&quot;
+    )
+    print(f&quot;train loss: {train_loss:.4f}&quot;)
+    print(f&quot;train accuracy: {train_accuracy:.4f}&quot;)
+    print(f&quot;validation loss: {val_loss:.4f}&quot;)
+    print(f&quot;validation accuracy: {val_accuracy:.4f}&quot;)
+
+
+# ============================================================
+# 8. 测试集评估与 confusion matrix
+# ============================================================
+
+test_loss, test_accuracy = run_epoch(
+    model,
+    test_loader,
+)
+
+print(f&quot;test loss: {test_loss:.4f}&quot;)
+print(f&quot;test accuracy: {test_accuracy:.4f}&quot;)
+
+confusion_matrix = torch.zeros(
+    (2, 2),
+    dtype=torch.int64,
+)
+
+model.eval()
+with torch.no_grad():
+    for batch in test_loader:
+        batch_on_device = move_batch_to_device(batch)
+        logits = model(
+            input_ids=batch_on_device[&quot;input_ids&quot;],
+            attention_mask=batch_on_device[&quot;attention_mask&quot;],
+            token_type_ids=batch_on_device[&quot;token_type_ids&quot;],
+        ).logits
+
+        predictions = logits.argmax(dim=1).cpu()
+        labels = batch[&quot;label&quot;]
+
+        for label, prediction in zip(labels, predictions):
+            confusion_matrix[label.item(), prediction.item()] += 1
+
+print(&quot;confusion matrix:&quot;)
+print(confusion_matrix)
+
+
+# ============================================================
+# 9. 保存训练曲线
+# ============================================================
+
+epochs = range(1, NUM_EPOCHS + 1)
+
+figure, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+axes[0].plot(
+    epochs,
+    history[&quot;train_loss&quot;],
+    marker=&quot;o&quot;,
+    label=&quot;train loss&quot;,
+)
+axes[0].plot(
+    epochs,
+    history[&quot;val_loss&quot;],
+    marker=&quot;o&quot;,
+    label=&quot;validation loss&quot;,
+)
+axes[0].set_title(&quot;Loss&quot;)
+axes[0].set_xlabel(&quot;Epoch&quot;)
+axes[0].set_ylabel(&quot;Loss&quot;)
+axes[0].legend()
+axes[0].grid(True)
+
+axes[1].plot(
+    epochs,
+    history[&quot;train_accuracy&quot;],
+    marker=&quot;o&quot;,
+    label=&quot;train accuracy&quot;,
+)
+axes[1].plot(
+    epochs,
+    history[&quot;val_accuracy&quot;],
+    marker=&quot;o&quot;,
+    label=&quot;validation accuracy&quot;,
+)
+axes[1].set_title(&quot;Accuracy&quot;)
+axes[1].set_xlabel(&quot;Epoch&quot;)
+axes[1].set_ylabel(&quot;Accuracy&quot;)
+axes[1].set_ylim(0, 1)
+axes[1].legend()
+axes[1].grid(True)
+
+figure.tight_layout()
+curve_path = OUTPUT_DIR / &quot;training_curves.png&quot;
+figure.savefig(curve_path, dpi=150)
+plt.close(figure)
+
+
+# ============================================================
+# 10. 保存 confusion matrix 图像
+# ============================================================
+
+figure, axis = plt.subplots(figsize=(5, 5))
+image = axis.imshow(confusion_matrix.numpy(), cmap=&quot;Blues&quot;)
+figure.colorbar(image, ax=axis)
+
+axis.set_title(&quot;Test Confusion Matrix&quot;)
+axis.set_xlabel(&quot;Predicted label&quot;)
+axis.set_ylabel(&quot;True label&quot;)
+axis.set_xticks([0, 1])
+axis.set_yticks([0, 1])
+
+for row in range(2):
+    for column in range(2):
+        axis.text(
+            column,
+            row,
+            str(confusion_matrix[row, column].item()),
+            ha=&quot;center&quot;,
+            va=&quot;center&quot;,
+        )
+
+figure.tight_layout()
+matrix_path = OUTPUT_DIR / &quot;test_confusion_matrix.png&quot;
+figure.savefig(matrix_path, dpi=150)
+plt.close(figure)
+
+print(&quot;training curves saved to:&quot;, curve_path)
+print(&quot;confusion matrix saved to:&quot;, matrix_path)
+</code></pre></details>
+<h2>十三、下一步行动</h2>
+<ol>
+<li>将 Day 4 必做任务和完整数据集后置实验都记录为已完成。</li>
+<li>保留训练曲线、混淆矩阵和测试指标。</li>
+<li>后续如需比较 epoch，增加 checkpoint 保存，并预先确定按 validation loss 还是 validation accuracy 选择最佳模型。</li>
+<li>不使用最终测试集反复调参。</li>
+</ol>
+<p>参考资料：</p>
+<ul>
+<li><a href="/learning/pytorch/notes/overview/pytorch-%E6%9A%91%E6%9C%9F%E8%AF%A6%E7%BB%86%E5%AD%A6%E4%B9%A0%E8%AE%A1%E5%88%92.html">PyTorch 暑期详细学习计划</a></li>
+<li><a href="/learning/pytorch/notes/stage-4/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-attention-%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86-scaled-dot-product-attention.html">Day 1：Scaled Dot-Product Attention</a></li>
+<li><a href="/learning/pytorch/notes/stage-4/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-multi-head-attention-%E6%8B%86%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6.html">Day 2：Multi-Head Attention</a></li>
+<li><a href="/learning/pytorch/notes/stage-4/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-huggingface-bert-tokenizer-%E4%B8%8E-dataloader.html">Day 3：HuggingFace BERT tokenizer 与 DataLoader</a></li>
+<li><a href="https://huggingface.co/docs/transformers/tasks/sequence_classification" rel="noreferrer">HuggingFace BERT 文本分类文档</a></li>
+</ul>
+</div></article>
+  </main>
+</body>
+</html>

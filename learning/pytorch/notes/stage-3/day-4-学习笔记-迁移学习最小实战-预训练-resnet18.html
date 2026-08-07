@@ -5,99 +5,169 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07101c">
   <title>Day 4 学习笔记：迁移学习最小实战——预训练 ResNet18 · SNOWSTORM</title>
-  <link rel="stylesheet" href="../../../../assets/library.css">
+  <link rel="stylesheet" href="/assets/library.css">
 </head>
 <body class="library-page">
   <main class="library-shell">
-    <a class="library-brand" href="../../../../index.html">SNOWSTORM / ARCHIVE</a>
+    <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
     <p class="library-eyebrow">卷积网络</p>
-    <nav class="breadcrumbs"><a href="../../../index.html">学习</a><span>/</span><a href="../../index.html">PyTorch</a><span>/</span><span>卷积网络</span></nav>
-<article class="note-article"><h1>Day 4 学习笔记：迁移学习最小实战——预训练 ResNet18</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-3/">卷积网络</a></nav><article class="note-article"><h1>Day 4 学习笔记：迁移学习最小实战——预训练 ResNet18</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
 <p>参考书：PyTorch 官方迁移学习教程，PyTorch 官方 <code>torchvision.models.resnet18</code>、<code>torch.utils.data</code>、Saving and Loading Models 文档</p>
 <p>本阶段重点：在 [Day 3 学习笔记：残差网络 ResNet——残差块核心](Day 3 学习笔记：残差网络 ResNet——残差块核心) 已理解残差块和 shortcut 后，本日将“手写最小残差块”连接到 torchvision 提供的预训练 ResNet18，跑通一个完整、可验证的迁移学习闭环。</p>
 <p>今天主线：<code>预训练 ResNet18 -&gt; backbone / 分类头 -&gt; 冻结 -&gt; 替换 fc -&gt; CIFAR-10 预处理 -&gt; train / val / test -&gt; best_state -&gt; 最终测试</code>。本日完成固定特征提取器策略；不实施解冻 backbone 的 fine-tune，不把 1--2 epoch 的结果包装成最终性能结论。</p>
 <p>本笔记对应 [PyTorch 暑期详细学习计划](PyTorch 暑期详细学习计划) 中第 5 周 Day 4。</p>
-<p>---</p>
+<hr>
 <h2>〇、今天完成了什么</h2>
-<p>1. 理解迁移学习：复用 ImageNet 预训练 ResNet18 的通用图像特征，而不是从随机参数开始训练整个网络。<br>2. 区分 backbone 与分类头：backbone 将图像转换为特征，<code>model.fc</code> 将特征映射为具体任务的类别分数。<br>3. 加载 <code>ResNet18_Weights.DEFAULT</code>，冻结原有参数，并把原始 <code>Linear(512, 1000)</code> 替换为 CIFAR-10 的 <code>Linear(512, 10)</code>。<br>4. 在 Apple Silicon 的 MPS 上通过随机输入完成 shape 与参数量验证：输入 <code>[4, 3, 224, 224]</code>，输出 <code>[4, 10]</code>，可训练参数仅 5,130 个。<br>5. 使用 CIFAR-10 建立 <code>45,000 / 5,000 / 10,000</code> 的 train / validation / test 划分；只用 validation 选择最佳模型，test 最后评估一次。<br>6. 跑通 <code>DataLoader -&gt; forward -&gt; CrossEntropyLoss -&gt; backward -&gt; Adam.step -&gt; validation -&gt; best_state -&gt; test</code> 闭环。<br>7. 实验结果：2 个 epoch 后最佳 validation accuracy 为 <code>87.14%</code>，最终 test accuracy 为 <code>86.67%</code>。</p>
-<p>---</p>
+<ol>
+<li>理解迁移学习：复用 ImageNet 预训练 ResNet18 的通用图像特征，而不是从随机参数开始训练整个网络。</li>
+<li>区分 backbone 与分类头：backbone 将图像转换为特征，<code>model.fc</code> 将特征映射为具体任务的类别分数。</li>
+<li>加载 <code>ResNet18_Weights.DEFAULT</code>，冻结原有参数，并把原始 <code>Linear(512, 1000)</code> 替换为 CIFAR-10 的 <code>Linear(512, 10)</code>。</li>
+<li>在 Apple Silicon 的 MPS 上通过随机输入完成 shape 与参数量验证：输入 <code>[4, 3, 224, 224]</code>，输出 <code>[4, 10]</code>，可训练参数仅 5,130 个。</li>
+<li>使用 CIFAR-10 建立 <code>45,000 / 5,000 / 10,000</code> 的 train / validation / test 划分；只用 validation 选择最佳模型，test 最后评估一次。</li>
+<li>跑通 <code>DataLoader -&gt; forward -&gt; CrossEntropyLoss -&gt; backward -&gt; Adam.step -&gt; validation -&gt; best_state -&gt; test</code> 闭环。</li>
+<li>实验结果：2 个 epoch 后最佳 validation accuracy 为 <code>87.14%</code>，最终 test accuracy 为 <code>86.67%</code>。</li>
+</ol>
+<hr>
 <h2>一、迁移学习：不是从零训练整个 ResNet</h2>
 <p>从零训练时，模型参数随机初始化，训练数据必须让每一层逐渐学会边缘、纹理、局部结构和最终分类规则：</p>
 <pre><code class="language-plain">随机模型 + 任务数据
 -&gt; 更新全部参数
--&gt; 学习特征提取与分类</code></pre>
+-&gt; 学习特征提取与分类
+</code></pre>
 <p>迁移学习先使用一个已经在大规模数据上训练过的模型：</p>
 <pre><code class="language-plain">预训练模型 + 新任务数据
 -&gt; 复用已有通用特征
--&gt; 重点学习新任务的分类规则</code></pre>
+-&gt; 重点学习新任务的分类规则
+</code></pre>
 <p>ResNet18 的预训练权重来自 ImageNet。它原先学习的是 ImageNet 的 1000 类，并不直接认识 CIFAR-10 的 10 类；但其浅层和中层已学到的边缘、颜色、纹理、局部形状等视觉特征，仍可能对 CIFAR-10 有用。</p>
 <p>迁移学习有效的前提不是“预训练一定万能”，而是源任务和目标任务具有可复用的结构。例如 ImageNet 与 CIFAR-10 都是 RGB 自然图像，二者的基础视觉特征有重合。若目标数据与 ImageNet 差异很大，例如医学影像，可能需要解冻更多层进行 fine-tune，或选择更合适的预训练来源。</p>
-<p>---</p>
+<hr>
 <h2>二、backbone 与分类头：<code>图片 -&gt; 特征 -&gt; 类别</code></h2>
 <p>ResNet18 可先拆成两部分理解：</p>
 <pre><code class="language-plain">backbone：图片 -&gt; 图像特征
-分类头 fc：图像特征 -&gt; 类别 logits</code></pre>
+分类头 fc：图像特征 -&gt; 类别 logits
+</code></pre>
 <p>数据流为：</p>
 <pre><code class="language-plain">输入图片 [B, 3, 224, 224]
     -&gt; ResNet18 backbone（卷积、残差块、池化）
     -&gt; 特征 [B, 512]
     -&gt; model.fc = Linear(512, 1000)
-    -&gt; ImageNet logits [B, 1000]</code></pre>
+    -&gt; ImageNet logits [B, 1000]
+</code></pre>
 <p>backbone 包含 Day 3 学过的卷积、BatchNorm、ResidualBlock 和下采样等主体结构。<code>fc</code> 是最后的 fully connected 层，即 MLP 中熟悉的 <code>nn.Linear</code>。</p>
 <p>原始分类头中：</p>
 <pre><code class="language-plain">输入特征数 512：backbone 每张图片最终提取出的 512 维特征
-输出特征数 1000：ImageNet 的 1000 个类别分数</code></pre>
+输出特征数 1000：ImageNet 的 1000 个类别分数
+</code></pre>
 <p>对 CIFAR-10，应改为：</p>
-<pre><code class="language-plain">[B, 512] -&gt; Linear(512, 10) -&gt; [B, 10]</code></pre>
+<pre><code class="language-plain">[B, 512] -&gt; Linear(512, 10) -&gt; [B, 10]
+</code></pre>
 <p>这里的 <code>[B, 10]</code> 是 10 个 logits，不是已经 softmax 后的概率。它可以直接交给 <code>nn.CrossEntropyLoss</code>；标签仍是 shape <code>[B]</code> 的类别编号，而不是 one-hot 标签。</p>
-<p>---</p>
+<hr>
 <h2>三、加载、冻结与替换分类头</h2>
 <h3>1. 加载预训练 ResNet18</h3>
 <pre><code class="language-python">from torchvision import models
 
 model = models.resnet18(
     weights=models.ResNet18_Weights.DEFAULT
-)</code></pre>
+)
+</code></pre>
 <p><code>weights</code> 决定参数初始值：</p>
-<p>| 写法 | 网络结构 | 参数初始状态 | 是否是迁移学习 |<br>| --- | --- | --- | --- |<br>| <code>resnet18(weights=None)</code> | ResNet18 | 随机初始化 | 否，从零训练 |<br>| <code>resnet18(weights=ResNet18_Weights.DEFAULT)</code> | ResNet18 | ImageNet 预训练参数 | 是 |</p>
+<table>
+<thead>
+<tr>
+<th>写法</th>
+<th>网络结构</th>
+<th>参数初始状态</th>
+<th>是否是迁移学习</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>resnet18(weights=None)</code></td>
+<td>ResNet18</td>
+<td>随机初始化</td>
+<td>否，从零训练</td>
+</tr>
+<tr>
+<td><code>resnet18(weights=ResNet18_Weights.DEFAULT)</code></td>
+<td>ResNet18</td>
+<td>ImageNet 预训练参数</td>
+<td>是</td>
+</tr>
+</tbody>
+</table>
 <p>预训练权重默认缓存于：</p>
-<pre><code class="language-plain">~/.cache/torch/hub/checkpoints/</code></pre>
+<pre><code class="language-plain">~/.cache/torch/hub/checkpoints/
+</code></pre>
 <p>本机实际缓存文件为 <code>resnet18-f37072fd.pth</code>。它属于 PyTorch 缓存，不需要复制到学习代码目录，也不应提交进代码仓库。</p>
 <h3>2. 冻结原有参数</h3>
 <pre><code class="language-python">for param in model.parameters():
-    param.requires_grad = False</code></pre>
+    param.requires_grad = False
+</code></pre>
 <p>这与此前的纯 Tensor / autograd 训练直接对应：</p>
 <pre><code class="language-plain">requires_grad=True  -&gt; backward 后为该参数累计 grad -&gt; optimizer 可以更新它
-requires_grad=False -&gt; 不为该参数累计 grad -&gt; 参数保持不变</code></pre>
+requires_grad=False -&gt; 不为该参数累计 grad -&gt; 参数保持不变
+</code></pre>
 <p>冻结不影响 forward。backbone 仍会运行、仍会将图片变为 <code>[B, 512]</code> 特征；只是预训练参数不再通过反向传播更新。</p>
 <h3>3. 替换分类头</h3>
 <pre><code class="language-python">num_classes = 10
-model.fc = nn.Linear(model.fc.in_features, num_classes)</code></pre>
+model.fc = nn.Linear(model.fc.in_features, num_classes)
+</code></pre>
 <p><code>model.fc.in_features</code> 读取旧分类头的输入维度，即 512。新建的 <code>nn.Linear(512, 10)</code> 由默认随机初始化创建，其 weight 和 bias 默认 <code>requires_grad=True</code>。</p>
 <p>顺序必须是：</p>
 <pre><code class="language-plain">加载预训练模型
 -&gt; 冻结原有参数
 -&gt; 替换 fc
--&gt; 新 fc 保持可训练</code></pre>
+-&gt; 新 fc 保持可训练
+</code></pre>
 <p>若先替换 <code>fc</code> 再冻结所有参数，新分类头也会被冻住，无法学习。</p>
 <h3>4. 只将分类头交给优化器</h3>
-<pre><code class="language-python">optimizer = torch.optim.Adam(model.fc.parameters(), lr=1e-3)</code></pre>
+<pre><code class="language-python">optimizer = torch.optim.Adam(model.fc.parameters(), lr=1e-3)
+</code></pre>
 <p>优化器持有需要更新的参数集合。这里故意只传入 <code>model.fc.parameters()</code>，表达“本实验只训练新分类头”。这比从零训练时常见的 <code>model.parameters()</code> 范围更小。</p>
-<p>---</p>
+<hr>
 <h2>四、<code>eval()</code>、<code>requires_grad</code> 与 <code>no_grad()</code> 不要混淆</h2>
 <p>三者分别控制不同的事情：</p>
-<p>| 操作 | 是否为参数求梯度 | 是否影响 BatchNorm / Dropout 行为 |<br>| --- | --- | --- |<br>| <code>param.requires_grad = False</code> | 不为该参数累计梯度 | 不影响模块模式 |<br>| <code>model.train()</code> / <code>model.eval()</code> | 不决定是否求梯度 | 会切换训练/评估行为 |<br>| <code>with torch.no_grad():</code> | 整个代码块不记录梯度 | 不切换模块模式 |</p>
+<table>
+<thead>
+<tr>
+<th>操作</th>
+<th>是否为参数求梯度</th>
+<th>是否影响 BatchNorm / Dropout 行为</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>param.requires_grad = False</code></td>
+<td>不为该参数累计梯度</td>
+<td>不影响模块模式</td>
+</tr>
+<tr>
+<td><code>model.train()</code> / <code>model.eval()</code></td>
+<td>不决定是否求梯度</td>
+<td>会切换训练/评估行为</td>
+</tr>
+<tr>
+<td><code>with torch.no_grad():</code></td>
+<td>整个代码块不记录梯度</td>
+<td>不切换模块模式</td>
+</tr>
+</tbody>
+</table>
 <p>ResNet18 中有许多 <code>BatchNorm2d</code>。即使其可学习参数已经冻结，在 <code>model.train()</code> 下，BatchNorm 的 <code>running_mean</code> 与 <code>running_var</code> 这类运行统计量仍可能用当前 batch 更新。它们是 buffer，不是依靠梯度更新的参数。</p>
 <p>本日将预训练 backbone 视为固定特征提取器，因此训练时采用：</p>
 <pre><code class="language-python">model.eval()      # 保留预训练 BatchNorm 的运行统计量
-model.fc.train()  # 明确分类头处于训练模式</code></pre>
+model.fc.train()  # 明确分类头处于训练模式
+</code></pre>
 <p><code>model.eval()</code> 不会关闭 <code>fc</code> 的梯度，不能与 <code>torch.no_grad()</code> 混为一谈。训练分类头时若把 forward 放在 <code>torch.no_grad()</code> 中，<code>loss.backward()</code> 就无法产生 <code>fc</code> 的梯度。</p>
 <p>若后续解冻 backbone 做 fine-tune，则通常再用 <code>model.train()</code> 让要训练的层与 BatchNorm 行为一起适应目标任务；这属于后置实验。</p>
-<p>---</p>
+<hr>
 <h2>五、预训练权重配套的输入预处理</h2>
 <p>CIFAR-10 原始 RGB 图像为：</p>
 <pre><code class="language-plain">单张：[3, 32, 32]
-batch：[B, 3, 32, 32]</code></pre>
+batch：[B, 3, 32, 32]
+</code></pre>
 <p>本次最小实验使用的预处理：</p>
 <pre><code class="language-python">transform = transforms.Compose([
     transforms.Resize((224, 224)),
@@ -106,7 +176,8 @@ batch：[B, 3, 32, 32]</code></pre>
         mean=[0.485, 0.456, 0.406],
         std=[0.229, 0.224, 0.225],
     ),
-])</code></pre>
+])
+</code></pre>
 <p>数据流：</p>
 <pre><code class="language-plain">PIL RGB 图片
 -&gt; Resize((224, 224))
@@ -114,12 +185,14 @@ batch：[B, 3, 32, 32]</code></pre>
 -&gt; ToTensor()
 -&gt; Tensor [3, 224, 224]，通道在前，数值约为 [0, 1]
 -&gt; Normalize(...)
--&gt; Tensor [3, 224, 224]，shape 不变，数值分布改变</code></pre>
+-&gt; Tensor [3, 224, 224]，shape 不变，数值分布改变
+</code></pre>
 <p><code>Normalize</code> 对 RGB 三个通道分别计算：</p>
-<pre><code class="language-plain">new_pixel = (old_pixel - mean) / std</code></pre>
+<pre><code class="language-plain">new_pixel = (old_pixel - mean) / std
+</code></pre>
 <p>这套 mean/std 与 ImageNet 预训练权重匹配。Resize 改变 H、W；Normalize 不改变 shape。</p>
 <p>ResNet18 的结构可以接收不同的空间尺寸，但 224 与预训练时常用输入尺度一致。本实验优先保证预训练流程正确；若设备速度有限，可在后续速度实验中尝试 128 x 128，并将其视为新的实验设置，不与 224 结果混为一谈。</p>
-<p>---</p>
+<hr>
 <h2>六、数据划分：训练、验证、测试各自只做一件事</h2>
 <p>本实验的 CIFAR-10 划分：</p>
 <pre><code class="language-plain">官方 train 50,000
@@ -127,12 +200,14 @@ batch：[B, 3, 32, 32]</code></pre>
 -&gt; train 45,000：更新分类头参数
 -&gt; validation 5,000：选择最佳 epoch
 
-官方 test 10,000：最终只评估一次</code></pre>
+官方 test 10,000：最终只评估一次
+</code></pre>
 <pre><code class="language-python">train_subset, val_subset = random_split(
     train_set,
     [45_000, 5_000],
     generator=torch.Generator().manual_seed(42),
-)</code></pre>
+)
+</code></pre>
 <p>固定随机种子让每次运行保留相同的 validation 划分，指标才可比较。</p>
 <p><code>DataLoader</code> 的最小设置：</p>
 <pre><code class="language-python">train_loader = DataLoader(
@@ -147,9 +222,10 @@ val_loader = DataLoader(
     batch_size=128,
     shuffle=False,
     num_workers=0,
-)</code></pre>
+)
+</code></pre>
 <p>训练集需要 <code>shuffle=True</code>，避免每个 epoch 固定同一顺序；validation/test 不需要随机打乱。Apple Silicon 上本次使用 <code>num_workers=0</code>，优先保证单进程加载稳定、错误信息可读。</p>
-<p>---</p>
+<hr>
 <h2>七、训练、验证与最佳模型恢复</h2>
 <p>单个训练 batch 的数据流仍是此前学过的标准流程：</p>
 <pre><code class="language-plain">images, labels 从 DataLoader 取得（CPU）
@@ -158,20 +234,53 @@ val_loader = DataLoader(
 -&gt; logits = model(images)        # [B, 3, 224, 224] -&gt; [B, 10]
 -&gt; loss = CrossEntropyLoss(logits, labels)
 -&gt; loss.backward()
--&gt; optimizer.step()              # 只更新 fc</code></pre>
+-&gt; optimizer.step()              # 只更新 fc
+</code></pre>
 <p>验证与训练的差异：</p>
-<p>| 阶段 | 参数更新 | <code>torch.no_grad()</code> | 用途 |<br>| --- | --- | --- | --- |<br>| train | 是 | 否 | 让新 <code>fc</code> 学习 |<br>| validation | 否 | 是 | 选择最佳模型 |<br>| test | 否 | 是 | 最终一次泛化评估 |</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>参数更新</th>
+<th><code>torch.no_grad()</code></th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>train</td>
+<td>是</td>
+<td>否</td>
+<td>让新 <code>fc</code> 学习</td>
+</tr>
+<tr>
+<td>validation</td>
+<td>否</td>
+<td>是</td>
+<td>选择最佳模型</td>
+</tr>
+<tr>
+<td>test</td>
+<td>否</td>
+<td>是</td>
+<td>最终一次泛化评估</td>
+</tr>
+</tbody>
+</table>
 <h3>为什么要保存 <code>best_state</code>？</h3>
 <p>每一轮训练都可能改变模型参数。应依据 validation accuracy 选择最佳轮次，而不是默认取最后一轮：</p>
 <pre><code class="language-python">if val_acc &gt; best_val_acc:
     best_val_acc = val_acc
-    best_state = copy.deepcopy(model.state_dict())</code></pre>
+    best_state = copy.deepcopy(model.state_dict())
+</code></pre>
 <p><code>model.state_dict()</code> 包含参数和持久 buffer 的字典，但其中 Tensor 仍引用模型当前状态。若仅写：</p>
-<pre><code class="language-python">best_state = model.state_dict()</code></pre>
+<pre><code class="language-python">best_state = model.state_dict()
+</code></pre>
 <p>后续 epoch 更新模型时，这份“最佳状态”也会随之变化。<code>copy.deepcopy(...)</code> 会创建独立副本；训练结束后用：</p>
-<pre><code class="language-python">model.load_state_dict(best_state)</code></pre>
+<pre><code class="language-python">model.load_state_dict(best_state)
+</code></pre>
 <p>恢复 validation 表现最好的模型，再进行最终 test。</p>
-<p>---</p>
+<hr>
 <h2>八、本次 MPS 最小实验记录</h2>
 <h3>1. 模型与 shape 验证</h3>
 <pre><code class="language-plain">device: mps
@@ -180,29 +289,81 @@ model.fc: Linear(in_features=512, out_features=10, bias=True)
 输出 out: [4, 10]
 fc weight requires_grad: True
 总参数：11,181,642
-可训练参数：5,130</code></pre>
+可训练参数：5,130
+</code></pre>
 <p><code>5,130 = 512 x 10 + 10</code>，正好是新分类头的 weight 与 bias 参数数目。这验证了 backbone 已被冻结、只有 <code>fc</code> 可训练。</p>
 <h3>2. 指标</h3>
-<p>| epoch | train loss | train acc | val loss | val acc |<br>| --- | ---: | ---: | ---: | ---: |<br>| 1 / 2 | 0.5802 | 81.85% | 0.4149 | 85.26% |<br>| 2 / 2 | 0.3857 | 86.97% | 0.3695 | 87.14% |</p>
+<table>
+<thead>
+<tr>
+<th>epoch</th>
+<th style="text-align:right">train loss</th>
+<th style="text-align:right">train acc</th>
+<th style="text-align:right">val loss</th>
+<th style="text-align:right">val acc</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 / 2</td>
+<td style="text-align:right">0.5802</td>
+<td style="text-align:right">81.85%</td>
+<td style="text-align:right">0.4149</td>
+<td style="text-align:right">85.26%</td>
+</tr>
+<tr>
+<td>2 / 2</td>
+<td style="text-align:right">0.3857</td>
+<td style="text-align:right">86.97%</td>
+<td style="text-align:right">0.3695</td>
+<td style="text-align:right">87.14%</td>
+</tr>
+</tbody>
+</table>
 <pre><code class="language-plain">best val acc: 87.14%
 test loss: 0.3943
-test acc: 86.67%</code></pre>
+test acc: 86.67%
+</code></pre>
 <h3>3. 如何诚实解读</h3>
 <p>训练与验证指标均随 epoch 改善，说明新分类头确实在利用预训练特征学习 CIFAR-10 的类别映射。最佳 validation accuracy 为 87.14%，最终 test accuracy 为 86.67%，相差 0.47 个百分点，差距较小；在这个最小实验中，validation 集表现对未参与模型选择的 test 集具有较好的代表性。</p>
 <p>但这不证明“预训练 ResNet18 的最佳性能就是 86.67%”，也不能将此结果直接与不同输入尺寸、数据增强、训练轮数、冻结策略或数据划分的实验相比较。本实验的目标是验证迁移学习闭环与评估流程，而不是刷最高分。</p>
-<p>---</p>
+<hr>
 <h2>九、常见错误与检查清单</h2>
 <h3>常见错误</h3>
-<p>1. <strong>忘记替换 <code>fc</code></strong>：模型仍输出 <code>[B, 1000]</code>，与 CIFAR-10 的 10 类不匹配。<br>2. <strong>替换后再冻结所有参数</strong>：新 <code>fc</code> 也被设为 <code>requires_grad=False</code>，没有任何可训练参数。<br>3. <strong>训练时使用 <code>torch.no_grad()</code></strong>：新分类头无法得到梯度。<br>4. <strong>训练阶段把 <code>model.eval()</code> 误解为不能更新参数</strong>：<code>eval()</code> 只切换 BatchNorm / Dropout 等模块行为；更新与否由梯度和优化器决定。<br>5. <strong>用 test 集选择 epoch 或调学习率</strong>：测试集不再是独立的最终评估数据。<br>6. <strong>直接保存 <code>best_state = model.state_dict()</code></strong>：后续训练会改变该引用，应使用 <code>copy.deepcopy</code>。<br>7. <strong>将 CIFAR-10 的标签做成 one-hot 后误用 <code>CrossEntropyLoss</code></strong>：本实验标签应为 <code>[B]</code> 的整型类别编号。<br>8. <strong>将预训练权重 <code>.pth</code> 复制并提交到代码目录</strong>：它应保留在 PyTorch 缓存，代码只保留加载逻辑。</p>
+<ol>
+<li><strong>忘记替换 <code>fc</code></strong>：模型仍输出 <code>[B, 1000]</code>，与 CIFAR-10 的 10 类不匹配。</li>
+<li><strong>替换后再冻结所有参数</strong>：新 <code>fc</code> 也被设为 <code>requires_grad=False</code>，没有任何可训练参数。</li>
+<li><strong>训练时使用 <code>torch.no_grad()</code></strong>：新分类头无法得到梯度。</li>
+<li><strong>训练阶段把 <code>model.eval()</code> 误解为不能更新参数</strong>：<code>eval()</code> 只切换 BatchNorm / Dropout 等模块行为；更新与否由梯度和优化器决定。</li>
+<li><strong>用 test 集选择 epoch 或调学习率</strong>：测试集不再是独立的最终评估数据。</li>
+<li><strong>直接保存 <code>best_state = model.state_dict()</code></strong>：后续训练会改变该引用，应使用 <code>copy.deepcopy</code>。</li>
+<li><strong>将 CIFAR-10 的标签做成 one-hot 后误用 <code>CrossEntropyLoss</code></strong>：本实验标签应为 <code>[B]</code> 的整型类别编号。</li>
+<li><strong>将预训练权重 <code>.pth</code> 复制并提交到代码目录</strong>：它应保留在 PyTorch 缓存，代码只保留加载逻辑。</li>
+</ol>
 <h3>本日验收</h3>
-<ul><li>[x] 能解释迁移学习为什么可能有效，以及它不保证对所有目标域都有效。</li><li>[x] 能解释 backbone 是“图片 -&gt; 特征”的主体，<code>fc</code> 是“特征 -&gt; 类别”的分类头。</li><li>[x] 能推导 <code>[B, 3, 224, 224] -&gt; [B, 512] -&gt; [B, 10]</code>。</li><li>[x] 能说明 <code>requires_grad=False</code>、<code>model.eval()</code>、<code>torch.no_grad()</code> 的区别。</li><li>[x] 能完成冻结、替换分类头、仅优化 <code>model.fc.parameters()</code> 的代码翻译。</li><li>[x] 能说明 validation 用于模型选择，test 仅用于最终一次评估。</li><li>[x] 能解释为什么保存最佳模型时需要 <code>copy.deepcopy(model.state_dict())</code>。</li></ul>
-<p>---</p>
+<ul>
+<li><input type="checkbox" checked disabled> 能解释迁移学习为什么可能有效，以及它不保证对所有目标域都有效。</li>
+<li><input type="checkbox" checked disabled> 能解释 backbone 是“图片 -&gt; 特征”的主体，<code>fc</code> 是“特征 -&gt; 类别”的分类头。</li>
+<li><input type="checkbox" checked disabled> 能推导 <code>[B, 3, 224, 224] -&gt; [B, 512] -&gt; [B, 10]</code>。</li>
+<li><input type="checkbox" checked disabled> 能说明 <code>requires_grad=False</code>、<code>model.eval()</code>、<code>torch.no_grad()</code> 的区别。</li>
+<li><input type="checkbox" checked disabled> 能完成冻结、替换分类头、仅优化 <code>model.fc.parameters()</code> 的代码翻译。</li>
+<li><input type="checkbox" checked disabled> 能说明 validation 用于模型选择，test 仅用于最终一次评估。</li>
+<li><input type="checkbox" checked disabled> 能解释为什么保存最佳模型时需要 <code>copy.deepcopy(model.state_dict())</code>。</li>
+</ul>
+<hr>
 <h2>十、选做 / 后置</h2>
-<p>1. 在固定 train / validation / test 划分下，对比 <code>Resize(224)</code> 与 <code>Resize(128)</code> 的速度和指标；记录输入尺寸、每 epoch 耗时与验证准确率。<br>2. 使用较小训练子集（如 10,000 张）验证代码或学习流程，避免在 MacBook 上反复等待完整训练。<br>3. 解冻 <code>layer4</code> 或更多后层，使用更小学习率做 fine-tune；与“只训练 fc”比较，不预设一定更好。<br>4. 仅对训练集加入随机翻转等数据增强，验证集与测试集保持确定性预处理。<br>5. 将当前最佳模型的 <code>state_dict</code> 保存到文件，并在新进程中加载验证；这是后续模型保存/加载主题的自然延伸。</p>
-<p>---</p>
+<ol>
+<li>在固定 train / validation / test 划分下，对比 <code>Resize(224)</code> 与 <code>Resize(128)</code> 的速度和指标；记录输入尺寸、每 epoch 耗时与验证准确率。</li>
+<li>使用较小训练子集（如 10,000 张）验证代码或学习流程，避免在 MacBook 上反复等待完整训练。</li>
+<li>解冻 <code>layer4</code> 或更多后层，使用更小学习率做 fine-tune；与“只训练 fc”比较，不预设一定更好。</li>
+<li>仅对训练集加入随机翻转等数据增强，验证集与测试集保持确定性预处理。</li>
+<li>将当前最佳模型的 <code>state_dict</code> 保存到文件，并在新进程中加载验证；这是后续模型保存/加载主题的自然延伸。</li>
+</ol>
+<hr>
 <h2>十一、完整可运行代码：<code>Day4.py</code></h2>
 <p>下面是本次学习使用的完整代码，路径为：</p>
-<pre><code class="language-plain">/Users/yyy/code/pytorch_study/Stage_3_CNN_ResNet/Code/Day4.py</code></pre>
+<pre><code class="language-plain">/Users/yyy/code/pytorch_study/Stage_3_CNN_ResNet/Code/Day4.py
+</code></pre>
 <p>注意：上文“本次 MPS 最小实验记录”中的指标来自 <code>num_epochs = 2</code> 的运行；以下代码当前保留 <code>num_epochs = 5</code>，若要复现实验表中的两轮结果，将该值改为 <code>2</code> 即可。两种设置的模型、数据划分、优化器与流程相同，区别只是训练轮数。</p>
 <pre><code class="language-python">import torch
 import torch.nn as nn
@@ -450,8 +611,9 @@ test_loss, test_acc = evaluate(
 
 print(f&quot;best val acc: {best_val_acc:.2%}&quot;)
 print(f&quot;test loss: {test_loss:.4f}&quot;)
-print(f&quot;test acc:  {test_acc:.2%}&quot;)</code></pre></div></article>
-<nav class="note-pagination"><a href="./day-3-学习笔记-残差网络-resnet-残差块核心.html">← Day 3 学习笔记：残差网络 ResNet——残差块核心</a></nav>
+print(f&quot;test acc:  {test_acc:.2%}&quot;)
+</code></pre>
+</div></article>
   </main>
 </body>
 </html>

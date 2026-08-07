@@ -5,19 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07101c">
   <title>Day 1 学习笔记：Python 进阶语法 · SNOWSTORM</title>
-  <link rel="stylesheet" href="../../../../assets/library.css">
+  <link rel="stylesheet" href="/assets/library.css">
 </head>
 <body class="library-page">
   <main class="library-shell">
-    <a class="library-brand" href="../../../../index.html">SNOWSTORM / ARCHIVE</a>
+    <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
     <p class="library-eyebrow">基础阶段</p>
-    <nav class="breadcrumbs"><a href="../../../index.html">学习</a><span>/</span><a href="../../index.html">PyTorch</a><span>/</span><span>基础阶段</span></nav>
-<article class="note-article"><h1>Day 1 学习笔记：Python 进阶语法</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../foundation/">基础阶段</a></nav><article class="note-article"><h1>Day 1 学习笔记：Python 进阶语法</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
 <p>参考书：Python 官方文档（列表、字典、函数与类）</p>
 <p>本阶段重点：从“会写基本 Python”过渡到能读懂后续数据处理与 PyTorch 代码中的容器操作、函数定义和对象组织方式。</p>
 <p>今天主线：列表/字典推导式、函数进阶与面向对象（OOP）。重点不是堆语法，而是建立可读、可复用代码的基本表达方式。</p>
-<p>关联笔记：后续学习 <span class="wiki-link">文件操作、异常处理与综合小项目</span>，并以 <span class="wiki-link">NumPy 数组基础</span>进入科学计算。</p>
-<p>---</p>
+<p>关联笔记：后续学习 <a href="/learning/pytorch/notes/foundation/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%96%87%E4%BB%B6%E6%93%8D%E4%BD%9C-%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86-%E7%BB%BC%E5%90%88%E5%B0%8F%E9%A1%B9%E7%9B%AE.html">文件操作、异常处理与综合小项目</a>，并以 <a href="/learning/pytorch/notes/foundation/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-numpy-%E6%95%B0%E7%BB%84%E5%9F%BA%E7%A1%80.html">NumPy 数组基础</a>进入科学计算。</p>
+<hr>
 <h2>一、列表与字典高级用法</h2>
 <h3>1. 列表推导式</h3>
 <p>普通 for 循环的简洁替代写法，一行完成列表生成。</p>
@@ -35,26 +34,29 @@ evens = [i for i in range(20) if i % 2 == 0]
 # 双层推导式：压平嵌套列表
 nested = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
 flat = [num for row in nested for num in row]
-# [1, 2, 3, 4, 5, 6, 7, 8, 9]</code></pre>
+# [1, 2, 3, 4, 5, 6, 7, 8, 9]
+</code></pre>
 <p><strong>规律：</strong> 把 for 循环从外到内写进去，要取的值放最前面。</p>
-<p>---</p>
+<hr>
 <h3>2. 字典推导式</h3>
 <pre><code class="language-python"># 基本用法
 squares = {x: x**2 for x in range(5)}
 # {0: 0, 1: 1, 2: 4, 3: 9, 4: 16}
 
 # 配合 enumerate 使用
-letters = [&#39;a&#39;, &#39;b&#39;, &#39;c&#39;, &#39;d&#39;]
+letters = ['a', 'b', 'c', 'd']
 result = {x: (i + 1)**2 for i, x in enumerate(letters)}
-# {&#39;a&#39;: 1, &#39;b&#39;: 4, &#39;c&#39;: 9, &#39;d&#39;: 16}</code></pre>
+# {'a': 1, 'b': 4, 'c': 9, 'd': 16}
+</code></pre>
 <p><strong>字典常用方法：</strong></p>
-<pre><code class="language-python">d = {&#39;lr&#39;: 0.01, &#39;epochs&#39;: 100, &#39;batch&#39;: 32}
+<pre><code class="language-python">d = {'lr': 0.01, 'epochs': 100, 'batch': 32}
 
 d.keys()           # 所有键
 d.values()         # 所有值
 d.items()          # 所有键值对
-d.get(&#39;lr&#39;, 0.001) # 安全取值，不存在时返回默认值</code></pre>
-<p>---</p>
+d.get('lr', 0.001) # 安全取值，不存在时返回默认值
+</code></pre>
+<hr>
 <h3>3. 解包操作</h3>
 <pre><code class="language-python"># 基本解包
 a, b, c = [1, 2, 3]
@@ -72,15 +74,19 @@ high, low = get_range([3, 1, 7, 2])
 # 循环解包（PyTorch DataLoader 就是这样取数据的）
 data = [(&quot;cat&quot;, 0), (&quot;dog&quot;, 1), (&quot;bird&quot;, 2)]
 for name, label in data:
-    print(f&quot;类别：{name}，标签：{label}&quot;)</code></pre>
-<p>---</p>
+    print(f&quot;类别：{name}，标签：{label}&quot;)
+</code></pre>
+<hr>
 <h2>二、函数进阶</h2>
 <h3>1. *args 和 **kwargs</h3>
 <p><strong>原理：</strong></p>
-<p>+ <code>*</code> = 收集位置参数，打包成<strong>元组</strong><br>+ <code><strong></code> = 收集关键字参数，打包成</strong>字典**</p>
+<ul>
+<li><code>*</code> = 收集位置参数，打包成<strong>元组</strong></li>
+<li><code>**</code> = 收集关键字参数，打包成<strong>字典</strong></li>
+</ul>
 <pre><code class="language-python"># *args：接收任意数量的位置参数
 def add_all(*args):
-    print(type(args))  # &lt;class &#39;tuple&#39;&gt;
+    print(type(args))  # &lt;class 'tuple'&gt;
     return sum(args)
 
 add_all(1, 2, 3)       # args = (1, 2, 3)
@@ -88,17 +94,19 @@ add_all(1, 2, 3, 4, 5) # args = (1, 2, 3, 4, 5)
 
 # **kwargs：接收任意数量的关键字参数
 def print_config(**kwargs):
-    print(type(kwargs))  # &lt;class &#39;dict&#39;&gt;
+    print(type(kwargs))  # &lt;class 'dict'&gt;
     for key, value in kwargs.items():
         print(f&quot;{key} = {value}&quot;)
 
 print_config(lr=0.01, epochs=100, batch_size=32)
-# kwargs = {&#39;lr&#39;: 0.01, &#39;epochs&#39;: 100, &#39;batch_size&#39;: 32}</code></pre>
-<p>---</p>
+# kwargs = {'lr': 0.01, 'epochs': 100, 'batch_size': 32}
+</code></pre>
+<hr>
 <h3>2. lambda 表达式</h3>
 <p><strong>原理：</strong> 把普通函数压缩成一行，同时省掉函数名。</p>
 <pre><code class="language-plain">def square ( x ) :  return x ** 2
-lambda      ( x ) :         x ** 2</code></pre>
+lambda      ( x ) :         x ** 2
+</code></pre>
 <pre><code class="language-python"># 基本用法
 square = lambda x: x ** 2
 print(square(5))  # 25
@@ -113,9 +121,10 @@ sorted_s = sorted(students, key=lambda s: s[1], reverse=True)
 
 # 多条件排序（返回元组）
 # -score 表示分数从高到低，name 表示字母顺序
-sorted_s = sorted(students, key=lambda s: (-s[1], s[0]))</code></pre>
+sorted_s = sorted(students, key=lambda s: (-s[1], s[0]))
+</code></pre>
 <p><strong>lambda 的限制：</strong> 只能写一个表达式，不能写多行逻辑。复杂函数用 <code>def</code>。</p>
-<p>---</p>
+<hr>
 <h3>3. map 和 filter</h3>
 <p><strong>map：对每个元素做同样的操作，数量不变（变形）</strong></p>
 <pre><code class="language-python">nums = [1, 2, 3, 4, 5]
@@ -125,7 +134,8 @@ squared = list(map(lambda n: n**2, nums))
 # [1, 4, 9, 16, 25]
 
 # 等价的推导式写法
-squared = [n**2 for n in nums]</code></pre>
+squared = [n**2 for n in nums]
+</code></pre>
 <p><strong>filter：按条件筛选元素，数量变少（筛选）</strong></p>
 <pre><code class="language-python">nums = [1, 2, 3, 4, 5, 6]
 
@@ -134,14 +144,45 @@ evens = list(filter(lambda n: n % 2 == 0, nums))
 # [2, 4, 6]
 
 # 等价的推导式写法
-evens = [n for n in nums if n % 2 == 0]</code></pre>
+evens = [n for n in nums if n % 2 == 0]
+</code></pre>
 <p><strong>注意：</strong><code>map</code> 和 <code>filter</code> 返回的是惰性对象，需要套 <code>list()</code> 才能看到结果。</p>
-<p>| | map | filter |<br>| --- | --- | --- |<br>| 作用 | 变形 | 筛选 |<br>| 结果数量 | 和原列表一样 | 小于等于原列表 |<br>| 函数返回值 | 任意 | True / False |</p>
-<p>---</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>map</th>
+<th>filter</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>作用</td>
+<td>变形</td>
+<td>筛选</td>
+</tr>
+<tr>
+<td>结果数量</td>
+<td>和原列表一样</td>
+<td>小于等于原列表</td>
+</tr>
+<tr>
+<td>函数返回值</td>
+<td>任意</td>
+<td>True / False</td>
+</tr>
+</tbody>
+</table>
+<hr>
 <h2>三、面向对象（OOP）</h2>
 <h3>核心概念</h3>
-<p>+ <strong>类（class）</strong>：模板，描述一类事物有哪些属性和方法<br>+ <strong>对象</strong>：根据模板创建出来的具体实例<br>+ <strong>属性</strong>：对象自身存储的数据（用 <code>self.xxx</code> 存储）<br>+ <strong>方法</strong>：对象能做的动作（类里面定义的函数）</p>
-<p>---</p>
+<ul>
+<li><strong>类（class）</strong>：模板，描述一类事物有哪些属性和方法</li>
+<li><strong>对象</strong>：根据模板创建出来的具体实例</li>
+<li><strong>属性</strong>：对象自身存储的数据（用 <code>self.xxx</code> 存储）</li>
+<li><strong>方法</strong>：对象能做的动作（类里面定义的函数）</li>
+</ul>
+<hr>
 <h3>1. class 基础</h3>
 <pre><code class="language-python">class Dog:
     def __init__(self, name, age):  # 初始化方法，创建时自动调用
@@ -156,9 +197,10 @@ dog1 = Dog(&quot;旺财&quot;, 3)
 dog2 = Dog(&quot;小白&quot;, 5)
 
 dog1.bark()       # 旺财 说：汪汪！
-print(dog2.name)  # 小白</code></pre>
+print(dog2.name)  # 小白
+</code></pre>
 <p><strong>self 的作用：</strong> 让方法知道是哪个对象在调用它，从而访问该对象自己的属性。</p>
-<p>---</p>
+<hr>
 <h3>2. 继承</h3>
 <p><strong>作用：</strong> 把多个类的共同部分提取到父类，子类只写自己特有的，避免重复代码。</p>
 <pre><code class="language-python"># 父类：放共同的东西
@@ -183,8 +225,9 @@ cat = Cat(&quot;咪咪&quot;)
 
 dog.eat()   # 旺财 在吃东西（从父类继承）
 dog.bark()  # 旺财 说：汪汪！（子类自己的）
-cat.bark()  # 咪咪 说：喵~（子类自己的）</code></pre>
-<p>---</p>
+cat.bark()  # 咪咪 说：喵~（子类自己的）
+</code></pre>
+<hr>
 <h3>3. super()</h3>
 <p><strong>作用：</strong> 子类有自己的 <code>__init__</code> 时，用 <code>super()</code> 先执行父类的 <code>__init__</code>，否则父类定义的属性会丢失。</p>
 <pre><code class="language-python">class Animal:
@@ -198,8 +241,9 @@ class Cat(Animal):
 
 cat = Cat(&quot;咪咪&quot;, &quot;橘&quot;)
 print(cat.name)   # 咪咪（父类存的）
-print(cat.color)  # 橘（子类存的）</code></pre>
-<p>---</p>
+print(cat.color)  # 橘（子类存的）
+</code></pre>
+<hr>
 <h3>4. 对应到 PyTorch</h3>
 <p>PyTorch 的模型就是一个继承了 <code>nn.Module</code> 的类，结构和上面完全一样：</p>
 <pre><code class="language-python">import torch.nn as nn
@@ -210,13 +254,84 @@ class MyModel(nn.Module):      # 继承 nn.Module（父类）
         self.layer = nn.Linear(10, 1)  # 存自己的属性
 
     def forward(self, x):      # 覆盖父类的 forward 方法
-        return self.layer(x)</code></pre>
+        return self.layer(x)
+</code></pre>
 <p>对应关系：</p>
-<p>| PyTorch | 普通 OOP |<br>| --- | --- |<br>| <code>nn.Module</code> | Animal（父类） |<br>| <code>MyModel</code> | Cat（子类） |<br>| <code>super().__init__()</code> | 调用父类初始化 |<br>| <code>forward()</code> | 子类覆盖的方法 |</p>
-<p>---</p>
+<table>
+<thead>
+<tr>
+<th>PyTorch</th>
+<th>普通 OOP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nn.Module</code></td>
+<td>Animal（父类）</td>
+</tr>
+<tr>
+<td><code>MyModel</code></td>
+<td>Cat（子类）</td>
+</tr>
+<tr>
+<td><code>super().__init__()</code></td>
+<td>调用父类初始化</td>
+</tr>
+<tr>
+<td><code>forward()</code></td>
+<td>子类覆盖的方法</td>
+</tr>
+</tbody>
+</table>
+<hr>
 <h2>今日总结</h2>
-<p>| 知识点 | 核心用途 | 在 PyTorch 中的体现 |<br>| --- | --- | --- |<br>| 列表推导式 | 简洁生成/筛选列表 | 批量处理数据 |<br>| 字典推导式 | 简洁生成字典 | 存储模型配置参数 |<br>| 解包 | 同时取出多个值 | DataLoader 取 (images, labels) |<br>| *args / **kwargs | 接收不定数量参数 | 模型函数参数传递 |<br>| lambda | 简洁的一次性函数 | 排序、数据预处理 |<br>| map / filter | 批量变形 / 筛选 | 数据集处理 |<br>| class / 继承 / super() | 面向对象编程 | 定义 PyTorch 模型 |</p></div></article>
-<nav class="note-pagination"><span></span><a href="./day-2-学习笔记-文件操作-异常处理-综合小项目.html">Day 2 学习笔记：文件操作 + 异常处理 + 综合小项目 →</a></nav>
+<table>
+<thead>
+<tr>
+<th>知识点</th>
+<th>核心用途</th>
+<th>在 PyTorch 中的体现</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>列表推导式</td>
+<td>简洁生成/筛选列表</td>
+<td>批量处理数据</td>
+</tr>
+<tr>
+<td>字典推导式</td>
+<td>简洁生成字典</td>
+<td>存储模型配置参数</td>
+</tr>
+<tr>
+<td>解包</td>
+<td>同时取出多个值</td>
+<td>DataLoader 取 (images, labels)</td>
+</tr>
+<tr>
+<td>*args / **kwargs</td>
+<td>接收不定数量参数</td>
+<td>模型函数参数传递</td>
+</tr>
+<tr>
+<td>lambda</td>
+<td>简洁的一次性函数</td>
+<td>排序、数据预处理</td>
+</tr>
+<tr>
+<td>map / filter</td>
+<td>批量变形 / 筛选</td>
+<td>数据集处理</td>
+</tr>
+<tr>
+<td>class / 继承 / super()</td>
+<td>面向对象编程</td>
+<td>定义 PyTorch 模型</td>
+</tr>
+</tbody>
+</table>
+</div></article>
   </main>
 </body>
 </html>
