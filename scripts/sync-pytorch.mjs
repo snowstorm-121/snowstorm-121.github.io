@@ -18,7 +18,6 @@ import MarkdownIt from 'markdown-it';
 
 const SITE_ROOT = '/learning/pytorch';
 const MANIFEST_VERSION = 1;
-const MAX_TEXT_SCAN_BYTES = 1024 * 1024;
 const MAX_REMOTE_ASSET_BYTES = 10 * 1024 * 1024;
 const REMOTE_FETCH_TIMEOUT_MS = 15_000;
 const MAX_REMOTE_REDIRECTS = 5;
@@ -137,7 +136,7 @@ export function findRemoteImageUrls(markdown) {
   return [...urls].sort();
 }
 
-async function scanSecrets(notes, sourceRoot, allFiles) {
+async function scanSecrets(notes, sourceRoot, publishedAttachments) {
   const rules = [
     ['private key', /-----BEGIN (?:(?:RSA|EC|OPENSSH|DSA|ENCRYPTED|PGP) )?PRIVATE KEY(?: BLOCK)?-----/],
     ['AWS credential', /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/],
@@ -147,34 +146,33 @@ async function scanSecrets(notes, sourceRoot, allFiles) {
   ];
   const findings = [];
   const sources = notes.map((note) => ({ sourcePath: note.sourcePath, content: note.content }));
-  const attachments = allFiles.filter((file) => path.extname(file).toLowerCase() !== '.md');
-  for (const absolutePath of attachments) {
-    const fileStat = await stat(absolutePath);
-    const sensitiveExtension = /\.(?:pem|key)$/i.test(absolutePath);
-    if (fileStat.size > MAX_TEXT_SCAN_BYTES) {
-      if (sensitiveExtension) {
-        throw new Error(`Credential scan stopped synchronization:\n${normalizePath(path.relative(sourceRoot, absolutePath))}: sensitive attachment is too large to scan`);
-      }
-      continue;
-    }
+  const textExtensions = new Set([
+    '.bash', '.c', '.cc', '.cfg', '.conf', '.cpp', '.css', '.csv', '.env', '.fish',
+    '.go', '.h', '.hpp', '.htm', '.html', '.ini', '.ipynb', '.java', '.js', '.json',
+    '.jsonl', '.jsx', '.key', '.md', '.mjs', '.pem', '.py', '.r', '.rs', '.sh', '.sql',
+    '.toml', '.ts', '.tsv', '.tsx', '.txt', '.xml', '.yaml', '.yml', '.zsh',
+  ]);
+  for (const absolutePath of publishedAttachments) {
     const buffer = await readFile(absolutePath);
+    const sourcePath = normalizePath(path.relative(sourceRoot, absolutePath));
+    const declaredText = textExtensions.has(path.extname(absolutePath).toLowerCase());
     let content;
     try {
       content = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
     } catch {
-      if (sensitiveExtension) {
-        throw new Error(`Credential scan stopped synchronization:\n${normalizePath(path.relative(sourceRoot, absolutePath))}: sensitive attachment is not UTF-8 text`);
+      if (declaredText) {
+        throw new Error(`Credential scan stopped synchronization:\n${sourcePath}: published text attachment is not UTF-8`);
       }
       continue;
     }
     if (content.includes('\0')) {
-      if (sensitiveExtension) {
-        throw new Error(`Credential scan stopped synchronization:\n${normalizePath(path.relative(sourceRoot, absolutePath))}: sensitive attachment is binary`);
+      if (declaredText) {
+        throw new Error(`Credential scan stopped synchronization:\n${sourcePath}: published text attachment is binary`);
       }
       continue;
     }
     sources.push({
-      sourcePath: normalizePath(path.relative(sourceRoot, absolutePath)),
+      sourcePath,
       content,
     });
   }
@@ -251,6 +249,11 @@ function remoteAssetPath(url, extension) {
 
 function isRemote(value) {
   return /^https?:\/\//i.test(value);
+}
+
+function isLocalNoteReference(value) {
+  const target = value.trim();
+  return !target.startsWith('/') && !/^[A-Za-z][A-Za-z\d+.-]*:/.test(target);
 }
 
 function findAsset(rawTarget, currentNote, assetFiles, sourceRoot) {
@@ -340,6 +343,7 @@ async function readBoundedResponse(response, maxBytes, url) {
   if (contentLength !== null) {
     const declaredBytes = Number(contentLength);
     if (!Number.isFinite(declaredBytes) || declaredBytes < 0 || declaredBytes > maxBytes) {
+      await cancelResponseBody(response);
       throw new Error(`Remote image is too large: ${url}`);
     }
   }
@@ -352,12 +356,24 @@ async function readBoundedResponse(response, maxBytes, url) {
     if (done) break;
     total += value.byteLength;
     if (total > maxBytes) {
-      await reader.cancel();
+      try {
+        await reader.cancel();
+      } catch {
+        // Keep the size-limit error as the primary failure.
+      }
       throw new Error(`Remote image is too large: ${url}`);
     }
     chunks.push(Buffer.from(value));
   }
   return Buffer.concat(chunks, total);
+}
+
+async function cancelResponseBody(response) {
+  try {
+    await response.body?.cancel();
+  } catch {
+    // Cancellation is best-effort and must not replace the validation error.
+  }
 }
 
 export async function defaultFetchAsset(url, {
@@ -373,6 +389,7 @@ export async function defaultFetchAsset(url, {
     while (true) {
       const response = await fetchImpl(currentUrl.href, { redirect: 'manual', signal });
       if ([301, 302, 303, 307, 308].includes(response.status)) {
+        await cancelResponseBody(response);
         if (redirects >= maxRedirects) throw new Error(`Remote image has too many redirects: ${url}`);
         const location = response.headers.get('location');
         if (!location) throw new Error(`Remote image redirect is missing Location: ${currentUrl.href}`);
@@ -380,10 +397,20 @@ export async function defaultFetchAsset(url, {
         redirects += 1;
         continue;
       }
-      if (!response.ok) throw new Error(`Remote image download failed (${response.status}): ${currentUrl.href}`);
-      const finalUrl = remoteHttpUrl(response.url || currentUrl.href).href;
+      if (!response.ok) {
+        await cancelResponseBody(response);
+        throw new Error(`Remote image download failed (${response.status}): ${currentUrl.href}`);
+      }
+      let finalUrl;
+      try {
+        finalUrl = remoteHttpUrl(response.url || currentUrl.href).href;
+      } catch (error) {
+        await cancelResponseBody(response);
+        throw error;
+      }
       const contentType = response.headers.get('content-type')?.split(';', 1)[0].trim().toLowerCase() || '';
       if (!['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif'].includes(contentType)) {
+        await cancelResponseBody(response);
         throw new Error(`Remote image Content-Type ${contentType || '(missing)'} is not allowed: ${url}`);
       }
       const data = await readBoundedResponse(response, maxBytes, url);
@@ -422,6 +449,7 @@ function markdownLinkTarget(rawTarget, note, noteIndex) {
   const titled = trimmed.match(/^(.+?)\s+("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|\((?:[^()\\]|\\.)*\))$/s);
   if (titled) candidates.push({ target: titled[1], title: ` ${titled[2]}` });
   for (const candidate of candidates) {
+    if (!isLocalNoteReference(candidate.target)) continue;
     const resolved = resolveNoteTarget(candidate.target, note, noteIndex);
     if (resolved) return { url: noteUrl(resolved.note, resolved.heading), title: candidate.title };
   }
@@ -495,17 +523,6 @@ function transformOutsideInlineCode(value, transform) {
   return output + transform(value.slice(plainStart));
 }
 
-function openingFence(line) {
-  const match = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
-  if (!match || (match[1][0] === '`' && match[2].includes('`'))) return null;
-  return { marker: match[1][0], length: match[1].length };
-}
-
-function closesFence(line, fence) {
-  const match = line.match(/^ {0,3}(`+|~+)[ \t]*$/);
-  return Boolean(match && match[1][0] === fence.marker && match[1].length >= fence.length);
-}
-
 function pageTemplate({ title, eyebrow, body }) {
   return `<!doctype html>
 <html lang="zh-CN">
@@ -526,19 +543,15 @@ function pageTemplate({ title, eyebrow, body }) {
 </html>`;
 }
 
-function preprocessMarkdown(markdown, context) {
-  let fence = null;
+function preprocessMarkdown(markdown, context, md) {
+  const protectedLines = new Set();
+  for (const token of md.parse(markdown, {})) {
+    if (!['fence', 'code_block'].includes(token.type) || !token.map) continue;
+    for (let line = token.map[0]; line < token.map[1]; line += 1) protectedLines.add(line);
+  }
   const placeholders = [];
   const lines = markdown.split(/\r?\n/).map((line, lineIndex) => {
-    if (fence) {
-      if (closesFence(line, fence)) fence = null;
-      return line;
-    }
-    const opener = openingFence(line);
-    if (opener) {
-      fence = opener;
-      return line;
-    }
+    if (protectedLines.has(lineIndex)) return line;
     let transformed = line.replace(/^(\s*)- \[([ xX])\]\s+/, (_, indent, checked) => {
       const marker = checked.toLowerCase() === 'x' ? 'PYTORCH_TASK_CHECKED' : 'PYTORCH_TASK_UNCHECKED';
       return `${indent}- ${marker} `;
@@ -583,8 +596,8 @@ function preprocessMarkdown(markdown, context) {
 }
 
 async function renderNote(note, context) {
-  const { markdown, placeholders } = preprocessMarkdown(note.content, { ...context, note });
   const md = new MarkdownIt({ html: false, linkify: true, breaks: false });
+  const { markdown, placeholders } = preprocessMarkdown(note.content, { ...context, note }, md);
   const defaultImage = md.renderer.rules.image;
   md.renderer.rules.image = (tokens, index, options, env, self) => {
     const token = tokens[index];
@@ -607,7 +620,7 @@ async function renderNote(note, context) {
   md.renderer.rules.link_open = (tokens, index, options, env, self) => {
     const token = tokens[index];
     const href = token.attrGet('href');
-    if (href && !isRemote(href) && !href.startsWith('/') && !href.startsWith('#') && !/^mailto:/i.test(href)) {
+    if (href && isLocalNoteReference(href) && !href.startsWith('#')) {
       const resolved = resolveNoteTarget(href, note, context.noteIndex);
       if (resolved) token.attrSet('href', noteUrl(resolved.note, resolved.heading));
     }
@@ -825,7 +838,6 @@ export async function synchronize({
   const previousManifest = await readManifest(resolvedOutput);
   const notes = await collectSourceNotes(resolvedSource, previousManifest);
   const allFiles = await walkFiles(resolvedSource);
-  await scanSecrets(notes, resolvedSource, allFiles);
   const assetFiles = allFiles.filter((file) => path.extname(file).toLowerCase() !== '.md');
   const noteIndex = buildNoteIndex(notes);
   const warnings = [];
@@ -848,6 +860,7 @@ export async function synchronize({
     outputs.set(`notes/${note.stageKey}/${note.slug}.html`, renderArticle(note, html));
     outputs.set(`markdown/${note.stageKey}/${note.slug}.md`, note.content);
   }
+  await scanSecrets(notes, resolvedSource, [...new Set(localAssets.values())]);
   for (const [destination, source] of localAssets) outputs.set(destination, await readFile(source));
   const stages = [...STAGES.values()];
   outputs.set('index.html', renderArchiveIndex(notes, stages));

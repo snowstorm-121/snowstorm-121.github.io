@@ -178,6 +178,47 @@ test('scans private-key and arbitrary small UTF-8 referenced attachments before 
   await assert.rejects(readFile(path.join(output, 'manifest.json')), /ENOENT/);
 });
 
+test('scans every published text attachment or rejects it before writing output', async (t) => {
+  const { synchronize } = await loadSyncModule();
+  const cases = [
+    {
+      name: 'large.js',
+      content: `const credential = "AKIAIOSFODNN7EXAMPLE";\n${'x'.repeat(1024 * 1024)}`,
+      error: /Stage1\/large\.js:1.*credential/i,
+    },
+    {
+      name: 'large.py',
+      content: `credential = "AKIAIOSFODNN7EXAMPLE"\n${'x'.repeat(1024 * 1024)}`,
+      error: /Stage1\/large\.py:1.*credential/i,
+    },
+    {
+      name: 'invalid-utf8.js',
+      content: Buffer.from([0xff, 0xfe, 0xfd]),
+      error: /Stage1\/invalid-utf8\.js.*not UTF-8/i,
+    },
+    {
+      name: 'nul.py',
+      content: Buffer.from('safe\0text'),
+      error: /Stage1\/nul\.py.*binary/i,
+    },
+  ];
+
+  for (const fixture of cases) {
+    await t.test(fixture.name, async (subtest) => {
+      const { root, source, output } = await makeFixture();
+      subtest.after(() => rm(root, { recursive: true, force: true }));
+      await writeFile(path.join(source, 'Stage1', fixture.name), fixture.content);
+      await writeFile(path.join(source, 'Stage1', 'Main.md'), `[[${fixture.name}|Download]]\n`);
+
+      await assert.rejects(
+        synchronize({ sourceRoot: source, outputRoot: output }),
+        fixture.error,
+      );
+      await assert.rejects(readFile(path.join(output, 'manifest.json')), /ENOENT/);
+    });
+  }
+});
+
 test('rejects traversal, absolute, and symlinked managed paths for manifest read, check, delete, and write', async (t) => {
   const { synchronize } = await loadSyncModule();
 
@@ -314,6 +355,73 @@ test('renders space-bearing Markdown note links without touching images or code 
   assert.match(html, /<code class="language-md">\[Fenced\]\(Other Note\.md\)/);
   assert.match(html, /<code class="language-md">```\n\[Long fenced\]\(Other Note\.md\)\n~~~/);
   assert.doesNotMatch(html, />Inline<\/a>|>Multi inline<\/a>|>Backslash inline<\/a>|>Fenced<\/a>|>Long fenced<\/a>/);
+});
+
+test('preserves external and site-absolute Markdown links when a local note shares the basename', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(
+    path.join(source, 'Stage1', 'Main.md'),
+    [
+      '[HTTPS](https://example.test/Other%20Note.md)',
+      '[FTP](ftp://example.test/Other%20Note.md)',
+      '[Protocol relative](//example.test/Other%20Note.md)',
+      '[Site absolute](/Other%20Note.md)',
+      '[Mail](mailto:reader@example.test)',
+    ].join('\n'),
+  );
+  const { synchronize } = await loadSyncModule();
+
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const html = await readFile(path.join(output, 'notes', 'stage-1', 'main.html'), 'utf8');
+
+  assert.match(html, /href="https:\/\/example\.test\/Other%20Note\.md" rel="noreferrer">HTTPS<\/a>/);
+  assert.match(html, /href="ftp:\/\/example\.test\/Other%20Note\.md">FTP<\/a>/);
+  assert.match(html, /href="\/\/example\.test\/Other%20Note\.md">Protocol relative<\/a>/);
+  assert.match(html, /href="\/Other%20Note\.md">Site absolute<\/a>/);
+  assert.match(html, /href="mailto:reader@example\.test">Mail<\/a>/);
+  assert.doesNotMatch(html, /other-note\.html">(?:HTTPS|FTP|Protocol relative|Site absolute|Mail)<\/a>/);
+});
+
+test('preserves links and task markers inside container fences and indented code', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(
+    path.join(source, 'Stage1', 'Main.md'),
+    [
+      '> ```md',
+      '> [Blockquote fenced](Other Note.md)',
+      '> - [ ] blockquote task',
+      '> ```',
+      '',
+      '- list item',
+      '',
+      '    ```md',
+      '    [List fenced](Other Note.md)',
+      '    - [x] list task',
+      '    ```',
+      '',
+      '> - nested item',
+      '>',
+      '>   ```md',
+      '>   [Nested fenced](Other Note.md)',
+      '>   - [ ] nested task',
+      '>   ```',
+      '',
+      '    [Indented](Other Note.md)',
+      '    - [x] indented task',
+    ].join('\n'),
+  );
+  const { synchronize } = await loadSyncModule();
+
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const html = await readFile(path.join(output, 'notes', 'stage-1', 'main.html'), 'utf8');
+
+  assert.match(html, /<code class="language-md">\[Blockquote fenced\]\(Other Note\.md\)\n- \[ \] blockquote task/);
+  assert.match(html, /<code class="language-md">\[List fenced\]\(Other Note\.md\)\n- \[x\] list task/);
+  assert.match(html, /<code class="language-md">\[Nested fenced\]\(Other Note\.md\)\n- \[ \] nested task/);
+  assert.match(html, /<pre><code>\[Indented\]\(Other Note\.md\)\n- \[x\] indented task\n<\/code><\/pre>/);
+  assert.doesNotMatch(html, /other-note\.html">(?:Blockquote fenced|List fenced|Nested fenced|Indented)<\/a>/);
 });
 
 test('rejects an HTML image response before writing any generated output', async (t) => {
@@ -474,6 +582,90 @@ test('validates remote protocols, redirects, timeouts, response types, raster si
         maxRedirects: 1,
       }),
       /too many redirects/i,
+    );
+  });
+});
+
+test('cancels unused response bodies without masking remote image errors', async (t) => {
+  const { defaultFetchAsset } = await loadSyncModule();
+  const url = 'https://images.example.test/plot.png';
+  const pendingResponse = ({ status = 200, headers = {}, cancel }) => new Response(
+    new ReadableStream({
+      start(controller) {
+        controller.enqueue(new Uint8Array([1]));
+      },
+      cancel,
+    }),
+    { status, headers },
+  );
+
+  await t.test('cancels a redirect body before following Location', async () => {
+    let redirectedBodyCanceled = false;
+    let calls = 0;
+    const result = await defaultFetchAsset(url, {
+      fetchImpl: async () => {
+        calls += 1;
+        if (calls === 1) {
+          return pendingResponse({
+            status: 302,
+            headers: { location: '/final.png' },
+            cancel() {
+              redirectedBodyCanceled = true;
+            },
+          });
+        }
+        return new Response(tinyPng, {
+          status: 200,
+          headers: { 'content-type': 'image/png' },
+        });
+      },
+    });
+
+    assert.deepEqual(result.data, tinyPng);
+    assert.equal(redirectedBodyCanceled, true);
+  });
+
+  await t.test('cancels bodies rejected from status, type, and declared length headers', async () => {
+    const cases = [
+      { status: 503, headers: {}, error: /failed \(503\)/i },
+      { status: 200, headers: { 'content-type': 'text/html' }, error: /content-type.*text\/html/i },
+      {
+        status: 200,
+        headers: { 'content-type': 'image/png', 'content-length': '33' },
+        error: /too large/i,
+        maxBytes: 32,
+      },
+    ];
+    for (const fixture of cases) {
+      let canceled = false;
+      await assert.rejects(
+        defaultFetchAsset(url, {
+          fetchImpl: async () => pendingResponse({
+            status: fixture.status,
+            headers: fixture.headers,
+            cancel() {
+              canceled = true;
+            },
+          }),
+          ...(fixture.maxBytes ? { maxBytes: fixture.maxBytes } : {}),
+        }),
+        fixture.error,
+      );
+      assert.equal(canceled, true);
+    }
+  });
+
+  await t.test('keeps the primary validation error when canceling fails', async () => {
+    await assert.rejects(
+      defaultFetchAsset(url, {
+        fetchImpl: async () => pendingResponse({
+          headers: { 'content-type': 'text/html' },
+          cancel() {
+            throw new Error('cancel failed');
+          },
+        }),
+      }),
+      /content-type.*text\/html/i,
     );
   });
 });
