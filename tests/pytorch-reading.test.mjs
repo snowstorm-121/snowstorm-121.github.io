@@ -106,6 +106,8 @@ test('reading styles preserve a still, system-cursor long-form experience and gl
   assert.match(css, /\.note-content img[\s\S]*?border:/);
   assert.match(css, /\.source-attachment[\s\S]*?backdrop-filter/);
   assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.reading-toc[\s\S]*?position:\s*static/);
+  assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.note-content pre,\s*\.note-content table\s*\{[\s\S]*?max-width:\s*100%[\s\S]*?box-sizing:\s*border-box[\s\S]*?overflow-x:\s*auto/);
+  assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.note-content h2,\s*\.note-content h3\s*\{[\s\S]*?overflow-wrap:\s*anywhere/);
   assert.match(css, /@media \(pointer: coarse\)[\s\S]*?\.reading-toc-details summary[\s\S]*?min-height:\s*44px/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation:\s*none[\s\S]*?transition:\s*none/);
 });
