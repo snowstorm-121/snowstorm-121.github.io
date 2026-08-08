@@ -6,18 +6,20 @@
   <meta name="theme-color" content="#07101c">
   <title>Day 5 学习笔记：MNIST 综合复盘实验 · SNOWSTORM</title>
   <link rel="stylesheet" href="/assets/library.css">
+  <link rel="stylesheet" href="/assets/pytorch-reading.css">
 </head>
-<body class="library-page">
+<body class="library-page pytorch-reading-page">
+<div class="reading-progress" data-reading-progress aria-hidden="true"></div>
   <main class="library-shell">
     <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
     <p class="library-eyebrow">模型与训练闭环</p>
-    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-2/">模型与训练闭环</a></nav><article class="note-article"><h1>Day 5 学习笔记：MNIST 综合复盘实验</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+    <a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-2/">模型与训练闭环</a></nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details" open><summary>本页目录</summary><ol><li class="toc-level-2"><a href="#〇-今天完成了什么">〇、今天完成了什么</a></li><li class="toc-level-2"><a href="#一-mnist-与-fashion-mnist-变的是任务-不变的是训练接口">一、MNIST 与 Fashion-MNIST：变的是任务，不变的是训练接口</a></li><li class="toc-level-2"><a href="#二-数据边界-train-学习-val-选模型-test-最终报告">二、数据边界：train 学习，val 选模型，test 最终报告</a></li><li class="toc-level-2"><a href="#三-mlp-从二维图像到十个-logits">三、MLP：从二维图像到十个 logits</a></li><li class="toc-level-2"><a href="#四-两个函数划开训练与评估的边界">四、两个函数划开训练与评估的边界</a></li><li class="toc-level-3"><a href="#1-train-one-epoch">1. train_one_epoch</a></li><li class="toc-level-3"><a href="#2-evaluate">2. evaluate</a></li><li class="toc-level-2"><a href="#五-adam-与-steplr-参数更新和学习率调整是两件事">五、Adam 与 StepLR：参数更新和学习率调整是两件事</a></li><li class="toc-level-2"><a href="#六-best-model-与-last-checkpoint-两个文件解决两类问题">六、best model 与 last checkpoint：两个文件解决两类问题</a></li><li class="toc-level-3"><a href="#1-best-model">1. best model</a></li><li class="toc-level-3"><a href="#2-last-checkpoint">2. last checkpoint</a></li><li class="toc-level-2"><a href="#七-曲线不是装饰-而是训练诊断工具">七、曲线不是装饰，而是训练诊断工具</a></li><li class="toc-level-2"><a href="#八-最终测试-加载-best-model-而不是使用最后一轮模型">八、最终测试：加载 best model，而不是使用最后一轮模型</a></li><li class="toc-level-3"><a href="#完整代码">完整代码</a></li><li class="toc-level-3"><a href="#结果展示">结果展示</a></li><li class="toc-level-2"><a href="#九-本次踩过的坑与排查顺序">九、本次踩过的坑与排查顺序</a></li><li class="toc-level-3"><a href="#1-验证函数只写-model-eval-忘记-torch-no-grad">1. 验证函数只写 model.eval()，忘记 torch.no_grad()</a></li><li class="toc-level-3"><a href="#2-steplr-创建了但没有调用-scheduler-step">2. StepLR 创建了但没有调用 scheduler.step()</a></li><li class="toc-level-3"><a href="#3-不同实验覆盖同名-checkpoint">3. 不同实验覆盖同名 checkpoint</a></li><li class="toc-level-3"><a href="#4-绘图时设置错了-axes">4. 绘图时设置错了 Axes</a></li><li class="toc-level-3"><a href="#5-看完-test-结果后再改模型">5. 看完 test 结果后再改模型</a></li><li class="toc-level-2"><a href="#十-day-5-掌握清单">十、Day 5 掌握清单</a></li><li class="toc-level-2"><a href="#今日一句话总结">今日一句话总结</a></li></ol></details></aside><article class="note-article"><h1>Day 5 学习笔记：MNIST 综合复盘实验</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
 <p>参考书：《动手学深度学习》PyTorch 版，PyTorch 官方文档，Matplotlib 官方文档</p>
 <p>本阶段重点：在 <a href="/learning/pytorch/notes/stage-2/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-nn-module-%E4%B8%8E%E5%B8%B8%E7%94%A8%E5%B1%82%E5%85%A5%E9%97%A8.html">Day 1 学习笔记：nn.Module 与常用层入门</a> 中已经把层、损失函数与优化器交给 PyTorch 管理；在 <a href="/learning/pytorch/notes/stage-2/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-mlp-%E5%A4%9A%E5%B1%82%E6%84%9F%E7%9F%A5%E6%9C%BA%E4%B8%8E%E6%AD%A3%E5%88%99%E5%8C%96.html">Day 2 学习笔记：MLP 多层感知机与正则化</a> 中已经完成 Fashion-MNIST 的 MLP 训练；在 <a href="/learning/pytorch/notes/stage-2/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E8%87%AA%E5%AE%9A%E4%B9%89-dataset-%E4%B8%8E-dataloader-%E6%B7%B1%E5%85%A5.html">Day 3 学习笔记：自定义 Dataset 与 DataLoader 深入</a> 中已经掌握 batch 数据流；在 <a href="/learning/pytorch/notes/stage-2/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%A8%A1%E5%9E%8B%E4%BF%9D%E5%AD%98%E5%8A%A0%E8%BD%BD%E4%B8%8E%E5%8F%AF%E8%A7%86%E5%8C%96.html">Day 4 学习笔记：模型保存加载与可视化</a> 中已经完成保存、加载与曲线记录。本次用一个新的 MNIST 项目把这些能力串成可复用的训练工程。</p>
 <p>今天主线：<code>MNIST MLP 综合复盘：数据划分 -&gt; 训练/验证 -&gt; best model -&gt; 曲线 -&gt; 最终测试</code>。核心心智模型是：<strong>训练集负责学习参数，验证集负责选择模型，测试集只负责最后一次报告；代码封装不会自动提升结果，曲线才告诉我们训练实际发生了什么。</strong></p>
 <p>本笔记对应 <a href="/learning/pytorch/notes/overview/pytorch-%E6%9A%91%E6%9C%9F%E8%AF%A6%E7%BB%86%E5%AD%A6%E4%B9%A0%E8%AE%A1%E5%88%92.html">PyTorch 暑期详细学习计划</a> 中第 4 周 Day 5。</p>
 <hr>
-<h2>〇、今天完成了什么</h2>
+<h2 id="〇-今天完成了什么">〇、今天完成了什么</h2>
 <p>本次独立完成了一个 MNIST 手写数字分类项目：</p>
 <pre><code class="language-plain">MNIST
 -&gt; train / val / test 三份数据
@@ -36,7 +38,7 @@ test acc:     0.9811
 </code></pre>
 <p>这里的 test 结果是最终报告，不是下一轮调参的依据。</p>
 <hr>
-<h2>一、MNIST 与 Fashion-MNIST：变的是任务，不变的是训练接口</h2>
+<h2 id="一-mnist-与-fashion-mnist-变的是任务-不变的是训练接口">一、MNIST 与 Fashion-MNIST：变的是任务，不变的是训练接口</h2>
 <p>本次没有复用 Day 2 的 Fashion-MNIST，而是切换到 MNIST：</p>
 <table>
 <thead>
@@ -89,7 +91,7 @@ label range: 0 ~ 9
 </code></pre>
 <p>这套 dtype/shape 检查直接继承自 <a href="/learning/pytorch/notes/stage-2/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E8%87%AA%E5%AE%9A%E4%B9%89-dataset-%E4%B8%8E-dataloader-%E6%B7%B1%E5%85%A5.html">Day 3 学习笔记：自定义 Dataset 与 DataLoader 深入</a>。在写模型前先检查数据，比在报错后猜 shape 更可靠。</p>
 <hr>
-<h2>二、数据边界：train 学习，val 选模型，test 最终报告</h2>
+<h2 id="二-数据边界-train-学习-val-选模型-test-最终报告">二、数据边界：train 学习，val 选模型，test 最终报告</h2>
 <p>官方 MNIST 训练集有 60000 个样本。本次按固定随机种子切为：</p>
 <pre><code class="language-plain">官方训练集 60000
 ├── train: 54000
@@ -122,7 +124,7 @@ test_loader
 <p>即使没有将 test loss 反向传播，只要反复查看 test accuracy 并据此调整层数、学习率或 epoch，测试集信息也会间接参与模型选择，导致测试泄漏。</p>
 <p><code>shuffle=True</code> 只用于 <code>train_loader</code>；验证和测试不更新参数，因此使用 <code>shuffle=False</code>。</p>
 <hr>
-<h2>三、MLP：从二维图像到十个 logits</h2>
+<h2 id="三-mlp-从二维图像到十个-logits">三、MLP：从二维图像到十个 logits</h2>
 <p>本次模型结构：</p>
 <pre><code class="language-plain">(batch, 1, 28, 28)
 -&gt; Flatten
@@ -153,8 +155,8 @@ argmax(dim=1) 只用于把 logits 变成预测类别
 </code></pre>
 <p>这与第 3 周 <a href="/learning/pytorch/notes/stage-1/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%89%8B%E5%86%99-softmax-%E5%88%86%E7%B1%BB-%E7%BA%AF-tensor-%E5%AE%9E%E7%8E%B0.html">纯 Tensor 手写 Softmax 分类</a> 的关系是：当时手写线性层、Softmax、loss 和梯度；现在 <code>nn.Module</code> 管理参数，<code>CrossEntropyLoss</code> 提供稳定的损失实现，<code>optimizer</code> 完成参数更新。但数据流和“由 scores 选择最大类别”的本质没有变。</p>
 <hr>
-<h2>四、两个函数划开训练与评估的边界</h2>
-<h3>1. <code>train_one_epoch</code></h3>
+<h2 id="四-两个函数划开训练与评估的边界">四、两个函数划开训练与评估的边界</h2>
+<h3 id="1-train-one-epoch">1. <code>train_one_epoch</code></h3>
 <p>训练的完整节奏：</p>
 <pre><code class="language-python">model.train()
 
@@ -183,7 +185,7 @@ average_loss = total_loss / total_samples
 total_correct += (predictions == y).sum().item()
 accuracy = total_correct / total_samples
 </code></pre>
-<h3>2. <code>evaluate</code></h3>
+<h3 id="2-evaluate">2. <code>evaluate</code></h3>
 <p>验证与测试都调用同一个 <code>evaluate</code>，但它们的用途不同：验证用于选择模型，测试只用于最终报告。</p>
 <pre><code class="language-python">def evaluate(model, data_loader, loss_fn, device):
     model.eval()
@@ -202,7 +204,7 @@ torch.no_grad()
 <p><code>model.eval()</code> 不会自动关闭梯度；只写它仍会在验证中建立无用计算图。</p>
 <p>这条边界承接 <a href="/learning/pytorch/notes/stage-2/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%A8%A1%E5%9E%8B%E4%BF%9D%E5%AD%98%E5%8A%A0%E8%BD%BD%E4%B8%8E%E5%8F%AF%E8%A7%86%E5%8C%96.html">Day 4 学习笔记：模型保存加载与可视化</a>：保存/加载负责搬运状态，<code>train()</code>/<code>eval()</code> 决定下一次前向计算如何运行，两者不能混为一谈。</p>
 <hr>
-<h2>五、Adam 与 StepLR：参数更新和学习率调整是两件事</h2>
+<h2 id="五-adam-与-steplr-参数更新和学习率调整是两件事">五、Adam 与 StepLR：参数更新和学习率调整是两件事</h2>
 <p>本次配置：</p>
 <pre><code class="language-python">optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
@@ -225,7 +227,7 @@ epoch 11~15: 0.00025
 </code></pre>
 <p><code>scheduler.step()</code> 必须放在 epoch 循环内、所有 batch 训练完成后；若误放进 batch 循环，会从“每 5 个 epoch 衰减”变成“每 5 个 batch 衰减”，学习率下降过快。</p>
 <hr>
-<h2>六、best model 与 last checkpoint：两个文件解决两类问题</h2>
+<h2 id="六-best-model-与-last-checkpoint-两个文件解决两类问题">六、best model 与 last checkpoint：两个文件解决两类问题</h2>
 <p>输出文件需要按实验隔离：</p>
 <pre><code class="language-plain">checkpoints/
 ├── day4_FashionMnist_mlp/
@@ -233,13 +235,13 @@ epoch 11~15: 0.00025
 └── day5_mnist_mlp_dropout/  # 选做实验，尚未完成
 </code></pre>
 <p>不同实验若都写入 <code>best_model.pth</code> 与 <code>last_checkpoint.pth</code>，会互相覆盖。文件名表示角色，目录表示实验身份。</p>
-<h3>1. best model</h3>
+<h3 id="1-best-model">1. best model</h3>
 <pre><code class="language-python">if val_acc &gt; best_val_acc:
     best_val_acc = val_acc
     torch.save(model.state_dict(), best_model_path)
 </code></pre>
 <p>它只保存验证集表现最好的模型权重，用于最终测试或预测。</p>
-<h3>2. last checkpoint</h3>
+<h3 id="2-last-checkpoint">2. last checkpoint</h3>
 <p>严格恢复训练需要保存：</p>
 <pre><code class="language-python">{
     &quot;epoch&quot;: epoch + 1,
@@ -254,7 +256,7 @@ epoch 11~15: 0.00025
 <p>推荐顺序是：先打印本轮使用的 lr，再 <code>scheduler.step()</code>，最后保存 last checkpoint。这样 checkpoint 中保存的是“下一轮应继续使用”的学习率状态。</p>
 <p>本次完成了 last checkpoint 的保存；实际“中断后加载 checkpoint 并继续训练”尚未演练，属于选做。</p>
 <hr>
-<h2>七、曲线不是装饰，而是训练诊断工具</h2>
+<h2 id="七-曲线不是装饰-而是训练诊断工具">七、曲线不是装饰，而是训练诊断工具</h2>
 <p>本次记录：</p>
 <pre><code class="language-python">history = {
     &quot;train_loss&quot;: [],
@@ -287,7 +289,7 @@ ax.scatter(best_epoch, best_val_acc, color=&quot;red&quot;, zorder=3)
 <p>这是轻度过拟合信号：模型继续记住训练集的细节，但泛化收益已经较小。它不表示训练失败，也不等于必须继续加层、继续训练或强行加入正则化。</p>
 <p>正确结论是：<strong>本次根据验证集选择了最优 epoch；没有用 test 指标解释或调整训练。</strong></p>
 <hr>
-<h2>八、最终测试：加载 best model，而不是使用最后一轮模型</h2>
+<h2 id="八-最终测试-加载-best-model-而不是使用最后一轮模型">八、最终测试：加载 best model，而不是使用最后一轮模型</h2>
 <p>训练结束后，内存中的 <code>model</code> 是最后一个 epoch 的模型，不一定是 val 指标最好的模型。最终测试前要重新创建同结构模型，再装入 best 权重：</p>
 <pre><code class="language-python">best_model = create_model().to(device)
 
@@ -306,7 +308,7 @@ test_loss, test_acc = evaluate(
 )
 </code></pre>
 <p>本次 <code>test acc = 98.11%</code>，与 <code>best val acc = 98.02%</code> 非常接近。测试略高 <code>0.09</code> 个百分点是不同样本划分的正常波动，不能解读为“测试集更简单”，也不能据此再调整网络。</p>
-<h3>完整代码</h3>
+<h3 id="完整代码">完整代码</h3>
 <pre><code class="language-python">from pathlib import Path
 
 import torch
@@ -519,24 +521,24 @@ fig.savefig(curve_path, dpi=150)
 plt.show()
 print(f&quot;curves saved to: {curve_path}&quot;)
 </code></pre>
-<h3>结果展示</h3>
+<h3 id="结果展示">结果展示</h3>
 <p><img src="/learning/pytorch/assets/stage-2/Pasted%20image%2020260713121044.png" alt="Pasted image 20260713121044.png" loading="lazy"></p>
 <hr>
-<h2>九、本次踩过的坑与排查顺序</h2>
-<h3>1. 验证函数只写 <code>model.eval()</code>，忘记 <code>torch.no_grad()</code></h3>
+<h2 id="九-本次踩过的坑与排查顺序">九、本次踩过的坑与排查顺序</h2>
+<h3 id="1-验证函数只写-model-eval-忘记-torch-no-grad">1. 验证函数只写 <code>model.eval()</code>，忘记 <code>torch.no_grad()</code></h3>
 <p>问题：验证仍会建立计算图，浪费内存和时间。</p>
 <p>检查顺序：</p>
 <pre><code class="language-plain">评估函数是否 model.eval()
 -&gt; 是否 with torch.no_grad()
 -&gt; 是否没有 backward / optimizer.step()
 </code></pre>
-<h3>2. StepLR 创建了但没有调用 <code>scheduler.step()</code></h3>
+<h3 id="2-steplr-创建了但没有调用-scheduler-step">2. StepLR 创建了但没有调用 <code>scheduler.step()</code></h3>
 <p>问题：学习率从未变化。</p>
 <p>检查：每个 epoch 打印 <code>optimizer.param_groups[0][&quot;lr&quot;]</code>，确认第 6、11 个 epoch 的学习率是否如预期变化。</p>
-<h3>3. 不同实验覆盖同名 checkpoint</h3>
+<h3 id="3-不同实验覆盖同名-checkpoint">3. 不同实验覆盖同名 checkpoint</h3>
 <p>问题：Day 4 与 Day 5 都叫 <code>best_model.pth</code>，若共用目录会覆盖。</p>
 <p>修复：每个实验一个子目录，而不是靠不同日期“记住哪个文件是谁”。</p>
-<h3>4. 绘图时设置错了 Axes</h3>
+<h3 id="4-绘图时设置错了-axes">4. 绘图时设置错了 Axes</h3>
 <p>问题：第二张 accuracy 图误使用 <code>axes[0]</code> 设置标题与坐标轴，导致 loss 图标签被覆盖。</p>
 <p>修复：先保存局部变量：</p>
 <pre><code class="language-python">ax = axes[1]
@@ -544,11 +546,11 @@ ax.set_xlabel(&quot;epoch&quot;)
 ax.set_ylabel(&quot;accuracy&quot;)
 ax.set_title(&quot;Accuracy curve&quot;)
 </code></pre>
-<h3>5. 看完 test 结果后再改模型</h3>
+<h3 id="5-看完-test-结果后再改模型">5. 看完 test 结果后再改模型</h3>
 <p>问题：会让 test 集间接参与模型选择。</p>
 <p>本次在最终 test 后想到 Dropout，是一个独立的正则化练习；若继续，只能先比较 train/val 行为，不应再次用同一 test 集选择 Dropout 是否更好。</p>
 <hr>
-<h2>十、Day 5 掌握清单</h2>
+<h2 id="十-day-5-掌握清单">十、Day 5 掌握清单</h2>
 <ul>
 <li><input type="checkbox" checked disabled> 能加载一个新但接口兼容的数据集 MNIST。</li>
 <li><input type="checkbox" checked disabled> 能从官方训练集划分 train / val，并固定划分随机种子。</li>
@@ -563,11 +565,12 @@ ax.set_title(&quot;Accuracy curve&quot;)
 <li><input type="checkbox" disabled> 能从 last checkpoint 恢复模型、optimizer、scheduler、epoch 与 history 后继续训练。</li>
 <li><input type="checkbox" disabled> 选做：完成仅基于验证集的 Dropout 对比实验，并解释其是否改善泛化行为。</li>
 </ul>
-<h2>今日一句话总结</h2>
+<h2 id="今日一句话总结">今日一句话总结</h2>
 <blockquote>
 <p>一个可靠的训练项目不是“跑出一个 accuracy”，而是让每份数据各司其职、让每轮训练可观察、让最佳模型可复用，并能解释曲线为什么这样变化。</p>
 </blockquote>
-</div></article>
+</div></article></div><nav class="article-neighbors" aria-label="相邻文章"><a class="article-neighbor previous" href="/learning/pytorch/notes/stage-2/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%A8%A1%E5%9E%8B%E4%BF%9D%E5%AD%98%E5%8A%A0%E8%BD%BD%E4%B8%8E%E5%8F%AF%E8%A7%86%E5%8C%96.html">← <span>上一篇</span>Day 4 学习笔记：模型保存加载与可视化</a><span class="article-neighbor next" aria-hidden="true"></span></nav>
   </main>
+  <script src="/assets/pytorch-reading.js" defer></script>
 </body>
 </html>

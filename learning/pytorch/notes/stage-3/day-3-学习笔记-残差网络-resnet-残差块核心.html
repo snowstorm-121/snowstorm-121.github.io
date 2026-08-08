@@ -6,18 +6,20 @@
   <meta name="theme-color" content="#07101c">
   <title>Day 3 学习笔记：残差网络 ResNet——残差块核心 · SNOWSTORM</title>
   <link rel="stylesheet" href="/assets/library.css">
+  <link rel="stylesheet" href="/assets/pytorch-reading.css">
 </head>
-<body class="library-page">
+<body class="library-page pytorch-reading-page">
+<div class="reading-progress" data-reading-progress aria-hidden="true"></div>
   <main class="library-shell">
     <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
     <p class="library-eyebrow">卷积网络</p>
-    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-3/">卷积网络</a></nav><article class="note-article"><h1>Day 3 学习笔记：残差网络 ResNet——残差块核心</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+    <a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-3/">卷积网络</a></nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details" open><summary>本页目录</summary><ol><li class="toc-level-2"><a href="#〇-今天完成了什么">〇、今天完成了什么</a></li><li class="toc-level-2"><a href="#一-深层网络的退化问题-不是过拟合">一、深层网络的退化问题：不是过拟合</a></li><li class="toc-level-3"><a href="#为什么新增层什么也不做并不容易">为什么“新增层什么也不做”并不容易？</a></li><li class="toc-level-2"><a href="#二-残差学习-从完整映射转为学习改变量">二、残差学习：从完整映射转为学习改变量</a></li><li class="toc-level-3"><a href="#1-为什么学习残差通常更容易优化">1. 为什么学习残差通常更容易优化？</a></li><li class="toc-level-3"><a href="#2-shortcut-也提供了更直接的梯度路径">2. shortcut 也提供了更直接的梯度路径</a></li><li class="toc-level-3"><a href="#3-残差不是永远等于-0">3. 残差不是永远等于 0</a></li><li class="toc-level-2"><a href="#三-最小-residualblock-的数据流">三、最小 ResidualBlock 的数据流</a></li><li class="toc-level-3"><a href="#1-nn-batchnorm2d">1. nn.BatchNorm2d</a></li><li class="toc-level-3"><a href="#2-为什么第二个-batchnorm-后先相加-再-relu">2. 为什么第二个 BatchNorm 后先相加，再 ReLU？</a></li><li class="toc-level-2"><a href="#四-通用-residualblock-模块与数据要分清">四、通用 ResidualBlock：模块与数据要分清</a></li><li class="toc-level-3"><a href="#1-为什么-identity-self-shortcutx-是通用写法">1. 为什么 identity = self.shortcut(x) 是通用写法？</a></li><li class="toc-level-3"><a href="#2-何时需要-projection-shortcut">2. 何时需要 projection shortcut？</a></li><li class="toc-level-2"><a href="#五-两种核心-shape-推导">五、两种核心 shape 推导</a></li><li class="toc-level-3"><a href="#1-residualblock64-64-stride-1">1. ResidualBlock(64, 64, stride=1)</a></li><li class="toc-level-3"><a href="#2-residualblock64-128-stride-2">2. ResidualBlock(64, 128, stride=2)</a></li><li class="toc-level-2"><a href="#六-最小-mps-shape-验证">六、最小 MPS shape 验证</a></li><li class="toc-level-2"><a href="#七-常见错误与排查顺序">七、常见错误与排查顺序</a></li><li class="toc-level-3"><a href="#1-直接相加时报-shape-不匹配">1. 直接相加时报 shape 不匹配</a></li><li class="toc-level-3"><a href="#2-把模块和-tensor-混淆">2. 把模块和 Tensor 混淆</a></li><li class="toc-level-3"><a href="#3-第一层主分支误用未定义的-out">3. 第一层主分支误用未定义的 out</a></li><li class="toc-level-3"><a href="#4-在相加前忘记处理-shortcut">4. 在相加前忘记处理 shortcut</a></li><li class="toc-level-3"><a href="#5-把退化误认为过拟合">5. 把退化误认为过拟合</a></li><li class="toc-level-2"><a href="#八-今日真实卡点与澄清">八、今日真实卡点与澄清</a></li><li class="toc-level-3"><a href="#1-为什么学习-fx-比直接学习-hx-更容易">1. “为什么学习 F(x) 比直接学习 H(x) 更容易？”</a></li><li class="toc-level-3"><a href="#2-self-bn1-self-shortcut-identity-到底分别是什么">2. “self.bn1、self.shortcut、identity 到底分别是什么？”</a></li><li class="toc-level-3"><a href="#3-为什么不能总写-identity-x">3. “为什么不能总写 identity = x？”</a></li><li class="toc-level-3"><a href="#4-这个条件分支到底在判断什么">4. “这个条件分支到底在判断什么？”</a></li><li class="toc-level-3"><a href="#5-stride-2-时-padding-合适是否仍可不改变-shape">5. “stride=2 时，padding 合适是否仍可不改变 shape？”</a></li><li class="toc-level-3"><a href="#6-相加前后为什么要这样放-relu">6. “相加前后为什么要这样放 ReLU？”</a></li><li class="toc-level-2"><a href="#九-选做-resnet-原论文速读">九、选做：ResNet 原论文速读</a></li><li class="toc-level-3"><a href="#1-我的四句论文总结">1. 我的四句论文总结</a></li><li class="toc-level-3"><a href="#2-更深网络实验-作者到底比较了什么">2. 更深网络实验：作者到底比较了什么？</a></li><li class="toc-level-2"><a href="#十-今日掌握清单">十、今日掌握清单</a></li></ol></details></aside><article class="note-article"><h1>Day 3 学习笔记：残差网络 ResNet——残差块核心</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
 <p>参考书：《动手学深度学习》PyTorch 版 ResNet 章节，He et al.《Deep Residual Learning for Image Recognition》，PyTorch 官方文档 <code>torch.nn.BatchNorm2d</code>、<code>torch.nn.Identity</code></p>
 <p>本阶段重点：在 <a href="/learning/pytorch/notes/stage-3/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E5%8D%B7%E7%A7%AF%E6%93%8D%E4%BD%9C%E5%9F%BA%E7%A1%80-shape-%E4%B8%8E%E5%8F%82%E6%95%B0%E9%87%8F.html">Day 1 学习笔记：卷积操作基础——shape 与参数量</a> 已建立卷积 shape/参数共享的基础，并在 <a href="/learning/pytorch/notes/stage-3/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E7%BB%8F%E5%85%B8-cnn-lenet.html">Day 2 学习笔记：经典 CNN——LeNet</a> 完成第一个可训练 CNN 后，理解深层 CNN 为什么需要残差连接，并能将残差块翻译成可验证的 <code>nn.Module</code> 代码。</p>
 <p>今天主线：<code>退化问题 -&gt; 残差学习 y = F(x) + x -&gt; ResidualBlock 数据流 -&gt; shortcut shape 对齐 -&gt; MPS shape 验证</code>。本日不训练完整 ResNet，不比较准确率，也不把 ResNet 描述成所有任务中必然优于普通网络的结构。</p>
 <p>本笔记对应 <a href="/learning/pytorch/notes/overview/pytorch-%E6%9A%91%E6%9C%9F%E8%AF%A6%E7%BB%86%E5%AD%A6%E4%B9%A0%E8%AE%A1%E5%88%92.html">PyTorch 暑期详细学习计划</a> 中第 5 周 Day 3。</p>
 <hr>
-<h2>〇、今天完成了什么</h2>
+<h2 id="〇-今天完成了什么">〇、今天完成了什么</h2>
 <ol>
 <li>区分了深层网络的退化问题与过拟合：退化是更深的普通网络连训练集也可能更难优化，不是训练集好而测试集差。</li>
 <li>理解残差块不直接要求主分支学习完整映射 <code>H(x)</code>，而是学习残差 <code>F(x) = H(x) - x</code>，最后输出 <code>y = F(x) + x</code>。</li>
@@ -27,7 +29,7 @@
 <li>在 Apple Silicon 的 MPS 上完成最小验证：<code>64 -&gt; 64, stride=1</code> 与 <code>64 -&gt; 128, stride=2</code> 两种 shape 都通过断言。</li>
 </ol>
 <hr>
-<h2>一、深层网络的退化问题：不是过拟合</h2>
+<h2 id="一-深层网络的退化问题-不是过拟合">一、深层网络的退化问题：不是过拟合</h2>
 <p>直觉上，网络更深时参数更多、表达能力更强，似乎应该不比浅网络差。但实际训练普通深层网络时，可能出现：增加层数后，连训练集 loss 都更难下降，训练准确率反而变低。</p>
 <p>这叫<strong>退化问题（degradation problem）</strong>。</p>
 <table>
@@ -55,7 +57,7 @@
 </tbody>
 </table>
 <p>因此，退化不是“模型表达能力变弱”。相反，深网络理论上至少可以表示浅网络能表示的函数；困难在于优化器未必容易找到那组合适参数。</p>
-<h3>为什么“新增层什么也不做”并不容易？</h3>
+<h3 id="为什么新增层什么也不做并不容易">为什么“新增层什么也不做”并不容易？</h3>
 <p>设浅网络想学习的完整映射是：</p>
 <pre><code class="language-text">H(x)
 </code></pre>
@@ -64,7 +66,7 @@
 </code></pre>
 <p>即恒等映射。它不是“没有参数”，而是需要许多参数共同达到恰好复制输入的效果；在深层非线性网络中，这不一定容易优化。</p>
 <hr>
-<h2>二、残差学习：从完整映射转为学习改变量</h2>
+<h2 id="二-残差学习-从完整映射转为学习改变量">二、残差学习：从完整映射转为学习改变量</h2>
 <p>残差网络将输出写成：</p>
 <pre><code class="language-text">y = F(x) + x
 </code></pre>
@@ -81,7 +83,7 @@ y    ：残差块输出
 = H(x) - x + x
 = H(x)
 </code></pre>
-<h3>1. 为什么学习残差通常更容易优化？</h3>
+<h3 id="1-为什么学习残差通常更容易优化">1. 为什么学习残差通常更容易优化？</h3>
 <p>若最合适的行为是保持输入不变：</p>
 <pre><code class="language-text">H(x) = x
 </code></pre>
@@ -97,7 +99,7 @@ y    ：残差块输出
 目标 y = x，只需 W2 W1 = 0
 </code></pre>
 <p>真实 ResNet 有卷积、BatchNorm 和 ReLU，不能将其完全等同于这个线性例子；这个例子只用于说明：当某些新增层不需要改变已有特征时，残差分支可以学习较小的改动。</p>
-<h3>2. shortcut 也提供了更直接的梯度路径</h3>
+<h3 id="2-shortcut-也提供了更直接的梯度路径">2. shortcut 也提供了更直接的梯度路径</h3>
 <p>对：</p>
 <pre><code class="language-text">y = F(x) + x
 </code></pre>
@@ -106,7 +108,7 @@ y    ：残差块输出
 </code></pre>
 <p>其中 <code>I</code> 对应 shortcut 的直接通路。即使主分支局部梯度较小，梯度仍有一条经过加法节点的直接路径可传播。</p>
 <p>这有助于缓解很深的普通网络中梯度经过许多层而逐渐消失或不稳定的问题，但不表示残差网络自动解决一切训练问题。</p>
-<h3>3. 残差不是永远等于 0</h3>
+<h3 id="3-残差不是永远等于-0">3. 残差不是永远等于 0</h3>
 <p>例如目标是：</p>
 <pre><code class="language-text">H(x) = 2x
 </code></pre>
@@ -116,7 +118,7 @@ y = F(x) + x = x + x = 2x
 </code></pre>
 <p>所以主分支不是只负责“输出 0”；它学习的是相对于已有输入需要增加、减少或改变的内容。</p>
 <hr>
-<h2>三、最小 ResidualBlock 的数据流</h2>
+<h2 id="三-最小-residualblock-的数据流">三、最小 ResidualBlock 的数据流</h2>
 <p>本日使用的是常见的 post-activation 基础残差块：</p>
 <pre><code class="language-text">主分支：Conv -&gt; BatchNorm -&gt; ReLU -&gt; Conv -&gt; BatchNorm
 shortcut：Identity，或 1×1 Conv -&gt; BatchNorm
@@ -127,7 +129,7 @@ shortcut：Identity，或 1×1 Conv -&gt; BatchNorm
 输入 x ──────────┤                                 ├─ 相加 ─ ReLU ─ y
                  └── Conv -&gt; BN -&gt; ReLU -&gt; Conv -&gt; BN ─┘
 </code></pre>
-<h3>1. <code>nn.BatchNorm2d</code></h3>
+<h3 id="1-nn-batchnorm2d">1. <code>nn.BatchNorm2d</code></h3>
 <pre><code class="language-python">nn.BatchNorm2d(num_features)
 </code></pre>
 <p>输入和输出都保持四维 CNN shape：</p>
@@ -141,7 +143,7 @@ shortcut：Identity，或 1×1 Conv -&gt; BatchNorm
 <pre><code class="language-python">model.eval()
 </code></pre>
 <p>本日仅做随机输入的 shape 验证，使用 <code>model.eval()</code> 保持验证行为明确。</p>
-<h3>2. 为什么第二个 BatchNorm 后先相加，再 ReLU？</h3>
+<h3 id="2-为什么第二个-batchnorm-后先相加-再-relu">2. 为什么第二个 BatchNorm 后先相加，再 ReLU？</h3>
 <p>此版本的顺序是：</p>
 <pre><code class="language-python">out = self.bn2(out)
 out = out + identity
@@ -157,7 +159,7 @@ F(x) = -2
 </code></pre>
 <p>两种顺序的结果不同。因此本日基础块先合并两条分支，再做最后激活。</p>
 <hr>
-<h2>四、通用 <code>ResidualBlock</code>：模块与数据要分清</h2>
+<h2 id="四-通用-residualblock-模块与数据要分清">四、通用 <code>ResidualBlock</code>：模块与数据要分清</h2>
 <p>最容易混淆的三类名字：</p>
 <table>
 <thead>
@@ -250,7 +252,7 @@ class ResidualBlock(nn.Module):
         return out
 </code></pre>
 <p>这里 <code>bias=False</code> 是常见惯例：卷积后立刻接 BatchNorm 时，卷积 bias 的作用通常可被 BatchNorm 的可学习平移参数替代。即使写成默认的 <code>bias=True</code>，代码也能运行；本日用 <code>False</code> 是为了贴近常见 ResNet 写法。</p>
-<h3>1. 为什么 <code>identity = self.shortcut(x)</code> 是通用写法？</h3>
+<h3 id="1-为什么-identity-self-shortcutx-是通用写法">1. 为什么 <code>identity = self.shortcut(x)</code> 是通用写法？</h3>
 <p>不要只写：</p>
 <pre><code class="language-python">identity = x
 </code></pre>
@@ -265,7 +267,7 @@ shape 不一致：self.shortcut = 1×1 Conv + BatchNorm
 identity = self.shortcut(x) = 已对齐 shape 的 Tensor
 </code></pre>
 <p>因此 <code>identity</code> 是“shortcut 分支的输出”这个概念名，并不保证其数值或 shape 与原始 <code>x</code> 完全相同。</p>
-<h3>2. 何时需要 projection shortcut？</h3>
+<h3 id="2-何时需要-projection-shortcut">2. 何时需要 projection shortcut？</h3>
 <p>相加要求两个 Tensor 完全同 shape：</p>
 <pre><code class="language-text">[B, C, H, W] + [B, C, H, W]
 </code></pre>
@@ -280,8 +282,8 @@ identity = self.shortcut(x) = 已对齐 shape 的 Tensor
 </code></pre>
 <p>严格从卷积公式看，<code>stride != 1</code> 不是在任意 padding、kernel_size 组合下都必然改变输出尺寸的数学定理；但标准 ResNet 的 <code>3×3, padding=1, stride=2</code> 明确表达“本 block 下采样”的结构约定。shortcut 使用同一个 stride，以确保两条分支按同一规则对齐。</p>
 <hr>
-<h2>五、两种核心 shape 推导</h2>
-<h3>1. <code>ResidualBlock(64, 64, stride=1)</code></h3>
+<h2 id="五-两种核心-shape-推导">五、两种核心 shape 推导</h2>
+<h3 id="1-residualblock64-64-stride-1">1. <code>ResidualBlock(64, 64, stride=1)</code></h3>
 <p>输入：</p>
 <pre><code class="language-text">[B, 64, 32, 32]
 </code></pre>
@@ -301,7 +303,7 @@ BatchNorm2d(64)                -&gt; [B, 64, 32, 32]
 -&gt; ReLU
 -&gt; [B, 64, 32, 32]
 </code></pre>
-<h3>2. <code>ResidualBlock(64, 128, stride=2)</code></h3>
+<h3 id="2-residualblock64-128-stride-2">2. <code>ResidualBlock(64, 128, stride=2)</code></h3>
 <p>输入：</p>
 <pre><code class="language-text">[B, 64, 32, 32]
 </code></pre>
@@ -328,7 +330,7 @@ BatchNorm2d(128)                -&gt; [B, 128, 16, 16]
       = 16
 </code></pre>
 <hr>
-<h2>六、最小 MPS shape 验证</h2>
+<h2 id="六-最小-mps-shape-验证">六、最小 MPS shape 验证</h2>
 <p>本日只验证残差块数据流和 shape，不进行完整训练。</p>
 <pre><code class="language-python">device = torch.device(
     &quot;mps&quot; if torch.backends.mps.is_available() else &quot;cpu&quot;
@@ -377,8 +379,8 @@ shape validation passed!
 <li>当前随机初始化的残差块已经学到了有意义特征。</li>
 </ol>
 <hr>
-<h2>七、常见错误与排查顺序</h2>
-<h3>1. 直接相加时报 shape 不匹配</h3>
+<h2 id="七-常见错误与排查顺序">七、常见错误与排查顺序</h2>
+<h3 id="1-直接相加时报-shape-不匹配">1. 直接相加时报 shape 不匹配</h3>
 <p>先打印两条分支：</p>
 <pre><code class="language-python">print(out.shape)
 print(identity.shape)
@@ -388,7 +390,7 @@ print(identity.shape)
 主分支与 shortcut 的 stride 是否一致？
 shortcut 是否使用了同一个 stride？
 </code></pre>
-<h3>2. 把模块和 Tensor 混淆</h3>
+<h3 id="2-把模块和-tensor-混淆">2. 把模块和 Tensor 混淆</h3>
 <p>错误心智模型：</p>
 <pre><code class="language-text">self.shortcut 和 identity 都是“输入本身”
 </code></pre>
@@ -396,29 +398,29 @@ shortcut 是否使用了同一个 stride？
 <pre><code class="language-text">self.shortcut：定义在 __init__ 中的路径模块
 identity：forward 中 self.shortcut(x) 的输出数据
 </code></pre>
-<h3>3. 第一层主分支误用未定义的 <code>out</code></h3>
+<h3 id="3-第一层主分支误用未定义的-out">3. 第一层主分支误用未定义的 <code>out</code></h3>
 <p>错误：</p>
 <pre><code class="language-python">out = self.conv1(out)
 </code></pre>
 <p>此时 <code>out</code> 还没有创建。第一层应使用输入 <code>x</code>：</p>
 <pre><code class="language-python">out = self.conv1(x)
 </code></pre>
-<h3>4. 在相加前忘记处理 shortcut</h3>
+<h3 id="4-在相加前忘记处理-shortcut">4. 在相加前忘记处理 shortcut</h3>
 <p>不要把通用代码写死为：</p>
 <pre><code class="language-python">identity = x
 </code></pre>
 <p>通用版本应始终写：</p>
 <pre><code class="language-python">identity = self.shortcut(x)
 </code></pre>
-<h3>5. 把退化误认为过拟合</h3>
+<h3 id="5-把退化误认为过拟合">5. 把退化误认为过拟合</h3>
 <p>复习口诀：</p>
 <pre><code class="language-text">训练好、测试差：优先怀疑过拟合
 网络加深、训练也变差：优先考虑退化/优化困难
 </code></pre>
 <hr>
-<h2>八、今日真实卡点与澄清</h2>
+<h2 id="八-今日真实卡点与澄清">八、今日真实卡点与澄清</h2>
 <p>这一节不只记录结论，也记录本次第一次接触残差块时真正卡住的位置。后续复习 ResNet 时，应优先回看这些问题，而不是只重复阅读已经看懂的定义。</p>
-<h3>1. “为什么学习 <code>F(x)</code> 比直接学习 <code>H(x)</code> 更容易？”</h3>
+<h3 id="1-为什么学习-fx-比直接学习-hx-更容易">1. “为什么学习 <code>F(x)</code> 比直接学习 <code>H(x)</code> 更容易？”</h3>
 <p>困惑点：若目标是保持输入，为什么“输出 0”会比“复制输入”更容易？</p>
 <p>澄清：残差结构不是数学上保证任何任务都更简单，而是换了一种更利于优化的参数化。对于：</p>
 <pre><code class="language-text">y = F(x) + x
@@ -427,7 +429,7 @@ identity：forward 中 self.shortcut(x) 的输出数据
 <pre><code class="language-text">dy/dx = dF(x)/dx + I
 </code></pre>
 <p>梯度多了一条直接通路。因此“更容易”有两个层面：学习的是相对改变量，以及梯度不必只依赖逐层传播。</p>
-<h3>2. “<code>self.bn1</code>、<code>self.shortcut</code>、<code>identity</code> 到底分别是什么？”</h3>
+<h3 id="2-self-bn1-self-shortcut-identity-到底分别是什么">2. “<code>self.bn1</code>、<code>self.shortcut</code>、<code>identity</code> 到底分别是什么？”</h3>
 <p>困惑点：它们都出现在残差块中，但不应把模型层和一次前向传播的数据混在一起。</p>
 <p>澄清：</p>
 <pre><code class="language-text">self.bn1       ：在 __init__ 中创建的 BatchNorm 模块
@@ -442,7 +444,7 @@ out = self.conv1(x)：x 经过该工具后得到的数据
 <pre><code class="language-python">identity = self.shortcut(x)
 </code></pre>
 <p>不是在创建新层，而是在取得当前输入经过 shortcut 后的输出。</p>
-<h3>3. “为什么不能总写 <code>identity = x</code>？”</h3>
+<h3 id="3-为什么不能总写-identity-x">3. “为什么不能总写 <code>identity = x</code>？”</h3>
 <p>困惑点：在 <code>64 -&gt; 64, stride=1</code> 的简单例子中，shortcut 就是输入本身；但通用残差块不能把这个特例写死。</p>
 <p>澄清：</p>
 <pre><code class="language-python">identity = self.shortcut(x)
@@ -453,7 +455,7 @@ out = self.conv1(x)：x 经过该工具后得到的数据
 <p>于是 <code>self.shortcut(x) = x</code>。当通道数或标准 ResNet 的下采样设置变化时，<code>self.shortcut</code> 则是 <code>1×1 Conv + BatchNorm</code>，输出已被对齐。因此：</p>
 <pre><code class="language-text">identity 的含义是“shortcut 分支输出”，不等于“原始 x 永远不变”。
 </code></pre>
-<h3>4. “这个条件分支到底在判断什么？”</h3>
+<h3 id="4-这个条件分支到底在判断什么">4. “这个条件分支到底在判断什么？”</h3>
 <pre><code class="language-python">if stride != 1 or in_channels != out_channels:
     self.shortcut = nn.Sequential(
         nn.Conv2d(in_channels, out_channels, kernel_size=1,
@@ -472,7 +474,7 @@ else:
 <pre><code class="language-text">[B,64,32,32] -&gt; [B,128,16,16]
 </code></pre>
 <p>之后才能与主分支的 <code>[B,128,16,16]</code> 相加。</p>
-<h3>5. “<code>stride=2</code> 时，padding 合适是否仍可不改变 shape？”</h3>
+<h3 id="5-stride-2-时-padding-合适是否仍可不改变-shape">5. “<code>stride=2</code> 时，padding 合适是否仍可不改变 shape？”</h3>
 <p>困惑点：卷积输出尺寸还由 kernel 和 padding 决定，不能把 <code>stride != 1</code> 误读为在所有参数组合下必然改变尺寸。</p>
 <p>澄清：这个判断是<strong>标准 ResNet 的结构约定</strong>，不是对任意卷积超参数的完备数学检测。标准主分支使用：</p>
 <pre><code class="language-text">3×3, padding=1, stride=2
@@ -482,24 +484,24 @@ else:
 <pre><code class="language-text">stride != 1 在这里表示“这个 block 被设计为下采样”，
 而不是“任何 stride != 1 的卷积在数学上都必然改 shape”。
 </code></pre>
-<h3>6. “相加前后为什么要这样放 ReLU？”</h3>
+<h3 id="6-相加前后为什么要这样放-relu">6. “相加前后为什么要这样放 ReLU？”</h3>
 <p>困惑点：第二个卷积后的 BatchNorm 为什么不立刻 ReLU？</p>
 <p>澄清：要先计算完整的：</p>
 <pre><code class="language-text">F(x) + shortcut(x)
 </code></pre>
 <p>再做最后激活。若提前对 <code>F(x)</code> 进行 ReLU，负残差会被截断，残差分支就难以表达“减少输入中的某些特征”。</p>
 <hr>
-<h2>九、选做：ResNet 原论文速读</h2>
+<h2 id="九-选做-resnet-原论文速读">九、选做：ResNet 原论文速读</h2>
 <p>本日按 <a href="/learning/pytorch/notes/overview/pytorch-%E6%9A%91%E6%9C%9F%E8%AF%A6%E7%BB%86%E5%AD%A6%E4%B9%A0%E8%AE%A1%E5%88%92.html">PyTorch 暑期详细学习计划</a> 的选做/后置任务，阅读了 ResNet 原论文《Deep Residual Learning for Image Recognition》的摘要、实验性结论与 CIFAR-10 更深网络实验。论文没有单独命名为 <code>Conclusion</code> 的章节，因此这里把引言末尾的主张和实验最后的讨论作为“结论”阅读。</p>
 <p>原论文：<a href="https://openaccess.thecvf.com/content_cvpr_2016/papers/He_Deep_Residual_Learning_CVPR_2016_paper.pdf" rel="noreferrer">https://openaccess.thecvf.com/content_cvpr_2016/papers/He_Deep_Residual_Learning_CVPR_2016_paper.pdf</a></p>
-<h3>1. 我的四句论文总结</h3>
+<h3 id="1-我的四句论文总结">1. 我的四句论文总结</h3>
 <ol>
 <li>ResNet 论文要解决的核心问题是：深层网络的优化/退化问题，即网络加深后可能连训练误差都变高。</li>
 <li>它的关键做法是：不直接学习完整映射 <code>H(x)</code>，而是相对于输入学习残差函数 <code>F(x) = H(x) - x</code>，并使用 <code>F(x) + x</code> 得到输出。</li>
 <li>论文通过比较普通网络与残差网络，说明残差参数化能显著缓解深层普通网络的优化/退化困难，使模型在一定深度范围内真正从增加深度中获得准确率收益。</li>
 <li>ResNet-1202 的结果提醒我：有时不是网络层数越深效果越好；即使训练误差很低、优化没有明显困难，测试误差仍可能变高，泛化还受数据规模、模型容量和正则化等因素影响。</li>
 </ol>
-<h3>2. 更深网络实验：作者到底比较了什么？</h3>
+<h3 id="2-更深网络实验-作者到底比较了什么">2. 更深网络实验：作者到底比较了什么？</h3>
 <table>
 <thead>
 <tr>
@@ -537,7 +539,7 @@ ResNet-1202：7.93%
 </code></pre>
 <p>这与本次 Day 2 的 Fashion-MNIST 实验原则一致：模型选择看验证集，测试集只作最终评估；单一指标不能支撑完整结论。</p>
 <hr>
-<h2>十、今日掌握清单</h2>
+<h2 id="十-今日掌握清单">十、今日掌握清单</h2>
 <ul>
 <li><input type="checkbox" checked disabled> 能区分退化问题与过拟合。</li>
 <li><input type="checkbox" checked disabled> 能解释 <code>F(x) = H(x) - x</code> 与 <code>y = F(x) + x</code>。</li>
@@ -549,7 +551,8 @@ ResNet-1202：7.93%
 <li><input type="checkbox" checked disabled> 已在 MPS 上完成最小 shape 验证。</li>
 <li><input type="checkbox" disabled> 完整 ResNet 训练与更深网络对比：后续专题再做。</li>
 </ul>
-</div></article>
+</div></article></div><nav class="article-neighbors" aria-label="相邻文章"><a class="article-neighbor previous" href="/learning/pytorch/notes/stage-3/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E7%BB%8F%E5%85%B8-cnn-lenet.html">← <span>上一篇</span>Day 2 学习笔记：经典 CNN——LeNet</a><a class="article-neighbor next" href="/learning/pytorch/notes/stage-3/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0%E6%9C%80%E5%B0%8F%E5%AE%9E%E6%88%98-%E9%A2%84%E8%AE%AD%E7%BB%83-resnet18.html"><span>下一篇</span>Day 4 学习笔记：迁移学习最小实战——预训练 ResNet18 →</a></nav>
   </main>
+  <script src="/assets/pytorch-reading.js" defer></script>
 </body>
 </html>

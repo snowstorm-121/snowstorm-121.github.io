@@ -6,18 +6,20 @@
   <meta name="theme-color" content="#07101c">
   <title>Day 2 学习笔记：经典 CNN——LeNet · SNOWSTORM</title>
   <link rel="stylesheet" href="/assets/library.css">
+  <link rel="stylesheet" href="/assets/pytorch-reading.css">
 </head>
-<body class="library-page">
+<body class="library-page pytorch-reading-page">
+<div class="reading-progress" data-reading-progress aria-hidden="true"></div>
   <main class="library-shell">
     <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
     <p class="library-eyebrow">卷积网络</p>
-    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-3/">卷积网络</a></nav><article class="note-article"><h1>Day 2 学习笔记：经典 CNN——LeNet</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+    <a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-3/">卷积网络</a></nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details" open><summary>本页目录</summary><ol><li class="toc-level-2"><a href="#〇-今天完成了什么">〇、今天完成了什么</a></li><li class="toc-level-2"><a href="#一-lenet-先提取二维特征-再做分类">一、LeNet：先提取二维特征，再做分类</a></li><li class="toc-level-2"><a href="#二-适配-fashion-mnist-的-lenet-与-shape-推导">二、适配 Fashion-MNIST 的 LeNet 与 shape 推导</a></li><li class="toc-level-2"><a href="#三-avgpool2d-flatten-与-nn-sequential">三、AvgPool2d、Flatten 与 nn.Sequential</a></li><li class="toc-level-3"><a href="#1-nn-avgpool2dkernel-size-2-stride-2">1. nn.AvgPool2d(kernel_size=2, stride=2)</a></li><li class="toc-level-3"><a href="#2-nn-flatten">2. nn.Flatten()</a></li><li class="toc-level-3"><a href="#3-nn-sequential">3. nn.Sequential(...)</a></li><li class="toc-level-2"><a href="#四-卷积核-随机初始化-可训练-位置共享">四、卷积核：随机初始化、可训练、位置共享</a></li><li class="toc-level-2"><a href="#五-训练-验证-测试-三者职责不同">五、训练、验证、测试：三者职责不同</a></li><li class="toc-level-3"><a href="#完整代码">完整代码</a></li><li class="toc-level-3"><a href="#有效实验结果">有效实验结果</a></li><li class="toc-level-3"><a href="#统一设置下的-mlp-与-lenet-对比选做">统一设置下的 MLP 与 LeNet 对比（选做）</a></li><li class="toc-level-3"><a href="#训练曲线图">训练曲线图</a></li><li class="toc-level-2"><a href="#六-训练过程可视化">六、训练过程可视化</a></li><li class="toc-level-2"><a href="#七-cnn-为什么更适合图像-但不保证必然更高分">七、CNN 为什么更适合图像，但不保证必然更高分</a></li><li class="toc-level-2"><a href="#八-选做-后置-vgg-堆叠卷积思想">八、选做/后置：VGG 堆叠卷积思想</a></li><li class="toc-level-2"><a href="#九-今天的检查清单">九、今天的检查清单</a></li></ol></details></aside><article class="note-article"><h1>Day 2 学习笔记：经典 CNN——LeNet</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
 <p>参考书：《动手学深度学习》PyTorch 版 LeNet 与 VGG 章节，PyTorch 官方文档 <code>torch.nn.Conv2d</code>、<code>torch.nn.AvgPool2d</code>、<code>torch.nn.Flatten</code></p>
 <p>本阶段重点：在 <a href="/learning/pytorch/notes/stage-3/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E5%8D%B7%E7%A7%AF%E6%93%8D%E4%BD%9C%E5%9F%BA%E7%A1%80-shape-%E4%B8%8E%E5%8F%82%E6%95%B0%E9%87%8F.html">Day 1 学习笔记：卷积操作基础——shape 与参数量</a> 已经理解输入 <code>[N, Cin, H, W]</code>、卷积权重 shape、输出 shape、参数量与参数共享的基础上，完成第一个可训练 CNN：LeNet。重点是把“卷积/池化 -&gt; 展平 -&gt; 分类器”翻译为 <code>nn.Module</code>，并使用规范的 train/validation/test 流程完成 Fashion-MNIST 实验。</p>
 <p>今天主线：<code>LeNet 数据流 -&gt; 逐层 shape -&gt; AvgPool2d/Flatten -&gt; 最小训练与评估 -&gt; CNN 与 MLP 的关系</code>。本日不把 CNN accuracy 当作必然高于 MLP 的结论，而是优先核验数据集、划分和评估是否正确。</p>
 <p>本笔记对应 <a href="/learning/pytorch/notes/overview/pytorch-%E6%9A%91%E6%9C%9F%E8%AF%A6%E7%BB%86%E5%AD%A6%E4%B9%A0%E8%AE%A1%E5%88%92.html">PyTorch 暑期详细学习计划</a> 中第 5 周 Day 2。</p>
 <hr>
-<h2>〇、今天完成了什么</h2>
+<h2 id="〇-今天完成了什么">〇、今天完成了什么</h2>
 <ol>
 <li>读懂了 LeNet 的两个部分：前半段卷积/池化提取特征，后半段展平/全连接输出 10 类 logits。</li>
 <li>能从 Fashion-MNIST 输入 <code>[B, 1, 28, 28]</code> 手动推导 LeNet 全部关键 shape，直到 <code>[B, 10]</code>。</li>
@@ -30,7 +32,7 @@
 <li>完成选做：在相同的 Fashion-MNIST 划分、batch size、epoch、优化器和学习率下，完成 MLP 与 LeNet 的 20 轮 accuracy 对比。</li>
 </ol>
 <hr>
-<h2>一、LeNet：先提取二维特征，再做分类</h2>
+<h2 id="一-lenet-先提取二维特征-再做分类">一、LeNet：先提取二维特征，再做分类</h2>
 <p>此前 MLP 的典型数据流是：</p>
 <pre><code class="language-text">[B, 1, 28, 28]
 -&gt; Flatten
@@ -51,7 +53,7 @@ classifier：Flatten -&gt; Linear -&gt; ReLU -&gt; Linear -&gt; ReLU -&gt; Linea
 <p>因此 <code>Flatten</code> 不放在最前面：卷积需要 <code>[B, C, H, W]</code> 的空间结构；先展平会丢失二维邻接关系，不能直接进行二维卷积。</p>
 <p>与 <a href="/learning/pytorch/notes/stage-2/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-mlp-%E5%A4%9A%E5%B1%82%E6%84%9F%E7%9F%A5%E6%9C%BA%E4%B8%8E%E6%AD%A3%E5%88%99%E5%8C%96.html">Day 2 学习笔记：MLP 多层感知机与正则化</a> 的关键区别是：MLP 对每个位置建立独立连接；CNN 在保留空间结构的前提下，利用局部连接和参数共享提取特征。</p>
 <hr>
-<h2>二、适配 Fashion-MNIST 的 LeNet 与 shape 推导</h2>
+<h2 id="二-适配-fashion-mnist-的-lenet-与-shape-推导">二、适配 Fashion-MNIST 的 LeNet 与 shape 推导</h2>
 <p>本日实际使用的是 ReLU 版本：</p>
 <pre><code class="language-python">class LeNet(nn.Module):
     def __init__(self):
@@ -98,19 +100,19 @@ Linear(84, 10)                          [B,  10]
 </code></pre>
 <p>所以第一层全连接必须是 <code>nn.Linear(400, 120)</code>。若前面的 stride、padding 或 pooling 改变，<code>400</code> 也可能随之改变，并导致矩阵 shape 不匹配。</p>
 <hr>
-<h2>三、<code>AvgPool2d</code>、<code>Flatten</code> 与 <code>nn.Sequential</code></h2>
-<h3>1. <code>nn.AvgPool2d(kernel_size=2, stride=2)</code></h3>
+<h2 id="三-avgpool2d-flatten-与-nn-sequential">三、<code>AvgPool2d</code>、<code>Flatten</code> 与 <code>nn.Sequential</code></h2>
+<h3 id="1-nn-avgpool2dkernel-size-2-stride-2">1. <code>nn.AvgPool2d(kernel_size=2, stride=2)</code></h3>
 <p>它没有可训练参数，分别对每个通道执行局部平均：</p>
 <pre><code class="language-text">输入 [B, 6, 28, 28]
 -&gt; 每个通道使用 2×2 窗口求平均，窗口每次移动 2 格
 -&gt; 输出 [B, 6, 14, 14]
 </code></pre>
 <p>池化改变空间高宽，不改变 <code>B</code> 和 <code>C</code>。例如 <code>[B, 16, 10, 10]</code> 经过 <code>AvgPool2d(2, 2)</code> 后是 <code>[B, 16, 5, 5]</code>，不是 <code>[B, 32, 5, 5]</code>。</p>
-<h3>2. <code>nn.Flatten()</code></h3>
+<h3 id="2-nn-flatten">2. <code>nn.Flatten()</code></h3>
 <p>默认保留第 0 维 batch，把其余维度连接为一个特征维：</p>
 <pre><code class="language-text">[B, 16, 5, 5] -&gt; [B, 16 × 5 × 5] -&gt; [B, 400]
 </code></pre>
-<h3>3. <code>nn.Sequential(...)</code></h3>
+<h3 id="3-nn-sequential">3. <code>nn.Sequential(...)</code></h3>
 <p>它将层按写入顺序串联：</p>
 <pre><code class="language-python">self.features = nn.Sequential(
     nn.Conv2d(...),
@@ -120,7 +122,7 @@ Linear(84, 10)                          [B,  10]
 </code></pre>
 <p>调用 <code>self.features(x)</code> 时，<code>x</code> 自动依次通过这三个层。使用 <code>features</code> 与 <code>classifier</code> 分开组织，直接对应“特征提取 -&gt; 分类”的心智模型。</p>
 <hr>
-<h2>四、卷积核：随机初始化、可训练、位置共享</h2>
+<h2 id="四-卷积核-随机初始化-可训练-位置共享">四、卷积核：随机初始化、可训练、位置共享</h2>
 <p>以下写法只指定卷积层规格：</p>
 <pre><code class="language-python">conv = nn.Conv2d(1, 16, kernel_size=3, padding=1)
 </code></pre>
@@ -164,7 +166,7 @@ model = LeNet()
 </code></pre>
 <p>这只保证初始化可复现，不会将 kernel 变为固定 Sobel 核。</p>
 <hr>
-<h2>五、训练、验证、测试：三者职责不同</h2>
+<h2 id="五-训练-验证-测试-三者职责不同">五、训练、验证、测试：三者职责不同</h2>
 <p>本日将 Fashion-MNIST 原训练集划分为：</p>
 <pre><code class="language-text">60,000 原训练样本
 ├─ train：54,000，用于反向传播和更新参数
@@ -184,7 +186,7 @@ def evaluate(...):
 torch.no_grad()     -&gt; 不记录计算图，不为反向传播保存中间结果
 </code></pre>
 <p>本日 LeNet 没有 Dropout/BatchNorm，但保留 <code>model.eval()</code> 是通用、规范的评估流程。</p>
-<h3>完整代码</h3>
+<h3 id="完整代码">完整代码</h3>
 <pre><code class="language-python">import copy
 from pathlib import Path
 
@@ -371,7 +373,7 @@ fig.suptitle(
 plt.tight_layout(rect=[0, 0, 1, 0.93])
 plt.show()
 </code></pre>
-<h3>有效实验结果</h3>
+<h3 id="有效实验结果">有效实验结果</h3>
 <p>首次实验中出现接近 99% 的 validation/test accuracy。虽然 split 大小和评估样本数看起来正确，但该数值与基础 LeNet 在 Fashion-MNIST 上不匹配。继续检查数据集类别与样本后，发现数据集有误。</p>
 <p>纠正后，本次已记录的有效结果：</p>
 <pre><code class="language-text">best validation accuracy: 0.9125
@@ -385,7 +387,7 @@ print(test_dataset.classes)
 </code></pre>
 <p>并可视化少量样本，检查它们确实是 Fashion-MNIST 的衣物类别而非其他格式相同的数据。
 <img src="/learning/pytorch/assets/stage-3/Day2_LeNet.png" alt="Day2_LeNet.png" loading="lazy"></p>
-<h3>统一设置下的 MLP 与 LeNet 对比（选做）</h3>
+<h3 id="统一设置下的-mlp-与-lenet-对比选做">统一设置下的 MLP 与 LeNet 对比（选做）</h3>
 <h4>完整代码</h4>
 <pre><code class="language-python">import copy
 from pathlib import Path
@@ -654,9 +656,9 @@ plt.show()
 <li>LeNet 的 best validation accuracy 与 test accuracy 相差 0.36 个百分点；MLP 的差距为 0.83 个百分点。两者均使用 validation 选模型，test 只在最后评估一次。</li>
 </ol>
 <p>本次应作出的谨慎结论：在这一组固定实验设置中，LeNet 利用局部连接与参数共享，以更少参数获得了更好的泛化结果；这不等于 CNN 在所有任务、所有超参数下必然优于 MLP。</p>
-<h3>训练曲线图</h3>
+<h3 id="训练曲线图">训练曲线图</h3>
 <p><img src="/learning/pytorch/assets/stage-3/Day2_MLP_LeNet%E5%AF%B9%E6%AF%94.png" alt="Day2_MLP_LeNet对比.png" loading="lazy"></p>
-<h2>六、训练过程可视化</h2>
+<h2 id="六-训练过程可视化">六、训练过程可视化</h2>
 <p>在训练循环中记录每个 epoch 的指标：</p>
 <pre><code class="language-python">history = {
     &quot;train_loss&quot;: [],
@@ -668,7 +670,7 @@ plt.show()
 <p>每轮将 <code>train_loss</code>、<code>train_acc</code>、<code>val_loss</code>、<code>val_acc</code> 追加到对应列表。训练结束后可用 Matplotlib 分别绘制 loss 和 accuracy 曲线，并标注最佳 validation epoch。</p>
 <p>注意：test set 只在最后评估一次，所以它适合显示为最终结果，不应被画成随 epoch 反复变化、用来选模型的曲线。</p>
 <hr>
-<h2>七、CNN 为什么更适合图像，但不保证必然更高分</h2>
+<h2 id="七-cnn-为什么更适合图像-但不保证必然更高分">七、CNN 为什么更适合图像，但不保证必然更高分</h2>
 <p>CNN 更适合图像的原因：</p>
 <ol>
 <li><strong>保留空间结构</strong>：卷积层接收 <code>[B, C, H, W]</code>，知道像素的上下左右关系；MLP 在 <code>Flatten</code> 后不再直接知道这些关系。</li>
@@ -678,7 +680,7 @@ plt.show()
 <p>但不能将一次实验的 accuracy 夸大为“CNN 永远胜过 MLP”。结果还受模型规模、优化器、学习率、训练轮数、随机种子、数据预处理和评估流程影响。</p>
 <p>本日正确结论：LeNet 的卷积结构与 Fashion-MNIST 图像任务匹配，并在规范核验后的本次实验中达到 <code>test acc = 0.8856</code>；这证明流程有效，不构成所有设置下 CNN 必然更优的结论。</p>
 <hr>
-<h2>八、选做/后置：VGG 堆叠卷积思想</h2>
+<h2 id="八-选做-后置-vgg-堆叠卷积思想">八、选做/后置：VGG 堆叠卷积思想</h2>
 <p>本日完成 VGG 概念阅读，不进行完整 VGG 训练。</p>
 <p>LeNet 的节奏：</p>
 <pre><code class="language-text">Conv -&gt; Pool -&gt; Conv -&gt; Pool
@@ -695,7 +697,7 @@ plt.show()
 </code></pre>
 <p>完整 VGG-like 训练后置到时间充足时再完成。</p>
 <hr>
-<h2>九、今天的检查清单</h2>
+<h2 id="九-今天的检查清单">九、今天的检查清单</h2>
 <ul>
 <li><input type="checkbox" checked disabled> 能解释 LeNet 的“卷积/池化 -&gt; 展平 -&gt; 分类器”数据流。</li>
 <li><input type="checkbox" checked disabled> 能推导 <code>[B, 1, 28, 28] -&gt; [B, 10]</code> 的逐层 shape。</li>
@@ -708,7 +710,8 @@ plt.show()
 <li><input type="checkbox" checked disabled> 完成 MLP 与 LeNet 的统一 20 轮 accuracy 对比，并完成参数量、验证集与测试集结果解读。</li>
 <li><input type="checkbox" disabled> 后置：VGG-like 的完整训练实验。</li>
 </ul>
-</div></article>
+</div></article></div><nav class="article-neighbors" aria-label="相邻文章"><a class="article-neighbor previous" href="/learning/pytorch/notes/stage-3/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E5%8D%B7%E7%A7%AF%E6%93%8D%E4%BD%9C%E5%9F%BA%E7%A1%80-shape-%E4%B8%8E%E5%8F%82%E6%95%B0%E9%87%8F.html">← <span>上一篇</span>Day 1 学习笔记：卷积操作基础——shape 与参数量</a><a class="article-neighbor next" href="/learning/pytorch/notes/stage-3/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%AE%8B%E5%B7%AE%E7%BD%91%E7%BB%9C-resnet-%E6%AE%8B%E5%B7%AE%E5%9D%97%E6%A0%B8%E5%BF%83.html"><span>下一篇</span>Day 3 学习笔记：残差网络 ResNet——残差块核心 →</a></nav>
   </main>
+  <script src="/assets/pytorch-reading.js" defer></script>
 </body>
 </html>

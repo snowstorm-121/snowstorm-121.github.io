@@ -6,18 +6,20 @@
   <meta name="theme-color" content="#07101c">
   <title>Day 4 学习笔记：手写 Softmax 分类（纯 Tensor 实现） · SNOWSTORM</title>
   <link rel="stylesheet" href="/assets/library.css">
+  <link rel="stylesheet" href="/assets/pytorch-reading.css">
 </head>
-<body class="library-page">
+<body class="library-page pytorch-reading-page">
+<div class="reading-progress" data-reading-progress aria-hidden="true"></div>
   <main class="library-shell">
     <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
     <p class="library-eyebrow">Tensor 与自动微分</p>
-    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-1/">Tensor 与自动微分</a></nav><article class="note-article"><h1>Day 4 学习笔记：手写 Softmax 分类（纯 Tensor 实现）</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+    <a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-1/">Tensor 与自动微分</a></nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details" open><summary>本页目录</summary><ol><li class="toc-level-2"><a href="#〇-贯穿全天的五条心智主线">〇、贯穿全天的五条心智主线</a></li><li class="toc-level-3"><a href="#1-从回归问题切换到分类问题">1. 从回归问题切换到分类问题</a></li><li class="toc-level-3"><a href="#2-分类模型不是直接输出类别-而是先输出-logits">2. 分类模型不是直接输出类别，而是先输出 logits</a></li><li class="toc-level-3"><a href="#3-softmax-把一行-logits-转成一行概率分布">3. softmax 把一行 logits 转成一行概率分布</a></li><li class="toc-level-3"><a href="#4-交叉熵惩罚的是正确类别概率太低">4. 交叉熵惩罚的是“正确类别概率太低”</a></li><li class="toc-level-3"><a href="#5-loss-用来训练-accuracy-用来看效果">5. loss 用来训练，accuracy 用来看效果</a></li><li class="toc-level-2"><a href="#一-fashion-mnist-数据加载">一、Fashion-MNIST 数据加载</a></li><li class="toc-level-3"><a href="#1-使用的数据集">1. 使用的数据集</a></li><li class="toc-level-3"><a href="#2-数据加载代码">2. 数据加载代码</a></li><li class="toc-level-3"><a href="#3-batch-size-256">3. batch_size = 256</a></li><li class="toc-level-3"><a href="#4-transforms-totensor">4. transforms.ToTensor()</a></li><li class="toc-level-3"><a href="#5-dataset-和-dataloader-的区别">5. Dataset 和 DataLoader 的区别</a></li><li class="toc-level-3"><a href="#6-为什么训练集-shuffle-true-测试集-shuffle-false">6. 为什么训练集 shuffle=True，测试集 shuffle=False</a></li><li class="toc-level-2"><a href="#二-关于数据路径的坑-data-是相对于运行目录-不是相对于代码文件">二、关于数据路径的坑：./data 是相对于运行目录，不是相对于代码文件</a></li><li class="toc-level-2"><a href="#三-初始化参数-w-和-b">三、初始化参数 W 和 b</a></li><li class="toc-level-3"><a href="#1-参数形状">1. 参数形状</a></li><li class="toc-level-3"><a href="#2-为什么-w-是-784-10">2. 为什么 W 是 (784, 10)</a></li><li class="toc-level-3"><a href="#3-为什么-requires-grad-true">3. 为什么 requires_grad=True</a></li><li class="toc-level-2"><a href="#四-手写-softmax">四、手写 softmax</a></li><li class="toc-level-3"><a href="#1-基础公式">1. 基础公式</a></li><li class="toc-level-3"><a href="#2-稳定版实现">2. 稳定版实现</a></li><li class="toc-level-3"><a href="#3-为什么要减去每行最大值">3. 为什么要减去每行最大值</a></li><li class="toc-level-3"><a href="#4-为什么是-dim-1">4. 为什么是 dim=1</a></li><li class="toc-level-3"><a href="#5-为什么-keepdim-true">5. 为什么 keepdim=True</a></li><li class="toc-level-2"><a href="#五-定义模型-net">五、定义模型 net</a></li><li class="toc-level-2"><a href="#六-手写交叉熵损失">六、手写交叉熵损失</a></li><li class="toc-level-3"><a href="#1-标签是类别索引-不是-one-hot">1. 标签是类别索引，不是 one-hot</a></li><li class="toc-level-3"><a href="#2-取出正确类别概率">2. 取出正确类别概率</a></li><li class="toc-level-3"><a href="#3-交叉熵公式">3. 交叉熵公式</a></li><li class="toc-level-3"><a href="#4-为什么表面上只取正确类别-错误类别也会被更新">4. 为什么表面上只取正确类别，错误类别也会被更新</a></li><li class="toc-level-2"><a href="#七-accuracy-准确率">七、accuracy 准确率</a></li><li class="toc-level-3"><a href="#1-从概率分布得到预测类别">1. 从概率分布得到预测类别</a></li><li class="toc-level-3"><a href="#2-accuracy-返回正确数量-而不是比例">2. accuracy 返回正确数量，而不是比例</a></li><li class="toc-level-3"><a href="#3-评估函数">3. 评估函数</a></li><li class="toc-level-2"><a href="#八-手写-sgd">八、手写 SGD</a></li><li class="toc-level-3"><a href="#1-更新公式">1. 更新公式</a></li><li class="toc-level-3"><a href="#2-为什么要-torch-no-grad">2. 为什么要 torch.no_grad()</a></li><li class="toc-level-3"><a href="#3-为什么要-param-grad-zero">3. 为什么要 param.grad.zero_()</a></li><li class="toc-level-3"><a href="#4-关于-loss-mean-backward-和-batch-size">4. 关于 loss.mean().backward() 和 batch_size</a></li><li class="toc-level-2"><a href="#九-训练循环">九、训练循环</a></li><li class="toc-level-3"><a href="#1-每个-batch-的固定顺序">1. 每个 batch 的固定顺序</a></li><li class="toc-level-3"><a href="#2-完整训练函数">2. 完整训练函数</a></li><li class="toc-level-3"><a href="#3-为什么-train-要传入-net-train-iter-test-iter">3. 为什么 train 要传入 net、train_iter、test_iter</a></li><li class="toc-level-2"><a href="#十-今天遇到的-warning-把带计算图的-tensor-转成-float">十、今天遇到的 warning：把带计算图的 Tensor 转成 float</a></li><li class="toc-level-3"><a href="#1-warning-内容">1. warning 内容</a></li><li class="toc-level-3"><a href="#2-原因">2. 原因</a></li><li class="toc-level-3"><a href="#3-正确写法">3. 正确写法</a></li><li class="toc-level-2"><a href="#十一-训练曲线可视化">十一、训练曲线可视化</a></li><li class="toc-level-2"><a href="#十二-最终代码整理版">十二、最终代码整理版</a></li><li class="toc-level-3"><a href="#1-完整代码">1.  完整代码</a></li><li class="toc-level-3"><a href="#2-结果展示">2.  结果展示</a></li><li class="toc-level-2"><a href="#note"></a></li><li class="toc-level-2"><a href="#十三-今天踩到和重点避开的坑">十三、今天踩到和重点避开的坑</a></li><li class="toc-level-3"><a href="#1-data-路径位置不符合预期">1. ./data 路径位置不符合预期</a></li><li class="toc-level-3"><a href="#2-统计-loss-时触发-warning">2. 统计 loss 时触发 warning</a></li><li class="toc-level-3"><a href="#3-sgd-参数里传了-batch-size-但没有使用">3. sgd 参数里传了 batch_size 但没有使用</a></li><li class="toc-level-3"><a href="#4-evaluate-accracy-拼写问题">4. evaluate_accracy 拼写问题</a></li><li class="toc-level-3"><a href="#5-argmaxdim-1-不能写错">5. argmax(dim=1) 不能写错</a></li><li class="toc-level-3"><a href="#6-softmax-要按类别维度归一化">6. softmax 要按类别维度归一化</a></li><li class="toc-level-3"><a href="#7-官方-crossentropyloss-的输入和今天手写版本不同">7. 官方 CrossEntropyLoss 的输入和今天手写版本不同</a></li><li class="toc-level-2"><a href="#十四-一次-batch-的生命周期">十四、一次 batch 的生命周期</a></li><li class="toc-level-2"><a href="#十五-今日总结">十五、今日总结</a></li></ol></details></aside><article class="note-article"><h1>Day 4 学习笔记：手写 Softmax 分类（纯 Tensor 实现）</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
 <p>参考书：《动手学深度学习》PyTorch 版 3.4 Softmax 回归</p>
 <p>本阶段重点：从 <a href="/learning/pytorch/notes/stage-1/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%89%8B%E5%86%99%E7%BA%BF%E6%80%A7%E5%9B%9E%E5%BD%92-%E7%BA%AF-tensor-%E5%AE%9E%E7%8E%B0.html">手写线性回归</a>过渡到手写多分类模型。今天仍然不使用 <code>nn.Module</code>、不使用 <code>torch.optim</code>，而是用纯 Tensor 实现 Softmax 分类训练流程，理解：分类模型为什么输出 logits、softmax 如何把 logits 转成概率、交叉熵为什么只取正确类别概率、<code>backward()</code> 如何把梯度传回 <code>W</code> / <code>b</code>、手写 SGD 如何更新参数、accuracy 为什么只用于评估。</p>
 <p>今天主线：手写 Softmax 分类。核心心智模型是：<strong>模型先为每个类别输出一个原始分数 logits，softmax 把每一行 logits 转成概率分布，交叉熵惩罚“正确类别概率太低”，<code>loss.backward()</code> 负责计算 <code>W.grad</code> / <code>b.grad</code>，手写 SGD 负责真正更新参数。</strong></p>
 <hr>
-<h2>〇、贯穿全天的五条心智主线</h2>
-<h3>1. 从回归问题切换到分类问题</h3>
+<h2 id="〇-贯穿全天的五条心智主线">〇、贯穿全天的五条心智主线</h2>
+<h3 id="1-从回归问题切换到分类问题">1. 从回归问题切换到分类问题</h3>
 <p><a href="/learning/pytorch/notes/stage-1/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%89%8B%E5%86%99%E7%BA%BF%E6%80%A7%E5%9B%9E%E5%BD%92-%E7%BA%AF-tensor-%E5%AE%9E%E7%8E%B0.html">Day 3 线性回归</a>预测的是一个连续值：</p>
 <pre><code class="language-plain">X -&gt; X @ w + b -&gt; y_hat
 </code></pre>
@@ -40,7 +42,7 @@
 <p>所以模型不能只输出一个数，而要对每个类别都输出一个分数：</p>
 <pre><code class="language-plain">logits: (batch_size, 10)
 </code></pre>
-<h3>2. 分类模型不是直接输出类别，而是先输出 logits</h3>
+<h3 id="2-分类模型不是直接输出类别-而是先输出-logits">2. 分类模型不是直接输出类别，而是先输出 logits</h3>
 <p>Softmax 回归的线性部分是：</p>
 <pre><code class="language-plain">logits = X @ W + b
 </code></pre>
@@ -61,7 +63,7 @@ W 第 9 列：给类别 9 打分
 <pre><code class="language-plain">每个样本输入 784 个像素特征
 同时算出 10 个类别分数
 </code></pre>
-<h3>3. softmax 把一行 logits 转成一行概率分布</h3>
+<h3 id="3-softmax-把一行-logits-转成一行概率分布">3. softmax 把一行 logits 转成一行概率分布</h3>
 <p><code>logits</code> 可以是任意实数：</p>
 <pre><code class="language-plain">[2.0, 1.0, -1.0]
 </code></pre>
@@ -81,7 +83,7 @@ W 第 9 列：给类别 9 打分
 <pre><code class="language-plain">[2.0, 1.0, -1.0] -&gt; [0.705, 0.259, 0.035]
 </code></pre>
 <p>重点：softmax 是按行做的。每一行对应一个样本，每一列对应一个类别。</p>
-<h3>4. 交叉熵惩罚的是“正确类别概率太低”</h3>
+<h3 id="4-交叉熵惩罚的是正确类别概率太低">4. 交叉熵惩罚的是“正确类别概率太低”</h3>
 <p>分类标签 <code>y</code> 不是 one-hot，而是类别索引：</p>
 <pre><code class="language-plain">y: (batch_size,)
 </code></pre>
@@ -110,7 +112,7 @@ W 第 9 列：给类别 9 打分
 <pre><code class="language-plain">正确类别概率越高，loss 越小
 正确类别概率越低，loss 越大
 </code></pre>
-<h3>5. loss 用来训练，accuracy 用来看效果</h3>
+<h3 id="5-loss-用来训练-accuracy-用来看效果">5. loss 用来训练，accuracy 用来看效果</h3>
 <p>训练优化的是：</p>
 <pre><code class="language-plain">cross entropy loss
 </code></pre>
@@ -134,8 +136,8 @@ W 第 9 列：给类别 9 打分
 accuracy：离散评估指标
 </code></pre>
 <hr>
-<h2>一、Fashion-MNIST 数据加载</h2>
-<h3>1. 使用的数据集</h3>
+<h2 id="一-fashion-mnist-数据加载">一、Fashion-MNIST 数据加载</h2>
+<h3 id="1-使用的数据集">1. 使用的数据集</h3>
 <p>今天使用 Fashion-MNIST：</p>
 <pre><code class="language-plain">训练集：60000 张图片
 测试集：10000 张图片
@@ -150,7 +152,7 @@ accuracy：离散评估指标
 <pre><code class="language-plain">X: (256, 1, 28, 28)
 y: (256,)
 </code></pre>
-<h3>2. 数据加载代码</h3>
+<h3 id="2-数据加载代码">2. 数据加载代码</h3>
 <pre><code class="language-python">batch_size = 256
 transform = transforms.ToTensor()
 
@@ -184,7 +186,7 @@ test_iter = DataLoader(
     shuffle=False
 )
 </code></pre>
-<h3>3. <code>batch_size = 256</code></h3>
+<h3 id="3-batch-size-256">3. <code>batch_size = 256</code></h3>
 <p>含义：</p>
 <pre><code class="language-plain">每次从数据集中取 256 张图片组成一个 batch
 </code></pre>
@@ -196,7 +198,7 @@ test_iter = DataLoader(
 <p>如果训练集有 60000 张图片，一个 epoch 大约有：</p>
 <pre><code class="language-plain">60000 / 256 ≈ 235 个 batch
 </code></pre>
-<h3>4. <code>transforms.ToTensor()</code></h3>
+<h3 id="4-transforms-totensor">4. <code>transforms.ToTensor()</code></h3>
 <p>它主要做两件事：</p>
 <pre><code class="language-plain">1. 把图片对象转成 torch.Tensor
 2. 把像素值从 0~255 缩放到 0.0~1.0
@@ -208,7 +210,7 @@ test_iter = DataLoader(
 <pre><code class="language-plain">0.0 ~ 0.0039
 </code></pre>
 <p>这会影响训练。</p>
-<h3>5. Dataset 和 DataLoader 的区别</h3>
+<h3 id="5-dataset-和-dataloader-的区别">5. Dataset 和 DataLoader 的区别</h3>
 <p><code>train_dataset</code> 是数据集对象，负责：</p>
 <pre><code class="language-plain">我有哪些样本
 第 i 个样本是什么
@@ -232,7 +234,7 @@ label: 一个 0~9 的整数
 <pre><code class="language-plain">X: (256, 1, 28, 28)
 y: (256,)
 </code></pre>
-<h3>6. 为什么训练集 <code>shuffle=True</code>，测试集 <code>shuffle=False</code></h3>
+<h3 id="6-为什么训练集-shuffle-true-测试集-shuffle-false">6. 为什么训练集 <code>shuffle=True</code>，测试集 <code>shuffle=False</code></h3>
 <p>训练集打乱：</p>
 <pre><code class="language-python">shuffle=True
 </code></pre>
@@ -250,7 +252,7 @@ y: (256,)
 </code></pre>
 <p>顺序不会影响结果。</p>
 <hr>
-<h2>二、关于数据路径的坑：<code>./data</code> 是相对于运行目录，不是相对于代码文件</h2>
+<h2 id="二-关于数据路径的坑-data-是相对于运行目录-不是相对于代码文件">二、关于数据路径的坑：<code>./data</code> 是相对于运行目录，不是相对于代码文件</h2>
 <p>今天遇到的问题：</p>
 <pre><code class="language-plain">Day4.py 在 Stage_1_Tensor_Autograd/Code 里，
 但是 data 下载到了项目根目录。
@@ -303,8 +305,8 @@ DATA_DIR = BASE_DIR / &quot;data&quot;
 更推荐保持项目根目录运行，然后在代码里用 Path(__file__) 明确定位数据和输出目录。
 </code></pre>
 <hr>
-<h2>三、初始化参数 <code>W</code> 和 <code>b</code></h2>
-<h3>1. 参数形状</h3>
+<h2 id="三-初始化参数-w-和-b">三、初始化参数 <code>W</code> 和 <code>b</code></h2>
+<h3 id="1-参数形状">1. 参数形状</h3>
 <p>Fashion-MNIST 每张图：</p>
 <pre><code class="language-plain">28 * 28 = 784
 </code></pre>
@@ -323,7 +325,7 @@ b = torch.zeros(num_outputs, requires_grad=True)
 <pre><code class="language-plain">W: (784, 10)
 b: (10,)
 </code></pre>
-<h3>2. 为什么 <code>W</code> 是 <code>(784, 10)</code></h3>
+<h3 id="2-为什么-w-是-784-10">2. 为什么 <code>W</code> 是 <code>(784, 10)</code></h3>
 <p>模型线性部分：</p>
 <pre><code class="language-python">logits = X @ W + b
 </code></pre>
@@ -335,7 +337,7 @@ W: (784, 10)
 <pre><code class="language-plain">X @ W -&gt; (256, 10)
 </code></pre>
 <p>刚好每个样本得到 10 个类别分数。</p>
-<h3>3. 为什么 <code>requires_grad=True</code></h3>
+<h3 id="3-为什么-requires-grad-true">3. 为什么 <code>requires_grad=True</code></h3>
 <p><code>W</code> 和 <code>b</code> 是模型要学习的参数。</p>
 <p>训练中：</p>
 <pre><code class="language-python">loss.mean().backward()
@@ -346,8 +348,8 @@ b.grad
 </code></pre>
 <p>如果没有 <code>requires_grad=True</code>，PyTorch 不会为它们计算梯度。</p>
 <hr>
-<h2>四、手写 softmax</h2>
-<h3>1. 基础公式</h3>
+<h2 id="四-手写-softmax">四、手写 softmax</h2>
+<h3 id="1-基础公式">1. 基础公式</h3>
 <p>对一行 logits：</p>
 <pre><code class="language-plain">z = [z1, z2, ..., zk]
 </code></pre>
@@ -362,14 +364,14 @@ b.grad
 每行概率和 = 1
 分数越高，概率越大
 </code></pre>
-<h3>2. 稳定版实现</h3>
+<h3 id="2-稳定版实现">2. 稳定版实现</h3>
 <pre><code class="language-python">def softmax(X):
     X = X - X.max(dim=1, keepdim=True).values
     X_exp = torch.exp(X)
     partition = X_exp.sum(dim=1, keepdim=True)
     return X_exp / partition
 </code></pre>
-<h3>3. 为什么要减去每行最大值</h3>
+<h3 id="3-为什么要减去每行最大值">3. 为什么要减去每行最大值</h3>
 <p>如果 logits 很大：</p>
 <pre><code class="language-python">torch.exp(torch.tensor(1000.0))
 </code></pre>
@@ -386,7 +388,7 @@ softmax([0, -1, -3])
 结果一样
 </code></pre>
 <p>因为所有 logits 同时减去同一个数，不改变相对差距。</p>
-<h3>4. 为什么是 <code>dim=1</code></h3>
+<h3 id="4-为什么是-dim-1">4. 为什么是 <code>dim=1</code></h3>
 <p><code>X</code> 的 shape 是：</p>
 <pre><code class="language-plain">(batch_size, num_classes)
 </code></pre>
@@ -398,7 +400,7 @@ softmax([0, -1, -3])
 <pre><code class="language-python">X_exp.sum(dim=0)
 </code></pre>
 <p>就会把不同样本混在一起，这是错误的。</p>
-<h3>5. 为什么 <code>keepdim=True</code></h3>
+<h3 id="5-为什么-keepdim-true">5. 为什么 <code>keepdim=True</code></h3>
 <p>如果：</p>
 <pre><code class="language-plain">X_exp: (256, 10)
 </code></pre>
@@ -418,7 +420,7 @@ softmax([0, -1, -3])
 <pre><code class="language-plain">(256, 10) / (256, 1) -&gt; (256, 10)
 </code></pre>
 <hr>
-<h2>五、定义模型 <code>net</code></h2>
+<h2 id="五-定义模型-net">五、定义模型 <code>net</code></h2>
 <pre><code class="language-python">def net(X):
     return softmax(X.reshape((-1, W.shape[0])) @ W + b)
 </code></pre>
@@ -446,8 +448,8 @@ softmax([0, -1, -3])
 </code></pre>
 <p>时，模型通常直接返回 logits，不要先 softmax。</p>
 <hr>
-<h2>六、手写交叉熵损失</h2>
-<h3>1. 标签是类别索引，不是 one-hot</h3>
+<h2 id="六-手写交叉熵损失">六、手写交叉熵损失</h2>
+<h3 id="1-标签是类别索引-不是-one-hot">1. 标签是类别索引，不是 one-hot</h3>
 <p>Fashion-MNIST 标签：</p>
 <pre><code class="language-plain">y: (batch_size,)
 </code></pre>
@@ -460,7 +462,7 @@ softmax([0, -1, -3])
  [0, 1, 0],
  [0, 1, 0]]
 </code></pre>
-<h3>2. 取出正确类别概率</h3>
+<h3 id="2-取出正确类别概率">2. 取出正确类别概率</h3>
 <p>如果：</p>
 <pre><code class="language-python">y_hat = torch.tensor([
     [0.70, 0.20, 0.10],
@@ -483,7 +485,7 @@ y_hat[3, 1] -&gt; 0.10
 <p>得到：</p>
 <pre><code class="language-plain">[0.70, 0.60, 0.60, 0.10]
 </code></pre>
-<h3>3. 交叉熵公式</h3>
+<h3 id="3-交叉熵公式">3. 交叉熵公式</h3>
 <pre><code class="language-python">def cross_entropy(y_hat, y):
     correct_probs = y_hat[range(len(y_hat)), y]
     return -torch.log(correct_probs + 1e-8)
@@ -496,7 +498,7 @@ y_hat[3, 1] -&gt; 0.10
 <p>加 <code>1e-8</code> 是为了避免极端情况下：</p>
 <pre><code class="language-plain">log(0) -&gt; inf
 </code></pre>
-<h3>4. 为什么表面上只取正确类别，错误类别也会被更新</h3>
+<h3 id="4-为什么表面上只取正确类别-错误类别也会被更新">4. 为什么表面上只取正确类别，错误类别也会被更新</h3>
 <p>交叉熵表面上只用了：</p>
 <pre><code class="language-python">y_hat[range(len(y_hat)), y]
 </code></pre>
@@ -510,8 +512,8 @@ y_hat[3, 1] -&gt; 0.10
 错误类别 logit：希望变小
 </code></pre>
 <hr>
-<h2>七、accuracy 准确率</h2>
-<h3>1. 从概率分布得到预测类别</h3>
+<h2 id="七-accuracy-准确率">七、accuracy 准确率</h2>
+<h3 id="1-从概率分布得到预测类别">1. 从概率分布得到预测类别</h3>
 <pre><code class="language-python">def accuracy(y_hat, y):
     y_pred = y_hat.argmax(dim=1)
     cmp = y_pred == y
@@ -527,7 +529,7 @@ y_hat[3, 1] -&gt; 0.10
 <pre><code class="language-plain">对每个类别，看哪个样本在这个类别上的概率最大
 </code></pre>
 <p>这不是分类预测要做的事情。</p>
-<h3>2. accuracy 返回正确数量，而不是比例</h3>
+<h3 id="2-accuracy-返回正确数量-而不是比例">2. accuracy 返回正确数量，而不是比例</h3>
 <p>今天实现中：</p>
 <pre><code class="language-python">return float(cmp.sum())
 </code></pre>
@@ -541,7 +543,7 @@ y_hat[3, 1] -&gt; 0.10
 num_example += y.numel()
 train_acc = train_acc_sum / num_example
 </code></pre>
-<h3>3. 评估函数</h3>
+<h3 id="3-评估函数">3. 评估函数</h3>
 <pre><code class="language-python">def evaluate_accuracy(net, data_iter):
     correct = 0.0
     total = 0.0
@@ -559,8 +561,8 @@ train_acc = train_acc_sum / num_example
 </code></pre>
 <p>因为测试集只用来看模型表现，不用反向传播，也不用更新参数。</p>
 <hr>
-<h2>八、手写 SGD</h2>
-<h3>1. 更新公式</h3>
+<h2 id="八-手写-sgd">八、手写 SGD</h2>
+<h3 id="1-更新公式">1. 更新公式</h3>
 <p>SGD 的核心：</p>
 <pre><code class="language-plain">参数 = 参数 - 学习率 * 梯度
 </code></pre>
@@ -571,7 +573,7 @@ train_acc = train_acc_sum / num_example
             param -= lr * param.grad
             param.grad.zero_()
 </code></pre>
-<h3>2. 为什么要 <code>torch.no_grad()</code></h3>
+<h3 id="2-为什么要-torch-no-grad">2. 为什么要 <code>torch.no_grad()</code></h3>
 <p>参数更新不是模型前向计算的一部分。</p>
 <p>如果不加：</p>
 <pre><code class="language-python">with torch.no_grad():
@@ -581,7 +583,7 @@ train_acc = train_acc_sum / num_example
 <pre><code class="language-python">with torch.no_grad():
     param -= lr * param.grad
 </code></pre>
-<h3>3. 为什么要 <code>param.grad.zero_()</code></h3>
+<h3 id="3-为什么要-param-grad-zero">3. 为什么要 <code>param.grad.zero_()</code></h3>
 <p>PyTorch 的梯度默认累加。</p>
 <p>如果不清空，训练会变成：</p>
 <pre><code class="language-plain">第 1 个 batch 的梯度
@@ -593,7 +595,7 @@ train_acc = train_acc_sum / num_example
 <p>所以每次更新完参数后立刻清空：</p>
 <pre><code class="language-python">param.grad.zero_()
 </code></pre>
-<h3>4. 关于 <code>loss.mean().backward()</code> 和 <code>batch_size</code></h3>
+<h3 id="4-关于-loss-mean-backward-和-batch-size">4. 关于 <code>loss.mean().backward()</code> 和 <code>batch_size</code></h3>
 <p>今天训练时使用：</p>
 <pre><code class="language-python">loss.mean().backward()
 </code></pre>
@@ -617,8 +619,8 @@ sgd([W, b], lr)
             param.grad.zero_()
 </code></pre>
 <hr>
-<h2>九、训练循环</h2>
-<h3>1. 每个 batch 的固定顺序</h3>
+<h2 id="九-训练循环">九、训练循环</h2>
+<h3 id="1-每个-batch-的固定顺序">1. 每个 batch 的固定顺序</h3>
 <pre><code class="language-python">y_hat = net(X)
 loss = cross_entropy(y_hat, y)
 loss.mean().backward()
@@ -635,7 +637,7 @@ sgd([W, b], lr)
 -&gt; sgd 更新 W / b
 -&gt; zero_ 清空梯度
 </code></pre>
-<h3>2. 完整训练函数</h3>
+<h3 id="2-完整训练函数">2. 完整训练函数</h3>
 <pre><code class="language-python">def train(net, train_iter, test_iter, epochs, lr):
     for ep in range(epochs):
         train_loss_sum = 0.0
@@ -668,7 +670,7 @@ sgd([W, b], lr)
             f&quot;test acc {test_acc:.4f}&quot;
         )
 </code></pre>
-<h3>3. 为什么 <code>train</code> 要传入 <code>net</code>、<code>train_iter</code>、<code>test_iter</code></h3>
+<h3 id="3-为什么-train-要传入-net-train-iter-test-iter">3. 为什么 <code>train</code> 要传入 <code>net</code>、<code>train_iter</code>、<code>test_iter</code></h3>
 <p>今天问过一个重要问题：</p>
 <pre><code class="language-plain">为什么要在 train 函数中传入 net、train_iter、test_iter？
 </code></pre>
@@ -710,8 +712,8 @@ train(net2, train_iter, test_iter, epochs, lr)
 <p>更通用的版本会把 <code>loss</code> 和 <code>updater</code> 也传进去。</p>
 <p>但对当前学习阶段，先保留这个半通用版本更容易理解。</p>
 <hr>
-<h2>十、今天遇到的 warning：把带计算图的 Tensor 转成 float</h2>
-<h3>1. warning 内容</h3>
+<h2 id="十-今天遇到的-warning-把带计算图的-tensor-转成-float">十、今天遇到的 warning：把带计算图的 Tensor 转成 float</h2>
+<h3 id="1-warning-内容">1. warning 内容</h3>
 <p>运行时出现过类似警告：</p>
 <pre><code class="language-plain">UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
 Consider using tensor.detach() first.
@@ -719,7 +721,7 @@ Consider using tensor.detach() first.
 <p>触发行：</p>
 <pre><code class="language-python">train_loss_sum += float(loss.sum())
 </code></pre>
-<h3>2. 原因</h3>
+<h3 id="2-原因">2. 原因</h3>
 <p><code>loss</code> 来自模型前向计算：</p>
 <pre><code class="language-plain">W, b -&gt; logits -&gt; softmax -&gt; y_hat -&gt; loss
 </code></pre>
@@ -732,7 +734,7 @@ Consider using tensor.detach() first.
 </code></pre>
 <p>就是把一个带梯度历史的 Tensor 转成 Python 标量。</p>
 <p>PyTorch 提醒：如果只是记录数值，最好先断开计算图。</p>
-<h3>3. 正确写法</h3>
+<h3 id="3-正确写法">3. 正确写法</h3>
 <pre><code class="language-python">train_loss_sum += loss.sum().detach().item()
 </code></pre>
 <p>含义：</p>
@@ -750,7 +752,7 @@ Consider using tensor.detach() first.
 统计用：loss.sum().detach().item()
 </code></pre>
 <hr>
-<h2>十一、训练曲线可视化</h2>
+<h2 id="十一-训练曲线可视化">十一、训练曲线可视化</h2>
 <p>今天记录了三个历史列表：</p>
 <pre><code class="language-python">loss_history = []
 train_acc_history = []
@@ -804,8 +806,8 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 plt.savefig(OUTPUT_DIR / &quot;softmax_training_curve.png&quot;, dpi=150)
 </code></pre>
 <hr>
-<h2>十二、最终代码整理版</h2>
-<h3>1.  完整代码</h3>
+<h2 id="十二-最终代码整理版">十二、最终代码整理版</h2>
+<h3 id="1-完整代码">1.  完整代码</h3>
 <pre><code class="language-python">import torch
 from torchvision import datasets, transforms
 from torch.utils.data import DataLoader
@@ -1016,11 +1018,11 @@ plt.tight_layout(rect=[0, 0, 1, 0.92])
 plt.savefig(OUTPUT_DIR / &quot;softmax_training_curve.png&quot;, dpi=150)
 plt.show()
 </code></pre>
-<h3>2.  结果展示</h3>
-<h2><img src="/learning/pytorch/assets/stage-1/Pasted%20image%2020260630155424.png" alt="697" loading="lazy">
+<h3 id="2-结果展示">2.  结果展示</h3>
+<h2 id="note"><img src="/learning/pytorch/assets/stage-1/Pasted%20image%2020260630155424.png" alt="697" loading="lazy">
 <img src="/learning/pytorch/assets/stage-1/Pasted%20image%2020260630155530.png" alt="Pasted image 20260630155530.png" loading="lazy"></h2>
-<h2>十三、今天踩到和重点避开的坑</h2>
-<h3>1. <code>./data</code> 路径位置不符合预期</h3>
+<h2 id="十三-今天踩到和重点避开的坑">十三、今天踩到和重点避开的坑</h2>
+<h3 id="1-data-路径位置不符合预期">1. <code>./data</code> 路径位置不符合预期</h3>
 <p>原因：</p>
 <pre><code class="language-plain">./data 相对于当前工作目录，不相对于 .py 文件
 </code></pre>
@@ -1028,14 +1030,14 @@ plt.show()
 <pre><code class="language-python">BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / &quot;data&quot;
 </code></pre>
-<h3>2. 统计 loss 时触发 warning</h3>
+<h3 id="2-统计-loss-时触发-warning">2. 统计 loss 时触发 warning</h3>
 <p>错误或不推荐写法：</p>
 <pre><code class="language-python">train_loss_sum += float(loss.sum())
 </code></pre>
 <p>更稳写法：</p>
 <pre><code class="language-python">train_loss_sum += loss.sum().detach().item()
 </code></pre>
-<h3>3. <code>sgd</code> 参数里传了 <code>batch_size</code> 但没有使用</h3>
+<h3 id="3-sgd-参数里传了-batch-size-但没有使用">3. <code>sgd</code> 参数里传了 <code>batch_size</code> 但没有使用</h3>
 <p>如果使用：</p>
 <pre><code class="language-python">loss.mean().backward()
 </code></pre>
@@ -1043,7 +1045,7 @@ DATA_DIR = BASE_DIR / &quot;data&quot;
 <pre><code class="language-python">def sgd(params, lr):
     ...
 </code></pre>
-<h3>4. <code>evaluate_accracy</code> 拼写问题</h3>
+<h3 id="4-evaluate-accracy-拼写问题">4. <code>evaluate_accracy</code> 拼写问题</h3>
 <p>原来写成：</p>
 <pre><code class="language-python">evaluate_accracy
 </code></pre>
@@ -1051,7 +1053,7 @@ DATA_DIR = BASE_DIR / &quot;data&quot;
 <pre><code class="language-python">evaluate_accuracy
 </code></pre>
 <p>虽然不影响运行，但影响代码可读性。</p>
-<h3>5. <code>argmax(dim=1)</code> 不能写错</h3>
+<h3 id="5-argmaxdim-1-不能写错">5. <code>argmax(dim=1)</code> 不能写错</h3>
 <p>正确：</p>
 <pre><code class="language-python">y_hat.argmax(dim=1)
 </code></pre>
@@ -1064,7 +1066,7 @@ DATA_DIR = BASE_DIR / &quot;data&quot;
 <p>含义会变成：</p>
 <pre><code class="language-plain">每个类别在 batch 中找概率最大的样本
 </code></pre>
-<h3>6. softmax 要按类别维度归一化</h3>
+<h3 id="6-softmax-要按类别维度归一化">6. softmax 要按类别维度归一化</h3>
 <p>正确：</p>
 <pre><code class="language-python">X_exp.sum(dim=1, keepdim=True)
 </code></pre>
@@ -1072,7 +1074,7 @@ DATA_DIR = BASE_DIR / &quot;data&quot;
 <pre><code class="language-python">X_exp.sum(dim=0)
 </code></pre>
 <p>因为 <code>dim=0</code> 会把不同样本混在一起。</p>
-<h3>7. 官方 <code>CrossEntropyLoss</code> 的输入和今天手写版本不同</h3>
+<h3 id="7-官方-crossentropyloss-的输入和今天手写版本不同">7. 官方 <code>CrossEntropyLoss</code> 的输入和今天手写版本不同</h3>
 <p>今天手写：</p>
 <pre><code class="language-plain">net -&gt; softmax 概率
 cross_entropy -&gt; 对概率取 log
@@ -1083,7 +1085,7 @@ nn.CrossEntropyLoss -&gt; 内部处理 log_softmax
 </code></pre>
 <p>使用官方 <code>CrossEntropyLoss</code> 时不要先 softmax。</p>
 <hr>
-<h2>十四、一次 batch 的生命周期</h2>
+<h2 id="十四-一次-batch-的生命周期">十四、一次 batch 的生命周期</h2>
 <p>一个 batch 进入训练循环后：</p>
 <pre><code class="language-plain">X: (256, 1, 28, 28)
 y: (256,)
@@ -1119,7 +1121,7 @@ b.grad.zero_()
 </code></pre>
 <p>下一个 batch 重新前向、重新建图、重新计算梯度。</p>
 <hr>
-<h2>十五、今日总结</h2>
+<h2 id="十五-今日总结">十五、今日总结</h2>
 <p>今天完成了从线性回归到 Softmax 分类的关键迁移。</p>
 <p>线性回归：</p>
 <pre><code class="language-plain">输入 X
@@ -1166,7 +1168,8 @@ zero_ 防止梯度跨 batch 累加
 3. 用 nn.CrossEntropyLoss 替代手写 softmax + cross_entropy
 4. 理解官方实现为什么更稳定
 </code></pre>
-</div></article>
+</div></article></div><nav class="article-neighbors" aria-label="相邻文章"><a class="article-neighbor previous" href="/learning/pytorch/notes/stage-1/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%89%8B%E5%86%99%E7%BA%BF%E6%80%A7%E5%9B%9E%E5%BD%92-%E7%BA%AF-tensor-%E5%AE%9E%E7%8E%B0.html">← <span>上一篇</span>Day 3 学习笔记：手写线性回归（纯 Tensor 实现）</a><span class="article-neighbor next" aria-hidden="true"></span></nav>
   </main>
+  <script src="/assets/pytorch-reading.js" defer></script>
 </body>
 </html>

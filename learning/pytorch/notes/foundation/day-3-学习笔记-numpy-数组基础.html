@@ -6,12 +6,14 @@
   <meta name="theme-color" content="#07101c">
   <title>Day 3 学习笔记：NumPy 数组基础 · SNOWSTORM</title>
   <link rel="stylesheet" href="/assets/library.css">
+  <link rel="stylesheet" href="/assets/pytorch-reading.css">
 </head>
-<body class="library-page">
+<body class="library-page pytorch-reading-page">
+<div class="reading-progress" data-reading-progress aria-hidden="true"></div>
   <main class="library-shell">
     <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
     <p class="library-eyebrow">基础阶段</p>
-    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../foundation/">基础阶段</a></nav><article class="note-article"><h1>Day 3 学习笔记：NumPy 数组基础</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+    <a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../foundation/">基础阶段</a></nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details" open><summary>本页目录</summary><ol><li class="toc-level-2"><a href="#一-创建数组">一、创建数组</a></li><li class="toc-level-3"><a href="#1-从-python-列表创建">1. 从 Python 列表创建</a></li><li class="toc-level-3"><a href="#2-快速生成函数深度学习里更常用">2. 快速生成函数（深度学习里更常用）</a></li><li class="toc-level-3"><a href="#3-随机数初始化神经网络权重时天天用">3. 随机数（初始化神经网络权重时天天用）</a></li><li class="toc-level-2"><a href="#二-shape-与-dtype今天最核心的概念">二、shape 与 dtype（今天最核心的概念）</a></li><li class="toc-level-3"><a href="#1-四个关键属性">1. 四个关键属性</a></li><li class="toc-level-3"><a href="#2-理解-轴-axis-shape-怎么读">2. 理解「轴 axis」——shape 怎么读</a></li><li class="toc-level-3"><a href="#3-dtype数据类型">3. dtype（数据类型）</a></li><li class="toc-level-2"><a href="#三-reshape-改变形状-不改变数据">三、reshape：改变形状，不改变数据</a></li><li class="toc-level-2"><a href="#四-切片与索引-取出你想要的部分">四、切片与索引：取出你想要的部分</a></li><li class="toc-level-3"><a href="#1-一维数组和-python-列表几乎一样">1. 一维数组（和 Python 列表几乎一样）</a></li><li class="toc-level-3"><a href="#2-二维数组用逗号分隔每个轴-和列表最大的区别">2. 二维数组（用逗号分隔每个轴——和列表最大的区别）</a></li><li class="toc-level-3"><a href="#3-布尔索引按条件筛选-极其常用">3. 布尔索引（按条件筛选，极其常用）</a></li><li class="toc-level-3"><a href="#4-花式索引按位置列表取">4. 花式索引（按位置列表取）</a></li><li class="toc-level-2"><a href="#五-今天最重要的坑-视图view-vs-拷贝copy">五、今天最重要的坑：视图（view） vs 拷贝（copy）</a></li><li class="toc-level-2"><a href="#六-与-pytorch-的衔接为什么今天的内容这么关键">六、与 PyTorch 的衔接（为什么今天的内容这么关键）</a></li><li class="toc-level-2"><a href="#七-速查表快速回忆用">七、速查表（快速回忆用）</a></li><li class="toc-level-2"><a href="#八-要重点记住的-5-件事">八、要重点记住的 5 件事</a></li></ol></details></aside><article class="note-article"><h1>Day 3 学习笔记：NumPy 数组基础</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
 <p>参考书：NumPy 官方文档</p>
 <p>本阶段重点：NumPy 是从“会写 Python”到“能做深度学习计算”的桥梁；数组、shape、dtype、切片与视图概念会直接迁移到 PyTorch Tensor。</p>
 <p>今天主线：创建数组、<code>shape</code>/<code>dtype</code>、<code>reshape</code>、切片与索引。重点理解数组如何保存与访问数据，而不是只记住 API 名称。</p>
@@ -22,12 +24,12 @@
 <pre><code class="language-python">import numpy as np   # 约定俗成的别名，几乎所有代码都这么写
 </code></pre>
 <hr>
-<h2>一、创建数组</h2>
-<h3>1. 从 Python 列表创建</h3>
+<h2 id="一-创建数组">一、创建数组</h2>
+<h3 id="1-从-python-列表创建">1. 从 Python 列表创建</h3>
 <pre><code class="language-python">a = np.array([1, 2, 3])               # 一维数组
 b = np.array([[1, 2, 3], [4, 5, 6]])  # 二维数组（2 行 3 列）
 </code></pre>
-<h3>2. 快速生成函数（深度学习里更常用）</h3>
+<h3 id="2-快速生成函数深度学习里更常用">2. 快速生成函数（深度学习里更常用）</h3>
 <table>
 <thead>
 <tr>
@@ -81,7 +83,7 @@ b = np.array([[1, 2, 3], [4, 5, 6]])  # 二维数组（2 行 3 列）
 <li><code>arange</code> 你指定<strong>步长</strong>，元素个数由系统算出来，且<strong>含头不含尾</strong>（写 <code>arange(0, 20, 2)</code> 才能取到 18）。</li>
 <li><code>linspace</code> 你指定<strong>个数</strong>，步长由系统算出来，默认<strong>含两端</strong>。</li>
 </ul>
-<h3>3. 随机数（初始化神经网络权重时天天用）</h3>
+<h3 id="3-随机数初始化神经网络权重时天天用">3. 随机数（初始化神经网络权重时天天用）</h3>
 <pre><code class="language-python">np.random.seed(42)              # 固定随机种子，保证每次运行结果一致（重要好习惯）
 
 np.random.rand(2, 3)            # [0, 1) 之间的均匀分布
@@ -90,8 +92,8 @@ np.random.randint(0, 10, (2, 3))  # [0, 10) 的随机整数，形状 2×3
 </code></pre>
 <p>**为什么要 **<code>**np.random.seed**</code>：不固定种子，每次跑结果都不同，你就无法判断结果变化是「代码改对了」还是「只是随机波动」。做实验时一定要先设种子。</p>
 <hr>
-<h2>二、shape 与 dtype（今天最核心的概念）</h2>
-<h3>1. 四个关键属性</h3>
+<h2 id="二-shape-与-dtype今天最核心的概念">二、shape 与 dtype（今天最核心的概念）</h2>
+<h3 id="1-四个关键属性">1. 四个关键属性</h3>
 <pre><code class="language-python">a = np.array([[1, 2, 3], [4, 5, 6]])
 
 a.shape    # (2, 3)            形状：2 行 3 列，是一个元组
@@ -99,7 +101,7 @@ a.ndim     # 2                 维度数（几维）
 a.size     # 6                 元素总个数
 a.dtype    # dtype('int64')    数据类型
 </code></pre>
-<h3>2. 理解「轴 axis」——shape 怎么读</h3>
+<h3 id="2-理解-轴-axis-shape-怎么读">2. 理解「轴 axis」——shape 怎么读</h3>
 <p><code>shape</code> 是一个<strong>元组，从外往里读</strong>：</p>
 <p>&lt;!-- 这是一张图片，ocr 内容为：AXIS1(列,长度3) 形状为(2,3)的二维数组及其两个轴 3 1 2 AXIS0(行,长度2) 5 6 SHAPE(2,3) 2行X3列,共6个元素 --&gt;
 <img src="/learning/pytorch/assets/remote/a9afc298cb30084866e7.png" alt="" loading="lazy"></p>
@@ -108,14 +110,14 @@ a.dtype    # dtype('int64')    数据类型
 <li><code>shape</code> 第 2 个数字 <code>3</code> → <strong>axis 1</strong>（列方向）</li>
 </ul>
 <p><strong>为什么重要</strong>：深度学习里经常见到四维 shape，比如图像数据 <code>(batch_size, channels, height, width)</code>。能一眼说出「每个数字对应哪个轴」，就是从这里打的基础。</p>
-<h3>3. dtype（数据类型）</h3>
+<h3 id="3-dtype数据类型">3. dtype（数据类型）</h3>
 <p>深度学习里几乎统一用 <code>**float32**</code>（精度够用、省显存、算得快）。两种设置方式：</p>
 <pre><code class="language-python">x = np.array([1, 2, 3], dtype=np.float32)  # 创建时直接指定
 y = a.astype(np.float32)                    # 已有数组转换（返回新数组，不改原数组）
 </code></pre>
 <p><strong>常见坑</strong>：整数数组直接做除法、或要喂给神经网络时，往往得先转成浮点，否则报错或精度丢失。</p>
 <hr>
-<h2>三、reshape：改变形状，不改变数据</h2>
+<h2 id="三-reshape-改变形状-不改变数据">三、reshape：改变形状，不改变数据</h2>
 <p>把同样的一堆数字<strong>重新排列</strong>成不同形状，<strong>元素总数必须保持不变</strong>。</p>
 <pre><code class="language-python">a = np.arange(12)     # [0 1 2 ... 11]，shape (12,)
 
@@ -131,8 +133,8 @@ a.flatten()           # 也是拉平成一维
 <pre><code class="language-python">x = x.reshape(batch_size, -1)   # batch 维我指定，剩下的维度自动压成一条
 </code></pre>
 <hr>
-<h2>四、切片与索引：取出你想要的部分</h2>
-<h3>1. 一维数组（和 Python 列表几乎一样）</h3>
+<h2 id="四-切片与索引-取出你想要的部分">四、切片与索引：取出你想要的部分</h2>
+<h3 id="1-一维数组和-python-列表几乎一样">1. 一维数组（和 Python 列表几乎一样）</h3>
 <pre><code class="language-python">a = np.arange(10)     # [0 1 2 3 4 5 6 7 8 9]
 
 a[2]        # 2              单个元素
@@ -141,7 +143,7 @@ a[:3]       # [0 1 2]        从头到索引 3（不含）
 a[::2]      # [0 2 4 6 8]    步长为 2
 a[-1]       # 9              倒数第一个
 </code></pre>
-<h3>2. 二维数组（用逗号分隔每个轴——和列表最大的区别）</h3>
+<h3 id="2-二维数组用逗号分隔每个轴-和列表最大的区别">2. 二维数组（用逗号分隔每个轴——和列表最大的区别）</h3>
 <pre><code class="language-python">b = np.array([[1, 2, 3],
               [4, 5, 6],
               [7, 8, 9]])
@@ -153,19 +155,19 @@ b[0:2, 1:3]  # [[2 3],         前两行 × 后两列
              #  [5 6]]
 </code></pre>
 <p>记牢 <code>b[:, 0]</code> 这种「取某一列」的写法——处理表格数据、取某个特征时天天用。</p>
-<h3>3. 布尔索引（按条件筛选，极其常用）</h3>
+<h3 id="3-布尔索引按条件筛选-极其常用">3. 布尔索引（按条件筛选，极其常用）</h3>
 <pre><code class="language-python">a = np.array([1, -2, 3, -4, 5])
 
 a[a &gt; 0]      # [1 3 5]            取出所有满足条件的元素
 a[a &lt; 0] = 0  # [1 0 3 0 5]       把所有负数改成 0
 </code></pre>
 <p><strong>联系深度学习</strong>：ReLU 激活函数的核心就是「把负数变成 0」，逻辑和 <code>a[a &lt; 0] = 0</code> 一模一样。</p>
-<h3>4. 花式索引（按位置列表取）</h3>
+<h3 id="4-花式索引按位置列表取">4. 花式索引（按位置列表取）</h3>
 <pre><code class="language-python">a = np.array([10, 20, 30, 40])
 a[[0, 2, 3]]  # [10 30 40]   按指定的索引列表取多个元素
 </code></pre>
 <hr>
-<h2>五、今天最重要的坑：视图（view） vs 拷贝（copy）</h2>
+<h2 id="五-今天最重要的坑-视图view-vs-拷贝copy">五、今天最重要的坑：视图（view） vs 拷贝（copy）</h2>
 <p>切片返回的是<strong>视图</strong>，和原数组<strong>共享同一块内存</strong>，不是独立副本。改视图会连带改原数组：</p>
 <pre><code class="language-python">a = np.arange(5)      # [0 1 2 3 4]
 s = a[1:4]            # [1 2 3]  ← 这是视图，和 a 共享内存
@@ -179,7 +181,7 @@ print(a)              # [0 1 2 3 4]  ← a 不受影响
 </code></pre>
 <p><strong>为什么要记住</strong>：这个特性以后会让你莫名其妙地「改了 B 结果 A 也跟着变」，提前知道能省好几个小时的 debug 时间。需要独立数据时记得 <code>.copy()</code>。</p>
 <hr>
-<h2>六、与 PyTorch 的衔接（为什么今天的内容这么关键）</h2>
+<h2 id="六-与-pytorch-的衔接为什么今天的内容这么关键">六、与 PyTorch 的衔接（为什么今天的内容这么关键）</h2>
 <p>PyTorch 的张量（Tensor）API 几乎是 NumPy 数组的「翻版」：</p>
 <table>
 <thead>
@@ -219,7 +221,7 @@ print(a)              # [0 1 2 3 4]  ← a 不受影响
 </table>
 <p>所以学好 NumPy，你已经走完了 PyTorch 张量操作的绝大部分路。</p>
 <hr>
-<h2>七、速查表（快速回忆用）</h2>
+<h2 id="七-速查表快速回忆用">七、速查表（快速回忆用）</h2>
 <pre><code class="language-python"># —— 创建 ——
 np.array([...])              # 从列表
 np.zeros((2,3))              # 全 0
@@ -253,7 +255,7 @@ s = a[1:4]                   # 视图，共享内存（改 s 会改 a）
 s = a[1:4].copy()            # 独立副本
 </code></pre>
 <hr>
-<h2>八、要重点记住的 5 件事</h2>
+<h2 id="八-要重点记住的-5-件事">八、要重点记住的 5 件事</h2>
 <ol>
 <li><code>arange</code> 含头不含尾、指定步长；<code>linspace</code> 含两端、指定个数。</li>
 <li><code>shape</code> 从外往里读，第 1 个数字是 axis 0（行），第 2 个是 axis 1（列）。</li>
@@ -261,7 +263,8 @@ s = a[1:4].copy()            # 独立副本
 <li><code>reshape</code> 时元素总数必须不变；<code>-1</code> 让 NumPy 自动算某一维。</li>
 <li>切片是视图、共享内存；要独立数据务必 <code>.copy()</code>。</li>
 </ol>
-</div></article>
+</div></article></div><nav class="article-neighbors" aria-label="相邻文章"><a class="article-neighbor previous" href="/learning/pytorch/notes/foundation/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%96%87%E4%BB%B6%E6%93%8D%E4%BD%9C-%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86-%E7%BB%BC%E5%90%88%E5%B0%8F%E9%A1%B9%E7%9B%AE.html">← <span>上一篇</span>Day 2 学习笔记：文件操作 + 异常处理 + 综合小项目</a><a class="article-neighbor next" href="/learning/pytorch/notes/foundation/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%95%B0%E7%BB%84%E8%BF%90%E7%AE%97-%E7%9F%A9%E9%98%B5%E4%B9%98%E6%B3%95-%E8%BD%AC%E7%BD%AE-%E5%B9%BF%E6%92%AD.html"><span>下一篇</span>Day 4 学习笔记：数组运算 · 矩阵乘法 · 转置 · 广播 →</a></nav>
   </main>
+  <script src="/assets/pytorch-reading.js" defer></script>
 </body>
 </html>

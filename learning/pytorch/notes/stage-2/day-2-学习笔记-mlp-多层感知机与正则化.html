@@ -6,18 +6,20 @@
   <meta name="theme-color" content="#07101c">
   <title>Day 2 学习笔记：MLP 多层感知机与正则化 · SNOWSTORM</title>
   <link rel="stylesheet" href="/assets/library.css">
+  <link rel="stylesheet" href="/assets/pytorch-reading.css">
 </head>
-<body class="library-page">
+<body class="library-page pytorch-reading-page">
+<div class="reading-progress" data-reading-progress aria-hidden="true"></div>
   <main class="library-shell">
     <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
     <p class="library-eyebrow">模型与训练闭环</p>
-    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-2/">模型与训练闭环</a></nav><article class="note-article"><h1>Day 2 学习笔记：MLP 多层感知机与正则化</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+    <a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-2/">模型与训练闭环</a></nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details" open><summary>本页目录</summary><ol><li class="toc-level-2"><a href="#〇-贯穿全天的六条心智主线">〇、贯穿全天的六条心智主线</a></li><li class="toc-level-3"><a href="#1-softmax-回归是直接从像素到类别">1. Softmax 回归是直接从像素到类别</a></li><li class="toc-level-3"><a href="#2-mlp-是先学习隐藏表示-再输出-logits">2. MLP 是先学习隐藏表示，再输出 logits</a></li><li class="toc-level-3"><a href="#3-relu-让多层-linear-真正有意义">3. ReLU 让多层 Linear 真正有意义</a></li><li class="toc-level-3"><a href="#4-输出层仍然输出-logits">4. 输出层仍然输出 logits</a></li><li class="toc-level-3"><a href="#5-训练骨架没有变">5. 训练骨架没有变</a></li><li class="toc-level-3"><a href="#6-正则化不是让训练-acc-一定更高">6. 正则化不是让训练 acc 一定更高</a></li><li class="toc-level-2"><a href="#一-从-softmax-回归复盘起步">一、从 Softmax 回归复盘起步</a></li><li class="toc-level-3"><a href="#1-softmax-回归的结构">1. Softmax 回归的结构</a></li><li class="toc-level-3"><a href="#2-softmax-回归的能力边界">2. Softmax 回归的能力边界</a></li><li class="toc-level-2"><a href="#二-mlp-的隐藏层是什么">二、MLP 的隐藏层是什么</a></li><li class="toc-level-3"><a href="#1-基础-mlp-结构">1. 基础 MLP 结构</a></li><li class="toc-level-3"><a href="#2-nn-linear784-256-在做什么">2. nn.Linear(784, 256) 在做什么</a></li><li class="toc-level-3"><a href="#3-hidden-size-是超参数">3. hidden_size 是超参数</a></li><li class="toc-level-3"><a href="#4-参数数量对比">4. 参数数量对比</a></li><li class="toc-level-2"><a href="#三-为什么必须有-relu">三、为什么必须有 ReLU</a></li><li class="toc-level-3"><a href="#1-只堆-linear-仍然是线性模型">1. 只堆 Linear 仍然是线性模型</a></li><li class="toc-level-3"><a href="#2-relu-的定义">2. ReLU 的定义</a></li><li class="toc-level-3"><a href="#3-relu-的心智模型">3. ReLU 的心智模型</a></li><li class="toc-level-3"><a href="#4-relu-没有可学习参数">4. ReLU 没有可学习参数</a></li><li class="toc-level-2"><a href="#四-用-nn-sequential-搭建-mlp">四、用 nn.Sequential 搭建 MLP</a></li><li class="toc-level-3"><a href="#1-模型代码">1. 模型代码</a></li><li class="toc-level-3"><a href="#2-喂一批假数据检查接口">2. 喂一批假数据检查接口</a></li><li class="toc-level-3"><a href="#3-接-crossentropyloss">3. 接 CrossEntropyLoss</a></li><li class="toc-level-3"><a href="#4-查看参数">4. 查看参数</a></li><li class="toc-level-2"><a href="#五-用自定义-nn-module-重写-mlp">五、用自定义 nn.Module 重写 MLP</a></li><li class="toc-level-3"><a href="#1-模型类">1. 模型类</a></li><li class="toc-level-3"><a href="#2-init-和-forward-的分工">2. __init__ 和 forward 的分工</a></li><li class="toc-level-3"><a href="#3-不要在-forward-里新建可学习层">3. 不要在 forward 里新建可学习层</a></li><li class="toc-level-3"><a href="#4-自定义-module-和-sequential-的关系">4. 自定义 Module 和 Sequential 的关系</a></li><li class="toc-level-2"><a href="#六-规范训练与评估函数">六、规范训练与评估函数</a></li><li class="toc-level-3"><a href="#1-单个-batch-的训练步骤">1. 单个 batch 的训练步骤</a></li><li class="toc-level-3"><a href="#2-train-one-epoch">2. train_one_epoch</a></li><li class="toc-level-3"><a href="#3-evaluate">3. evaluate</a></li><li class="toc-level-3"><a href="#4-model-train-和-model-eval">4. model.train() 和 model.eval()</a></li><li class="toc-level-3"><a href="#5-torch-no-grad">5. torch.no_grad()</a></li><li class="toc-level-2"><a href="#七-fashion-mnist-完整训练骨架">七、Fashion-MNIST 完整训练骨架</a></li><li class="toc-level-3"><a href="#1-设备选择">1. 设备选择</a></li><li class="toc-level-3"><a href="#2-数据加载">2. 数据加载</a></li><li class="toc-level-3"><a href="#3-模型-loss-optimizer">3. 模型、loss、optimizer</a></li><li class="toc-level-2"><a href="#八-正则化一-weight-decay">八、正则化一：Weight Decay</a></li><li class="toc-level-3"><a href="#1-正则化要解决什么">1. 正则化要解决什么</a></li><li class="toc-level-3"><a href="#2-weight-decay-的直觉">2. Weight decay 的直觉</a></li><li class="toc-level-3"><a href="#3-数学形式">3. 数学形式</a></li><li class="toc-level-3"><a href="#4-和手写-sgd-的关系">4. 和手写 SGD 的关系</a></li><li class="toc-level-3"><a href="#5-pytorch-写法">5. PyTorch 写法</a></li><li class="toc-level-2"><a href="#九-正则化二-dropout">九、正则化二：Dropout</a></li><li class="toc-level-3"><a href="#1-dropout-的思想">1. Dropout 的思想</a></li><li class="toc-level-3"><a href="#2-dropout-的行为">2. Dropout 的行为</a></li><li class="toc-level-3"><a href="#3-dropout-放在哪里">3. Dropout 放在哪里</a></li><li class="toc-level-3"><a href="#4-dropout-和-train-eval">4. Dropout 和 train / eval</a></li><li class="toc-level-3"><a href="#5-dropout-没有可学习参数">5. Dropout 没有可学习参数</a></li><li class="toc-level-2"><a href="#十-weight-decay-和-dropout-对比">十、Weight Decay 和 Dropout 对比</a></li><li class="toc-level-2"><a href="#十一-为什么今天-acc-可能提升不明显">十一、为什么今天 acc 可能提升不明显</a></li><li class="toc-level-3"><a href="#1-fashion-mnist-对线性模型相对友好">1. Fashion-MNIST 对线性模型相对友好</a></li><li class="toc-level-3"><a href="#2-mlp-增加的是表达能力-不是保证指标上涨">2. MLP 增加的是表达能力，不是保证指标上涨</a></li><li class="toc-level-3"><a href="#3-正则化可能让训练-acc-降低">3. 正则化可能让训练 acc 降低</a></li><li class="toc-level-3"><a href="#4-更应该看哪些指标">4. 更应该看哪些指标</a></li><li class="toc-level-3"><a href="#5-mlp-仍然不是图像任务最合适的结构">5. MLP 仍然不是图像任务最合适的结构</a></li><li class="toc-level-2"><a href="#十二-今天容易踩的坑">十二、今天容易踩的坑</a></li><li class="toc-level-3"><a href="#1-最后一层加-softmax">1. 最后一层加 softmax</a></li><li class="toc-level-3"><a href="#2-标签写成-one-hot">2. 标签写成 one-hot</a></li><li class="toc-level-3"><a href="#3-argmax-维度写错">3. argmax 维度写错</a></li><li class="toc-level-3"><a href="#4-忘记-model-eval">4. 忘记 model.eval()</a></li><li class="toc-level-3"><a href="#5-忘记-torch-no-grad">5. 忘记 torch.no_grad()</a></li><li class="toc-level-3"><a href="#6-在-forward-里创建层">6. 在 forward 里创建层</a></li><li class="toc-level-3"><a href="#7-mac-上只检查-cuda">7. Mac 上只检查 CUDA</a></li><li class="toc-level-2"><a href="#十三-今天的核心对应关系">十三、今天的核心对应关系</a></li><li class="toc-level-2"><a href="#十四-day-2-结束时应掌握">十四、Day 2 结束时应掌握</a></li></ol></details></aside><article class="note-article"><h1>Day 2 学习笔记：MLP 多层感知机与正则化</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
 <p>参考书：《动手学深度学习》PyTorch 版，PyTorch 官方文档</p>
 <p>本阶段重点：从 <a href="/learning/pytorch/notes/stage-2/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-nn-module-%E4%B8%8E%E5%B8%B8%E7%94%A8%E5%B1%82%E5%85%A5%E9%97%A8.html">第 4 周 Day 1</a> 的 <code>nn.Module</code>、<code>nn.Linear</code>、<code>nn.Sequential</code>、<code>CrossEntropyLoss</code> 和 <code>torch.optim</code>，继续过渡到更完整的分类模型训练。今天不是为了“多堆几层 API”，而是理解：Softmax 回归为什么是线性模型，MLP 为什么需要隐藏层和 ReLU，以及正则化在控制什么问题。</p>
 <p>今天主线：<code>MLP 多层感知机 + 正则化</code>。核心心智模型是：<strong>MLP 不是改变分类任务，也不是改变 loss，而是在 logits 之前多学习一层非线性的中间表示。</strong></p>
 <hr>
-<h2>〇、贯穿全天的六条心智主线</h2>
-<h3>1. <a href="/learning/pytorch/notes/stage-1/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%89%8B%E5%86%99-softmax-%E5%88%86%E7%B1%BB-%E7%BA%AF-tensor-%E5%AE%9E%E7%8E%B0.html">Softmax 回归</a>是直接从像素到类别</h3>
+<h2 id="〇-贯穿全天的六条心智主线">〇、贯穿全天的六条心智主线</h2>
+<h3 id="1-softmax-回归是直接从像素到类别">1. <a href="/learning/pytorch/notes/stage-1/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%89%8B%E5%86%99-softmax-%E5%88%86%E7%B1%BB-%E7%BA%AF-tensor-%E5%AE%9E%E7%8E%B0.html">Softmax 回归</a>是直接从像素到类别</h3>
 <p>Fashion-MNIST 图片 shape 通常是：</p>
 <pre><code class="language-plain">X.shape = (batch_size, 1, 28, 28)
 </code></pre>
@@ -40,7 +42,7 @@
 <pre><code class="language-plain">logits = X @ W + b
 </code></pre>
 <p>也就是每个类别都有一组线性权重，对输入像素做加权求和。</p>
-<h3>2. MLP 是先学习隐藏表示，再输出 logits</h3>
+<h3 id="2-mlp-是先学习隐藏表示-再输出-logits">2. MLP 是先学习隐藏表示，再输出 logits</h3>
 <p>基础 MLP：</p>
 <pre><code class="language-python">model = nn.Sequential(
     nn.Flatten(),
@@ -56,7 +58,7 @@
 <pre><code class="language-plain">原始像素 -&gt; 隐藏特征 -&gt; 10 类 logits
 </code></pre>
 <p>这里的 <code>256</code> 是隐藏层宽度，也就是模型先学出 256 个中间特征，再用这些中间特征做分类。</p>
-<h3>3. ReLU 让多层 Linear 真正有意义</h3>
+<h3 id="3-relu-让多层-linear-真正有意义">3. ReLU 让多层 Linear 真正有意义</h3>
 <p>如果模型只是：</p>
 <pre><code class="language-plain">Linear -&gt; Linear
 </code></pre>
@@ -76,7 +78,7 @@ logits = H @ W2 + b2
 <pre><code class="language-plain">Linear -&gt; ReLU -&gt; Linear
 </code></pre>
 <p>中间出现非线性变换，多层网络才无法被简单合并成一层 Linear。</p>
-<h3>4. 输出层仍然输出 logits</h3>
+<h3 id="4-输出层仍然输出-logits">4. 输出层仍然输出 logits</h3>
 <p>MLP 最后一层：</p>
 <pre><code class="language-python">self.output = nn.Linear(hidden_size, 10)
 </code></pre>
@@ -92,7 +94,7 @@ loss = loss_fn(logits, y)
 <p>不要提前 softmax，因为 <code>nn.CrossEntropyLoss</code> 内部已经包含：</p>
 <pre><code class="language-plain">log_softmax + NLLLoss
 </code></pre>
-<h3>5. 训练骨架没有变</h3>
+<h3 id="5-训练骨架没有变">5. 训练骨架没有变</h3>
 <p>模型从 Softmax 回归换成 MLP 后，训练三步仍然是：</p>
 <pre><code class="language-python">optimizer.zero_grad()
 loss.backward()
@@ -104,7 +106,7 @@ optimizer.step()
 优化器根据梯度更新参数
 </code></pre>
 <p>模型结构变复杂了，但 PyTorch 的训练骨架没有变。</p>
-<h3>6. 正则化不是让训练 acc 一定更高</h3>
+<h3 id="6-正则化不是让训练-acc-一定更高">6. 正则化不是让训练 acc 一定更高</h3>
 <p>今天学的正则化包括：</p>
 <pre><code class="language-plain">weight decay
 dropout
@@ -116,8 +118,8 @@ dropout
 </code></pre>
 <p>模型更强不等于测试 acc 一定立刻大幅上涨。效果还受数据复杂度、epoch、学习率、hidden_size、optimizer 和正则化强度影响。</p>
 <hr>
-<h2>一、从 <a href="/learning/pytorch/notes/stage-1/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%89%8B%E5%86%99-softmax-%E5%88%86%E7%B1%BB-%E7%BA%AF-tensor-%E5%AE%9E%E7%8E%B0.html">Softmax 回归</a>复盘起步</h2>
-<h3>1. Softmax 回归的结构</h3>
+<h2 id="一-从-softmax-回归复盘起步">一、从 <a href="/learning/pytorch/notes/stage-1/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%89%8B%E5%86%99-softmax-%E5%88%86%E7%B1%BB-%E7%BA%AF-tensor-%E5%AE%9E%E7%8E%B0.html">Softmax 回归</a>复盘起步</h2>
+<h3 id="1-softmax-回归的结构">1. Softmax 回归的结构</h3>
 <p>Fashion-MNIST 是 10 分类任务。</p>
 <p>输入图片：</p>
 <pre><code class="language-plain">(batch_size, 1, 28, 28)
@@ -144,7 +146,7 @@ bias.shape   = (10,)
 <p>内部计算是：</p>
 <pre><code class="language-plain">X @ weight.T + bias
 </code></pre>
-<h3>2. Softmax 回归的能力边界</h3>
+<h3 id="2-softmax-回归的能力边界">2. Softmax 回归的能力边界</h3>
 <p>Softmax 回归可以理解为：</p>
 <pre><code class="language-plain">用 10 个线性打分器，对同一张图片分别打分
 </code></pre>
@@ -166,8 +168,8 @@ bias.shape   = (10,)
 <pre><code class="language-plain">像素 -&gt; 中间特征 -&gt; 类别
 </code></pre>
 <hr>
-<h2>二、MLP 的隐藏层是什么</h2>
-<h3>1. 基础 MLP 结构</h3>
+<h2 id="二-mlp-的隐藏层是什么">二、MLP 的隐藏层是什么</h2>
+<h3 id="1-基础-mlp-结构">1. 基础 MLP 结构</h3>
 <p>最简单的单隐藏层 MLP：</p>
 <pre><code class="language-python">model = nn.Sequential(
     nn.Flatten(),
@@ -186,7 +188,7 @@ Output:   (batch_size, 10)
 <p>最后输出仍然是：</p>
 <pre><code class="language-plain">logits: (batch_size, 10)
 </code></pre>
-<h3>2. <code>nn.Linear(784, 256)</code> 在做什么</h3>
+<h3 id="2-nn-linear784-256-在做什么">2. <code>nn.Linear(784, 256)</code> 在做什么</h3>
 <p>这一层不是最终分类层。</p>
 <p>它做的是：</p>
 <pre><code class="language-plain">784 维原始像素 -&gt; 256 维隐藏表示
@@ -213,7 +215,7 @@ hidden.bias.shape   = (256,)
 <p>内部计算：</p>
 <pre><code class="language-plain">H = X @ hidden.weight.T + hidden.bias
 </code></pre>
-<h3>3. <code>hidden_size</code> 是超参数</h3>
+<h3 id="3-hidden-size-是超参数">3. <code>hidden_size</code> 是超参数</h3>
 <pre><code class="language-python">hidden_size = 256
 </code></pre>
 <p>表示隐藏层宽度。</p>
@@ -225,7 +227,7 @@ output.weight
 output.bias
 </code></pre>
 <p>但 <code>hidden_size=256</code> 这个数字本身不会被训练自动改变。</p>
-<h3>4. 参数数量对比</h3>
+<h3 id="4-参数数量对比">4. 参数数量对比</h3>
 <p>Softmax 回归：</p>
 <pre><code class="language-python">nn.Linear(784, 10)
 </code></pre>
@@ -247,8 +249,8 @@ total:         203530
 </code></pre>
 <p>所以 MLP 表达能力更强，但也更可能过拟合。</p>
 <hr>
-<h2>三、为什么必须有 ReLU</h2>
-<h3>1. 只堆 Linear 仍然是线性模型</h3>
+<h2 id="三-为什么必须有-relu">三、为什么必须有 ReLU</h2>
+<h3 id="1-只堆-linear-仍然是线性模型">1. 只堆 Linear 仍然是线性模型</h3>
 <p>错误心智模型：</p>
 <pre><code class="language-plain">层数多 = 一定更强
 </code></pre>
@@ -263,7 +265,7 @@ total:         203530
 <pre><code class="language-python">nn.Linear(784, 10)
 </code></pre>
 <p>原因是线性变换的复合仍然是线性变换。</p>
-<h3>2. ReLU 的定义</h3>
+<h3 id="2-relu-的定义">2. ReLU 的定义</h3>
 <pre><code class="language-plain">ReLU(x) = max(0, x)
 </code></pre>
 <p>代码：</p>
@@ -280,7 +282,7 @@ print(nn.ReLU()(x))
 <p>输出：</p>
 <pre><code class="language-plain">tensor([0., 0., 0., 1., 3.])
 </code></pre>
-<h3>3. ReLU 的心智模型</h3>
+<h3 id="3-relu-的心智模型">3. ReLU 的心智模型</h3>
 <p>隐藏层先产生一批特征打分：</p>
 <pre><code class="language-plain">h1, h2, h3, ..., h256
 </code></pre>
@@ -291,7 +293,7 @@ print(nn.ReLU()(x))
 <p>所以 MLP 可以理解为：</p>
 <pre><code class="language-plain">原始像素 -&gt; 一批特征打分 -&gt; 激活其中一部分 -&gt; 类别打分
 </code></pre>
-<h3>4. ReLU 没有可学习参数</h3>
+<h3 id="4-relu-没有可学习参数">4. ReLU 没有可学习参数</h3>
 <pre><code class="language-python">relu = nn.ReLU()
 print(list(relu.parameters()))
 </code></pre>
@@ -315,8 +317,8 @@ Linear(256, 10)
 ReLU
 </code></pre>
 <hr>
-<h2>四、用 <code>nn.Sequential</code> 搭建 MLP</h2>
-<h3>1. 模型代码</h3>
+<h2 id="四-用-nn-sequential-搭建-mlp">四、用 <code>nn.Sequential</code> 搭建 MLP</h2>
+<h3 id="1-模型代码">1. 模型代码</h3>
 <pre><code class="language-python">import torch
 from torch import nn
 
@@ -328,7 +330,7 @@ model = nn.Sequential(
     nn.Linear(256, 10)
 )
 </code></pre>
-<h3>2. 喂一批假数据检查接口</h3>
+<h3 id="2-喂一批假数据检查接口">2. 喂一批假数据检查接口</h3>
 <pre><code class="language-python">X = torch.randn(4, 1, 28, 28)
 y = torch.tensor([0, 3, 5, 9])
 
@@ -340,7 +342,7 @@ print(logits.shape)
 <pre><code class="language-plain">torch.Size([4, 10])
 </code></pre>
 <p>说明每张图片都输出 10 个类别 logits。</p>
-<h3>3. 接 <code>CrossEntropyLoss</code></h3>
+<h3 id="3-接-crossentropyloss">3. 接 <code>CrossEntropyLoss</code></h3>
 <pre><code class="language-python">loss_fn = nn.CrossEntropyLoss()
 loss = loss_fn(logits, y)
 </code></pre>
@@ -349,7 +351,7 @@ loss = loss_fn(logits, y)
 y.shape      = (4,)
 </code></pre>
 <p>标签 <code>y</code> 是类别索引，不是 one-hot。</p>
-<h3>4. 查看参数</h3>
+<h3 id="4-查看参数">4. 查看参数</h3>
 <pre><code class="language-python">for name, param in model.named_parameters():
     print(name, param.shape)
 </code></pre>
@@ -362,8 +364,8 @@ y.shape      = (4,)
 <p>没有 <code>0.weight</code>，因为第 0 层是 <code>Flatten</code>。</p>
 <p>没有 <code>2.weight</code>，因为第 2 层是 <code>ReLU</code>。</p>
 <hr>
-<h2>五、用自定义 <code>nn.Module</code> 重写 MLP</h2>
-<h3>1. 模型类</h3>
+<h2 id="五-用自定义-nn-module-重写-mlp">五、用自定义 <code>nn.Module</code> 重写 MLP</h2>
+<h3 id="1-模型类">1. 模型类</h3>
 <pre><code class="language-python">import torch
 from torch import nn
 
@@ -394,7 +396,7 @@ print(logits.shape)
 <p>输出：</p>
 <pre><code class="language-plain">torch.Size([4, 10])
 </code></pre>
-<h3>2. <code>__init__</code> 和 <code>forward</code> 的分工</h3>
+<h3 id="2-init-和-forward-的分工">2. <code>__init__</code> 和 <code>forward</code> 的分工</h3>
 <pre><code class="language-plain">__init__：创建并注册模型组件
 forward：定义数据怎么流过这些组件
 </code></pre>
@@ -406,7 +408,7 @@ self.output = nn.Linear(hidden_size, 10)
 <pre><code class="language-python">x = self.hidden(x)
 x = self.output(x)
 </code></pre>
-<h3>3. 不要在 <code>forward</code> 里新建可学习层</h3>
+<h3 id="3-不要在-forward-里新建可学习层">3. 不要在 <code>forward</code> 里新建可学习层</h3>
 <p>错误写法：</p>
 <pre><code class="language-python">class BadMLP(nn.Module):
     def __init__(self):
@@ -429,7 +431,7 @@ optimizer 无法正确训练模型
 <pre><code class="language-plain">可学习层在 __init__ 里创建一次，并赋给 self.xxx
 forward 里只描述计算流程
 </code></pre>
-<h3>4. 自定义 Module 和 Sequential 的关系</h3>
+<h3 id="4-自定义-module-和-sequential-的关系">4. 自定义 Module 和 Sequential 的关系</h3>
 <p><code>nn.Sequential</code> 适合简单顺序模型：</p>
 <pre><code class="language-plain">一层接一层，没有分支，没有复杂逻辑
 </code></pre>
@@ -442,8 +444,8 @@ forward 里只描述计算流程
 </code></pre>
 <p>今天的 MLP 两种写法都可以，但后面 CNN、RNN、Transformer 和复杂项目会更多使用自定义 <code>nn.Module</code>。</p>
 <hr>
-<h2>六、规范训练与评估函数</h2>
-<h3>1. 单个 batch 的训练步骤</h3>
+<h2 id="六-规范训练与评估函数">六、规范训练与评估函数</h2>
+<h3 id="1-单个-batch-的训练步骤">1. 单个 batch 的训练步骤</h3>
 <pre><code class="language-python">logits = model(X)
 loss = loss_fn(logits, y)
 
@@ -458,7 +460,7 @@ optimizer.step()
 反向传播计算新梯度
 更新参数
 </code></pre>
-<h3>2. <code>train_one_epoch</code></h3>
+<h3 id="2-train-one-epoch">2. <code>train_one_epoch</code></h3>
 <pre><code class="language-python">def train_one_epoch(model, data_loader, loss_fn, optimizer, device):
     model.train()
 
@@ -492,7 +494,7 @@ optimizer.step()
 统计 epoch 平均 loss 时，要乘回 batch_size
 最后再除以 total_samples
 </code></pre>
-<h3>3. <code>evaluate</code></h3>
+<h3 id="3-evaluate">3. <code>evaluate</code></h3>
 <pre><code class="language-python">def evaluate(model, data_loader, loss_fn, device):
     model.eval()
 
@@ -518,7 +520,7 @@ optimizer.step()
 
     return avg_loss, accuracy
 </code></pre>
-<h3>4. <code>model.train()</code> 和 <code>model.eval()</code></h3>
+<h3 id="4-model-train-和-model-eval">4. <code>model.train()</code> 和 <code>model.eval()</code></h3>
 <pre><code class="language-python">model.train()
 </code></pre>
 <p>表示切换到训练模式。</p>
@@ -531,7 +533,7 @@ optimizer.step()
 </code></pre>
 <p>影响不明显。</p>
 <p>但对 Dropout / BatchNorm 等层非常重要。</p>
-<h3>5. <code>torch.no_grad()</code></h3>
+<h3 id="5-torch-no-grad">5. <code>torch.no_grad()</code></h3>
 <p>评估时写：</p>
 <pre><code class="language-python">with torch.no_grad():
     logits = model(X)
@@ -547,8 +549,8 @@ optimizer.step()
 </code></pre>
 <p>不要漏掉括号。</p>
 <hr>
-<h2>七、Fashion-MNIST 完整训练骨架</h2>
-<h3>1. 设备选择</h3>
+<h2 id="七-fashion-mnist-完整训练骨架">七、Fashion-MNIST 完整训练骨架</h2>
+<h3 id="1-设备选择">1. 设备选择</h3>
 <p>在 MacBook Air 的 Apple Silicon 上，应该优先考虑 <code>mps</code>，不是 <code>cuda</code>。</p>
 <pre><code class="language-python">def get_device():
     if torch.backends.mps.is_available():
@@ -564,7 +566,7 @@ print(&quot;device:&quot;, device)
 <p>在 Apple Silicon 上正常应输出：</p>
 <pre><code class="language-plain">device: mps
 </code></pre>
-<h3>2. 数据加载</h3>
+<h3 id="2-数据加载">2. 数据加载</h3>
 <pre><code class="language-python">from pathlib import Path
 
 from torch.utils.data import DataLoader
@@ -605,7 +607,7 @@ test_loader = DataLoader(
 <pre><code class="language-plain">Path(__file__).resolve().parent.parent / &quot;data&quot;
 </code></pre>
 <p>避免 <code>./data</code> 随运行目录变化。</p>
-<h3>3. 模型、loss、optimizer</h3>
+<h3 id="3-模型-loss-optimizer">3. 模型、loss、optimizer</h3>
 <pre><code class="language-python">model = MLP(hidden_size=256).to(device)
 
 loss_fn = nn.CrossEntropyLoss()
@@ -634,8 +636,8 @@ for epoch in range(num_epochs):
     )
 </code></pre>
 <hr>
-<h2>八、正则化一：Weight Decay</h2>
-<h3>1. 正则化要解决什么</h3>
+<h2 id="八-正则化一-weight-decay">八、正则化一：Weight Decay</h2>
+<h3 id="1-正则化要解决什么">1. 正则化要解决什么</h3>
 <p>MLP 参数比 Softmax 回归多很多。</p>
 <p>参数越多，模型表达能力越强，但也更可能：</p>
 <pre><code class="language-plain">训练集表现很好
@@ -645,7 +647,7 @@ for epoch in range(num_epochs):
 <p>正则化的核心思想：</p>
 <pre><code class="language-plain">不要只让训练 loss 小，也要限制模型别过度复杂
 </code></pre>
-<h3>2. Weight decay 的直觉</h3>
+<h3 id="2-weight-decay-的直觉">2. Weight decay 的直觉</h3>
 <p>普通训练只关心：</p>
 <pre><code class="language-plain">分类 loss 小不小
 </code></pre>
@@ -657,7 +659,7 @@ for epoch in range(num_epochs):
 <pre><code class="language-plain">如果模型必须依赖很大的权重才能记住训练集，
 它可能是在死记硬背，而不是学习稳定规律。
 </code></pre>
-<h3>3. 数学形式</h3>
+<h3 id="3-数学形式">3. 数学形式</h3>
 <p>普通目标：</p>
 <pre><code class="language-plain">min loss
 </code></pre>
@@ -669,7 +671,7 @@ for epoch in range(num_epochs):
 ||w||² = 权重平方和
 λ      = 正则化强度
 </code></pre>
-<h3>4. 和手写 SGD 的关系</h3>
+<h3 id="4-和手写-sgd-的关系">4. 和手写 SGD 的关系</h3>
 <p>普通 SGD：</p>
 <pre><code class="language-plain">w = w - lr * grad
 </code></pre>
@@ -683,7 +685,7 @@ for epoch in range(num_epochs):
 <pre><code class="language-plain">(1 - lr * λ) * w
 </code></pre>
 <p>会让权重每次更新时稍微往小的方向衰减。</p>
-<h3>5. PyTorch 写法</h3>
+<h3 id="5-pytorch-写法">5. PyTorch 写法</h3>
 <p>不加 weight decay：</p>
 <pre><code class="language-python">optimizer = torch.optim.SGD(
     model.parameters(),
@@ -703,8 +705,8 @@ for epoch in range(num_epochs):
 </code></pre>
 <p>里面的参数更新。</p>
 <hr>
-<h2>九、正则化二：Dropout</h2>
-<h3>1. Dropout 的思想</h3>
+<h2 id="九-正则化二-dropout">九、正则化二：Dropout</h2>
+<h3 id="1-dropout-的思想">1. Dropout 的思想</h3>
 <p>Dropout 解决的问题是：</p>
 <pre><code class="language-plain">模型可能过度依赖少数隐藏单元
 </code></pre>
@@ -712,7 +714,7 @@ for epoch in range(num_epochs):
 <pre><code class="language-plain">训练时随机关掉一部分隐藏单元
 </code></pre>
 <p>让模型不要把所有希望押在少数特征上。</p>
-<h3>2. Dropout 的行为</h3>
+<h3 id="2-dropout-的行为">2. Dropout 的行为</h3>
 <pre><code class="language-python">dropout = nn.Dropout(p=0.5)
 </code></pre>
 <p>这里的 <code>p</code> 是：</p>
@@ -729,7 +731,7 @@ p=0.5：随机丢掉 50%
 <p>如果 <code>p=0.5</code>，保留概率是 <code>0.5</code>，保留下来的值会乘以：</p>
 <pre><code class="language-plain">1 / (1 - p) = 2
 </code></pre>
-<h3>3. Dropout 放在哪里</h3>
+<h3 id="3-dropout-放在哪里">3. Dropout 放在哪里</h3>
 <p>基础 MLP：</p>
 <pre><code class="language-plain">Flatten -&gt; Linear -&gt; ReLU -&gt; Linear
 </code></pre>
@@ -754,7 +756,7 @@ p=0.5：随机丢掉 50%
         x = self.output(x)
         return x
 </code></pre>
-<h3>4. Dropout 和 <code>train</code> / <code>eval</code></h3>
+<h3 id="4-dropout-和-train-eval">4. Dropout 和 <code>train</code> / <code>eval</code></h3>
 <p>训练模式：</p>
 <pre><code class="language-python">model.train()
 </code></pre>
@@ -768,7 +770,7 @@ p=0.5：随机丢掉 50%
 偏低
 每次 evaluate 都有波动
 </code></pre>
-<h3>5. Dropout 没有可学习参数</h3>
+<h3 id="5-dropout-没有可学习参数">5. Dropout 没有可学习参数</h3>
 <pre><code class="language-python">dropout = nn.Dropout(p=0.5)
 print(list(dropout.parameters()))
 </code></pre>
@@ -780,7 +782,7 @@ print(list(dropout.parameters()))
 但没有 weight / bias
 </code></pre>
 <hr>
-<h2>十、Weight Decay 和 Dropout 对比</h2>
+<h2 id="十-weight-decay-和-dropout-对比">十、Weight Decay 和 Dropout 对比</h2>
 <pre><code class="language-plain">Weight decay:
 写在 optimizer 里
 限制权重不要太大
@@ -808,8 +810,8 @@ loss.backward()
 optimizer.step()
 </code></pre>
 <hr>
-<h2>十一、为什么今天 acc 可能提升不明显</h2>
-<h3>1. Fashion-MNIST 对线性模型相对友好</h3>
+<h2 id="十一-为什么今天-acc-可能提升不明显">十一、为什么今天 acc 可能提升不明显</h2>
+<h3 id="1-fashion-mnist-对线性模型相对友好">1. Fashion-MNIST 对线性模型相对友好</h3>
 <p>Fashion-MNIST 的图片有这些特点：</p>
 <pre><code class="language-plain">灰度图
 居中
@@ -826,7 +828,7 @@ optimizer.step()
 84% -&gt; 87%
 </code></pre>
 <p>如果训练参数没有调好，也可能差别更小。</p>
-<h3>2. MLP 增加的是表达能力，不是保证指标上涨</h3>
+<h3 id="2-mlp-增加的是表达能力-不是保证指标上涨">2. MLP 增加的是表达能力，不是保证指标上涨</h3>
 <p>MLP 的意义是：</p>
 <pre><code class="language-plain">它有能力表达更复杂的非线性函数
 </code></pre>
@@ -847,7 +849,7 @@ optimizer
 <p>不等于：</p>
 <pre><code class="language-plain">测试 acc 一定大幅提升
 </code></pre>
-<h3>3. 正则化可能让训练 acc 降低</h3>
+<h3 id="3-正则化可能让训练-acc-降低">3. 正则化可能让训练 acc 降低</h3>
 <p>Weight decay 和 Dropout 的目标不是让训练集 acc 更高。</p>
 <p>它们可能会：</p>
 <pre><code class="language-plain">让训练 loss 稍微高一点
@@ -855,7 +857,7 @@ optimizer
 但测试集表现更稳
 </code></pre>
 <p>正则化的目标是泛化，不是单纯追求训练集拟合。</p>
-<h3>4. 更应该看哪些指标</h3>
+<h3 id="4-更应该看哪些指标">4. 更应该看哪些指标</h3>
 <p>不要只看最终 test acc。</p>
 <p>更应该对比：</p>
 <pre><code class="language-plain">Softmax train acc vs test acc
@@ -878,7 +880,7 @@ train acc 和 test acc 的差距是否变大
 <pre><code class="language-plain">MLP train acc 和 test acc 都没明显提高
 </code></pre>
 <p>可能是训练设置不合适，也可能是这个任务上 Softmax 已经吃掉了大部分简单收益。</p>
-<h3>5. MLP 仍然不是图像任务最合适的结构</h3>
+<h3 id="5-mlp-仍然不是图像任务最合适的结构">5. MLP 仍然不是图像任务最合适的结构</h3>
 <p>Softmax 回归和 MLP 都把图片展平成向量：</p>
 <pre><code class="language-plain">(1, 28, 28) -&gt; (784,)
 </code></pre>
@@ -890,8 +892,8 @@ train acc 和 test acc 的差距是否变大
 </code></pre>
 <p>所以 MLP 相比 Softmax 回归提升不大，是一个正常且有教育意义的现象。</p>
 <hr>
-<h2>十二、今天容易踩的坑</h2>
-<h3>1. 最后一层加 softmax</h3>
+<h2 id="十二-今天容易踩的坑">十二、今天容易踩的坑</h2>
+<h3 id="1-最后一层加-softmax">1. 最后一层加 softmax</h3>
 <p>错误：</p>
 <pre><code class="language-python">probs = torch.softmax(logits, dim=1)
 loss = nn.CrossEntropyLoss()(probs, y)
@@ -900,7 +902,7 @@ loss = nn.CrossEntropyLoss()(probs, y)
 <pre><code class="language-python">loss = nn.CrossEntropyLoss()(logits, y)
 </code></pre>
 <p>模型最后返回 logits 即可。</p>
-<h3>2. 标签写成 one-hot</h3>
+<h3 id="2-标签写成-one-hot">2. 标签写成 one-hot</h3>
 <p>常见正确输入：</p>
 <pre><code class="language-plain">logits.shape = (batch_size, 10)
 y.shape      = (batch_size,)
@@ -912,7 +914,7 @@ y.shape      = (batch_size,)
 <pre><code class="language-plain">(batch_size, 10)
 </code></pre>
 <p>的 one-hot。</p>
-<h3>3. <code>argmax</code> 维度写错</h3>
+<h3 id="3-argmax-维度写错">3. <code>argmax</code> 维度写错</h3>
 <p>分类预测：</p>
 <pre><code class="language-python">pred = logits.argmax(dim=1)
 </code></pre>
@@ -922,18 +924,18 @@ y.shape      = (batch_size,)
 <p>不要写成：</p>
 <pre><code class="language-python">pred = logits.argmax(dim=0)
 </code></pre>
-<h3>4. 忘记 <code>model.eval()</code></h3>
+<h3 id="4-忘记-model-eval">4. 忘记 <code>model.eval()</code></h3>
 <p>评估时：</p>
 <pre><code class="language-python">model.eval()
 </code></pre>
 <p>尤其加入 Dropout 后很重要。</p>
-<h3>5. 忘记 <code>torch.no_grad()</code></h3>
+<h3 id="5-忘记-torch-no-grad">5. 忘记 <code>torch.no_grad()</code></h3>
 <p>评估时：</p>
 <pre><code class="language-python">with torch.no_grad():
 </code></pre>
 <p>不需要计算梯度。</p>
 <p>注意括号不能漏。</p>
-<h3>6. 在 <code>forward</code> 里创建层</h3>
+<h3 id="6-在-forward-里创建层">6. 在 <code>forward</code> 里创建层</h3>
 <p>错误：</p>
 <pre><code class="language-python">def forward(self, x):
     x = nn.Linear(784, 256)(x)
@@ -948,7 +950,7 @@ def forward(self, x):
     x = self.hidden(x)
     return x
 </code></pre>
-<h3>7. Mac 上只检查 CUDA</h3>
+<h3 id="7-mac-上只检查-cuda">7. Mac 上只检查 CUDA</h3>
 <p>不推荐只写：</p>
 <pre><code class="language-python">device = torch.device(&quot;cuda&quot; if torch.cuda.is_available() else &quot;cpu&quot;)
 </code></pre>
@@ -957,7 +959,7 @@ def forward(self, x):
     device = torch.device(&quot;mps&quot;)
 </code></pre>
 <hr>
-<h2>十三、今天的核心对应关系</h2>
+<h2 id="十三-今天的核心对应关系">十三、今天的核心对应关系</h2>
 <pre><code class="language-plain">Softmax 回归
 -&gt; Flatten + Linear(784, 10)
 </code></pre>
@@ -992,7 +994,7 @@ def forward(self, x):
 -&gt; model 结构里的正则化层
 </code></pre>
 <hr>
-<h2>十四、Day 2 结束时应掌握</h2>
+<h2 id="十四-day-2-结束时应掌握">十四、Day 2 结束时应掌握</h2>
 <p>今天结束后，应该能回答：</p>
 <pre><code class="language-plain">Softmax 回归为什么是线性模型？
 MLP 的隐藏层在做什么？
@@ -1016,7 +1018,8 @@ dropout 为什么只在训练模式下随机生效？
 CNN 如何利用图像的二维空间结构？
 局部感受野和权重共享为什么能提升图像分类效果？
 </code></pre>
-</div></article>
+</div></article></div><nav class="article-neighbors" aria-label="相邻文章"><a class="article-neighbor previous" href="/learning/pytorch/notes/stage-2/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-nn-module-%E4%B8%8E%E5%B8%B8%E7%94%A8%E5%B1%82%E5%85%A5%E9%97%A8.html">← <span>上一篇</span>Day 1 学习笔记：nn.Module 与常用层入门</a><a class="article-neighbor next" href="/learning/pytorch/notes/stage-2/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E8%87%AA%E5%AE%9A%E4%B9%89-dataset-%E4%B8%8E-dataloader-%E6%B7%B1%E5%85%A5.html"><span>下一篇</span>Day 3 学习笔记：自定义 Dataset 与 DataLoader 深入 →</a></nav>
   </main>
+  <script src="/assets/pytorch-reading.js" defer></script>
 </body>
 </html>

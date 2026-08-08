@@ -500,7 +500,9 @@ function transformOutsideInlineCode(value, transform) {
   return output + transform(value.slice(plainStart));
 }
 
-function pageTemplate({ title, eyebrow, body }) {
+function pageTemplate({ title, eyebrow, body, pageClass = 'pytorch-archive-page', reading = false }) {
+  const readingProgress = reading ? '<div class="reading-progress" data-reading-progress aria-hidden="true"></div>\n' : '';
+  const readingScript = reading ? '  <script src="/assets/pytorch-reading.js" defer></script>\n' : '';
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -509,14 +511,15 @@ function pageTemplate({ title, eyebrow, body }) {
   <meta name="theme-color" content="#07101c">
   <title>${escapeHtml(title)} · SNOWSTORM</title>
   <link rel="stylesheet" href="/assets/library.css">
+  <link rel="stylesheet" href="/assets/pytorch-reading.css">
 </head>
-<body class="library-page">
-  <main class="library-shell">
+<body class="library-page ${pageClass}">
+${readingProgress}  <main class="library-shell">
     <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
     <p class="library-eyebrow">${escapeHtml(eyebrow)}</p>
     ${body}
   </main>
-</body>
+${readingScript}</body>
 </html>`;
 }
 
@@ -629,34 +632,62 @@ function notePublicData(note) {
 function renderArchiveIndex(notes, stages) {
   const overview = notes.filter((note) => note.isOverview);
   const overviewLinks = overview.map((note) => `<li><a href="${noteUrl(note)}"><span>${escapeHtml(note.title)}</span><small>阅读笔记</small></a></li>`).join('');
-  const stageCards = stages.map((stage) => {
+  const stageCards = stages.map((stage, index) => {
     const count = notes.filter((note) => note.stageKey === stage.key).length;
-    return `<a class="stage-card" href="./${stage.key}/"><span>${escapeHtml(stage.label)}</span><small>${count} 篇</small><b>→</b></a>`;
+    return `<li class="tide-stage" data-stage-key="${stage.key}"><span class="tide-marker" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span><a href="./${stage.key}/"><span>${escapeHtml(stage.label)}</span><small>${count} 篇</small><b>查看阶段 →</b></a></li>`;
   }).join('');
   return pageTemplate({
     title: 'PyTorch 学习笔记',
     eyebrow: 'LEARNING / PYTORCH',
-    body: `<nav class="breadcrumbs"><a href="../">学习书架</a><span>/</span><span>PyTorch</span></nav><h1>PyTorch 学习笔记</h1><p class="library-intro">从基础语法到检索增强生成，保留完整学习轨迹。</p><section class="overview-links"><h2>路线图</h2><ul class="note-list">${overviewLinks}</ul></section><section class="stage-grid">${stageCards}</section>`,
+    body: `<nav class="breadcrumbs"><a href="../">学习书架</a><span>/</span><span>PyTorch</span></nav><h1>PyTorch 学习笔记</h1><p class="library-intro">从基础语法到检索增强生成，保留完整学习轨迹。</p><section class="overview-links"><h2>路线图</h2><ul class="note-list">${overviewLinks}</ul></section><section class="pytorch-tide" aria-labelledby="pytorch-tide-title"><div><p class="tide-kicker">LEARNING TIDE / 07 STAGES</p><h2 id="pytorch-tide-title">沿着潮线，回看每一次推进</h2></div><ol class="pytorch-tide-timeline" data-stage-count="${stages.length}">${stageCards}</ol></section>`,
   });
 }
 
-function renderStageIndex(stage, notes) {
-  const links = notes.map((note) => `<li><a href="${noteUrl(note)}"><span>${escapeHtml(note.title)}</span><small>阅读</small></a></li>`).join('');
+function renderStageIndex(stage, notes, stages) {
+  const stageIndex = stages.findIndex((candidate) => candidate.key === stage.key);
+  const previous = stages[stageIndex - 1];
+  const next = stages[stageIndex + 1];
+  const links = notes.map((note, index) => `<li><a class="stage-note-link" href="${noteUrl(note)}"><small>第 ${String(index + 1).padStart(2, '0')} 篇</small><span>${escapeHtml(note.title)}</span><b>阅读 →</b></a></li>`).join('');
+  const neighbors = `<nav class="stage-neighbors" aria-label="阶段导航">${previous ? `<a class="stage-neighbor previous" href="../${previous.key}/">← ${escapeHtml(previous.label)}</a>` : '<span class="stage-neighbor previous" aria-hidden="true"></span>'}${next ? `<a class="stage-neighbor next" href="../${next.key}/">${escapeHtml(next.label)} →</a>` : '<span class="stage-neighbor next" aria-hidden="true"></span>'}</nav>`;
   return pageTemplate({
     title: stage.label,
     eyebrow: `PYTORCH / ${stage.key.toUpperCase()}`,
-    body: `<nav class="breadcrumbs"><a href="../../">学习</a><span>/</span><a href="../">PyTorch</a><span>/</span><span>${escapeHtml(stage.label)}</span></nav><h1>${escapeHtml(stage.label)}</h1><p class="library-intro">${notes.length} 篇学习笔记</p><ol class="note-list">${links}</ol>`,
+    body: `<nav class="breadcrumbs"><a href="../../">学习</a><span>/</span><a href="../">PyTorch</a><span>/</span><span>${escapeHtml(stage.label)}</span></nav><header class="stage-heading"><p class="stage-note-count">${notes.length} 篇</p><h1>${escapeHtml(stage.label)}</h1><p class="library-intro">按学习顺序继续阅读本阶段笔记。</p></header><ol class="stage-note-list">${links}</ol>${neighbors}`,
   });
 }
 
-function renderArticle(note, content) {
+function readingHeadings(content) {
+  const usedIds = new Set();
+  const items = [];
+  const decorated = content.replace(/<h([23])>([\s\S]*?)<\/h\1>/g, (match, level, inner) => {
+    const text = inner.replace(/<[^>]+>/g, '').replaceAll('&quot;', '"').replaceAll('&amp;', '&').trim();
+    const base = slugify(text);
+    let id = base;
+    let suffix = 2;
+    while (usedIds.has(id)) id = `${base}-${suffix++}`;
+    usedIds.add(id);
+    items.push({ level, id, text });
+    return `<h${level} id="${id}">${inner}</h${level}>`;
+  });
+  return { content: decorated, items };
+}
+
+function renderArticle(note, content, stageNotes) {
   const stageCrumb = note.isOverview
     ? `<span>${escapeHtml(note.stageLabel)}</span>`
     : `<a href="../../${note.stageKey}/">${escapeHtml(note.stageLabel)}</a>`;
+  const { content: decoratedContent, items } = readingHeadings(content);
+  const toc = items.map((item) => `<li class="toc-level-${item.level}"><a href="#${item.id}">${escapeHtml(item.text)}</a></li>`).join('');
+  const current = stageNotes.findIndex((candidate) => candidate.slug === note.slug);
+  const previous = current > 0 ? stageNotes[current - 1] : null;
+  const next = current >= 0 && current < stageNotes.length - 1 ? stageNotes[current + 1] : null;
+  const neighbors = `<nav class="article-neighbors" aria-label="相邻文章">${previous ? `<a class="article-neighbor previous" href="${noteUrl(previous)}">← <span>上一篇</span>${escapeHtml(previous.title)}</a>` : '<span class="article-neighbor previous" aria-hidden="true"></span>'}${next ? `<a class="article-neighbor next" href="${noteUrl(next)}"><span>下一篇</span>${escapeHtml(next.title)} →</a>` : '<span class="article-neighbor next" aria-hidden="true"></span>'}</nav>`;
   return pageTemplate({
     title: note.title,
     eyebrow: note.stageLabel,
-    body: `<nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span>${stageCrumb}</nav><article class="note-article"><h1>${escapeHtml(note.title)}</h1><div class="note-content">${content}</div></article>`,
+    pageClass: 'pytorch-reading-page',
+    reading: true,
+    body: `<a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span>${stageCrumb}</nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details" open><summary>本页目录</summary><ol>${toc}</ol></details></aside><article class="note-article"><h1>${escapeHtml(note.title)}</h1><div class="note-content">${decoratedContent}</div></article></div>${neighbors}`,
   });
 }
 
@@ -834,7 +865,8 @@ export async function synchronize({
       remoteAssets: remote.remoteAssets,
       warnings,
     });
-    outputs.set(`notes/${note.stageKey}/${note.slug}.html`, renderArticle(note, html));
+    const stageNotes = note.isOverview ? [note] : notes.filter((candidate) => candidate.stageKey === note.stageKey);
+    outputs.set(`notes/${note.stageKey}/${note.slug}.html`, renderArticle(note, html, stageNotes));
     outputs.set(`markdown/${note.stageKey}/${note.slug}.md`, note.content);
   }
   await scanSecrets(notes, resolvedSource, [...new Set(localAssets.values())]);
@@ -842,7 +874,7 @@ export async function synchronize({
   const stages = [...STAGES.values()];
   outputs.set('index.html', renderArchiveIndex(notes, stages));
   for (const stage of stages) {
-    outputs.set(`${stage.key}/index.html`, renderStageIndex(stage, notes.filter((note) => note.stageKey === stage.key)));
+    outputs.set(`${stage.key}/index.html`, renderStageIndex(stage, notes.filter((note) => note.stageKey === stage.key), stages));
   }
   const manifest = {
     version: MANIFEST_VERSION,

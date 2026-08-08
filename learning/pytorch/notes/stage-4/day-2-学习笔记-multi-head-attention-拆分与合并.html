@@ -6,19 +6,21 @@
   <meta name="theme-color" content="#07101c">
   <title>Day 2 学习笔记：Multi-Head Attention——拆分与合并 · SNOWSTORM</title>
   <link rel="stylesheet" href="/assets/library.css">
+  <link rel="stylesheet" href="/assets/pytorch-reading.css">
 </head>
-<body class="library-page">
+<body class="library-page pytorch-reading-page">
+<div class="reading-progress" data-reading-progress aria-hidden="true"></div>
   <main class="library-shell">
     <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
     <p class="library-eyebrow">Transformer 与 BERT</p>
-    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-4/">Transformer 与 BERT</a></nav><article class="note-article"><h1>Day 2 学习笔记：Multi-Head Attention——拆分与合并</h1><div class="note-content"><h1>Multi-Head Attention：拆分与合并</h1>
+    <a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-4/">Transformer 与 BERT</a></nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details" open><summary>本页目录</summary><ol><li class="toc-level-2"><a href="#〇-今天完成了什么">〇、今天完成了什么</a></li><li class="toc-level-2"><a href="#一-从单头-attention-到-multi-head-attention">一、从单头 Attention 到 Multi-Head Attention</a></li><li class="toc-level-2"><a href="#二-q-k-v-与线性层的关系">二、Q、K、V 与线性层的关系</a></li><li class="toc-level-3"><a href="#2-1-为什么不能每次直接用随机数生成-qkv">2.1 为什么不能每次直接用随机数生成 QKV</a></li><li class="toc-level-3"><a href="#2-2-为什么不直接令-q-k-v-x">2.2 为什么不直接令 Q=K=V=x</a></li><li class="toc-level-2"><a href="#三-拆分-heads">三、拆分 heads</a></li><li class="toc-level-2"><a href="#四-每个-head-独立计算-attention">四、每个 head 独立计算 Attention</a></li><li class="toc-level-2"><a href="#五-合并-heads">五、合并 heads</a></li><li class="toc-level-2"><a href="#六-输出投影-w-o">六、输出投影 W_o</a></li><li class="toc-level-2"><a href="#七-最小实现">七、最小实现</a></li><li class="toc-level-2"><a href="#八-mps-小-tensor-验证">八、MPS 小 Tensor 验证</a></li><li class="toc-level-2"><a href="#九-关键-shape-验证结果">九、关键 shape 验证结果</a></li><li class="toc-level-2"><a href="#十-与已有知识的连接">十、与已有知识的连接</a></li><li class="toc-level-3"><a href="#10-1-与-day-1-手写-attention">10.1 与 Day 1 手写 Attention</a></li><li class="toc-level-3"><a href="#10-2-与-tensor-矩阵运算">10.2 与 Tensor 矩阵运算</a></li><li class="toc-level-3"><a href="#10-3-与-mlp-线性层">10.3 与 MLP 线性层</a></li><li class="toc-level-3"><a href="#10-4-与-cnn-特征提取">10.4 与 CNN 特征提取</a></li><li class="toc-level-3"><a href="#10-5-与完整训练流程">10.5 与完整训练流程</a></li><li class="toc-level-2"><a href="#十一-选做部分概念预览">十一、选做部分概念预览</a></li><li class="toc-level-3"><a href="#11-1-位置编码">11.1 位置编码</a></li><li class="toc-level-3"><a href="#11-2-残差与-layernorm">11.2 残差与 LayerNorm</a></li><li class="toc-level-3"><a href="#11-3-前馈网络-ffn">11.3 前馈网络 FFN</a></li><li class="toc-level-3"><a href="#11-4-简化-encoder-block-数据流">11.4 简化 Encoder Block 数据流</a></li><li class="toc-level-2"><a href="#十二-day-2-验收结论">十二、Day 2 验收结论</a></li></ol></details></aside><article class="note-article"><h1>Day 2 学习笔记：Multi-Head Attention——拆分与合并</h1><div class="note-content"><h1>Multi-Head Attention：拆分与合并</h1>
 <p>学习目标：理解 Multi-Head Attention 如何从单头 Attention 扩展为多个 head，能够手写并验证拆分、并行计算和合并的完整数据流。</p>
 <p>本阶段重点：在 <a href="/learning/pytorch/notes/stage-4/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-attention-%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86-scaled-dot-product-attention.html">Day 1：Scaled Dot-Product Attention</a> 中已经完成单头 Attention。今天把同一套 Attention 计算并行应用到多个特征子空间，并将结果重新合并。</p>
 <p>今天主线：<code>x -&gt; W_q/W_k/W_v -&gt; split heads -&gt; QK^T -&gt; / sqrt(d_k) -&gt; Softmax -&gt; attention @ V -&gt; merge heads -&gt; W_o</code>。</p>
 <p>本笔记对应 <a href="/learning/pytorch/notes/overview/pytorch-%E6%9A%91%E6%9C%9F%E8%AF%A6%E7%BB%86%E5%AD%A6%E4%B9%A0%E8%AE%A1%E5%88%92.html">PyTorch 暑期详细学习计划</a> 中第 6 周 Day 2。</p>
 <p>关联笔记：<a href="/learning/pytorch/notes/stage-4/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-attention-%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86-scaled-dot-product-attention.html">Day 1：Attention 机制</a>、<a href="/learning/pytorch/notes/stage-1/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-tensor%E5%9F%BA%E6%9C%AC%E6%93%8D%E4%BD%9C.html">Tensor 基本操作</a>、<a href="/learning/pytorch/notes/stage-2/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-nn-module-%E4%B8%8E%E5%B8%B8%E7%94%A8%E5%B1%82%E5%85%A5%E9%97%A8.html">nn.Module 与常用层</a>、<a href="/learning/pytorch/notes/stage-3/day-5-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E9%98%B6%E6%AE%B5%E4%B8%89%E7%BB%93%E6%9E%9C%E5%A4%8D%E7%9B%98-cnn-%E4%B8%8E%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0.html">阶段三结果复盘</a>。</p>
 <hr>
-<h2>〇、今天完成了什么</h2>
+<h2 id="〇-今天完成了什么">〇、今天完成了什么</h2>
 <ol>
 <li>理解 Multi-Head Attention 为什么要使用多个 head：不同 head 可以学习不同的关注模式。</li>
 <li>理解 <code>d_model</code>、<code>num_heads</code> 和 <code>d_k</code> 的关系：<code>d_k = d_model // num_heads</code>。</li>
@@ -31,7 +33,7 @@
 <li>预览了选做的 Transformer Encoder 组成：位置编码、残差、LayerNorm 和 FFN；这些内容只完成了概念理解，没有生成完成完整 Encoder 实现。</li>
 </ol>
 <hr>
-<h2>一、从单头 Attention 到 Multi-Head Attention</h2>
+<h2 id="一-从单头-attention-到-multi-head-attention">一、从单头 Attention 到 Multi-Head Attention</h2>
 <p>Day 1 的单头 Attention 使用一套 Q、K、V 表示一类注意力关系：</p>
 <pre><code>Q、K、V -&gt; QK^T -&gt; / sqrt(d_k) -&gt; Softmax -&gt; attention_weights @ V
 </code></pre>
@@ -58,7 +60,7 @@ d_k = 16 / 4 = 4
 </code></pre>
 <p>否则无法把特征维度平均拆分给各个 head。</p>
 <hr>
-<h2>二、Q、K、V 与线性层的关系</h2>
+<h2 id="二-q-k-v-与线性层的关系">二、Q、K、V 与线性层的关系</h2>
 <p>Q、K、V 不是三种特殊的数据类型，而是输入 <code>x</code> 经过三套独立线性层得到的三个 Tensor：</p>
 <pre><code>Q = W_q(x)
 K = W_k(x)
@@ -76,7 +78,7 @@ W_v = nn.Linear(d_model, d_model)
 <pre><code>Q/K/V: [B, L, d_model]
 </code></pre>
 <p><code>nn.Linear</code> 只作用于最后一维，不改变 batch 数量 <code>B</code> 和序列长度 <code>L</code>。</p>
-<h3>2.1 为什么不能每次直接用随机数生成 QKV</h3>
+<h3 id="2-1-为什么不能每次直接用随机数生成-qkv">2.1 为什么不能每次直接用随机数生成 QKV</h3>
 <p>Day 1 使用随机 Q/K/V 是为了验证矩阵运算、shape、Softmax 和 mask。真正的模型中，Q/K/V 必须依赖输入 <code>x</code>。</p>
 <pre><code>随机初始化的线性层：参数初始随机，但输出依赖 x，并且参数可以通过梯度更新
 每次直接随机生成 QKV：不依赖 x，也没有稳定的可学习参数
@@ -87,7 +89,7 @@ K = xW_k + b_k
 V = xW_v + b_v
 </code></pre>
 <p>训练时，反向传播会计算 <code>W_q</code>、<code>W_k</code>、<code>W_v</code> 的梯度，优化器再更新它们。</p>
-<h3>2.2 为什么不直接令 Q=K=V=x</h3>
+<h3 id="2-2-为什么不直接令-q-k-v-x">2.2 为什么不直接令 Q=K=V=x</h3>
 <p>可以做简化实验，但三个角色会使用完全相同的表示，无法分别学习：</p>
 <pre><code>Q：我想找什么
 K：我有什么可被匹配的特征
@@ -95,7 +97,7 @@ V：我最终提供什么内容
 </code></pre>
 <p>三套线性层让这三个角色拥有独立的可学习表示空间。</p>
 <hr>
-<h2>三、拆分 heads</h2>
+<h2 id="三-拆分-heads">三、拆分 heads</h2>
 <p>输入 Q、K、V 在拆分前都是：</p>
 <pre><code>[B, L, d_model]
 </code></pre>
@@ -130,7 +132,7 @@ d_k = 4
 </ul>
 <p>拆分后的每个 head 都保留完整序列长度 <code>L=5</code>，只是每个 head 的特征维度为 <code>d_k=4</code>。</p>
 <hr>
-<h2>四、每个 head 独立计算 Attention</h2>
+<h2 id="四-每个-head-独立计算-attention">四、每个 head 独立计算 Attention</h2>
 <p>拆分后：</p>
 <pre><code>Q/K/V: [B, H, L, d_k]
 </code></pre>
@@ -172,7 +174,7 @@ head_output:       [B, H, L, d_k]
 </code></pre>
 <p>Multi-Head Attention 没有改变 Day 1 的 Attention 公式，只是让这套公式在多个 head 上并行运行。</p>
 <hr>
-<h2>五、合并 heads</h2>
+<h2 id="五-合并-heads">五、合并 heads</h2>
 <p>每个 head 计算完成后：</p>
 <pre><code>out: [B, H, L, d_k]
 </code></pre>
@@ -191,7 +193,7 @@ head_output:       [B, H, L, d_k]
 </code></pre>
 <p>合并前必须先 transpose。不能直接对 <code>[B, H, L, d_k]</code> 做 reshape，因为此时 head 维和序列维的顺序还没有恢复，直接 reshape 虽然元素总数正确，但会错误交错不同 token 和不同 head 的数据。</p>
 <hr>
-<h2>六、输出投影 W_o</h2>
+<h2 id="六-输出投影-w-o">六、输出投影 W_o</h2>
 <p>合并 heads 后通常再使用：</p>
 <pre><code>W_o = nn.Linear(d_model, d_model)
 
@@ -209,7 +211,7 @@ x:      [B, L, d_model]
 </code></pre>
 <p>严格来说，<code>W_o</code> 可以设计成改变最后一维；但标准 Transformer 为了保持残差结构，通常使用 <code>d_model -&gt; d_model</code>。</p>
 <hr>
-<h2>七、最小实现</h2>
+<h2 id="七-最小实现">七、最小实现</h2>
 <pre><code>import math
 import torch
 import torch.nn as nn
@@ -268,7 +270,7 @@ class MultiHeadAttention(nn.Module):
         return self.W_o(out)
 </code></pre>
 <hr>
-<h2>八、MPS 小 Tensor 验证</h2>
+<h2 id="八-mps-小-tensor-验证">八、MPS 小 Tensor 验证</h2>
 <pre><code>device = torch.device(
     &quot;mps&quot; if torch.backends.mps.is_available() else &quot;cpu&quot;
 )
@@ -299,7 +301,7 @@ x = torch.randn(2, 5, 16, device=device)
 <pre><code>forward -&gt; loss -&gt; backward -&gt; optimizer.step()
 </code></pre>
 <hr>
-<h2>九、关键 shape 验证结果</h2>
+<h2 id="九-关键-shape-验证结果">九、关键 shape 验证结果</h2>
 <p>本次使用：</p>
 <pre><code>B = 2
 L = 5
@@ -316,8 +318,8 @@ merged_output:    [2, 5, 16]
 final_output:     [2, 5, 16]
 </code></pre>
 <hr>
-<h2>十、与已有知识的连接</h2>
-<h3>10.1 与 Day 1 手写 Attention</h3>
+<h2 id="十-与已有知识的连接">十、与已有知识的连接</h2>
+<h3 id="10-1-与-day-1-手写-attention">10.1 与 Day 1 手写 Attention</h3>
 <p>每个 head 都复用了 Day 1 的核心公式：</p>
 <pre><code>QK^T / sqrt(d_k)
 -&gt; Softmax
@@ -327,16 +329,16 @@ final_output:     [2, 5, 16]
 <pre><code>[B, L, d_k]
 -&gt; [B, H, L, d_k]
 </code></pre>
-<h3>10.2 与 Tensor 矩阵运算</h3>
+<h3 id="10-2-与-tensor-矩阵运算">10.2 与 Tensor 矩阵运算</h3>
 <p>今天的核心仍然是：</p>
 <pre><code>reshape -&gt; transpose -&gt; matmul -&gt; softmax -&gt; reshape
 </code></pre>
 <p>重点不是死记代码，而是每一次运算都能说清输入和输出 shape。</p>
-<h3>10.3 与 MLP 线性层</h3>
+<h3 id="10-3-与-mlp-线性层">10.3 与 MLP 线性层</h3>
 <p><code>W_q/W_k/W_v/W_o</code> 都是 <code>nn.Linear</code>。它们和 MLP 中的线性层一样，通过可学习参数变换最后一维；不同之处是它们服务于 Attention 的查询、匹配、内容和输出混合。</p>
-<h3>10.4 与 CNN 特征提取</h3>
+<h3 id="10-4-与-cnn-特征提取">10.4 与 CNN 特征提取</h3>
 <p>CNN 使用多个通道并行提取不同局部特征；Multi-Head Attention 使用多个 head 并行学习不同的 token 关系。两者最后都需要把并行分支的结果组织回统一表示。</p>
-<h3>10.5 与完整训练流程</h3>
+<h3 id="10-5-与完整训练流程">10.5 与完整训练流程</h3>
 <pre><code>DataLoader batch
 -&gt; embedding
 -&gt; Multi-Head Attention
@@ -347,9 +349,9 @@ final_output:     [2, 5, 16]
 -&gt; optimizer.step()
 </code></pre>
 <hr>
-<h2>十一、选做部分概念预览</h2>
+<h2 id="十一-选做部分概念预览">十一、选做部分概念预览</h2>
 <p>本日计划中的选做/后置内容是阅读《动手学深度学习》10.6–10.7 节、Transformer 图解，并从零补齐完整 Transformer Encoder。今天完成了概念预览，但没有把完整 Encoder 写成已完成实验。</p>
-<h3>11.1 位置编码</h3>
+<h3 id="11-1-位置编码">11.1 位置编码</h3>
 <p>Self-Attention 不会自动知道 token 的先后顺序，因此需要把位置编码加入 token embedding：</p>
 <pre><code>token_embedding:   [B, L, d_model]
 position_encoding: [L, d_model]
@@ -364,13 +366,13 @@ x = token_embedding + position_encoding
 <li>可学习的位置向量：类似 <code>nn.Embedding</code>，训练中更新；</li>
 <li>Sinusoidal 位置编码：由正弦和余弦公式生成，不是可训练参数。</li>
 </ul>
-<h3>11.2 残差与 LayerNorm</h3>
+<h3 id="11-2-残差与-layernorm">11.2 残差与 LayerNorm</h3>
 <p>Attention 子层后通常使用：</p>
 <pre><code>attention_output + x
 -&gt; LayerNorm(d_model)
 </code></pre>
 <p>残差连接保留原始信息并改善梯度传播，这与 ResNet 的思想相同。<code>LayerNorm(d_model)</code> 作用在每个 token 的最后一个特征维度上，输入输出 shape 不变。</p>
-<h3>11.3 前馈网络 FFN</h3>
+<h3 id="11-3-前馈网络-ffn">11.3 前馈网络 FFN</h3>
 <p>FFN 本质上是对每个 token 独立使用的 MLP：</p>
 <pre><code>[B, L, d_model]
 -&gt; Linear(d_model, d_ff)
@@ -384,7 +386,7 @@ x = token_embedding + position_encoding
 -&gt; [2, 5, 16]
 </code></pre>
 <p>Attention 负责不同 token 之间的信息交流；FFN 负责每个 token 自己的非线性特征加工。扩展到 <code>d_ff</code> 后，模型可以在更大的隐藏空间中组合特征；激活函数提供非线性，使 FFN 不只是两个线性层的简单合并。</p>
-<h3>11.4 简化 Encoder Block 数据流</h3>
+<h3 id="11-4-简化-encoder-block-数据流">11.4 简化 Encoder Block 数据流</h3>
 <pre><code>x
 -&gt; Multi-Head Attention
 -&gt; 残差 + LayerNorm
@@ -394,7 +396,7 @@ x = token_embedding + position_encoding
 </code></pre>
 <p>完整位置编码和 Encoder Block 实现留作后续选做内容，不与今天已经完成的 Multi-Head Attention 实验混淆。</p>
 <hr>
-<h2>十二、Day 2 验收结论</h2>
+<h2 id="十二-day-2-验收结论">十二、Day 2 验收结论</h2>
 <ul>
 <li>能解释为什么 Multi-Head Attention 使用多个 head；</li>
 <li>能计算 <code>d_k = d_model // num_heads</code>；</li>
@@ -410,7 +412,8 @@ x = token_embedding + position_encoding
 <li>已理解位置编码、残差、LayerNorm 和 FFN 的基本作用，但未声称完成完整 Transformer Encoder。</li>
 </ul>
 <p>Day 2 完成。下一主线是 Day 3–4：HuggingFace BERT 的 tokenizer、DataLoader 和最小微调闭环。</p>
-</div></article>
+</div></article></div><nav class="article-neighbors" aria-label="相邻文章"><a class="article-neighbor previous" href="/learning/pytorch/notes/stage-4/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-attention-%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86-scaled-dot-product-attention.html">← <span>上一篇</span>Day 1 学习笔记：Attention 机制原理——Scaled Dot-Product Attention</a><a class="article-neighbor next" href="/learning/pytorch/notes/stage-4/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-huggingface-bert-tokenizer-%E4%B8%8E-dataloader.html"><span>下一篇</span>Day 3 学习笔记：HuggingFace BERT tokenizer 与 DataLoader →</a></nav>
   </main>
+  <script src="/assets/pytorch-reading.js" defer></script>
 </body>
 </html>

@@ -6,13 +6,15 @@
   <meta name="theme-color" content="#07101c">
   <title>Day 5 学习笔记：阶段四复盘——BERT 全量微调基线与 LoRA 对比准备 · SNOWSTORM</title>
   <link rel="stylesheet" href="/assets/library.css">
+  <link rel="stylesheet" href="/assets/pytorch-reading.css">
 </head>
-<body class="library-page">
+<body class="library-page pytorch-reading-page">
+<div class="reading-progress" data-reading-progress aria-hidden="true"></div>
   <main class="library-shell">
     <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
     <p class="library-eyebrow">Transformer 与 BERT</p>
-    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-4/">Transformer 与 BERT</a></nav><article class="note-article"><h1>Day 5 学习笔记：阶段四复盘——BERT 全量微调基线与 LoRA 对比准备</h1><div class="note-content"><h1>阶段四 Day 5 复盘：BERT 全量微调基线与 LoRA 对比准备</h1>
-<h2>〇、今天完成了什么</h2>
+    <a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-4/">Transformer 与 BERT</a></nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details" open><summary>本页目录</summary><ol><li class="toc-level-2"><a href="#〇-今天完成了什么">〇、今天完成了什么</a></li><li class="toc-level-2"><a href="#一-day-4-完整数据流">一、Day 4 完整数据流</a></li><li class="toc-level-2"><a href="#二-关键输入与输出-shape">二、关键输入与输出 shape</a></li><li class="toc-level-2"><a href="#三-数据边界与-checkpoint-规则">三、数据边界与 checkpoint 规则</a></li><li class="toc-level-3"><a href="#3-1-三个-split-的职责">3.1 三个 split 的职责</a></li><li class="toc-level-3"><a href="#3-2-选择最佳模型">3.2 选择最佳模型</a></li><li class="toc-level-2"><a href="#四-实验结果与过拟合分析">四、实验结果与过拟合分析</a></li><li class="toc-level-2"><a href="#五-混淆矩阵与指标">五、混淆矩阵与指标</a></li><li class="toc-level-2"><a href="#六-代码与复现检查">六、代码与复现检查</a></li><li class="toc-level-2"><a href="#七-lora-最小概念">七、LoRA 最小概念</a></li><li class="toc-level-2"><a href="#八-sst-2-作为求职项目的数据集边界">八、SST-2 作为求职项目的数据集边界</a></li><li class="toc-level-2"><a href="#九-今天的易错点">九、今天的易错点</a></li><li class="toc-level-2"><a href="#十-下一步行动">十、下一步行动</a></li><li class="toc-level-2"><a href="#参考资料">参考资料</a></li></ol></details></aside><article class="note-article"><h1>Day 5 学习笔记：阶段四复盘——BERT 全量微调基线与 LoRA 对比准备</h1><div class="note-content"><h1>阶段四 Day 5 复盘：BERT 全量微调基线与 LoRA 对比准备</h1>
+<h2 id="〇-今天完成了什么">〇、今天完成了什么</h2>
 <ul>
 <li>回顾了 BERT 在 SST-2 上的完整微调闭环。</li>
 <li>复习了 <code>BertForSequenceClassification</code> 的输入、输出和 shape。</li>
@@ -23,7 +25,7 @@
 <li>初步理解 LoRA：冻结原始参数，只训练低秩更新参数。</li>
 <li>确认继续使用 SST-2 作为全量微调与 LoRA 的受控对比数据集。</li>
 </ul>
-<h2>一、Day 4 完整数据流</h2>
+<h2 id="一-day-4-完整数据流">一、Day 4 完整数据流</h2>
 <pre><code class="language-text">原始句子
   → train / validation / test 划分
   → tokenizer
@@ -49,7 +51,7 @@
 → optimizer.step()
 </code></pre>
 <p>验证阶段只进行前向计算和指标统计，不执行 <code>backward()</code> 或 <code>optimizer.step()</code>。</p>
-<h2>二、关键输入与输出 shape</h2>
+<h2 id="二-关键输入与输出-shape">二、关键输入与输出 shape</h2>
 <p>设 batch size 为 <code>B</code>，序列最大长度为 <code>L</code>，二分类类别数为 <code>2</code>：</p>
 <pre><code class="language-text">input_ids       [B, L]
 attention_mask  [B, L]
@@ -70,8 +72,8 @@ loss            []
 </code></pre>
 <p><code>labels</code> 是 <code>[B]</code>，因为 SST-2 是句子级分类：每个句子只有一个情感标签，而不是每个 token 一个标签。</p>
 <p><code>logits.argmax(dim=1)</code> 将 <code>[B, 2]</code> 转换为 <code>[B]</code>，因此可以和 <code>labels</code> 逐样本比较。</p>
-<h2>三、数据边界与 checkpoint 规则</h2>
-<h3>3.1 三个 split 的职责</h3>
+<h2 id="三-数据边界与-checkpoint-规则">三、数据边界与 checkpoint 规则</h2>
+<h3 id="3-1-三个-split-的职责">3.1 三个 split 的职责</h3>
 <table>
 <thead>
 <tr>
@@ -108,10 +110,10 @@ loss            []
 10% local held-out test
 </code></pre>
 <p>官方 SST-2 test 没有参与本次本地实验。因此当前测试结果是本地重新划分的 labeled held-out test 结果，不是官方 GLUE hidden-test leaderboard 结果。</p>
-<h3>3.2 选择最佳模型</h3>
+<h3 id="3-2-选择最佳模型">3.2 选择最佳模型</h3>
 <p>当前验证集 loss 在 epoch 1 最低，为 <code>0.1452</code>。如果预先规定“validation loss 最低优先”，应选择 epoch 1 的 checkpoint，然后只在最后使用它评估 test。</p>
 <p>不能因为某个 epoch 的 test accuracy 更高，就事后改变 checkpoint 选择规则。</p>
-<h2>四、实验结果与过拟合分析</h2>
+<h2 id="四-实验结果与过拟合分析">四、实验结果与过拟合分析</h2>
 <table>
 <thead>
 <tr>
@@ -140,7 +142,7 @@ loss            []
 </table>
 <p>训练 accuracy 持续上升，说明模型越来越适应训练数据；验证集表现没有同步稳定提升，且 validation loss 在 epoch 1 后回升，说明继续训练后出现了过拟合迹象。</p>
 <p>判断模型是否变好，不能只看 train accuracy，还要观察 validation loss、validation accuracy 以及训练集与验证集之间的差距。</p>
-<h2>五、混淆矩阵与指标</h2>
+<h2 id="五-混淆矩阵与指标">五、混淆矩阵与指标</h2>
 <p>当前混淆矩阵约定为“行是真实标签，列是预测标签”：</p>
 <pre><code class="language-text">              预测 0   预测 1
 真实 0          2852     169
@@ -170,7 +172,7 @@ test accuracy   = 0.9531
 <li><code>FN=151</code>：真实为正面，但预测为负面。</li>
 </ul>
 <p>后续失败案例分析可以分别抽取 FP 和 FN 的原始句子，观察否定、反讽、复杂从句和上下文冲突等现象。</p>
-<h2>六、代码与复现检查</h2>
+<h2 id="六-代码与复现检查">六、代码与复现检查</h2>
 <p>代码使用：</p>
 <pre><code class="language-python">CODE_DIR = Path(__file__).resolve().parent.parent
 </code></pre>
@@ -184,7 +186,7 @@ LEARNING_RATE = 2e-5
 DEVICE = MPS（如果可用）
 </code></pre>
 <p><code>SEED=42</code> 主要保证数据划分一致；它不一定保证 MPS 上每次训练结果完全逐位一致。模型初始化、DataLoader shuffle 和硬件算子仍可能带来少量差异。</p>
-<h2>七、LoRA 最小概念</h2>
+<h2 id="七-lora-最小概念">七、LoRA 最小概念</h2>
 <p>全量微调直接更新原始参数：</p>
 <pre><code class="language-text">W → W + ΔW
 </code></pre>
@@ -198,7 +200,7 @@ LoRA：冻结原始参数，只训练少量 A、B 参数
 </code></pre>
 <p>后续对比实验的自变量是微调方法：全量微调 vs LoRA；控制变量包括数据划分、模型、tokenizer、最大长度、batch size、随机种子和评价流程。</p>
 <p>如果 LoRA 的 accuracy 接近全量微调，但可训练参数量大幅减少，说明 LoRA 可能以更低的训练成本取得接近的任务效果。</p>
-<h2>八、SST-2 作为求职项目的数据集边界</h2>
+<h2 id="八-sst-2-作为求职项目的数据集边界">八、SST-2 作为求职项目的数据集边界</h2>
 <p>SST-2 是 GLUE 中的标准英文情感二分类任务，适合用来验证 BERT 微调、参数高效微调和实验评价流程。</p>
 <p>它适合本项目的原因：</p>
 <ul>
@@ -219,7 +221,7 @@ LoRA：冻结原始参数，只训练少量 A、B 参数
 <p>基于 BERT 在 SST-2 上实现全量微调与 LoRA 参数高效微调对比实验，固定数据划分与训练配置，系统比较可训练参数量、训练时间、Accuracy、F1、混淆矩阵及 MPS 资源占用，并分析过拟合与误分类案例。</p>
 </blockquote>
 <p>项目中必须注明：测试结果来自本地重新划分的 labeled held-out test，不是官方 GLUE hidden-test leaderboard 结果。</p>
-<h2>九、今天的易错点</h2>
+<h2 id="九-今天的易错点">九、今天的易错点</h2>
 <ol>
 <li>句子分类的 <code>labels</code> 是 <code>[B]</code>，不是 <code>[B, L]</code>。</li>
 <li><code>outputs.loss</code> 是标量，不是每个样本一个 <code>[B]</code> 的 Tensor。</li>
@@ -229,21 +231,22 @@ LoRA：冻结原始参数，只训练少量 A、B 参数
 <li>LoRA 不是只训练“一个低秩矩阵”，而是训练两个小矩阵，其乘积构成低秩更新。</li>
 <li>本地 held-out test 结果不能写成官方 SST-2 leaderboard 结果。</li>
 </ol>
-<h2>十、下一步行动</h2>
+<h2 id="十-下一步行动">十、下一步行动</h2>
 <ol>
 <li>学习 LoRA 论文的核心机制：低秩假设、冻结基座模型和增量更新。</li>
 <li>明确 LoRA 插入 BERT 哪些线性层，以及分类头是否训练。</li>
 <li>在相同 split 和评价流程下实现 LoRA 对比实验。</li>
 <li>记录可训练参数量、训练时间、accuracy、F1、混淆矩阵和 MPS 资源占用。</li>
 </ol>
-<h2>参考资料</h2>
+<h2 id="参考资料">参考资料</h2>
 <ul>
 <li><a href="/learning/pytorch/notes/stage-4/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-bert-%E6%9C%80%E5%B0%8F%E5%BE%AE%E8%B0%83%E9%97%AD%E7%8E%AF.html">Day 4 学习笔记：BERT 最小微调闭环</a></li>
 <li><a href="https://aclanthology.org/W18-5446.pdf" rel="noreferrer">GLUE: A Multi-Task Benchmark and Analysis Platform for Natural Language Understanding</a></li>
 <li><a href="https://huggingface.co/datasets/nyu-mll/glue/blob/main/README.md" rel="noreferrer">Hugging Face GLUE 数据集卡片</a></li>
 <li><a href="https://arxiv.org/abs/2106.09685" rel="noreferrer">LoRA: Low-Rank Adaptation of Large Language Models</a></li>
 </ul>
-</div></article>
+</div></article></div><nav class="article-neighbors" aria-label="相邻文章"><a class="article-neighbor previous" href="/learning/pytorch/notes/stage-4/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-bert-%E6%9C%80%E5%B0%8F%E5%BE%AE%E8%B0%83%E9%97%AD%E7%8E%AF.html">← <span>上一篇</span>Day 4 学习笔记：BERT 最小微调闭环</a><span class="article-neighbor next" aria-hidden="true"></span></nav>
   </main>
+  <script src="/assets/pytorch-reading.js" defer></script>
 </body>
 </html>

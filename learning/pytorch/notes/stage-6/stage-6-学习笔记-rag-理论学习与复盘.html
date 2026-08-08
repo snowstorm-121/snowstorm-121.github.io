@@ -6,20 +6,22 @@
   <meta name="theme-color" content="#07101c">
   <title>Stage 6 学习笔记：RAG 理论学习与复盘 · SNOWSTORM</title>
   <link rel="stylesheet" href="/assets/library.css">
+  <link rel="stylesheet" href="/assets/pytorch-reading.css">
 </head>
-<body class="library-page">
+<body class="library-page pytorch-reading-page">
+<div class="reading-progress" data-reading-progress aria-hidden="true"></div>
   <main class="library-shell">
     <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
     <p class="library-eyebrow">RAG</p>
-    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-6/">RAG</a></nav><article class="note-article"><h1>Stage 6 学习笔记：RAG 理论学习与复盘</h1><div class="note-content"><h1>Stage 6 学习笔记：RAG 理论学习与复盘</h1>
+    <a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-6/">RAG</a></nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details" open><summary>本页目录</summary><ol><li class="toc-level-2"><a href="#0-本轮学习边界与完成状态">0. 本轮学习边界与完成状态</a></li><li class="toc-level-3"><a href="#已完成">已完成</a></li><li class="toc-level-3"><a href="#尚未开始">尚未开始</a></li><li class="toc-level-2"><a href="#知识网络-与已有笔记的连接">知识网络：与已有笔记的连接</a></li><li class="toc-level-2"><a href="#1-rag-要解决什么问题">1. RAG 要解决什么问题</a></li><li class="toc-level-2"><a href="#2-最小-rag-的完整数据流">2. 最小 RAG 的完整数据流</a></li><li class="toc-level-2"><a href="#3-document-chunk-与-metadata">3. Document、chunk 与 metadata</a></li><li class="toc-level-3"><a href="#3-1-三个对象">3.1 三个对象</a></li><li class="toc-level-3"><a href="#3-2-chunk-size-与-overlap">3.2 chunk size 与 overlap</a></li><li class="toc-level-3"><a href="#3-3-metadata-的最小内容">3.3 metadata 的最小内容</a></li><li class="toc-level-2"><a href="#4-embedding-从文本到语义向量">4. Embedding：从文本到语义向量</a></li><li class="toc-level-3"><a href="#4-1-d-是如何得到的">4.1 D 是如何得到的</a></li><li class="toc-level-3"><a href="#4-2-与-bert-tokenizer-的联系和区别">4.2 与 BERT tokenizer 的联系和区别</a></li><li class="toc-level-3"><a href="#4-3-pooling-的含义">4.3 Pooling 的含义</a></li><li class="toc-level-2"><a href="#5-向量空间-相似度与-top-k">5. 向量空间、相似度与 Top-k</a></li><li class="toc-level-3"><a href="#5-1-为什么-query-和-document-必须使用兼容模型">5.1 为什么 query 和 document 必须使用兼容模型</a></li><li class="toc-level-3"><a href="#5-2-核心-shape">5.2 核心 shape</a></li><li class="toc-level-3"><a href="#5-3-余弦相似度">5.3 余弦相似度</a></li><li class="toc-level-3"><a href="#5-4-top-k">5.4 Top-k</a></li><li class="toc-level-2"><a href="#6-context-prompt-与生成">6. Context、Prompt 与生成</a></li><li class="toc-level-2"><a href="#7-来源-引用与可信度">7. 来源、引用与可信度</a></li><li class="toc-level-2"><a href="#8-为什么第一版暂不实现高级模块">8. 为什么第一版暂不实现高级模块</a></li><li class="toc-level-2"><a href="#9-rag-失败定位">9. RAG 失败定位</a></li><li class="toc-level-2"><a href="#10-我在本轮提出的关键问题与回答">10. 我在本轮提出的关键问题与回答</a></li><li class="toc-level-3"><a href="#q1-embedding-的-384-维是怎么得到的-是随便举的例子吗">Q1：Embedding 的 384 维是怎么得到的？是随便举的例子吗？</a></li><li class="toc-level-3"><a href="#q2-离线建库是否相当于-bert-tokenizer-把-sentence-转成-input-ids-attention-mask-token-type-ids">Q2：离线建库是否相当于 BERT tokenizer 把 sentence 转成 input_ids、attention_mask、token_type_ids？</a></li><li class="toc-level-3"><a href="#q3-pooling-是不是-cnn-中的知识-可以理解为信息压缩吗">Q3：Pooling 是不是 CNN 中的知识？可以理解为信息压缩吗？</a></li><li class="toc-level-3"><a href="#q4-只有-chunk-text-和-embedding-不保存-metadata-能否检索">Q4：只有 chunk text 和 embedding，不保存 metadata，能否检索？</a></li><li class="toc-level-3"><a href="#q5-top-k-的分数和索引有什么区别">Q5：Top-k 的分数和索引有什么区别？</a></li><li class="toc-level-3"><a href="#q6-context-只说明-lora-使用低秩矩阵-却被问到本项目-rank-是多少-应怎样回答">Q6：context 只说明 LoRA 使用低秩矩阵，却被问到本项目 rank 是多少，应怎样回答？</a></li><li class="toc-level-3"><a href="#q7-一个答案同时说明-rank-8-和作用于-query-value-应该引用哪个-chunk">Q7：一个答案同时说明 rank=8 和作用于 query/value，应该引用哪个 chunk？</a></li><li class="toc-level-3"><a href="#q8-正确-chunk-已在-top-10-但排第-8-最终只用-top-3-优先考虑什么">Q8：正确 chunk 已在 Top-10 但排第 8，最终只用 Top-3，优先考虑什么？</a></li><li class="toc-level-3"><a href="#q9-正确证据已进入-context-llm-却给出相反答案并引用该证据-属于什么失败">Q9：正确证据已进入 context，LLM 却给出相反答案并引用该证据，属于什么失败？</a></li><li class="toc-level-3"><a href="#q10-query-embedding-是什么-为什么不能把-embedding-直接喂给-llm">Q10：query embedding 是什么？为什么不能把 embedding 直接喂给 LLM？</a></li><li class="toc-level-2"><a href="#11-我的任务-1-口述版本">11. 我的任务 1 口述版本</a></li><li class="toc-level-2"><a href="#12-任务-1-验收清单">12. 任务 1 验收清单</a></li><li class="toc-level-2"><a href="#13-下一步">13. 下一步</a></li></ol></details></aside><article class="note-article"><h1>Stage 6 学习笔记：RAG 理论学习与复盘</h1><div class="note-content"><h1>Stage 6 学习笔记：RAG 理论学习与复盘</h1>
 <blockquote>
 <p>这是一份根据我的实际学习过程整理的个人复习笔记。</p>
 <p>本轮目标不是立刻搭框架或训练大模型，而是先理解最小 RAG 的数据流、模块职责、shape、可追溯来源，以及回答出错时如何定位。</p>
 <p>本笔记保留了我在学习中提出的关键问题、自己的回答和需要修正的点，供后续实现、复盘和面试使用。</p>
 </blockquote>
 <hr>
-<h2>0. 本轮学习边界与完成状态</h2>
-<h3>已完成</h3>
+<h2 id="0-本轮学习边界与完成状态">0. 本轮学习边界与完成状态</h2>
+<h3 id="已完成">已完成</h3>
 <ol>
 <li>RAG 解决的问题，以及它和直接调用 LLM、BERT 微调的区别；</li>
 <li>离线建库与在线问答两条数据流；</li>
@@ -28,7 +30,7 @@
 <li>检索失败、生成失败、引用失败的区分；</li>
 <li>RAG 理论口述验收。</li>
 </ol>
-<h3>尚未开始</h3>
+<h3 id="尚未开始">尚未开始</h3>
 <ul>
 <li>没有创建 RAG 项目代码；</li>
 <li>没有安装新的 Python 依赖；</li>
@@ -38,7 +40,7 @@
 </ul>
 <p>因此，当前完成的是项目任务 1：RAG 理论学习与复盘。后续实现必须从透明的最小版本开始。</p>
 <hr>
-<h2>知识网络：与已有笔记的连接</h2>
+<h2 id="知识网络-与已有笔记的连接">知识网络：与已有笔记的连接</h2>
 <p>本笔记不是孤立的 RAG 术语表，而是建立在前面 PyTorch、Attention、BERT 和 LoRA 学习之上。</p>
 <ul>
 <li>
@@ -66,7 +68,7 @@ Attention 内部的 QK 相似性与 RAG 的 query-chunk 相似度都涉及向量
 -&gt; 本笔记：为什么 RAG 将外部知识留在文档库中
 </code></pre>
 <hr>
-<h2>1. RAG 要解决什么问题</h2>
+<h2 id="1-rag-要解决什么问题">1. RAG 要解决什么问题</h2>
 <p>RAG 的核心不是把新知识训练进模型参数，而是：</p>
 <pre><code class="language-text">先从外部资料中检索证据
 再把证据交给 LLM 生成回答
@@ -133,7 +135,7 @@ Attention 内部的 QK 相似性与 RAG 的 query-chunk 相似度都涉及向量
 </table>
 <p>注意：RAG 不保证答案一定正确。正确答案依赖于检索是否找对证据，以及 LLM 是否忠实依据 context 回答。</p>
 <hr>
-<h2>2. 最小 RAG 的完整数据流</h2>
+<h2 id="2-最小-rag-的完整数据流">2. 最小 RAG 的完整数据流</h2>
 <p>RAG 分为离线建库和在线问答。</p>
 <pre><code class="language-text">离线建库：
 document
@@ -166,8 +168,8 @@ query
 </code></pre>
 <p>旧文档没有变化时，不需要重新计算它们的 embedding，更不需要重新训练模型。</p>
 <hr>
-<h2>3. Document、chunk 与 metadata</h2>
-<h3>3.1 三个对象</h3>
+<h2 id="3-document-chunk-与-metadata">3. Document、chunk 与 metadata</h2>
+<h3 id="3-1-三个对象">3.1 三个对象</h3>
 <table>
 <thead>
 <tr>
@@ -192,7 +194,7 @@ query
 </table>
 <p>后续可把 <a href="/learning/pytorch/notes/stage-5/stage-5-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-bert-%E5%85%A8%E9%87%8F%E5%BE%AE%E8%B0%83%E4%B8%8E-lora-%E5%8F%82%E6%95%B0%E9%AB%98%E6%95%88%E5%BE%AE%E8%B0%83%E5%AF%B9%E6%AF%94%E5%AE%9E%E9%AA%8C.html">LoRA 对比实验笔记</a> 作为本地 document 的示例来源。</p>
 <p>如果一篇文档同时讲 Transformer、LoRA、RAG、MPS，整篇只生成一个向量会混合多个主题。将它切成主题相对单一的 chunk 后，query 更容易找回真正相关的证据。</p>
-<h3>3.2 chunk size 与 overlap</h3>
+<h3 id="3-2-chunk-size-与-overlap">3.2 chunk size 与 overlap</h3>
 <table>
 <thead>
 <tr>
@@ -220,7 +222,7 @@ query
 </tbody>
 </table>
 <p>没有对所有资料都正确的 chunk size。第一版先选择容易观察的规则，之后再通过检索结果和失败案例比较。</p>
-<h3>3.3 metadata 的最小内容</h3>
+<h3 id="3-3-metadata-的最小内容">3.3 metadata 的最小内容</h3>
 <pre><code class="language-text">chunk_id:     lora_note_002
 text:         LoRA 冻结预训练模型权重，只训练低秩增量矩阵……
 source_file:  LoRA 学习笔记.md
@@ -233,7 +235,7 @@ position:     第 2 节、页码或字符范围
 <p>text 负责提供证据内容；metadata 负责证明证据来源并支持追溯。</p>
 <p>只保存 text 和 embedding 时，系统仍能找回该 text，但不能可靠知道它来自哪份完整文档、哪个标题或哪个位置，因此无法进行可靠引用、回查和调试。</p>
 <hr>
-<h2>4. Embedding：从文本到语义向量</h2>
+<h2 id="4-embedding-从文本到语义向量">4. Embedding：从文本到语义向量</h2>
 <p>Embedding 模型的计算主线：</p>
 <pre><code class="language-text">sentence 或 chunk
   -&gt; tokenizer
@@ -243,7 +245,7 @@ position:     第 2 节、页码或字符范围
   -&gt; pooling
   -&gt; sentence embedding [D]
 </code></pre>
-<h3>4.1 D 是如何得到的</h3>
+<h3 id="4-1-d-是如何得到的">4.1 D 是如何得到的</h3>
 <p>D 不是由句子长短算出的，也不是运行时任意指定的数字。它由模型架构决定。</p>
 <p>例如，BERT Base 的 hidden size 是 768，表示每个 token 经 Transformer 后有 768 个数：</p>
 <pre><code class="language-text">token hidden states: [L,768]
@@ -260,7 +262,7 @@ sentence embedding: [384]
 <li>若模型在 Encoder 后增加投影层，则可能 D 不等于 H。</li>
 </ul>
 <p>384 是常见小型 Embedding 模型的一个示例维度，不是 RAG 的固定规则。实际项目必须读取具体模型实际输出的 shape。</p>
-<h3>4.2 与 BERT tokenizer 的联系和区别</h3>
+<h3 id="4-2-与-bert-tokenizer-的联系和区别">4.2 与 BERT tokenizer 的联系和区别</h3>
 <p>我之前的 BERT 输入处理可回看 <a href="/learning/pytorch/notes/stage-4/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-huggingface-bert-tokenizer-%E4%B8%8E-dataloader.html">Stage 4 Day 3：BERT tokenizer 与 DataLoader</a>；分类闭环可回看 <a href="/learning/pytorch/notes/stage-4/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-bert-%E6%9C%80%E5%B0%8F%E5%BE%AE%E8%B0%83%E9%97%AD%E7%8E%AF.html">Stage 4 Day 4：BERT 最小微调闭环</a>。</p>
 <p>我之前的 BERT 分类数据流：</p>
 <pre><code class="language-text">文本 -&gt; tokenizer -&gt; input_ids / attention_mask / token_type_ids
@@ -276,7 +278,7 @@ sentence embedding: [384]
       -&gt; embedding [D]
 </code></pre>
 <p>Tokenizer 只是第一步。input_ids 是词表中的离散编号，不是语义向量；真正用于检索的是 Transformer 输出再汇总得到的 embedding。</p>
-<h3>4.3 Pooling 的含义</h3>
+<h3 id="4-3-pooling-的含义">4.3 Pooling 的含义</h3>
 <p>Pooling 可以理解为一种有信息损失的聚合或压缩：</p>
 <pre><code class="language-text">多个 token 表示 [L,D]
       -&gt; pooling
@@ -330,7 +332,7 @@ sentence embedding: [384]
 </table>
 <p>真实 mean pooling 必须结合 attention_mask，避免 PAD token 参与平均。</p>
 <hr>
-<h2>5. 向量空间、相似度与 Top-k</h2>
+<h2 id="5-向量空间-相似度与-top-k">5. 向量空间、相似度与 Top-k</h2>
 <p>Embedding 模型已在训练阶段学习到：语义相近的文本应该在同一向量空间中更接近。</p>
 <p>这里的 query 与 Attention 中的 Q 不是同一个工程对象。可关联 <a href="/learning/pytorch/notes/stage-4/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-attention-%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86-scaled-dot-product-attention.html">Stage 4 Day 1：Scaled Dot-Product Attention</a>：Attention 在一个序列内部计算 token-to-token 的 QK 分数；RAG 则用整段 query 的 embedding 与文档 chunk 的 embedding 进行检索排序。</p>
 <p>例如：</p>
@@ -341,7 +343,7 @@ chunk B：RAG 先检索相关文档，再把证据交给 LLM。
 </code></pre>
 <p>经过同一个 Embedding 模型编码后，query 与 chunk A 的相似度通常会高于 query 与 chunk B。</p>
 <p>每个维度通常没有可直接命名的人类含义，例如不能说“第 17 维专门表示 LoRA”。语义由全部维度共同表示。</p>
-<h3>5.1 为什么 query 和 document 必须使用兼容模型</h3>
+<h3 id="5-1-为什么-query-和-document-必须使用兼容模型">5.1 为什么 query 和 document 必须使用兼容模型</h3>
 <p>Embedding 的数字是模型定义的语义坐标，不是通用坐标。</p>
 <pre><code class="language-text">文档用模型 A
 query 用不兼容模型 B
@@ -349,7 +351,7 @@ query 用不兼容模型 B
 -&gt; 相似度没有可靠含义
 </code></pre>
 <p>基础 RAG 中，chunk 与 query 应使用同一个 Embedding 模型，以及兼容的 tokenizer、pooling 和归一化方式。</p>
-<h3>5.2 核心 shape</h3>
+<h3 id="5-2-核心-shape">5.2 核心 shape</h3>
 <p>设知识库中有 N 个 chunk，模型输出 D 维向量：</p>
 <pre><code class="language-text">全部 chunk embeddings：E [N,D]
 一个 query embedding： q [D]
@@ -361,7 +363,7 @@ Top-k 分数：top_k_scores [k]
 <pre><code class="language-text">E [100,384] @ q [384] -&gt; scores [100]
 </code></pre>
 <p>每个 scores[i] 对应第 i 个 chunk。</p>
-<h3>5.3 余弦相似度</h3>
+<h3 id="5-3-余弦相似度">5.3 余弦相似度</h3>
 <p>基础检索常用余弦相似度：</p>
 <pre><code class="language-text">cosine_similarity(q,e)
 = (q · e) / (||q|| x ||e||)
@@ -372,7 +374,7 @@ Top-k 分数：top_k_scores [k]
 不等于
 答案有 91% 的正确概率
 </code></pre>
-<h3>5.4 Top-k</h3>
+<h3 id="5-4-top-k">5.4 Top-k</h3>
 <p>示例：</p>
 <pre><code class="language-text">scores = [0.72, 0.91, 0.34, 0.88, 0.65]
 index     0     1     2     3     4
@@ -410,7 +412,7 @@ top_k_scores  = [0.91,0.88,0.72]
 </tbody>
 </table>
 <hr>
-<h2>6. Context、Prompt 与生成</h2>
+<h2 id="6-context-prompt-与生成">6. Context、Prompt 与生成</h2>
 <p>Top-k 检索结果中，真正进入 LLM 的是 chunk 原文与来源，不是 embedding：</p>
 <pre><code class="language-text">embedding：用于找到相关 chunk
 chunk 原文：用于给 LLM 阅读
@@ -453,7 +455,7 @@ answer
 citations
 </code></pre>
 <hr>
-<h2>7. 来源、引用与可信度</h2>
+<h2 id="7-来源-引用与可信度">7. 来源、引用与可信度</h2>
 <p>检索到来源，只代表 chunk 与 query 相近；不代表它一定支持答案中的每一句话。</p>
 <p>一个可靠引用至少要满足：</p>
 <table>
@@ -498,7 +500,7 @@ citations
 </ul>
 <p>程序应检查回答中的引用标签是否存在于本次检索出的标签列表中，避免 LLM 编造不存在的 S3。</p>
 <hr>
-<h2>8. 为什么第一版暂不实现高级模块</h2>
+<h2 id="8-为什么第一版暂不实现高级模块">8. 为什么第一版暂不实现高级模块</h2>
 <p>基础版本只做：</p>
 <pre><code class="language-text">清洗 -&gt; chunk -&gt; embedding -&gt; 向量相似度 -&gt; Top-k -&gt; Prompt -&gt; LLM
 </code></pre>
@@ -539,7 +541,7 @@ rerank：query 与 K 个候选逐对判断 -&gt; rerank scores [K]
 </code></pre>
 <p>如果正确 chunk 已在 Top-10 的第 8 位，但系统只将前 3 个 chunk 放进 Prompt，应优先考虑 rerank。</p>
 <hr>
-<h2>9. RAG 失败定位</h2>
+<h2 id="9-rag-失败定位">9. RAG 失败定位</h2>
 <p>出现错误时，按证据流动顺序排查：</p>
 <pre><code class="language-text">文档是否有证据？
 -&gt; 正确事实是否被切入一个 chunk？
@@ -621,33 +623,33 @@ answer：本项目的 LoRA rank 是 16。[C7]
 </tbody>
 </table>
 <hr>
-<h2>10. 我在本轮提出的关键问题与回答</h2>
-<h3>Q1：Embedding 的 384 维是怎么得到的？是随便举的例子吗？</h3>
+<h2 id="10-我在本轮提出的关键问题与回答">10. 我在本轮提出的关键问题与回答</h2>
+<h3 id="q1-embedding-的-384-维是怎么得到的-是随便举的例子吗">Q1：Embedding 的 384 维是怎么得到的？是随便举的例子吗？</h3>
 <p>答：384 是常见小型 Embedding 模型的一个示例，不是 RAG 固定规则，也不是由句子长度计算得到。最终向量维度 D 由模型架构决定；实际项目应读取具体模型输出的 shape。</p>
-<h3>Q2：离线建库是否相当于 BERT tokenizer 把 sentence 转成 input_ids、attention_mask、token_type_ids？</h3>
+<h3 id="q2-离线建库是否相当于-bert-tokenizer-把-sentence-转成-input-ids-attention-mask-token-type-ids">Q2：离线建库是否相当于 BERT tokenizer 把 sentence 转成 input_ids、attention_mask、token_type_ids？</h3>
 <p>答：两者有联系，但不相同。Embedding 流程通常包含 tokenizer；不过 input_ids 等只是模型输入。真正保存用于检索的是 Transformer 输出经 pooling 后的语义向量，而不是 input_ids。</p>
-<h3>Q3：Pooling 是不是 CNN 中的知识？可以理解为信息压缩吗？</h3>
+<h3 id="q3-pooling-是不是-cnn-中的知识-可以理解为信息压缩吗">Q3：Pooling 是不是 CNN 中的知识？可以理解为信息压缩吗？</h3>
 <p>答：是同一类“聚合多个位置的信息”的思想。CNN 常在空间维度汇总，RAG Embedding 在 token 维度 L 汇总。它可以理解为有信息损失的压缩：从 [L,D] 得到 [D]，保留整段文本的语义概括，但不再保留每个 token 的完整细节和位置。</p>
-<h3>Q4：只有 chunk text 和 embedding，不保存 metadata，能否检索？</h3>
+<h3 id="q4-只有-chunk-text-和-embedding-不保存-metadata-能否检索">Q4：只有 chunk text 和 embedding，不保存 metadata，能否检索？</h3>
 <p>答：能找回 chunk text，但无法可靠知道它来自哪份完整文档、哪个位置。因此最终答案无法可靠引用、用户无法回查，调试和文档管理也会变困难。</p>
-<h3>Q5：Top-k 的分数和索引有什么区别？</h3>
+<h3 id="q5-top-k-的分数和索引有什么区别">Q5：Top-k 的分数和索引有什么区别？</h3>
 <p>答：分数表示相关程度；索引表示对应 chunk 在列表中的位置。以 scores = [0.72,0.91,0.34,0.88,0.65]、k=3 为例：</p>
 <pre><code class="language-text">top_k_scores  = [0.91,0.88,0.72]
 top_k_indices = [1,3,0]
 </code></pre>
 <p>程序利用 indices 取回 chunks[index] 和 metadata[index]。</p>
-<h3>Q6：context 只说明 LoRA 使用低秩矩阵，却被问到本项目 rank 是多少，应怎样回答？</h3>
+<h3 id="q6-context-只说明-lora-使用低秩矩阵-却被问到本项目-rank-是多少-应怎样回答">Q6：context 只说明 LoRA 使用低秩矩阵，却被问到本项目 rank 是多少，应怎样回答？</h3>
 <p>答：提供的资料没有说明本项目的 LoRA rank，无法确定。不能以模型已有知识、常见配置或猜测替代证据。</p>
-<h3>Q7：一个答案同时说明 rank=8 和作用于 query/value，应该引用哪个 chunk？</h3>
+<h3 id="q7-一个答案同时说明-rank-8-和作用于-query-value-应该引用哪个-chunk">Q7：一个答案同时说明 rank=8 和作用于 query/value，应该引用哪个 chunk？</h3>
 <p>答：应同时引用分别支持这两个事实的 chunk。引用的目标是让每个重要事实有对应证据，而不是仅仅让答案后面出现一个来源标签。</p>
-<h3>Q8：正确 chunk 已在 Top-10 但排第 8，最终只用 Top-3，优先考虑什么？</h3>
+<h3 id="q8-正确-chunk-已在-top-10-但排第-8-最终只用-top-3-优先考虑什么">Q8：正确 chunk 已在 Top-10 但排第 8，最终只用 Top-3，优先考虑什么？</h3>
 <p>答：优先考虑 rerank。正确证据已经被第一轮检索找到，问题在候选排序不够精细；此时 Prompt 修改不是首要改进方向。</p>
-<h3>Q9：正确证据已进入 context，LLM 却给出相反答案并引用该证据，属于什么失败？</h3>
+<h3 id="q9-正确证据已进入-context-llm-却给出相反答案并引用该证据-属于什么失败">Q9：正确证据已进入 context，LLM 却给出相反答案并引用该证据，属于什么失败？</h3>
 <p>答：首先是生成失败，同时也是引用失败；不是检索失败。</p>
-<h3>Q10：query embedding 是什么？为什么不能把 embedding 直接喂给 LLM？</h3>
+<h3 id="q10-query-embedding-是什么-为什么不能把-embedding-直接喂给-llm">Q10：query embedding 是什么？为什么不能把 embedding 直接喂给 LLM？</h3>
 <p>答：query embedding 是使用与文档相同的 Embedding 模型，将用户问题编码为 q [D]，以便在同一向量空间中比较相似度。embedding 是用于快速比较语义的压缩向量，不保留完整、可读、可引用的原文细节。RAG 不是把向量喂给 LLM，而是用向量找到文本，再把文本交给 LLM。</p>
 <hr>
-<h2>11. 我的任务 1 口述版本</h2>
+<h2 id="11-我的任务-1-口述版本">11. 我的任务 1 口述版本</h2>
 <pre><code class="language-text">最小 RAG 分为离线建库和在线问答。
 
 离线阶段，我先把文档清洗、切成带 metadata 的 chunk，
@@ -666,7 +668,7 @@ LLM 依据 context 回答，并标注已有来源；若证据不足，应明确�
 以及引用是否真的支持答案。
 </code></pre>
 <hr>
-<h2>12. 任务 1 验收清单</h2>
+<h2 id="12-任务-1-验收清单">12. 任务 1 验收清单</h2>
 <ul>
 <li><input type="checkbox" checked disabled> 能解释 RAG、直接 Prompt、BERT 微调的适用边界</li>
 <li><input type="checkbox" checked disabled> 能说明离线建库与在线问答</li>
@@ -680,7 +682,7 @@ LLM 依据 context 回答，并标注已有来源；若证据不足，应明确�
 <li><input type="checkbox" checked disabled> 完成一次最小 RAG 理论口述</li>
 </ul>
 <hr>
-<h2>13. 下一步</h2>
+<h2 id="13-下一步">13. 下一步</h2>
 <p>进入任务 2 前，先只设计最小 RAG 项目的实现范围、目录和数据边界。</p>
 <p>第一版目标保持透明：</p>
 <pre><code class="language-text">少量本地文档
@@ -693,7 +695,8 @@ LLM 依据 context 回答，并标注已有来源；若证据不足，应明确�
 -&gt; 保存完整检索与生成日志
 </code></pre>
 <p>后续涉及依赖安装、模型下载、网络访问或 API Key 时，需要先说明用途、成本、网络要求和替代方案，再决定是否执行。</p>
-</div></article>
+</div></article></div><nav class="article-neighbors" aria-label="相邻文章"><span class="article-neighbor previous" aria-hidden="true"></span><span class="article-neighbor next" aria-hidden="true"></span></nav>
   </main>
+  <script src="/assets/pytorch-reading.js" defer></script>
 </body>
 </html>

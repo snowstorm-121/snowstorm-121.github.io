@@ -6,20 +6,22 @@
   <meta name="theme-color" content="#07101c">
   <title>PyTorch 暑期详细学习计划 · SNOWSTORM</title>
   <link rel="stylesheet" href="/assets/library.css">
+  <link rel="stylesheet" href="/assets/pytorch-reading.css">
 </head>
-<body class="library-page">
+<body class="library-page pytorch-reading-page">
+<div class="reading-progress" data-reading-progress aria-hidden="true"></div>
   <main class="library-shell">
     <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
     <p class="library-eyebrow">学习路线</p>
-    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><span>学习路线</span></nav><article class="note-article"><h1>PyTorch 暑期详细学习计划</h1><div class="note-content"><p><strong>适用背景</strong>：人工智能硕士新生，Python 有基础，NumPy/Pandas 接触过，目标进入头部大厂算法/开发岗<br>
+    <a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><span>学习路线</span></nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details" open><summary>本页目录</summary><ol><li class="toc-level-2"><a href="#10天python基础强化学习计划">10天Python基础强化学习计划</a></li><li class="toc-level-3"><a href="#第一阶段-python-进阶语法第1-2天">第一阶段：Python 进阶语法（第1-2天）</a></li><li class="toc-level-3"><a href="#第二阶段-numpy第3-6天">第二阶段：NumPy（第3-6天）</a></li><li class="toc-level-3"><a href="#第三阶段-pandas第7-8天">第三阶段：Pandas（第7-8天）</a></li><li class="toc-level-3"><a href="#第四阶段-综合实战第9-10天">第四阶段：综合实战（第9-10天）</a></li><li class="toc-level-3"><a href="#重点提示">重点提示</a></li><li class="toc-level-2"><a href="#总体结构">总体结构</a></li><li class="toc-level-2"><a href="#阶段一-tensor-autograd第3周">阶段一：Tensor + Autograd（第3周）</a></li><li class="toc-level-3"><a href="#目标">目标</a></li><li class="toc-level-3"><a href="#第3周每日安排">第3周每日安排</a></li><li class="toc-level-2"><a href="#阶段二-nn-模块-完整训练流程第4周">阶段二：nn 模块 + 完整训练流程（第4周）</a></li><li class="toc-level-3"><a href="#目标-2">目标</a></li><li class="toc-level-3"><a href="#第4周每日安排">第4周每日安排</a></li><li class="toc-level-2"><a href="#阶段三-cnn-resnet第5周">阶段三：CNN + ResNet（第5周）</a></li><li class="toc-level-3"><a href="#目标-3">目标</a></li><li class="toc-level-3"><a href="#从这里开始的-75-任务量规则">从这里开始的 75% 任务量规则</a></li><li class="toc-level-3"><a href="#第5周每日安排">第5周每日安排</a></li><li class="toc-level-2"><a href="#阶段四-transformer-bert第6周">阶段四：Transformer + BERT（第6周）</a></li><li class="toc-level-3"><a href="#目标-4">目标</a></li><li class="toc-level-3"><a href="#本阶段的-75-任务量规则">本阶段的 75% 任务量规则</a></li><li class="toc-level-3"><a href="#第6周每日安排">第6周每日安排</a></li><li class="toc-level-2"><a href="#阶段五-方向实战-论文复现第7-9周">阶段五：方向实战 + 论文复现（第7–9周）</a></li><li class="toc-level-3"><a href="#目标-5">目标</a></li><li class="toc-level-3"><a href="#总体安排">总体安排</a></li><li class="toc-level-3"><a href="#论文选题建议">论文选题建议</a></li><li class="toc-level-3"><a href="#github-项目-readme-模板结构">GitHub 项目 README 模板结构</a></li><li class="toc-level-2"><a href="#开学时的目标成果">开学时的目标成果</a></li><li class="toc-level-2"><a href="#参考资料汇总">参考资料汇总</a></li></ol></details></aside><article class="note-article"><h1>PyTorch 暑期详细学习计划</h1><div class="note-content"><p><strong>适用背景</strong>：人工智能硕士新生，Python 有基础，NumPy/Pandas 接触过，目标进入头部大厂算法/开发岗<br>
 <strong>学习节奏</strong>：每周5天学习日（上午 9:00–11:30 主攻 PyTorch），2天轻松休息日，中间保留旅游留白<br>
 <strong>核心资料</strong>：《动手学深度学习》PyTorch版（<a href="http://zh.d2l.ai" rel="noreferrer">zh.d2l.ai</a>）+ PyTorch 官方文档</p>
 <hr>
-<h2>10天Python基础强化学习计划</h2>
+<h2 id="10天python基础强化学习计划">10天Python基础强化学习计划</h2>
 <p>目标：为第三周正式学习 PyTorch 打好基础 每天学习时长：2-3小时</p>
 <p><img src="/learning/pytorch/assets/remote/9cf0b8c3d9b487b39653.png" alt="" loading="lazy"></p>
 <hr>
-<h3>第一阶段：Python 进阶语法（第1-2天）</h3>
+<h3 id="第一阶段-python-进阶语法第1-2天">第一阶段：Python 进阶语法（第1-2天）</h3>
 <h4>Day 1 — 推导式 + 函数进阶 + 面向对象</h4>
 <p><strong>学习内容</strong></p>
 <ul>
@@ -40,7 +42,7 @@
 <p><strong>为什么重要</strong> 处理数据集时天天需要读写文件和处理异常。</p>
 <p><strong>预计时长</strong>：~3小时</p>
 <hr>
-<h3>第二阶段：NumPy（第3-6天）</h3>
+<h3 id="第二阶段-numpy第3-6天">第二阶段：NumPy（第3-6天）</h3>
 <h4>Day 3 — 数组创建 + 索引切片 + reshape</h4>
 <p><strong>学习内容</strong></p>
 <ul>
@@ -81,7 +83,7 @@
 <p><strong>为什么重要</strong> 训练模型时需要实时观察 loss 曲线，可视化是必备技能。</p>
 <p><strong>预计时长</strong>：~2.5小时</p>
 <hr>
-<h3>第三阶段：Pandas（第7-8天）</h3>
+<h3 id="第三阶段-pandas第7-8天">第三阶段：Pandas（第7-8天）</h3>
 <h4>Day 7 — DataFrame 核心操作</h4>
 <p><strong>学习内容</strong></p>
 <ul>
@@ -103,7 +105,7 @@
 <p><strong>为什么重要</strong> 数据预处理的最后一步通常是把 DataFrame 转成 NumPy array，再送进 PyTorch。</p>
 <p><strong>预计时长</strong>：~3小时</p>
 <hr>
-<h3>第四阶段：综合实战（第9-10天）</h3>
+<h3 id="第四阶段-综合实战第9-10天">第四阶段：综合实战（第9-10天）</h3>
 <h4>Day 9 — 完整数据分析项目</h4>
 <p><strong>学习内容</strong> 用 Titanic 数据集完整走一遍以下流程：</p>
 <ol>
@@ -125,7 +127,7 @@
 <p><strong>为什么重要</strong> 让第三周第一天学 PyTorch 时不陌生，平滑过渡。</p>
 <p><strong>预计时长</strong>：~2.5小时</p>
 <hr>
-<h3>重点提示</h3>
+<h3 id="重点提示">重点提示</h3>
 <ul>
 <li><strong>Day 3-4 的 NumPy 广播机制</strong>是整个基础阶段最难的知识点，要多跑例子感受规律</li>
 <li><strong>Day 5 手写线性回归</strong> 和 <strong>Day 9 完整项目</strong> 是两个重头戏，难度会明显上升</li>
@@ -133,7 +135,7 @@
 <li>遇到卡点不要硬扛超过10分钟，直接来问</li>
 </ul>
 <hr>
-<h2>总体结构</h2>
+<h2 id="总体结构">总体结构</h2>
 <table>
 <thead>
 <tr>
@@ -184,10 +186,10 @@
 </table>
 <p><strong>第1–2周</strong>（Python进阶 + 计网 + NumPy）见暑期总计划，PyTorch 从第3周正式开始。</p>
 <hr>
-<h2>阶段一：Tensor + Autograd（第3周）</h2>
-<h3>目标</h3>
+<h2 id="阶段一-tensor-autograd第3周">阶段一：Tensor + Autograd（第3周）</h2>
+<h3 id="目标">目标</h3>
 <p>理解 PyTorch 的基本数据结构和自动微分机制，这是后续所有内容的地基。</p>
-<h3>第3周每日安排</h3>
+<h3 id="第3周每日安排">第3周每日安排</h3>
 <h4>Day 1｜Tensor 基础操作</h4>
 <p><strong>课程</strong>：《动手学深度学习》2.1–2.3节<br>
 <strong>阅读</strong>：PyTorch 官方文档 <code>torch.Tensor</code></p>
@@ -435,10 +437,10 @@ for epoch in range(10):
 <p>LeetCode 1–2道（选做），其余完全放松。<br>
 可以回顾一下这周最不确定的知识点，不超过30分钟。</p>
 <hr>
-<h2>阶段二：nn 模块 + 完整训练流程（第4周）</h2>
-<h3>目标</h3>
+<h2 id="阶段二-nn-模块-完整训练流程第4周">阶段二：nn 模块 + 完整训练流程（第4周）</h2>
+<h3 id="目标-2">目标</h3>
 <p>用 PyTorch 的高层 API 重写阶段一的手写代码，理解封装背后发生了什么，掌握完整的工程化训练流程。</p>
-<h3>第4周每日安排</h3>
+<h3 id="第4周每日安排">第4周每日安排</h3>
 <h4>Day 1｜nn.Module + 常用层</h4>
 <p><strong>课程</strong>：《动手学深度学习》3.3节、4.1–4.2节</p>
 <p><strong>上午任务</strong>：</p>
@@ -666,12 +668,12 @@ writer.close()
 </ol>
 <p><strong>验收目标</strong>：MNIST Test Acc &gt; 98%（MLP 在 MNIST 上很容易达到）。</p>
 <hr>
-<h2>阶段三：CNN + ResNet（第5周）</h2>
-<h3>目标</h3>
+<h2 id="阶段三-cnn-resnet第5周">阶段三：CNN + ResNet（第5周）</h2>
+<h3 id="目标-3">目标</h3>
 <p>理解卷积神经网络的核心思想，读懂并复现 ResNet，掌握迁移学习的标准流程。</p>
-<h3>从这里开始的 75% 任务量规则</h3>
+<h3 id="从这里开始的-75-任务量规则">从这里开始的 75% 任务量规则</h3>
 <p>从阶段三开始，每个学习日只要求完成“必做”部分：一个核心概念 + 一个最小可运行实验。标为“选做/后置”的内容不计入当天完成标准，时间充足时再补；它们不是新的隐性作业。</p>
-<h3>第5周每日安排</h3>
+<h3 id="第5周每日安排">第5周每日安排</h3>
 <h4>Day 1｜卷积操作基础：shape 与参数量</h4>
 <p><strong>课程</strong>：《动手学深度学习》6.1–6.2节</p>
 <p><strong>必做（约 75%）</strong>：理解卷积核、padding 如何影响输出 shape；运行下面的 Sobel 卷积和参数量对比，能解释“参数共享”为什么让卷积层参数更少。</p>
@@ -858,12 +860,12 @@ criterion = nn.CrossEntropyLoss()
 <p><strong>必做（约 75%）</strong>：选择本周已经跑通的一个 CNN 或迁移学习实验，记录模型、数据、epoch、训练/验证指标，并写出“CNN 为什么比纯 MLP 更适合图像”的三点原因。</p>
 <p><strong>选做/后置</strong>：独立完成 MLP、LeNet、预训练 ResNet 的三模型全量对比；不设固定的 accuracy 硬指标，先保证实验设置和结论可解释。</p>
 <hr>
-<h2>阶段四：Transformer + BERT（第6周）</h2>
-<h3>目标</h3>
+<h2 id="阶段四-transformer-bert第6周">阶段四：Transformer + BERT（第6周）</h2>
+<h3 id="目标-4">目标</h3>
 <p>理解 Attention 机制和 Transformer 结构，掌握 HuggingFace 的标准使用方式。</p>
-<h3>本阶段的 75% 任务量规则</h3>
+<h3 id="本阶段的-75-任务量规则">本阶段的 75% 任务量规则</h3>
 <p>仍按 5 个学习日推进：先确保能解释 shape、跑通一个注意力模块和一次 BERT 微调；完整结构复现、复杂调参与指标冲刺都放到后置任务。</p>
-<h3>第6周每日安排</h3>
+<h3 id="第6周每日安排">第6周每日安排</h3>
 <h4>Day 1｜Attention 机制原理</h4>
 <p><strong>课程</strong>：《动手学深度学习》10.1–10.2节</p>
 <p><strong>必做（约 75%）</strong>：理解 <code>Q @ K^T / sqrt(d_k)</code>、softmax、加权求和的顺序，运行无 mask 的前向计算并检查输出和权重 shape。</p>
@@ -1034,10 +1036,10 @@ for epoch in range(1):
 </ol>
 <p><strong>选做/后置</strong>：查 Papers with Code，整理感兴趣方向近两年的热门论文。</p>
 <hr>
-<h2>阶段五：方向实战 + 论文复现（第7–9周）</h2>
-<h3>目标</h3>
+<h2 id="阶段五-方向实战-论文复现第7-9周">阶段五：方向实战 + 论文复现（第7–9周）</h2>
+<h3 id="目标-5">目标</h3>
 <p>选定方向，精读论文，完成一个完整的复现项目，上传 GitHub，形成简历素材。</p>
-<h3>总体安排</h3>
+<h3 id="总体安排">总体安排</h3>
 <table>
 <thead>
 <tr>
@@ -1068,7 +1070,7 @@ for epoch in range(1):
 </tr>
 </tbody>
 </table>
-<h3>论文选题建议</h3>
+<h3 id="论文选题建议">论文选题建议</h3>
 <p><strong>NLP 方向</strong></p>
 <ul>
 <li>TextCNN（Kim 2014）：简单，适合第一次复现，一天能跑出结果</li>
@@ -1084,7 +1086,7 @@ for epoch in range(1):
 <li>DeepFM：工业界标准模型，字节/阿里常用</li>
 <li>DIN（阿里）：序列推荐，有官方代码</li>
 </ul>
-<h3>GitHub 项目 README 模板结构</h3>
+<h3 id="github-项目-readme-模板结构">GitHub 项目 README 模板结构</h3>
 <pre><code># 项目名称：[论文名] PyTorch 复现
 
 ## 简介
@@ -1112,7 +1114,7 @@ python train.py --config configs/default.yaml
 - 官方代码链接
 </code></pre>
 <hr>
-<h2>开学时的目标成果</h2>
+<h2 id="开学时的目标成果">开学时的目标成果</h2>
 <table>
 <thead>
 <tr>
@@ -1152,7 +1154,7 @@ python train.py --config configs/default.yaml
 </tbody>
 </table>
 <hr>
-<h2>参考资料汇总</h2>
+<h2 id="参考资料汇总">参考资料汇总</h2>
 <table>
 <thead>
 <tr>
@@ -1206,7 +1208,8 @@ python train.py --config configs/default.yaml
 </table>
 <hr>
 <p><em>制定于 2026年6月</em></p>
-</div></article>
+</div></article></div><nav class="article-neighbors" aria-label="相邻文章"><span class="article-neighbor previous" aria-hidden="true"></span><span class="article-neighbor next" aria-hidden="true"></span></nav>
   </main>
+  <script src="/assets/pytorch-reading.js" defer></script>
 </body>
 </html>

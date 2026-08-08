@@ -6,19 +6,21 @@
   <meta name="theme-color" content="#07101c">
   <title>Day 2 学习笔记：文件操作 + 异常处理 + 综合小项目 · SNOWSTORM</title>
   <link rel="stylesheet" href="/assets/library.css">
+  <link rel="stylesheet" href="/assets/pytorch-reading.css">
 </head>
-<body class="library-page">
+<body class="library-page pytorch-reading-page">
+<div class="reading-progress" data-reading-progress aria-hidden="true"></div>
   <main class="library-shell">
     <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
     <p class="library-eyebrow">基础阶段</p>
-    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../foundation/">基础阶段</a></nav><article class="note-article"><h1>Day 2 学习笔记：文件操作 + 异常处理 + 综合小项目</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+    <a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../foundation/">基础阶段</a></nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details" open><summary>本页目录</summary><ol><li class="toc-level-2"><a href="#一-文件操作">一、文件操作</a></li><li class="toc-level-3"><a href="#1-1-基础读写">1.1 基础读写</a></li><li class="toc-level-3"><a href="#1-2-给每行加行号">1.2 给每行加行号</a></li><li class="toc-level-3"><a href="#1-3-路径处理pathlib">1.3 路径处理（pathlib）</a></li><li class="toc-level-2"><a href="#二-异常处理">二、异常处理</a></li><li class="toc-level-3"><a href="#2-1-基本结构">2.1 基本结构</a></li><li class="toc-level-3"><a href="#2-2-except-的几种写法">2.2 except 的几种写法</a></li><li class="toc-level-3"><a href="#2-3-异常继承层级">2.3 异常继承层级</a></li><li class="toc-level-3"><a href="#2-4-raise-主动抛出">2.4 raise 主动抛出</a></li><li class="toc-level-3"><a href="#2-5-自定义异常">2.5 自定义异常</a></li><li class="toc-level-2"><a href="#三-综合项目-csv-数据集管理器">三、综合项目：CSV 数据集管理器</a></li><li class="toc-level-2"><a href="#四-挑战题-分层切割数据集">四、挑战题：分层切割数据集</a></li><li class="toc-level-2"><a href="#五-易错点回顾">五、易错点回顾</a></li><li class="toc-level-2"><a href="#标准文件结尾写法">标准文件结尾写法</a></li></ol></details></aside><article class="note-article"><h1>Day 2 学习笔记：文件操作 + 异常处理 + 综合小项目</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
 <p>参考书：Python 官方文档（文件 I/O、异常处理与 <code>pathlib</code>）</p>
 <p>本阶段重点：掌握真实项目中最常见的“读文件、写文件、处理路径、处理异常”闭环，为后续数据集读取和训练日志管理打基础。</p>
 <p>今天主线：文件读写、<code>pathlib</code> 路径处理、异常处理，以及 CSV 数据集管理器这个小型综合项目。</p>
 <p>关联笔记：前置 <a href="/learning/pytorch/notes/foundation/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-python-%E8%BF%9B%E9%98%B6%E8%AF%AD%E6%B3%95.html">Python 进阶语法</a>；后续 <a href="/learning/pytorch/notes/foundation/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-numpy-%E6%95%B0%E7%BB%84%E5%9F%BA%E7%A1%80.html">NumPy 数组基础</a>。</p>
 <hr>
-<h2>一、文件操作</h2>
-<h3>1.1 基础读写</h3>
+<h2 id="一-文件操作">一、文件操作</h2>
+<h3 id="1-1-基础读写">1.1 基础读写</h3>
 <pre><code class="language-python"># 写文件
 with open(&quot;data.txt&quot;, &quot;w&quot;, encoding=&quot;utf-8&quot;) as f:
     f.write(&quot;第一行\n&quot;)
@@ -70,13 +72,13 @@ with open(&quot;data.txt&quot;, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
 </tr>
 </tbody>
 </table>
-<h3>1.2 给每行加行号</h3>
+<h3 id="1-2-给每行加行号">1.2 给每行加行号</h3>
 <pre><code class="language-python">with open(&quot;output/notes.txt&quot;, &quot;r&quot;, encoding=&quot;utf-8&quot;) as f:
     for i, line in enumerate(f, start=1):
         print(f&quot;{i}. {line.strip()}&quot;)
 </code></pre>
 <p><code>enumerate(f, start=1)</code> 同时返回索引和值，<code>start=1</code> 表示从 1 开始计数。</p>
-<h3>1.3 路径处理（pathlib）</h3>
+<h3 id="1-3-路径处理pathlib">1.3 路径处理（pathlib）</h3>
 <pre><code class="language-python">from pathlib import Path
 
 p = Path(&quot;datasets&quot;) / &quot;mnist&quot; / &quot;train.csv&quot;
@@ -109,8 +111,8 @@ for f in Path(&quot;datasets&quot;).glob(&quot;**/*.csv&quot;):  # 所有子目�
 <li><code>mkdir</code> 创建的是<strong>目录</strong>，不要用在文件路径上</li>
 </ul>
 <hr>
-<h2>二、异常处理</h2>
-<h3>2.1 基本结构</h3>
+<h2 id="二-异常处理">二、异常处理</h2>
+<h3 id="2-1-基本结构">2.1 基本结构</h3>
 <pre><code class="language-python">try:
     # 可能出错的代码
     result = 10 / 0
@@ -152,7 +154,7 @@ finally:
 </tbody>
 </table>
 <p><code>else</code> 和 <code>finally</code> 可选，最精简写法只需 <code>try</code> + <code>except</code>。</p>
-<h3>2.2 except 的几种写法</h3>
+<h3 id="2-2-except-的几种写法">2.2 except 的几种写法</h3>
 <pre><code class="language-python"># 捕获具体类型 + 拿到异常对象
 try:
     x = int(&quot;abc&quot;)
@@ -173,7 +175,7 @@ except FileNotFoundError:
 except ValueError:
     print(&quot;文件内容不是数字&quot;)
 </code></pre>
-<h3>2.3 异常继承层级</h3>
+<h3 id="2-3-异常继承层级">2.3 异常继承层级</h3>
 <pre><code class="language-plain">BaseException
 └── Exception              ← 普通异常的根
     ├── ValueError          ← 值不合法
@@ -189,7 +191,7 @@ except ValueError:
 <li>多个 <code>except</code> 时，<strong>子类要写在父类前面</strong>，否则父类先匹配，子类永远轮不到</li>
 <li>不要裸写 <code>except:</code> 或滥用 <code>except Exception</code>，会吞掉真正的 bug</li>
 </ul>
-<h3>2.4 raise 主动抛出</h3>
+<h3 id="2-4-raise-主动抛出">2.4 raise 主动抛出</h3>
 <pre><code class="language-python"># 主动抛出
 def load_data(path):
     if not Path(path).exists():
@@ -202,7 +204,7 @@ except ZeroDivisionError as e:
     print(&quot;记录一下这个错误&quot;)
     raise   # 不加参数，原样抛出
 </code></pre>
-<h3>2.5 自定义异常</h3>
+<h3 id="2-5-自定义异常">2.5 自定义异常</h3>
 <pre><code class="language-python">class DatasetError(Exception):
     &quot;&quot;&quot;数据集相关错误的基类&quot;&quot;&quot;
     pass
@@ -221,7 +223,7 @@ except DatasetNotFoundError as e:
 </code></pre>
 <p><code>super().__init__(...)</code> 调用父类 <code>Exception</code> 的初始化方法传入错误信息，<code>print(e)</code> 才能显示文字。</p>
 <hr>
-<h2>三、综合项目：CSV 数据集管理器</h2>
+<h2 id="三-综合项目-csv-数据集管理器">三、综合项目：CSV 数据集管理器</h2>
 <p>模拟 AI 项目中管理实验数据的场景：读取 CSV → 统计类别 → 写出报告，全程有异常处理。</p>
 <pre><code class="language-python">import csv
 from pathlib import Path
@@ -320,7 +322,7 @@ def save_report(stats: dict, output_path: str) -&gt; None:
 </table>
 <p><strong>注意：</strong> CSV 读出来的值都是<strong>字符串</strong>，CSV 本身没有类型信息。</p>
 <hr>
-<h2>四、挑战题：分层切割数据集</h2>
+<h2 id="四-挑战题-分层切割数据集">四、挑战题：分层切割数据集</h2>
 <p>把数据按比例分成训练集和测试集，且每个类别比例基本一致（分层采样简化版）。</p>
 <p><strong>核心思路：</strong> 先按类别分组 → 每组单独打乱 → 每组各切 80% → 合并</p>
 <pre><code class="language-python">import csv
@@ -365,7 +367,7 @@ def split_dataset(rows: list[dict], train_ratio: float = 0.8):
 <p><strong>延伸：</strong> 这就是机器学习中常见的分层采样，<code>sklearn</code> 的 <code>train_test_split(stratify=...)</code> 做的就是这件事，后面会经常用到。</p>
 <p><strong>小注意：</strong> 数据量小时 <code>int()</code> 向下取整会有误差（8 条按 0.8 切可能得到 5+3 而非 6+2），数据量大后可忽略。</p>
 <hr>
-<h2>五、易错点回顾</h2>
+<h2 id="五-易错点回顾">五、易错点回顾</h2>
 <ol>
 <li><code>**mkdir**</code>** 用在文件路径上** —— <code>mkdir</code> 创建目录，应作用于目录路径（<code>Path(&quot;output&quot;)</code>），不是文件路径（<code>Path(&quot;output/notes.txt&quot;)</code>）。</li>
 <li><code>**FileExistsError**</code>** vs **<code>**FileNotFoundError**</code> —— 名字相近语义相反。前者是&quot;文件已存在&quot;，后者才是&quot;文件找不到&quot;。</li>
@@ -374,7 +376,7 @@ def split_dataset(rows: list[dict], train_ratio: float = 0.8):
 <li><strong>代码结构混乱</strong> —— 写文件的逻辑不要混进生成数据的代码块里，每个功能职责分清。</li>
 </ol>
 <hr>
-<h2>标准文件结尾写法</h2>
+<h2 id="标准文件结尾写法">标准文件结尾写法</h2>
 <pre><code class="language-python">if __name__ == &quot;__main__&quot;:
     main()
 </code></pre>
@@ -383,7 +385,8 @@ def split_dataset(rows: list[dict], train_ratio: float = 0.8):
 <li>被其他文件 <code>import</code>：不执行 <code>main()</code></li>
 </ul>
 <p>这样文件既能独立运行，又能被安全导入。</p>
-</div></article>
+</div></article></div><nav class="article-neighbors" aria-label="相邻文章"><a class="article-neighbor previous" href="/learning/pytorch/notes/foundation/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-python-%E8%BF%9B%E9%98%B6%E8%AF%AD%E6%B3%95.html">← <span>上一篇</span>Day 1 学习笔记：Python 进阶语法</a><a class="article-neighbor next" href="/learning/pytorch/notes/foundation/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-numpy-%E6%95%B0%E7%BB%84%E5%9F%BA%E7%A1%80.html"><span>下一篇</span>Day 3 学习笔记：NumPy 数组基础 →</a></nav>
   </main>
+  <script src="/assets/pytorch-reading.js" defer></script>
 </body>
 </html>

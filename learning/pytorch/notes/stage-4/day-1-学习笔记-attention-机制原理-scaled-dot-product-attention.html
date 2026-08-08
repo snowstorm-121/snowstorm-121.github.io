@@ -6,19 +6,21 @@
   <meta name="theme-color" content="#07101c">
   <title>Day 1 学习笔记：Attention 机制原理——Scaled Dot-Product Attention · SNOWSTORM</title>
   <link rel="stylesheet" href="/assets/library.css">
+  <link rel="stylesheet" href="/assets/pytorch-reading.css">
 </head>
-<body class="library-page">
+<body class="library-page pytorch-reading-page">
+<div class="reading-progress" data-reading-progress aria-hidden="true"></div>
   <main class="library-shell">
     <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
     <p class="library-eyebrow">Transformer 与 BERT</p>
-    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-4/">Transformer 与 BERT</a></nav><article class="note-article"><h1>Day 1 学习笔记：Attention 机制原理——Scaled Dot-Product Attention</h1><div class="note-content"><h1>Attention 机制原理：Scaled Dot-Product Attention</h1>
+    <a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-4/">Transformer 与 BERT</a></nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details" open><summary>本页目录</summary><ol><li class="toc-level-2"><a href="#〇-今天完成了什么">〇、今天完成了什么</a></li><li class="toc-level-2"><a href="#一-attention-要解决什么问题">一、Attention 要解决什么问题</a></li><li class="toc-level-2"><a href="#二-q-k-v-的含义">二、Q、K、V 的含义</a></li><li class="toc-level-3"><a href="#2-1-q-query">2.1 Q：Query</a></li><li class="toc-level-3"><a href="#2-2-k-key">2.2 K：Key</a></li><li class="toc-level-3"><a href="#2-3-v-value">2.3 V：Value</a></li><li class="toc-level-2"><a href="#三-q-k-v-的-shape-记账">三、Q、K、V 的 shape 记账</a></li><li class="toc-level-3"><a href="#3-1-每个维度的含义">3.1 每个维度的含义</a></li><li class="toc-level-3"><a href="#3-2-为什么自注意力中长度相等">3.2 为什么自注意力中长度相等</a></li><li class="toc-level-2"><a href="#四-q-k-t-如何得到匹配分数">四、Q @ K^T 如何得到匹配分数</a></li><li class="toc-level-2"><a href="#五-为什么要除以-sqrtd-k">五、为什么要除以 sqrt(d_k)</a></li><li class="toc-level-2"><a href="#六-softmax-如何得到注意力权重">六、Softmax 如何得到注意力权重</a></li><li class="toc-level-2"><a href="#七-加权求和得到输出">七、加权求和得到输出</a></li><li class="toc-level-2"><a href="#八-mask-的作用">八、Mask 的作用</a></li><li class="toc-level-2"><a href="#九-手写实现">九、手写实现</a></li><li class="toc-level-2"><a href="#十-mps-验证结果">十、MPS 验证结果</a></li><li class="toc-level-2"><a href="#十一-与此前-pytorch-学习内容的连接">十一、与此前 PyTorch 学习内容的连接</a></li><li class="toc-level-3"><a href="#11-1-与纯-tensor-矩阵运算">11.1 与纯 Tensor 矩阵运算</a></li><li class="toc-level-3"><a href="#11-2-与-autograd">11.2 与 autograd</a></li><li class="toc-level-3"><a href="#11-3-与-mlp-的线性层">11.3 与 MLP 的线性层</a></li><li class="toc-level-3"><a href="#11-4-与-cnn">11.4 与 CNN</a></li><li class="toc-level-3"><a href="#11-5-与-dataloader-和完整训练流程">11.5 与 DataLoader 和完整训练流程</a></li><li class="toc-level-2"><a href="#十二-day-1-验收结论">十二、Day 1 验收结论</a></li></ol></details></aside><article class="note-article"><h1>Day 1 学习笔记：Attention 机制原理——Scaled Dot-Product Attention</h1><div class="note-content"><h1>Attention 机制原理：Scaled Dot-Product Attention</h1>
 <p>学习目标：理解 Attention 的数据流和 shape 约定，能够手写并验证 Scaled Dot-Product Attention。</p>
 <p>本阶段重点：从阶段三 CNN 的局部感受野和特征提取，进入 Transformer 的全局动态加权。今天不展开 Multi-Head Attention、完整 Transformer 或 BERT，而是先把 Attention 最小计算单元吃透。</p>
 <p>今天主线：<code>Q/K/V -&gt; Q @ K^T -&gt; / sqrt(d_k) -&gt; mask -&gt; Softmax -&gt; attention_weights @ V -&gt; output</code>。</p>
 <p>本笔记对应 <a href="/learning/pytorch/notes/overview/pytorch-%E6%9A%91%E6%9C%9F%E8%AF%A6%E7%BB%86%E5%AD%A6%E4%B9%A0%E8%AE%A1%E5%88%92.html">PyTorch 暑期详细学习计划</a> 中第 6 周 Day 1。</p>
 <p>关联笔记：前置 <a href="/learning/pytorch/notes/stage-3/day-5-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E9%98%B6%E6%AE%B5%E4%B8%89%E7%BB%93%E6%9E%9C%E5%A4%8D%E7%9B%98-cnn-%E4%B8%8E%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0.html">阶段三结果复盘</a>、<a href="/learning/pytorch/notes/stage-1/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-tensor%E5%9F%BA%E6%9C%AC%E6%93%8D%E4%BD%9C.html">Tensor 基本操作</a>、<a href="/learning/pytorch/notes/stage-1/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-pytorch-autograd-%E8%87%AA%E5%8A%A8%E5%BE%AE%E5%88%86%E5%9F%BA%E7%A1%80.html">Autograd</a>、<a href="/learning/pytorch/notes/stage-2/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-nn-module-%E4%B8%8E%E5%B8%B8%E7%94%A8%E5%B1%82%E5%85%A5%E9%97%A8.html">nn.Module 与常用层</a>。</p>
 <hr>
-<h2>〇、今天完成了什么</h2>
+<h2 id="〇-今天完成了什么">〇、今天完成了什么</h2>
 <ol>
 <li>理解了 Q、K、V 的职责：Q 表示当前查询，K 用于匹配，V 提供实际内容。</li>
 <li>理解了 <code>Q @ K.transpose(...)</code> 如何得到 query-key 的匹配分数。</li>
@@ -29,7 +31,7 @@
 <li>定位并修正了 mask 使用 <code>+inf</code> 导致 Softmax 输出 <code>nan</code> 的问题，应使用 <code>-inf</code>。</li>
 </ol>
 <hr>
-<h2>一、Attention 要解决什么问题</h2>
+<h2 id="一-attention-要解决什么问题">一、Attention 要解决什么问题</h2>
 <p>CNN 使用局部感受野提取邻域特征；Attention 则允许一个位置直接查看序列中的多个位置，并根据当前输入动态决定关注重点。</p>
 <p>例如处理：</p>
 <pre><code class="language-text">我 喜欢 吃 苹果
@@ -40,26 +42,26 @@
 </blockquote>
 <p>MLP 通常使用固定的可学习参数混合输入特征；CNN 通过固定局部窗口提取邻域信息；Attention 则用当前输入计算出动态的注意力权重。</p>
 <hr>
-<h2>二、Q、K、V 的含义</h2>
+<h2 id="二-q-k-v-的含义">二、Q、K、V 的含义</h2>
 <p>可以先记成：</p>
 <pre><code class="language-text">Q：我想找什么
 K：我是什么，能否被匹配
 V：匹配之后，我提供什么内容
 </code></pre>
-<h3>2.1 Q：Query</h3>
+<h3 id="2-1-q-query">2.1 Q：Query</h3>
 <p>Q 表示当前 query 位置想寻找什么信息。每个序列位置都有一个 query 向量。</p>
-<h3>2.2 K：Key</h3>
+<h3 id="2-2-k-key">2.2 K：Key</h3>
 <p>K 表示每个位置可以用什么特征被匹配。当前 query 会和所有 key 比较，得到匹配分数。</p>
-<h3>2.3 V：Value</h3>
+<h3 id="2-3-v-value">2.3 V：Value</h3>
 <p>V 表示如果某个位置值得关注，真正要从这个位置取出的内容。Q、K 负责决定“关注谁”，V 负责提供“取什么”。</p>
 <hr>
-<h2>三、Q、K、V 的 shape 记账</h2>
+<h2 id="三-q-k-v-的-shape-记账">三、Q、K、V 的 shape 记账</h2>
 <p>一般 Attention 可以写成：</p>
 <pre><code class="language-text">Q: [batch, query_len, d_k]
 K: [batch, key_len, d_k]
 V: [batch, key_len, d_v]
 </code></pre>
-<h3>3.1 每个维度的含义</h3>
+<h3 id="3-1-每个维度的含义">3.1 每个维度的含义</h3>
 <ul>
 <li><code>batch</code>：一次处理多少个样本。</li>
 <li><code>query_len</code>：有多少个位置正在发起查询。</li>
@@ -73,7 +75,7 @@ K: [2, 5, 64]
 V: [2, 5, 128]
 </code></pre>
 <p>表示 2 个样本中，每个样本有 3 个 query，5 个可查询的 key/value 位置；Q/K 的匹配维度是 64，V 的内容维度是 128。</p>
-<h3>3.2 为什么自注意力中长度相等</h3>
+<h3 id="3-2-为什么自注意力中长度相等">3.2 为什么自注意力中长度相等</h3>
 <p>本日基础实验使用自注意力：Q、K、V 来自同一个序列，因此：</p>
 <pre><code class="language-text">query_len = key_len = seq_len
 </code></pre>
@@ -82,7 +84,7 @@ V: [2, 5, 128]
 </code></pre>
 <p>这不是 Attention 的普遍规定。交叉注意力中，Q 和 K/V 可以来自不同序列，<code>query_len</code> 和 <code>key_len</code> 可以不同。</p>
 <hr>
-<h2>四、<code>Q @ K^T</code> 如何得到匹配分数</h2>
+<h2 id="四-q-k-t-如何得到匹配分数">四、<code>Q @ K^T</code> 如何得到匹配分数</h2>
 <p>对单个样本，假设：</p>
 <pre><code class="language-text">Q: [query_len, d_k]
 K: [key_len, d_k]
@@ -113,7 +115,7 @@ scores: [2, 3, 5]
 </code></pre>
 <p>注意 Python 索引从 0 开始，所以 <code>scores[0, 1, 3]</code> 表示第 0 个样本中，第 2 个 query 与第 4 个 key 的原始匹配分数。</p>
 <hr>
-<h2>五、为什么要除以 <code>sqrt(d_k)</code></h2>
+<h2 id="五-为什么要除以-sqrtd-k">五、为什么要除以 <code>sqrt(d_k)</code></h2>
 <p>一个点积是多个乘积项的累加：</p>
 <pre><code class="language-text">q · k = q_1 k_1 + q_2 k_2 + ... + q_dk k_dk
 </code></pre>
@@ -123,7 +125,7 @@ scores: [2, 3, 5]
 </code></pre>
 <p><code>d_k</code> 与点积内部的特征维度有关，而不是与 <code>seq_len</code> 有关：<code>seq_len</code> 只表示每个 query 有多少个候选 key。</p>
 <hr>
-<h2>六、Softmax 如何得到注意力权重</h2>
+<h2 id="六-softmax-如何得到注意力权重">六、Softmax 如何得到注意力权重</h2>
 <pre><code class="language-python">attention_weights = F.softmax(scaled_scores, dim=-1)
 </code></pre>
 <p><code>scaled_scores</code> 的 shape 是：</p>
@@ -145,7 +147,7 @@ attention_weights:[batch, query_len, key_len]
 </code></pre>
 <p>Softmax 必须在 <code>attention_weights @ V</code> 之前，因为它先把匹配分数变成“关注比例”，后续矩阵乘法才使用这些比例聚合 V。若在聚合后再 Softmax，归一化的将是 V 的内容特征维度，而不是 key 位置维度。</p>
 <hr>
-<h2>七、加权求和得到输出</h2>
+<h2 id="七-加权求和得到输出">七、加权求和得到输出</h2>
 <pre><code class="language-text">attention_weights: [batch, query_len, key_len]
 V:                 [batch, key_len, d_v]
 </code></pre>
@@ -164,7 +166,7 @@ V:                 [batch, key_len, d_v]
 output:   [batch, seq_len, d_k]
 </code></pre>
 <hr>
-<h2>八、Mask 的作用</h2>
+<h2 id="八-mask-的作用">八、Mask 的作用</h2>
 <p>Mask 在 Softmax 之前作用于分数：</p>
 <pre><code class="language-text">Q @ K^T
 -&gt; / sqrt(d_k)
@@ -196,7 +198,7 @@ output:   [batch, seq_len, d_k]
 </code></pre>
 <p>它不会改变 scores、weights 或 output 的 shape。</p>
 <hr>
-<h2>九、手写实现</h2>
+<h2 id="九-手写实现">九、手写实现</h2>
 <pre><code class="language-python">import math
 import torch
 import torch.nn.functional as F
@@ -226,7 +228,7 @@ def scaled_dot_product_attention(Q, K, V, mask=None):
     return output, attention_weights
 </code></pre>
 <hr>
-<h2>十、MPS 验证结果</h2>
+<h2 id="十-mps-验证结果">十、MPS 验证结果</h2>
 <p>使用：</p>
 <pre><code class="language-text">Q, K, V: [2, 5, 8]
 mask:    [2, 5, 5]
@@ -253,19 +255,19 @@ mask 验证通过
 <li>被屏蔽位置不会获得注意力权重。</li>
 </ol>
 <hr>
-<h2>十一、与此前 PyTorch 学习内容的连接</h2>
-<h3>11.1 与纯 Tensor 矩阵运算</h3>
+<h2 id="十一-与此前-pytorch-学习内容的连接">十一、与此前 PyTorch 学习内容的连接</h2>
+<h3 id="11-1-与纯-tensor-矩阵运算">11.1 与纯 Tensor 矩阵运算</h3>
 <p>Attention 的核心不是新的神秘运算，而是已有 Tensor 运算的组合：</p>
 <pre><code class="language-text">transpose -&gt; batch matrix multiplication -&gt; 除法 -&gt; Softmax -&gt; batch matrix multiplication
 </code></pre>
 <p>重点是给每一次矩阵乘法记清楚 shape。</p>
-<h3>11.2 与 autograd</h3>
+<h3 id="11-2-与-autograd">11.2 与 autograd</h3>
 <p>Q、K、V 如果来自可训练层，整个 Attention 计算会进入 autograd 计算图。Softmax、mask、矩阵乘法都参与前向数据流，损失函数反向传播时，梯度可以回到生成 Q/K/V 的参数。</p>
-<h3>11.3 与 MLP 的线性层</h3>
+<h3 id="11-3-与-mlp-的线性层">11.3 与 MLP 的线性层</h3>
 <p><code>nn.Linear</code> 使用固定的可学习参数混合特征；Attention 使用输入相关的 <code>attention_weights</code> 动态混合不同位置的 V。</p>
-<h3>11.4 与 CNN</h3>
+<h3 id="11-4-与-cnn">11.4 与 CNN</h3>
 <p>CNN 通过局部感受野提取邻域特征；Attention 可以让每个位置直接访问整个序列，并动态决定关注哪些位置。</p>
-<h3>11.5 与 DataLoader 和完整训练流程</h3>
+<h3 id="11-5-与-dataloader-和完整训练流程">11.5 与 DataLoader 和完整训练流程</h3>
 <p>今天只验证单个小 batch 的前向 shape，没有进入数据集、损失函数和参数更新。但在完整训练中，Attention 会嵌入：</p>
 <pre><code class="language-text">DataLoader batch
 -&gt; token/embedding 表示
@@ -278,7 +280,7 @@ mask 验证通过
 -&gt; optimizer.step()
 </code></pre>
 <hr>
-<h2>十二、Day 1 验收结论</h2>
+<h2 id="十二-day-1-验收结论">十二、Day 1 验收结论</h2>
 <ul>
 <li>能解释 Q、K、V 的职责；</li>
 <li>能区分 <code>query_len</code>、<code>key_len</code>、<code>d_k</code>、<code>d_v</code>；</li>
@@ -290,7 +292,8 @@ mask 验证通过
 <li>已完成无 mask 和带 mask 的 MPS 前向验证。</li>
 </ul>
 <p>Day 1 完成。下一步进入 Day 2：Multi-Head Attention 的拆分与合并。</p>
-</div></article>
+</div></article></div><nav class="article-neighbors" aria-label="相邻文章"><span class="article-neighbor previous" aria-hidden="true"></span><a class="article-neighbor next" href="/learning/pytorch/notes/stage-4/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-multi-head-attention-%E6%8B%86%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6.html"><span>下一篇</span>Day 2 学习笔记：Multi-Head Attention——拆分与合并 →</a></nav>
   </main>
+  <script src="/assets/pytorch-reading.js" defer></script>
 </body>
 </html>

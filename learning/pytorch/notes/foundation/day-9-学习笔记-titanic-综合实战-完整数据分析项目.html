@@ -6,12 +6,14 @@
   <meta name="theme-color" content="#07101c">
   <title>Day 9 学习笔记：Titanic 综合实战 —— 完整数据分析项目 · SNOWSTORM</title>
   <link rel="stylesheet" href="/assets/library.css">
+  <link rel="stylesheet" href="/assets/pytorch-reading.css">
 </head>
-<body class="library-page">
+<body class="library-page pytorch-reading-page">
+<div class="reading-progress" data-reading-progress aria-hidden="true"></div>
   <main class="library-shell">
     <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
     <p class="library-eyebrow">基础阶段</p>
-    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../foundation/">基础阶段</a></nav><article class="note-article"><h1>Day 9 学习笔记：Titanic 综合实战 —— 完整数据分析项目</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+    <a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../foundation/">基础阶段</a></nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details" open><summary>本页目录</summary><ol><li class="toc-level-2"><a href="#〇-项目全流程框架先建立整体地图">〇、项目全流程框架（先建立整体地图）</a></li><li class="toc-level-2"><a href="#一-阶段0-明确目标动手前先把决策点定死">一、阶段0：明确目标（动手前先把决策点定死）</a></li><li class="toc-level-3"><a href="#1-1-决策清单">1.1 决策清单</a></li><li class="toc-level-3"><a href="#1-2-两条模型路径的取舍面试-为什么选这个模型">1.2 两条模型路径的取舍（面试：&quot;为什么选这个模型&quot;）</a></li><li class="toc-level-3"><a href="#1-3-分类-vs-回归的本质区别贯穿全程">1.3 分类 vs 回归的本质区别（贯穿全程）</a></li><li class="toc-level-2"><a href="#二-阶段1-数据清洗">二、阶段1：数据清洗</a></li><li class="toc-level-3"><a href="#2-1-分层抽样切分采纳先分组再组内切分">2.1 分层抽样切分（采纳&quot;先分组再组内切分&quot;）</a></li><li class="toc-level-3"><a href="#2-2-防泄露的填充今天-day7-的核心区别">2.2 防泄露的填充（今天 ≠ Day7 的核心区别）</a></li><li class="toc-level-2"><a href="#三-阶段2-特征分析">三、阶段2：特征分析</a></li><li class="toc-level-3"><a href="#3-1-核心方法-看分组存活率的跨度">3.1 核心方法：看&quot;分组存活率的跨度&quot;</a></li><li class="toc-level-3"><a href="#3-2-三个关键统计概念">3.2 三个关键统计概念</a></li><li class="toc-level-2"><a href="#四-阶段3-可视化验证统计数字看不出的形状">四、阶段3：可视化（验证统计数字看不出的&quot;形状&quot;）</a></li><li class="toc-level-3"><a href="#4-1-三张图各自验证了什么">4.1 三张图各自验证了什么</a></li><li class="toc-level-3"><a href="#4-2-可视化笔记要点">4.2 可视化笔记要点</a></li><li class="toc-level-2"><a href="#五-阶段4-特征工程到数值矩阵">五、阶段4：特征工程到数值矩阵</a></li><li class="toc-level-3"><a href="#5-1-特征拍板汇总">5.1 特征拍板汇总</a></li><li class="toc-level-3"><a href="#5-2-分桶binning-处理非线性-合并稀疏极端值">5.2 分桶（binning）—— 处理非线性 + 合并稀疏极端值</a></li><li class="toc-level-3"><a href="#5-3-分桶边界会不会造成数据泄露-我问的关键问题">5.3 ⚠️ 分桶边界会不会造成数据泄露？（我问的关键问题）</a></li><li class="toc-level-3"><a href="#5-4-独热编码one-hot-encoding">5.4 独热编码（one-hot encoding）</a></li><li class="toc-level-3"><a href="#5-5-拼接特征矩阵axis-1">5.5 拼接特征矩阵（axis=1）</a></li><li class="toc-level-2"><a href="#六-阶段5-手写分类预测">六、阶段5：手写分类预测</a></li><li class="toc-level-3"><a href="#6-1-第一部分-规则阈值法基线">6.1 第一部分：规则阈值法（基线）</a></li><li class="toc-level-3"><a href="#6-2-第二部分-简化逻辑回归-三个新概念">6.2 第二部分：简化逻辑回归 —— 三个新概念</a></li><li class="toc-level-3"><a href="#6-3-梯度推导链式法则-奇迹抵消">6.3 梯度推导（链式法则 + &quot;奇迹抵消&quot;）</a></li><li class="toc-level-3"><a href="#6-4-训练循环骨架">6.4 训练循环骨架</a></li><li class="toc-level-3"><a href="#6-5-数值稳定性-log0-inf-的-nan-雪崩">6.5 ⚠️ 数值稳定性：log(0) = -inf 的 nan 雪崩</a></li><li class="toc-level-3"><a href="#6-6-模型对比-读权重">6.6 模型对比 + 读权重</a></li><li class="toc-level-3"><a href="#6-7-为什么逻辑回归只比基线高-2-2-面试有力回答">6.7 为什么逻辑回归只比基线高 2.2%（面试有力回答）</a></li><li class="toc-level-2"><a href="#七-值得记录的关键问题我主动追问的">七、值得记录的关键问题（我主动追问的）</a></li><li class="toc-level-2"><a href="#八-踩坑记录静默错误为主">八、踩坑记录（静默错误为主）</a></li><li class="toc-level-2"><a href="#九-本次最大认知升级-权重收敛-预测稳定">九、本次最大认知升级：权重收敛 ≠ 预测稳定</a></li><li class="toc-level-2"><a href="#十-练习">十、练习</a></li><li class="toc-level-3"><a href="#练习1-embarked-fare-对比实验">练习1：Embarked / Fare 对比实验</a></li><li class="toc-level-3"><a href="#练习2-sklearn-验证已完成">练习2：sklearn 验证（已完成）</a></li><li class="toc-level-3"><a href="#练习3-学习率敏感性">练习3：学习率敏感性</a></li><li class="toc-level-3"><a href="#练习4-让线性模型捕捉交互效应思路题">练习4：让线性模型捕捉交互效应（思路题）</a></li><li class="toc-level-2"><a href="#十一-全知识点思维导图">十一、全知识点思维导图</a></li></ol></details></aside><article class="note-article"><h1>Day 9 学习笔记：Titanic 综合实战 —— 完整数据分析项目</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
 <p>参考书：Pandas、NumPy 与 Matplotlib 官方文档；Titanic 数据分析实践</p>
 <p>本阶段重点：把前 8 天的 Python、NumPy、Matplotlib、Pandas 串成真实的数据分析闭环；重点不在新增零散 API，而在理解每个数据与建模决策为什么这样选。</p>
 <p>今天主线：数据清洗 → 特征分析 → 可视化 → 特征工程 → 用 NumPy 手写分类预测，完成一个可解释的 Titanic 综合项目。</p>
@@ -19,7 +21,7 @@
 <p>主题：把前 8 天的 Python / NumPy / Matplotlib / Pandas 全流程串起来，走一遍真实数据分析项目： <strong>数据清洗 → 特征分析 → 可视化 → 用 NumPy 手写分类预测</strong>。 重点不在学零散新知识，而在&quot;全流程串联&quot;+&quot;关键决策点为什么这么选&quot;（面试高频追问）。</p>
 <p>关联笔记：整合 <a href="/learning/pytorch/notes/foundation/day-5-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E7%BB%9F%E8%AE%A1%E5%87%BD%E6%95%B0-random-%E6%A8%A1%E5%9D%97-%E6%89%8B%E5%86%99%E7%BA%BF%E6%80%A7%E5%9B%9E%E5%BD%92.html">手写线性回归</a>、<a href="/learning/pytorch/notes/foundation/day-6-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-matplotlib%E5%AD%A6%E4%B9%A0.html">数据可视化</a>、<a href="/learning/pytorch/notes/foundation/day-7-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-dataframe%E5%AD%A6%E4%B9%A0.html">DataFrame</a> 与 <a href="/learning/pytorch/notes/foundation/day-8-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-pandas%E8%BF%9B%E9%98%B6%E4%B8%8Enumpy%E4%BA%92%E8%BD%AC.html">数据预处理流水线</a>；后续由 <a href="/learning/pytorch/notes/foundation/day-10-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%9F%A5%E6%BC%8F%E8%A1%A5%E7%BC%BA-pytorch-%E9%A2%84%E4%B9%A0.html">PyTorch 预习</a>衔接到框架阶段。</p>
 <hr>
-<h2>〇、项目全流程框架（先建立整体地图）</h2>
+<h2 id="〇-项目全流程框架先建立整体地图">〇、项目全流程框架（先建立整体地图）</h2>
 <p>&lt;!-- 这是一张图片，ocr 内容为：阶段0明确目标 预测SURVIVED/评估指标/ 切分策略/模型路径 阶段1数据清洗 分层切分防泄露填充 阶段2特征分析 GROUPBY分组存活率 识别混杂与共线 阶段3可视化 验证非线性/共线性/ 样本量 阶段4特征工程 分桶独热编码码一化 拼成数值矩阵 阶段5手写分类预测 规则阈值法(基线)+ 简化逻辑回归(正式模型) 对比/读权重/验证收敛 --&gt;
 <img src="/learning/pytorch/assets/remote/15e2e36bca901bbec9d1.png" alt="" loading="lazy"></p>
 <p><strong>关键设计意图（为什么这样分阶段）：</strong></p>
@@ -50,8 +52,8 @@
 </tbody>
 </table>
 <hr>
-<h2>一、阶段0：明确目标（动手前先把决策点定死）</h2>
-<h3>1.1 决策清单</h3>
+<h2 id="一-阶段0-明确目标动手前先把决策点定死">一、阶段0：明确目标（动手前先把决策点定死）</h2>
+<h3 id="1-1-决策清单">1.1 决策清单</h3>
 <table>
 <thead>
 <tr>
@@ -93,12 +95,12 @@
 </tr>
 </tbody>
 </table>
-<h3>1.2 两条模型路径的取舍（面试：&quot;为什么选这个模型&quot;）</h3>
+<h3 id="1-2-两条模型路径的取舍面试-为什么选这个模型">1.2 两条模型路径的取舍（面试：&quot;为什么选这个模型&quot;）</h3>
 <p>&lt;!-- 这是一张图片，ocr 内容为：路径B简化逻辑回归(正式) 优点: 缺点: 复用DAY5梯度框架/引出分 ZWX+B SIGMOID&gt; 新增SIGMOID+交叉熵/需归一 类VS回归本质/是PYTORCH前 交叉熵梯度下降 化/调试更复杂 身 路径A规则阈值法(基线) 缺点: 优点: GROUPBY(SEX,PCLASS)算组内 零新数学/极可解释/是真实B 无训练/无梯度/与DAY5不衔 存活率 查表&gt;0.5判存活 接 ASELINE --&gt;
 <img src="/learning/pytorch/assets/remote/c8a69a970da6c7ccdccc.png" alt="" loading="lazy"></p>
 <p><strong>结论：两条都做。</strong> 先用 A 拿一个&quot;哪怕最笨也有多准&quot;的基线，再用 B 做正式模型与之对比。</p>
 <p>真实数据科学流程的标准动作：<strong>任何模型上线前都要有 baseline 撑底</strong>，否则不知道模型到底学到了东西，还是连瞎猜都不如。</p>
-<h3>1.3 分类 vs 回归的本质区别（贯穿全程）</h3>
+<h3 id="1-3-分类-vs-回归的本质区别贯穿全程">1.3 分类 vs 回归的本质区别（贯穿全程）</h3>
 <table>
 <thead>
 <tr>
@@ -131,8 +133,8 @@
 </tbody>
 </table>
 <hr>
-<h2>二、阶段1：数据清洗</h2>
-<h3>2.1 分层抽样切分（采纳&quot;先分组再组内切分&quot;）</h3>
+<h2 id="二-阶段1-数据清洗">二、阶段1：数据清洗</h2>
+<h3 id="2-1-分层抽样切分采纳先分组再组内切分">2.1 分层抽样切分（采纳&quot;先分组再组内切分&quot;）</h3>
 <p>&lt;!-- 这是一张图片，ocr 内容为：原始891行 按SURVIVED分组 存活组342人 死亡组549人 独立打乱 独立打乱 RNG.PERMUTATION(549) RNG.PERMUTATION(342) ILOC重排后切80/20 ILOC重排后切80/20 训练273+测试69 训练439+测试110 CONCAT训练组练组2人 CONCAT测试组179人 IGNORE INDEXTRUE 验证:712+179891V 两组存活率都38% --&gt;
 <img src="/learning/pytorch/assets/remote/cd6b3f19b6b73953ca02.png" alt="" loading="lazy"></p>
 <p><strong>核心代码骨架：</strong></p>
@@ -157,7 +159,7 @@ df_test  = pd.concat([df_survived.iloc[split_s:], df_died.iloc[split_d:]], axis=
 <li>分层抽样不是防极端，而是<strong>让训练/测试集存活比例都锚定在 38% 附近</strong>，减少&quot;评估被抽样运气影响&quot;的噪声。</li>
 <li>小成本、稳收益的工程习惯，没理由不用。</li>
 </ul>
-<h3>2.2 防泄露的填充（今天 ≠ Day7 的核心区别）</h3>
+<h3 id="2-2-防泄露的填充今天-day7-的核心区别">2.2 防泄露的填充（今天 ≠ Day7 的核心区别）</h3>
 <p>&lt;!-- 这是一张图片，ocr 内容为：同一统计量填训练集 只在训练集算统计量 先切分 中位数/众数/MEAN/STD 同一统计量填测试集 --&gt;
 <img src="/learning/pytorch/assets/remote/898f5b4cecc2201243dc.png" alt="" loading="lazy"></p>
 <p><strong>Age（按 Pclass 分组填，更精细）：</strong></p>
@@ -175,8 +177,8 @@ df_test  = df_test.drop(columns=['Cabin'])
 print(df_train.columns.equals(df_test.columns))   # 收尾必检：必须 True
 </code></pre>
 <hr>
-<h2>三、阶段2：特征分析</h2>
-<h3>3.1 核心方法：看&quot;分组存活率的跨度&quot;</h3>
+<h2 id="三-阶段2-特征分析">三、阶段2：特征分析</h2>
+<h3 id="3-1-核心方法-看分组存活率的跨度">3.1 核心方法：看&quot;分组存活率的跨度&quot;</h3>
 <p>判断标准：<strong>组间存活率跨度越大（max组 − min组），该特征对&quot;区分活死&quot;的信息量越大。</strong></p>
 <table>
 <thead>
@@ -226,7 +228,7 @@ print(df_train.columns.equals(df_test.columns))   # 收尾必检：必须 True
 </tr>
 </tbody>
 </table>
-<h3>3.2 三个关键统计概念</h3>
+<h3 id="3-2-三个关键统计概念">3.2 三个关键统计概念</h3>
 <p><strong>① 混杂效应（confounding）—— Embarked</strong></p>
 <ul>
 <li>一个变量看起来和结果相关，实际是因为它和另一个<strong>真正起作用</strong>的变量相关。</li>
@@ -245,10 +247,10 @@ print(df_train.columns.equals(df_test.columns))   # 收尾必检：必须 True
 <li>教训：<strong>两组均值接近时要留心 —— 是真没差异，还是差异藏在分布形状里，均值量不出来。</strong></li>
 </ul>
 <hr>
-<h2>四、阶段3：可视化（验证统计数字看不出的&quot;形状&quot;）</h2>
+<h2 id="四-阶段3-可视化验证统计数字看不出的形状">四、阶段3：可视化（验证统计数字看不出的&quot;形状&quot;）</h2>
 <p>&lt;!-- 这是一张图片，ocr 内容为：阶段2留下3个待定 AGE直方图 FARE箱线图 FAMILYSIZE 柱状图 (左右子图,DENSITYTRUE, (3个PCLASS并排) (柱高存活率,标注样本量N) 统一X/Y轴) 发现:N85人,N1116人 发现:幼儿小凸起+ 发现:3箱体几乎不重叠+ 0%存活率是小样本噪声, 头等舱长尾异常值(510) 20-25岁死亡尖峰 非线性坐实,AGE该分桶 共线性坐实 不可信 --&gt;
 <img src="/learning/pytorch/assets/remote/db635b4434b0bdcb5ace.png" alt="" loading="lazy"></p>
-<h3>4.1 三张图各自验证了什么</h3>
+<h3 id="4-1-三张图各自验证了什么">4.1 三张图各自验证了什么</h3>
 <table>
 <thead>
 <tr>
@@ -275,7 +277,7 @@ print(df_train.columns.equals(df_test.columns))   # 收尾必检：必须 True
 </tr>
 </tbody>
 </table>
-<h3>4.2 可视化笔记要点</h3>
+<h3 id="4-2-可视化笔记要点">4.2 可视化笔记要点</h3>
 <ul>
 <li><strong>直方图对比两组形状</strong> → 用左右子图（不被遮挡、不被人数多的一组压制），加 <code>density=True</code>（人数不等时按密度比形状才公平），<strong>手动统一 x/y 轴范围</strong>（<code>range</code> 参数 + <code>set_ylim</code>）。</li>
 <li><strong>更严谨</strong>：两边共用同一组 bin 边界 <code>np.linspace(...)</code>，而非 <code>bins='auto'</code>（auto 会让两边柱宽不一致）。</li>
@@ -283,8 +285,8 @@ print(df_train.columns.equals(df_test.columns))   # 收尾必检：必须 True
 <li><strong>柱状图标注 n</strong>：<code>ax.text(bar.get_x()+bar.get_width()/2, height, f'n={count}', ha='center', va='bottom')</code> —— 柱中心 = 左边缘 + 半宽。</li>
 </ul>
 <hr>
-<h2>五、阶段4：特征工程到数值矩阵</h2>
-<h3>5.1 特征拍板汇总</h3>
+<h2 id="五-阶段4-特征工程到数值矩阵">五、阶段4：特征工程到数值矩阵</h2>
+<h3 id="5-1-特征拍板汇总">5.1 特征拍板汇总</h3>
 <table>
 <thead>
 <tr>
@@ -326,7 +328,7 @@ print(df_train.columns.equals(df_test.columns))   # 收尾必检：必须 True
 </tr>
 </tbody>
 </table>
-<h3>5.2 分桶（binning）—— 处理非线性 + 合并稀疏极端值</h3>
+<h3 id="5-2-分桶binning-处理非线性-合并稀疏极端值">5.2 分桶（binning）—— 处理非线性 + 合并稀疏极端值</h3>
 <p><strong>Age（固定常识边界）：</strong></p>
 <pre><code class="language-python">bins = [0, 12, 18, 35, 60, 100]
 labels = ['child', 'teen', 'young_adult', 'middle_age', 'senior']
@@ -339,7 +341,7 @@ df_test['AgeGroup']  = pd.cut(df_test['Age'], bins=bins, labels=labels)   # 两�
 <li>理由：① 转折点踩准（峰值在 4 人，5 人后断崖）；② 5+ 合并后 n=53，比单看 8 人的 5 个样本可靠得多。</li>
 <li>价值：<strong>精度 vs 可靠性的权衡</strong> —— 不是说 5 人和 11 人风险一样，而是样本太少时合并换一个更可信的整体估计。</li>
 </ul>
-<h3>5.3 ⚠️ 分桶边界会不会造成数据泄露？（我问的关键问题）</h3>
+<h3 id="5-3-分桶边界会不会造成数据泄露-我问的关键问题">5.3 ⚠️ 分桶边界会不会造成数据泄露？（我问的关键问题）</h3>
 <p>&lt;!-- 这是一张图片，ocr 内容为：分桶边界数字从哪来? 是从训练集数据 算出来的吗? 否:人类常识 是:QUANTILE分位数 0,12,18,35,60,100 依赖这批数据的分布 换任何数据集都成立 有泄露风险 不泄露 (只要还偷看测试集去调边界 从没'看'过任何具体数据 --&gt;
 <img src="/learning/pytorch/assets/remote/9bef385199da03838376.png" alt="" loading="lazy"></p>
 <p><strong>核心判断标准：泄露的关键不在&quot;数字是不是固定的&quot;，而在&quot;这个数字的来源有没有偷看了不该看的数据&quot;。</strong></p>
@@ -347,7 +349,7 @@ df_test['AgeGroup']  = pd.cut(df_test['Age'], bins=bins, labels=labels)   # 两�
 <li>固定常识/行业惯例边界 → 不依赖具体数据 → 天然不泄露。</li>
 <li>&quot;Age 中位数必须只从训练集算&quot; vs &quot;分桶边界可用常识固定&quot; —— <strong>是两类不同层次的决定</strong>：前者是&quot;算这个值时能不能偷看测试集&quot;，后者是&quot;要不要用数据算出一个值&quot;。</li>
 </ul>
-<h3>5.4 独热编码（one-hot encoding）</h3>
+<h3 id="5-4-独热编码one-hot-encoding">5.4 独热编码（one-hot encoding）</h3>
 <p>&lt;!-- 这是一张图片，ocr 内容为：分类变量/数值特征 取值与目标 是无序类别吗? 是单调关系吗? AGEGROUP(幼儿高/青壮年尖 是:SEX(MALE/FEMALE无大小) 是:PCLASS(等级越低越危险) 可直接用数值 必须独热编码 模型学一个斜率即可 每类一个独立权重 --&gt;
 <img src="/learning/pytorch/assets/remote/ed797ea5628a88b7b057.png" alt="" loading="lazy"></p>
 <p><strong>为什么不能简单编号（child=0,...,senior=4）？</strong></p>
@@ -370,7 +372,7 @@ assert sex_dummies_train.columns.equals(sex_dummies_test.columns)
 <li><strong>冗余列</strong>：5 个独热列只需看 4 个就能确定第 5 个 → 任意列可被其他列精确算出（完全共线）→ <code>drop_first=True</code> 丢一列当基准。</li>
 <li><strong>对齐坑</strong>：若训练集凑巧没某个取值，<code>get_dummies</code> 只按&quot;训练集出现过的类别&quot;生成列 → 测试集多一列 → 列数不一致没法用同一组权重预测。解法：先用 <code>pd.Categorical(..., categories=完整清单)</code> 锁死两边类别字典。</li>
 </ul>
-<h3>5.5 拼接特征矩阵（axis=1）</h3>
+<h3 id="5-5-拼接特征矩阵axis-1">5.5 拼接特征矩阵（axis=1）</h3>
 <pre><code class="language-python">X_train = pd.concat([df_train[['Pclass']], sex_dummies_train, Age_dummy_train, familysize_dummy_train], axis=1)
 X_test  = pd.concat([df_test[['Pclass']],  sex_dummies_test,  Age_dummy_test,  familysize_dummy_test],  axis=1)
 y_train, y_test = df_train['Survived'], df_test['Survived']
@@ -384,8 +386,8 @@ print(X_train.columns.equals(X_test.columns))  # 训练/测试列必须一致
 <li><strong>axis=1 拼接的新坑</strong>：Pandas 按<strong>索引对齐</strong>配对行，索引不一致会出 NaN（不是简单按物理位置拼）。本次没事是因为独热表都从 df_train 直接派生、索引一致 —— 但这建立在&quot;前面没打乱过索引、没筛丢过行&quot;的前提上，所以必须验证。</li>
 </ul>
 <hr>
-<h2>六、阶段5：手写分类预测</h2>
-<h3>6.1 第一部分：规则阈值法（基线）</h3>
+<h2 id="六-阶段5-手写分类预测">六、阶段5：手写分类预测</h2>
+<h3 id="6-1-第一部分-规则阈值法基线">6.1 第一部分：规则阈值法（基线）</h3>
 <pre><code class="language-python">group_survival_rate = df_train.groupby(['Sex', 'Pclass'])['Survived'].mean()   # 这张表=从训练集学出的&quot;参数&quot;
 df_test['pred_proba'] = df_test.set_index(['Sex','Pclass']).index.map(group_survival_rate)  # 多级索引查表
 df_test['pred_baseline'] = (df_test['pred_proba'] &gt; 0.5).astype(int)
@@ -421,7 +423,7 @@ accuracy_baseline = (df_test['pred_baseline'] == df_test['Survived']).mean()    
 <li>6 组交叉后跨度 = 98.6% − 12.8% = <strong>85.8%</strong>，远超任何单一特征 → <strong>特征交互的价值</strong>。</li>
 <li><strong>基线准确率 = 77.1%</strong>（地板线 61.5% = 全猜死亡 = 1 − 测试集存活率 38.5%）。</li>
 </ul>
-<h3>6.2 第二部分：简化逻辑回归 —— 三个新概念</h3>
+<h3 id="6-2-第二部分-简化逻辑回归-三个新概念">6.2 第二部分：简化逻辑回归 —— 三个新概念</h3>
 <p>&lt;!-- 这是一张图片，ocr 内容为：P0.5?判存活 SIGMOID(Z) 压到(0,1)当概率 ZWX+B 特征X (任意实数) 交叉熵损失 衡量判断离谱程度 梯度下降更新W,B --&gt;
 <img src="/learning/pytorch/assets/remote/0771314eaf5e3e9661c0.png" alt="" loading="lazy"></p>
 <p><strong>① sigmoid：为什么需要它</strong></p>
@@ -448,7 +450,7 @@ accuracy_baseline = (df_test['pred_baseline'] == df_test['Survived']).mean()    
 <li>本次做法：<strong>只标准化 Pclass，独热列(0/1)保持不变</strong>（折中：真正有量级差的只有 Pclass，保住独热列的可解释性）。</li>
 <li>⚠️ <code>mean/std</code> 只从训练集算，套用到测试集（防泄露同款规则）。</li>
 </ul>
-<h3>6.3 梯度推导（链式法则 + &quot;奇迹抵消&quot;）</h3>
+<h3 id="6-3-梯度推导链式法则-奇迹抵消">6.3 梯度推导（链式法则 + &quot;奇迹抵消&quot;）</h3>
 <p>&lt;!-- 这是一张图片，ocr 内容为：LOSS交叉熵 D LOSS/D_YPRED Y_PRED SIGMOID(Z) 三段相乘 WJ Z-WX+B D_YPRED/D_Z 复杂项全约掉 YPRED(1-YPRED) (Y_PRED-Y.TRUE).X_J D_Z/DWJXJ --&gt;
 <img src="/learning/pytorch/assets/remote/4165507497c8562cdb9f.png" alt="" loading="lazy"></p>
 <p><strong>三段链式法则：</strong></p>
@@ -467,7 +469,7 @@ accuracy_baseline = (df_test['pred_baseline'] == df_test['Survived']).mean()    
 <li>向量化：<code>grad_w = X.T @ error / n_samples</code>。</li>
 <li><strong>为什么会&quot;奇迹抵消&quot;</strong>：交叉熵的形式本就是为配合 sigmoid、让梯度化简成这个干净形式而选用的（统计上叫&quot;指数族的自然搭配&quot;），不是凑巧。</li>
 </ul>
-<h3>6.4 训练循环骨架</h3>
+<h3 id="6-4-训练循环骨架">6.4 训练循环骨架</h3>
 <pre><code class="language-python">def sigmoid(z): return 1 / (1 + np.exp(-z))
 
 w = rng.normal(0, 0.01, size=n_features); b = 0.0
@@ -488,14 +490,14 @@ for epoch in range(n_epochs):
 <li><strong>健全性检查</strong>：<code>epoch 0</code> 的 loss ≈ 0.693 = <code>-log(0.5)</code>（权重≈0 时 sigmoid 输出≈0.5）→ 说明初始化和 loss 计算逻辑正确。</li>
 <li><strong>收敛判断</strong>：看最后几百轮降幅是否 &lt; 0.001~0.005 量级（前 100 轮降 0.19，后 800 轮才降 0.068 = 典型收敛形状，不是&quot;下降不明显&quot;）。</li>
 </ul>
-<h3>6.5 ⚠️ 数值稳定性：log(0) = -inf 的 nan 雪崩</h3>
+<h3 id="6-5-数值稳定性-log0-inf-的-nan-雪崩">6.5 ⚠️ 数值稳定性：log(0) = -inf 的 nan 雪崩</h3>
 <p>&lt;!-- 这是一张图片，ocr 内容为：Z很负SIGMOID(Z) 浮点下溢成0.0 NP.LOG(0)-INF(不报错!) 含INF LOSS NP.MEAN INF/NAN GRAD_W被污染成NAN W-LR*GRAD_W变NAN NAN传染:任何运算含NAN 结果必NAN 后续所有W/B/LOSS永久NAN 但程序不崩, 面无表情跑完所有轮 解法:NP.CLIP(Y_PRED,1E-15, 1-1E-15) --&gt;
 <img src="/learning/pytorch/assets/remote/a27cf4a167fe8feddd18.png" alt="" loading="lazy"></p>
 <ul>
 <li>这是&quot;静默错误&quot;在数值计算领域的典型表现：不报错、看似运行、实际早已失效。</li>
 <li><code>epsilon=1e-15</code> 小到不影响 loss 实际意义，但保证 log 永不算出 -inf。</li>
 </ul>
-<h3>6.6 模型对比 + 读权重</h3>
+<h3 id="6-6-模型对比-读权重">6.6 模型对比 + 读权重</h3>
 <table>
 <thead>
 <tr>
@@ -536,7 +538,7 @@ b: +2.12  (基准: female+child+alone, 倾向预测存活, 符合直觉)
 <ul>
 <li>权重符号方向几乎全部符合阶段2/3 的分析发现 → &quot;可解释性优先&quot;的收获：<strong>能对每个权重讲出&quot;为什么是这个符号、这个大小&quot;</strong>。</li>
 </ul>
-<h3>6.7 为什么逻辑回归只比基线高 2.2%（面试有力回答）</h3>
+<h3 id="6-7-为什么逻辑回归只比基线高-2-2-面试有力回答">6.7 为什么逻辑回归只比基线高 2.2%（面试有力回答）</h3>
 <ul>
 <li>逻辑回归是<strong>纯线性组合</strong>，只能学&quot;Pclass 越大越危险&quot;+&quot;是男性越危险&quot;两条独立趋势，<strong>学不到基线天生具备的 Sex×Pclass 交互</strong>（如&quot;三等舱里性别影响幅度 ≠ 一等舱里&quot;）。</li>
 <li>没败给基线（远高于地板线 61.5%）→ 确实学到了东西；没显著超越 → 缺交互信息。</li>
@@ -544,7 +546,7 @@ b: +2.12  (基准: female+child+alone, 倾向预测存活, 符合直觉)
 <li>第二原因：AgeGroup/FamilyGroup 这些非线性局部效应，分桶后给线性模型的增益本来就有限（边际贡献小）。</li>
 </ul>
 <hr>
-<h2>七、值得记录的关键问题（我主动追问的）</h2>
+<h2 id="七-值得记录的关键问题我主动追问的">七、值得记录的关键问题（我主动追问的）</h2>
 <table>
 <thead>
 <tr>
@@ -580,7 +582,7 @@ b: +2.12  (基准: female+child+alone, 倾向预测存活, 符合直觉)
 </tbody>
 </table>
 <hr>
-<h2>八、踩坑记录（静默错误为主）</h2>
+<h2 id="八-踩坑记录静默错误为主">八、踩坑记录（静默错误为主）</h2>
 <table>
 <thead>
 <tr>
@@ -660,7 +662,7 @@ b: +2.12  (基准: female+child+alone, 倾向预测存活, 符合直觉)
 </tbody>
 </table>
 <hr>
-<h2>九、本次最大认知升级：权重收敛 ≠ 预测稳定</h2>
+<h2 id="九-本次最大认知升级-权重收敛-预测稳定">九、本次最大认知升级：权重收敛 ≠ 预测稳定</h2>
 <p>&lt;!-- 这是一张图片，ocr 内容为：1000轮 VS 5000轮 权重大幅变化 (AGEGROUP符号都反了) 为什么? 权重变化只有让样本(跨过0. 5 才改变最终0/1判断 AGEGROUP权重的调整被SEX /PCLASS主导力压过 准确率完全不变 概率0.62-0.58, 0.7932960893854749 没人跨过0.5 结论:权重是否收敛与 预测准确率是否变 可完全脱钩 --&gt;
 <img src="/learning/pytorch/assets/remote/c7fb7f9e3efb1a8358dd.png" alt="" loading="lazy"></p>
 <p><strong>实战指导意义：</strong></p>
@@ -670,19 +672,19 @@ b: +2.12  (基准: female+child+alone, 倾向预测存活, 符合直觉)
 <li><strong>判断&quot;训练够没够&quot;</strong>：光看&quot;loss 不再下降&quot;不够全面 —— loss 平缓只说明强特征主导的部分收敛了，<strong>还要看权重本身是否还在显著变化</strong>。</li>
 </ul>
 <hr>
-<h2>十、练习</h2>
-<h3>练习1：Embarked / Fare 对比实验</h3>
+<h2 id="十-练习">十、练习</h2>
+<h3 id="练习1-embarked-fare-对比实验">练习1：Embarked / Fare 对比实验</h3>
 <p>加 Embarked（独热）、Fare（标准化）、两者都加，各跑 5000 轮，对比准确率与权重符号。</p>
 <p>关注点不是&quot;准确率涨没涨&quot;，而是<strong>验证理论预判</strong>：加了边际收益有限（混杂/共线）。若 Fare 权重大但准确率几乎不变 → 共线性导致权重不稳的直接证据。</p>
-<h3>练习2：sklearn 验证（已完成）</h3>
+<h3 id="练习2-sklearn-验证已完成">练习2：sklearn 验证（已完成）</h3>
 <p><code>LogisticRegression().fit(X_train_np, y_train_np).score(...)</code> → 与手写 79.3% 对比；<code>model.coef_</code> 与手写 <code>w</code> 对比（5000 轮后已很接近，凸优化收敛到同一最优）。</p>
-<h3>练习3：学习率敏感性</h3>
+<h3 id="练习3-学习率敏感性">练习3：学习率敏感性</h3>
 <p><code>lr ∈ {0.01, 1, 10}</code> 各跑 1000 轮看 loss：</p>
 <ul>
 <li><code>0.01</code> 收敛极慢；<code>1</code> 仍收敛（归一化后容错大）；<code>10</code> 很可能震荡甚至 nan。</li>
 <li>进阶：注释掉归一化再跑一遍，对比&quot;归一化前后对学习率的敏感度&quot;。</li>
 </ul>
-<h3>练习4：让线性模型捕捉交互效应（思路题）</h3>
+<h3 id="练习4-让线性模型捕捉交互效应思路题">练习4：让线性模型捕捉交互效应（思路题）</h3>
 <p><strong>手动构造交叉特征列</strong>：</p>
 <pre><code class="language-python">X_train['Sex_male_x_Pclass'] = X_train['Sex_male'] * X_train['Pclass']
 </code></pre>
@@ -692,12 +694,13 @@ b: +2.12  (基准: female+child+alone, 倾向预测存活, 符合直觉)
 <li><strong>伏笔</strong>：决策树/随机森林通过&quot;先按 Sex 分支、再按 Pclass 分支&quot;<strong>自动捕捉任意交互</strong>，无需手动构造交叉列 —— 这是树模型相对线性模型的核心优势（后面学到时回看）。</li>
 </ul>
 <hr>
-<h2>十一、全知识点思维导图</h2>
+<h2 id="十一-全知识点思维导图">十一、全知识点思维导图</h2>
 <p>&lt;!-- 这是一张图片，ocr 内容为：CATEGORICAL锁死类别防对齐 坑 不能简单编号 只标准化PCLASS DROP_FIRST去冗余 独热编码 处理非线性 归一化 基线77VS 模型79 常识边界不泄露 准确率速算 分桶BINNING 无交互项有天花板 特征工程 评估与认知 合并稀疏极喘值 步伐一致性 先切分后填充 读权重要练到收敛 SIGMOID压到0到1 测试集套用同一统计量 权重收敛不等于预测稳定 梯度链式法则奇迹抵消 交叉熵指数级惩罚 防数据泄露 统计量只从训练集算 逻辑回归正式 DAY9 TITANIC实战 LOGO负无穷 CLIP截断 按标签分组 数据准备 模型 ILOC按位置重排 规则阈值法基线 地板线61.5 分层抽样 可视化 GROUPBY查表 多亚共线性FARE VS PCLASS 混杂效应EMBARKED 组内独立打乱PERMUTATION 箱线图比中位数与离散 特征分析 柱状图标注样本量N CONCAT合并IGNORE INDEX 直方图比形状 GROUPBY分组存活率看跨度 子图加DENSITY 均值掩盖非线性AGE两端 --&gt;
 <img src="/learning/pytorch/assets/remote/6fe6dc5bac27e8cac9f9.png" alt="" loading="lazy"></p>
 <hr>
 <p><strong>Day 9 小结</strong>：今天最大的收获不是某个新 API，而是把&quot;先想为什么、再看数据、用代码验证&quot;这条链路在一个真实项目里完整走了一遍 —— 从分层抽样防泄露，到识别混杂/共线，到可视化验证非线性，到手推梯度，再到亲手挖出&quot;权重收敛 ≠ 预测稳定&quot;的洞察。这些&quot;对比出来的判断&quot;和&quot;踩出来的坑&quot;，比准确率数字本身更值得带进面试。</p>
-</div></article>
+</div></article></div><nav class="article-neighbors" aria-label="相邻文章"><a class="article-neighbor previous" href="/learning/pytorch/notes/foundation/day-8-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-pandas%E8%BF%9B%E9%98%B6%E4%B8%8Enumpy%E4%BA%92%E8%BD%AC.html">← <span>上一篇</span>Day 8 学习笔记： pandas进阶与numpy互转</a><a class="article-neighbor next" href="/learning/pytorch/notes/foundation/day-10-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%9F%A5%E6%BC%8F%E8%A1%A5%E7%BC%BA-pytorch-%E9%A2%84%E4%B9%A0.html"><span>下一篇</span>Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习 →</a></nav>
   </main>
+  <script src="/assets/pytorch-reading.js" defer></script>
 </body>
 </html>

@@ -6,34 +6,36 @@
   <meta name="theme-color" content="#07101c">
   <title>Day 7 学习笔记：DataFrame学习 · SNOWSTORM</title>
   <link rel="stylesheet" href="/assets/library.css">
+  <link rel="stylesheet" href="/assets/pytorch-reading.css">
 </head>
-<body class="library-page">
+<body class="library-page pytorch-reading-page">
+<div class="reading-progress" data-reading-progress aria-hidden="true"></div>
   <main class="library-shell">
     <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
     <p class="library-eyebrow">基础阶段</p>
-    <nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../foundation/">基础阶段</a></nav><article class="note-article"><h1>Day 7 学习笔记：DataFrame学习</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
+    <a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../foundation/">基础阶段</a></nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details" open><summary>本页目录</summary><ol><li class="toc-level-2"><a href="#〇-贯穿全天的两条心智主线先立住">〇、贯穿全天的两条心智主线（先立住）</a></li><li class="toc-level-3"><a href="#1-视图-vs-拷贝-链式赋值-升级版-copy-on-write">1. 视图 vs 拷贝 / 链式赋值 → 升级版：Copy-on-Write</a></li><li class="toc-level-3"><a href="#2-标签-vs-位置loc-iloc-的总根源">2. 标签 vs 位置（loc/iloc 的总根源）</a></li><li class="toc-level-2"><a href="#一-读取与初探-read-csv-head-info-describe-dtype-自动推断">一、读取与初探：read_csv、head/info/describe、dtype 自动推断</a></li><li class="toc-level-3"><a href="#1-最基本用法">1. 最基本用法</a></li><li class="toc-level-3"><a href="#2-三个初探函数-分工不同">2. 三个初探函数，分工不同</a></li><li class="toc-level-3"><a href="#3-object-不等于-字符串类型">3. ⚠️ object 不等于「字符串类型」</a></li><li class="toc-level-3"><a href="#4-整数列因缺失值被静默提升为-float64">4. ⚠️ 整数列因缺失值被静默提升为 float64</a></li><li class="toc-level-3"><a href="#陷阱题已答对">陷阱题（已答对）</a></li><li class="toc-level-2"><a href="#二-索引体系-loc-iloc-的边界与视图坑今天坑最密集">二、索引体系：loc / iloc / [] 的边界与视图坑（今天坑最密集）</a></li><li class="toc-level-3"><a href="#1-三种方式的本质">1. 三种方式的本质</a></li><li class="toc-level-3"><a href="#2-两个参数-逗号前管行-逗号后管列">2. 两个参数：逗号前管行，逗号后管列</a></li><li class="toc-level-3"><a href="#3-一步到位-vs-链式读取通常没事-赋值会坑">3. ⚠️ 一步到位 vs 链式（读取通常没事，赋值会坑）</a></li><li class="toc-level-3"><a href="#4-的行为依赖你传什么不对称的静默重载">4. ⚠️ [] 的行为依赖你传什么（不对称的静默重载）</a></li><li class="toc-level-3"><a href="#5-链式索引引发-settingwithcopywarning-chainedassignmenterror">5. ⚠️ 链式索引引发 SettingWithCopyWarning / ChainedAssignmentError</a></li><li class="toc-level-3"><a href="#陷阱题已答对-2">陷阱题（已答对）</a></li><li class="toc-level-2"><a href="#三-筛选-多条件组合-排序">三、筛选：多条件组合 + 排序</a></li><li class="toc-level-3"><a href="#1-多条件不能用-and-or-必须用">1. ⚠️ 多条件不能用 and/or，必须用 &amp;/|</a></li><li class="toc-level-3"><a href="#2-括号是必需的-不是可选的">2. ⚠️ 括号是必需的，不是可选的</a></li><li class="toc-level-3"><a href="#3-isin-简化多个-或-取反">3. isin() 简化多个「或」；~ 取反</a></li><li class="toc-level-3"><a href="#4-重要纠正-取反会把-nan-行选进来-讲解时我先讲错-被实测纠正">4. ⚠️⚠️ 重要纠正：~ 取反会把 NaN 行选进来！（讲解时我先讲错、被实测纠正）</a></li><li class="toc-level-3"><a href="#5-排序-sort-values">5. 排序 sort_values</a></li><li class="toc-level-3"><a href="#6-排序后行标签不重排和筛选同一个坑">6. ⚠️ 排序后行标签不重排（和筛选同一个坑）</a></li><li class="toc-level-3"><a href="#7-追问澄清-nan-在排序里永远垫底">7. ⚠️ 追问澄清：NaN 在排序里永远垫底</a></li><li class="toc-level-3"><a href="#陷阱题关键纠正-实际报错-不是-跑通出错误结果">陷阱题（关键纠正：实际报错，不是「跑通出错误结果」）</a></li><li class="toc-level-2"><a href="#四-缺失值处理-isna-notna-fillna-dropna">四、缺失值处理：isna / notna / fillna / dropna</a></li><li class="toc-level-3"><a href="#1-怎么-看见-缺失值">1. 怎么「看见」缺失值</a></li><li class="toc-level-3"><a href="#2-np-nan-永远-false-不能用-判断缺失">2. ⚠️ == np.nan 永远 False，不能用 == 判断缺失</a></li><li class="toc-level-3"><a href="#3-dropna-删含缺失的行-列">3. dropna()：删含缺失的行/列</a></li><li class="toc-level-3"><a href="#4-最大的坑-裸-dropna-在-titanic-上几乎删光">4. ⚠️ 最大的坑：裸 dropna() 在 Titanic 上几乎删光</a></li><li class="toc-level-3"><a href="#5-fillna-填什么是建模决策-不是纯技术">5. fillna()：填什么是建模决策，不是纯技术</a></li><li class="toc-level-3"><a href="#6-实际踩坑-fillnainplace-true-chainedassignmenterrorcopy-on-write">6. ⚠️⚠️ 实际踩坑：fillna(inplace=True) → ChainedAssignmentError（Copy-on-Write）</a></li><li class="toc-level-3"><a href="#陷阱题已答对-核心已-get">陷阱题（已答对，核心已 get）</a></li><li class="toc-level-2"><a href="#五-groupby-拆分-应用-合并三段式">五、groupby：拆分-应用-合并三段式</a></li><li class="toc-level-3"><a href="#1-核心心智模型-split-apply-combine">1. 核心心智模型 split → apply → combine</a></li><li class="toc-level-3"><a href="#2-groupby-本身不返回看得懂的结果">2. ⚠️ groupby() 本身不返回看得懂的结果</a></li><li class="toc-level-3"><a href="#3-选哪列做-应用-决定结果形状">3. 选哪列做「应用」决定结果形状</a></li><li class="toc-level-3"><a href="#4-分组列变成-索引-不是普通列">4. ⚠️ 分组列变成「索引」，不是普通列</a></li><li class="toc-level-3"><a href="#5-实际踩坑-reset-index-没赋值回去-仍-keyerror">5. ⚠️ 实际踩坑：reset_index() 没赋值回去 → 仍 KeyError</a></li><li class="toc-level-3"><a href="#6-agg-一次多个统计量-每列不同统计量">6. agg()：一次多个统计量 / 每列不同统计量</a></li><li class="toc-level-3"><a href="#7-size-vs-count">7. ⚠️ size() vs count()</a></li><li class="toc-level-3"><a href="#陷阱题已答对-3">陷阱题（已答对）</a></li><li class="toc-level-2"><a href="#六-数据类型转换-astype-分类变量-categorical">六、数据类型转换：astype、分类变量 Categorical</a></li><li class="toc-level-3"><a href="#1-astype-基本转换">1. astype() 基本转换</a></li><li class="toc-level-3"><a href="#2-age-直接-astypeint-会报错报错保护">2. ⚠️ Age 直接 astype(int) 会报错（报错保护）</a></li><li class="toc-level-3"><a href="#3-字符串-看起来像数字-不代表能直接转">3. ⚠️ 字符串「看起来像数字」不代表能直接转</a></li><li class="toc-level-3"><a href="#4-重点-categorical分类变量">4. 重点：Categorical（分类变量）</a></li><li class="toc-level-3"><a href="#5-category-是-封闭-的-加新值报错-变-nan">5. ⚠️ category 是「封闭」的：加新值报错/变 NaN</a></li><li class="toc-level-3"><a href="#6-与-numpy-pytorch-的衔接">6. 与 NumPy/PyTorch 的衔接</a></li><li class="toc-level-3"><a href="#陷阱题用户答-更快-是真优势但非核心考点">陷阱题（用户答「更快」，是真优势但非核心考点）</a></li><li class="toc-level-2"><a href="#七-综合实战-titanic-完整流程读取-清洗-分组统计">七、综合实战：Titanic 完整流程（读取→清洗→分组统计）</a></li><li class="toc-level-2"><a href="#八-追问后才真正弄清的三个点很有价值-单独存档">八、追问后才真正弄清的三个点（很有价值，单独存档）</a></li><li class="toc-level-3"><a href="#1-loc-iloc-为什么有两个参数">1. loc/iloc 为什么有两个参数</a></li><li class="toc-level-3"><a href="#2-dataframe-到底是什么数据结构-为什么要用它">2. DataFrame 到底是什么数据结构、为什么要用它</a></li><li class="toc-level-3"><a href="#3-transform-详解-聚合-vs-转换">3. transform 详解：聚合 vs 转换</a></li><li class="toc-level-2"><a href="#九-今天踩过-纠正过的坑速查表">九、今天踩过 / 纠正过的坑（速查表）</a></li><li class="toc-level-2"><a href="#十-可以自己再做的小实验">十、可以自己再做的小实验</a></li><li class="toc-level-2"><a href="#衔接-day-8">衔接 Day 8</a></li></ol></details></aside><article class="note-article"><h1>Day 7 学习笔记：DataFrame学习</h1><div class="note-content"><p>学习目标：AI 方向求职</p>
 <p>参考书：《动手学深度学习》PyTorch 版</p>
 <p>本阶段重点：框架本身的行为和坑（视图/拷贝、共享状态、API 差异、静默错误），数据处理的纯数学/统计概念不再赘述。环境：MacBook Air M5 ｜ Miniconda 虚拟环境 <code>pytorch_env</code></p>
 <p>今天主线：Pandas DataFrame 核心操作，用 Titanic 数据集练习。七块内容——读取与初探、索引体系（loc/iloc/[]）、筛选与排序、缺失值处理、groupby、数据类型转换、综合实战。今天的核心心智模型与 Day 5、Day 6 一脉相承：<strong>全局可变共享状态 / 视图 vs 拷贝是坑，要用显式、一步到位的写法</strong>——Day 5 是 <code>np.random</code> vs <code>default_rng</code>，Day 6 是 <code>plt.*</code> vs <code>fig, ax</code>，今天是 <strong>链式赋值 vs <strong><code>**loc**</code></strong> 一步定位</strong>，以及新版本 Pandas 引入的 <strong>Copy-on-Write（CoW）机制</strong>。除此之外，今天还多了一条独立的主线：<strong>标签（label）vs 位置（position）</strong>——这是 <code>loc</code> 和 <code>iloc</code> 一切区别的根源。下面把主线知识、追问后才弄清的点、以及踩过的坑都记下来。</p>
 <p>关联笔记：复用 <a href="/learning/pytorch/notes/foundation/day-5-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E7%BB%9F%E8%AE%A1%E5%87%BD%E6%95%B0-random-%E6%A8%A1%E5%9D%97-%E6%89%8B%E5%86%99%E7%BA%BF%E6%80%A7%E5%9B%9E%E5%BD%92.html">随机状态与训练数据</a>、<a href="/learning/pytorch/notes/foundation/day-6-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-matplotlib%E5%AD%A6%E4%B9%A0.html">可视化</a>的思路；后续进入 <a href="/learning/pytorch/notes/foundation/day-8-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-pandas%E8%BF%9B%E9%98%B6%E4%B8%8Enumpy%E4%BA%92%E8%BD%AC.html">Pandas 进阶与 NumPy 互转</a>和 <a href="/learning/pytorch/notes/foundation/day-9-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-titanic-%E7%BB%BC%E5%90%88%E5%AE%9E%E6%88%98-%E5%AE%8C%E6%95%B4%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90%E9%A1%B9%E7%9B%AE.html">Titanic 综合实战</a>。</p>
 <hr>
-<h2>〇、贯穿全天的两条心智主线（先立住）</h2>
-<h3>1. 视图 vs 拷贝 / 链式赋值 → 升级版：Copy-on-Write</h3>
+<h2 id="〇-贯穿全天的两条心智主线先立住">〇、贯穿全天的两条心智主线（先立住）</h2>
+<h3 id="1-视图-vs-拷贝-链式赋值-升级版-copy-on-write">1. 视图 vs 拷贝 / 链式赋值 → 升级版：Copy-on-Write</h3>
 <p>跟 Day 6「任何超过随手画的图都用 OO 接口」是同一种思路：<strong>任何要修改 DataFrame 的场合，一律用一步到位的写法，不写链式的两段 <strong><code>**[]**</code></strong>，不用 <strong><code>**inplace=True**</code></strong>。</strong> 今天实测的新版本 Pandas 已经启用 CoW，链式 <code>inplace</code> 会直接报 <code>ChainedAssignmentError</code>（不是 warning，是 error），所以这条不再是「建议」而是「硬要求」。</p>
 <p><strong>唯一要记的赋值规则</strong>（不管版本、CoW 开不开都安全）：</p>
 <pre><code class="language-python">df['列名'] = df['列名'].方法(...)          # ✅ 算出新值，再整列赋值回去
 df.loc[条件, '列名'] = 值                   # ✅ 用 loc 一步定位 + 赋值
 </code></pre>
 <p><code>inplace=True</code> 这个参数以后当作不存在——它存在的唯一理由是少打几个字，带来的版本兼容问题和隐藏 bug 不值得。</p>
-<h3>2. 标签 vs 位置（loc/iloc 的总根源）</h3>
+<h3 id="2-标签-vs-位置loc-iloc-的总根源">2. 标签 vs 位置（loc/iloc 的总根源）</h3>
 <ul>
 <li><code>**loc**</code>** 按「门牌号」找人**：门牌号是行标签（index），是数据自带的「身份证号」，<strong>不会因为筛选/排序而重新编号</strong>。</li>
 <li><code>**iloc**</code>** 按「排第几个」找人**：完全不管标签写什么，只数「从上往下数这是第几行」，永远从 0 数起，<strong>每次筛选/排序后都重新数</strong>。</li>
 </ul>
 <p>一开始感觉不到区别，是因为 Titanic 刚读进来时默认行标签恰好是 <code>0,1,2,3...</code>，跟「排第几」数值上长得一样，于是 <code>df.loc[3]</code> 和 <code>df.iloc[3]</code> 巧合地取到同一行。<strong>一旦做了筛选/排序，门牌号和排队顺序立刻分家</strong>——这是今天最容易反复中招的坑。</p>
 <hr>
-<h2>一、读取与初探：<code>read_csv</code>、<code>head/info/describe</code>、dtype 自动推断</h2>
-<h3>1. 最基本用法</h3>
+<h2 id="一-读取与初探-read-csv-head-info-describe-dtype-自动推断">一、读取与初探：<code>read_csv</code>、<code>head/info/describe</code>、dtype 自动推断</h2>
+<h3 id="1-最基本用法">1. 最基本用法</h3>
 <pre><code class="language-python">import pandas as pd
 df = pd.read_csv('titanic.csv')
 # 没有本地文件时的两个替代方案：
@@ -41,26 +43,26 @@ df = pd.read_csv('titanic.csv')
 # import seaborn as sns; df = sns.load_dataset('titanic')  # seaborn内置（列名全小写、字段略少）
 </code></pre>
 <p>这一行背后做了很多「猜测性」的工作：<strong>Pandas 自动推断每列的 dtype，而推断不总对、不总合你意</strong>。这跟 Day 6「状态机隐藏指针」性质不同——不是「隐藏状态」，而是「自动化背后悄悄做决定」，今天会反复遇到这种模式。</p>
-<h3>2. 三个初探函数，分工不同</h3>
+<h3 id="2-三个初探函数-分工不同">2. 三个初探函数，分工不同</h3>
 <pre><code class="language-python">df.head()      # 看前5行，确认读对了、列名对不对
 df.info()      # 看每列 dtype、非空值数量 —— 今天最重要的命令
 df.describe()  # 数值列的统计摘要（均值/标准差/四分位数）
 </code></pre>
 <p><code>info()</code> 一次性回答两个关键问题：<strong>①这列是什么类型（int64/float64/object）；②这列有没有缺失值（Non-Null Count 小于总行数即有缺失）</strong>。Titanic 里 <code>Age</code> 891 行只有 714 个非空，这是缺失值处理要面对的第一个目标列。</p>
-<h3>3. ⚠️ <code>object</code> 不等于「字符串类型」</h3>
+<h3 id="3-object-不等于-字符串类型">3. ⚠️ <code>object</code> 不等于「字符串类型」</h3>
 <p>看到 dtype 是 <code>object</code> 就理解成「字符串列」是不准确的。<code>object</code> 的真实含义是：<strong>这列存的是 Python 对象的指针，元素可以是字符串、也可以是混合类型（有的格子字符串、有的数字、有的 NaN）</strong>。后果：一列因混杂而被读成 <code>object</code>，对它做 <code>.str</code> 方法或数值运算可能在某些行报错或给意外结果，而 Pandas 在读取阶段<strong>不会提醒这列是「脏的」</strong>，只会安静标成 <code>object</code>。</p>
-<h3>4. ⚠️ 整数列因缺失值被静默提升为 float64</h3>
+<h3 id="4-整数列因缺失值被静默提升为-float64">4. ⚠️ 整数列因缺失值被静默提升为 float64</h3>
 <p><code>Age</code> 本应是整数，<code>info()</code> 里却显示 <code>float64</code>。原因：<strong>NumPy 的整数类型不支持 NaN，只有浮点类型才有 NaN 这个值</strong>，所以一列里只要有一个 NaN，整列自动被提升为 <code>float64</code>。这是静默转换，不报错不警告。后果：后面若用 <code>Age == 22</code> 精确匹配，一旦这列经历过浮点运算（如填充），可能因浮点精度（<code>22.0000001</code>）匹配失效。</p>
-<h3>陷阱题（已答对）</h3>
+<h3 id="陷阱题已答对">陷阱题（已答对）</h3>
 <p>为什么 <code>Age</code> 是 float64、<code>PassengerId</code> 是 int64，两列在 CSV 里看起来都是整数样的数字？ <strong>答</strong>：<code>PassengerId</code> 每行都有值、无缺失，能放心读成 int64；<code>Age</code> 有 177 行缺失，只要出现一个 NaN，整列只能存成 float64。<strong>有没有缺失值才是决定 dtype 的关键，不是数字本身长什么样。</strong></p>
 <hr>
-<h2>二、索引体系：<code>loc</code> / <code>iloc</code> / <code>[]</code> 的边界与视图坑（今天坑最密集）</h2>
-<h3>1. 三种方式的本质</h3>
+<h2 id="二-索引体系-loc-iloc-的边界与视图坑今天坑最密集">二、索引体系：<code>loc</code> / <code>iloc</code> / <code>[]</code> 的边界与视图坑（今天坑最密集）</h2>
+<h3 id="1-三种方式的本质">1. 三种方式的本质</h3>
 <pre><code class="language-python">df['Age']           # [] 取列：按列名
 df.loc[0, 'Age']     # loc：按标签（label）
 df.iloc[0, 5]        # iloc：按位置（position）
 </code></pre>
-<h3>2. 两个参数：逗号前管行，逗号后管列</h3>
+<h3 id="2-两个参数-逗号前管行-逗号后管列">2. 两个参数：逗号前管行，逗号后管列</h3>
 <p><strong>追问澄清</strong>：为什么 <code>loc</code>/<code>iloc</code> 中间有两个参数？</p>
 <pre><code class="language-python">df.loc[行的标签, 列的标签]
 df.iloc[行的位置, 列的位置]
@@ -70,44 +72,44 @@ df.iloc[行的位置, 列的位置]
 df.loc[0, 'Age'] # 标签为0的行里、只要 Age 这一列的值
 </code></pre>
 <p>实务中 <code>**loc**</code><strong>+「行标签+列名」最常用</strong>（列名比列号好记）；<code>iloc[行位置,列位置]</code> 用得少，主要在纯位置场景，如 <code>df.iloc[:5, :3]</code>（前5行前3列，不管列名）。</p>
-<h3>3. ⚠️ 一步到位 vs 链式（读取通常没事，赋值会坑）</h3>
+<h3 id="3-一步到位-vs-链式读取通常没事-赋值会坑">3. ⚠️ 一步到位 vs 链式（读取通常没事，赋值会坑）</h3>
 <pre><code class="language-python">df.iloc[0, 5]          # 一步：第0行第5列
 df.iloc[0]['Name']     # 两步链式：先拿整行(Series)再取列
 df.iloc[0]['Age'] = 100             # ⚠️ 可能不生效 / 报警告
 df.loc[0, 'Age'] = 100              # ✅ 一步到位，安全
 </code></pre>
-<h3>4. ⚠️ <code>[]</code> 的行为依赖你传什么（不对称的静默重载）</h3>
+<h3 id="4-的行为依赖你传什么不对称的静默重载">4. ⚠️ <code>[]</code> 的行为依赖你传什么（不对称的静默重载）</h3>
 <pre><code class="language-python">df['Age']            # 单个列名 → 取列，返回 Series
 df[['Age', 'Fare']]   # 列表 → 取多列，返回 DataFrame
 df[0:5]               # 切片 → 取「行」，不是列！
 df[df['Age'] &gt; 30]    # 布尔 Series → 行筛选
 </code></pre>
 <p>坑点：<strong>单个列名取列，但切片 <strong><code>**[0:5]**</code></strong> 却取行</strong>。Pandas 为兼容 NumPy 切片习惯做了「看你传什么、行为不同」的特殊处理，传错类型不报错，只给你不想要的东西。</p>
-<h3>5. ⚠️ 链式索引引发 <code>SettingWithCopyWarning</code> / <code>ChainedAssignmentError</code></h3>
+<h3 id="5-链式索引引发-settingwithcopywarning-chainedassignmenterror">5. ⚠️ 链式索引引发 <code>SettingWithCopyWarning</code> / <code>ChainedAssignmentError</code></h3>
 <pre><code class="language-python">df[df['Age'] &gt; 30]['Age'] = 100   # ⚠️ 旧版本：警告且很可能不生效；CoW版本：可能直接报错
 </code></pre>
 <p>这一行是两步链式：先 <code>df[df['Age']&gt;30]</code> 生成<strong>中间对象</strong>（视图还是拷贝 Pandas 自己也不保证），再在中间对象上赋值——而这个中间对象下一秒就被回收，原 <code>df</code> 可能根本没改到。正确写法见〇.1 的 <code>loc</code> 一步到位。</p>
-<h3>陷阱题（已答对）</h3>
+<h3 id="陷阱题已答对-2">陷阱题（已答对）</h3>
 <pre><code class="language-python">df_young = df[df['Age'] &lt; 18]
 print(df_young.iloc[0]['Name'])   # 不报错
 print(df_young.loc[0]['Name'])    # 报 KeyError
 </code></pre>
 <p>原始第0行是22岁成年人（不满足 &lt;18），筛掉了。<code>loc[0]</code> 问「门牌号0的人」——已不存在 → KeyError。<code>iloc[0]</code> 问「筛完排第一的人」——只要表里还有数据就存在，拿到的是某个未成年乘客（原标签可能是7/12/33），跟数字「0」无关。<strong>两行长得几乎一样，一个报错一个不报错，根源就是 loc/iloc 在筛选后读取完全不同的东西。</strong></p>
 <hr>
-<h2>三、筛选：多条件组合 + 排序</h2>
-<h3>1. ⚠️ 多条件不能用 <code>and</code>/<code>or</code>，必须用 <code>&amp;</code>/<code>|</code></h3>
+<h2 id="三-筛选-多条件组合-排序">三、筛选：多条件组合 + 排序</h2>
+<h3 id="1-多条件不能用-and-or-必须用">1. ⚠️ 多条件不能用 <code>and</code>/<code>or</code>，必须用 <code>&amp;</code>/<code>|</code></h3>
 <pre><code class="language-python">df[df['Age'] &gt; 30 and df['Sex'] == 'female']        # ❌ ValueError: truth value of a Series is ambiguous
 df[(df['Age'] &gt; 30) &amp; (df['Sex'] == 'female')]       # ✅ 且
 df[(df['Pclass'] == 1) | (df['Pclass'] == 2)]        # ✅ 或
 </code></pre>
 <p>原因：<code>and</code>/<code>or</code> 设计给单个布尔值，而 <code>df['Age']&gt;30</code> 是<strong>一整列布尔值（Series）</strong>。Python 想把每个 Series 转成单个 True/False 来判断，但一列891个值不知道整体算真还是假，直接报「真值有歧义」。<code>&amp;</code>/<code>|</code> 是按位运算符，<strong>逐元素</strong>对两个布尔 Series 做与/或，刚好契合「每行单独判断」。</p>
-<h3>2. ⚠️ 括号是必需的，不是可选的</h3>
+<h3 id="2-括号是必需的-不是可选的">2. ⚠️ 括号是必需的，不是可选的</h3>
 <p><code>&amp;</code> 优先级<strong>高于</strong><code>&gt;</code> 和 <code>==</code>。省略括号会先算 <code>30 &amp; df['Sex']</code>（数字与字符串列按位与，通常类型错）。<strong>铁律：用 <strong><code>**&amp;**</code></strong>/</strong><code>**|**</code>** 组合条件时，每个比较表达式必须用括号单独包起来，无例外。**</p>
-<h3>3. <code>isin()</code> 简化多个「或」；<code>~</code> 取反</h3>
+<h3 id="3-isin-简化多个-或-取反">3. <code>isin()</code> 简化多个「或」；<code>~</code> 取反</h3>
 <pre><code class="language-python">df[df['Pclass'].isin([1, 2, 3])]   # 等价多个 |，更清晰不易在括号上出错
 df[~(df['Age'] &gt; 30)]               # 取反
 </code></pre>
-<h3>4. ⚠️⚠️ 重要纠正：<code>~</code> 取反会把 NaN 行选进来！（讲解时我先讲错、被实测纠正）</h3>
+<h3 id="4-重要纠正-取反会把-nan-行选进来-讲解时我先讲错-被实测纠正">4. ⚠️⚠️ 重要纠正：<code>~</code> 取反会把 NaN 行选进来！（讲解时我先讲错、被实测纠正）</h3>
 <p>我最初口误说「NaN 比较 False，取反后还是不进来」——<strong>这是错的，搞反了</strong>。正确逻辑：</p>
 <pre><code class="language-python">df['Age'] &gt; 30          # NaN 那一行结果是 False（NaN 和任何数比较都返回 False）
 ~(df['Age'] &gt; 30)        # ~False = True → NaN 那一行【会被选中】！
@@ -116,18 +118,18 @@ df[~(df['Age'] &gt; 30)]               # 取反
 <pre><code class="language-python">df[~(df['Age'] &gt; 30) &amp; df['Age'].notna()]   # 显式要求 Age 不缺失
 </code></pre>
 <p>（这是今天我被实测数据当场纠正的一处，记牢：取反时 NaN 行反而进来。）</p>
-<h3>5. 排序 <code>sort_values</code></h3>
+<h3 id="5-排序-sort-values">5. 排序 <code>sort_values</code></h3>
 <pre><code class="language-python">df.sort_values('Age')                    # 升序
 df.sort_values('Age', ascending=False)   # 降序
 df.sort_values(['Pclass', 'Age'])        # 多列：先Pclass，相同的再按Age
 </code></pre>
-<h3>6. ⚠️ 排序后行标签不重排（和筛选同一个坑）</h3>
+<h3 id="6-排序后行标签不重排和筛选同一个坑">6. ⚠️ 排序后行标签不重排（和筛选同一个坑）</h3>
 <pre><code class="language-python">df_sorted = df.sort_values('Age')
 df_sorted.loc[0]    # 拿到的不是「年龄最小的人」，是「标签为0的人」（可能在表任意位置）
 df_sorted.iloc[0]   # ✅ 这才是排序后排第一 = 年龄最小的乘客
 </code></pre>
 <p>还是那句：经过筛选/排序，想要「第几个」用 <code>iloc</code>，要重新编号用 <code>reset_index(drop=True)</code>。</p>
-<h3>7. ⚠️ 追问澄清：NaN 在排序里永远垫底</h3>
+<h3 id="7-追问澄清-nan-在排序里永远垫底">7. ⚠️ 追问澄清：NaN 在排序里永远垫底</h3>
 <pre><code class="language-python">df.sort_values('Age')                    # 升序：NaN 排最后
 df.sort_values('Age', ascending=False)   # 降序：NaN 还是排最后
 </code></pre>
@@ -135,7 +137,7 @@ df.sort_values('Age', ascending=False)   # 降序：NaN 还是排最后
 <pre><code class="language-python">df.sort_values('Age', na_position='first')   # 放最前（默认 'last'）
 </code></pre>
 <p><code>na_position</code> 只有 <code>'first'</code>/<code>'last'</code>，没法让 NaN「参与正常排序」——逻辑上走不通。</p>
-<h3>陷阱题（关键纠正：实际报错，不是「跑通出错误结果」）</h3>
+<h3 id="陷阱题关键纠正-实际报错-不是-跑通出错误结果">陷阱题（关键纠正：实际报错，不是「跑通出错误结果」）</h3>
 <pre><code class="language-python">result = df[df['Age'] &gt; 60 &amp; df['Survived'] == 1]
 </code></pre>
 <p>我最初推理「会先算 <code>60 &amp; df['Survived']</code> 得到位运算结果，能跑通但结果错」——<strong>这个推理漏了一环，被实测纠正</strong>。真相是这是个<strong>三元链式比较</strong><code>A &gt; B == C</code>，Python 展开为 <code>(A &gt; B) and (B == C)</code>（中间的 B 被复用）：</p>
@@ -145,33 +147,33 @@ df.sort_values('Age', ascending=False)   # 降序：NaN 还是排最后
 </ol>
 <p><strong>根本原因和最开始 <strong><code>**... and ...**</code></strong> 报错完全一样，只是这次的 <strong><code>**and**</code></strong> 不是显式写的，而是 Python 把 <strong><code>**&gt; ... == ...**</code></strong> 链式比较语法自动展开出来的，藏得更深。</strong> 实测确认：报 ValueError，不是「悄悄给错误结果」。</p>
 <hr>
-<h2>四、缺失值处理：<code>isna</code> / <code>notna</code> / <code>fillna</code> / <code>dropna</code></h2>
-<h3>1. 怎么「看见」缺失值</h3>
+<h2 id="四-缺失值处理-isna-notna-fillna-dropna">四、缺失值处理：<code>isna</code> / <code>notna</code> / <code>fillna</code> / <code>dropna</code></h2>
+<h3 id="1-怎么-看见-缺失值">1. 怎么「看见」缺失值</h3>
 <pre><code class="language-python">df.isna()          # 每个格子 → True/False
 df['Age'].isna()   # 单列布尔 Series
 df.isna().sum()    # ⚠️ 最常用：每列分别统计缺失个数
 </code></pre>
 <p><code>df.isna().sum()</code> 为什么成立：<code>isna()</code> 把格子变 True(1)/False(0)，<code>.sum()</code> 按列把 0/1 加起来，自然就是每列缺失个数。这是**「布尔值当数字用」**的通用技巧，groupby 部分还会再用。<code>notna()</code> 是反面，逻辑对称。</p>
-<h3>2. ⚠️ <code>== np.nan</code> 永远 False，不能用 <code>==</code> 判断缺失</h3>
+<h3 id="2-np-nan-永远-false-不能用-判断缺失">2. ⚠️ <code>== np.nan</code> 永远 False，不能用 <code>==</code> 判断缺失</h3>
 <pre><code class="language-python">df[df['Age'] == np.nan]   # ❌ 永远空结果，但不报错（静默错误）
 df[df['Age'].isna()]      # ✅ 选出 Age 缺失的行
 df[df['Age'].notna()]     # ✅ 选出 Age 不缺失的行
 </code></pre>
 <p>因为没有任何值「等于」NaN，连 NaN 自己都不等于自己。新手很容易误以为「数据里没缺失」，其实只是判断方式错了。</p>
-<h3>3. <code>dropna()</code>：删含缺失的行/列</h3>
+<h3 id="3-dropna-删含缺失的行-列">3. <code>dropna()</code>：删含缺失的行/列</h3>
 <pre><code class="language-python">df.dropna()                  # 任意一列缺失就删整行
 df.dropna(subset=['Age'])    # 只看 Age，Age缺失才删（其他列缺失不管）
 df.dropna(axis=1)            # 删列：任意一个缺失就删整列
 </code></pre>
-<h3>4. ⚠️ 最大的坑：裸 <code>dropna()</code> 在 Titanic 上几乎删光</h3>
+<h3 id="4-最大的坑-裸-dropna-在-titanic-上几乎删光">4. ⚠️ 最大的坑：裸 <code>dropna()</code> 在 Titanic 上几乎删光</h3>
 <p><code>Cabin</code> 缺失约 687/891（缺失率近 77%）。裸调用 <code>df.dropna()</code> 会因「几乎每行 Cabin 都缺失」删掉绝大部分数据，<strong>不报错不警告</strong>，行数从891骤降到几十行，后续「样本严重不足」却毫无察觉。<strong>实践原则：永远先 <strong><code>**df.isna().sum()**</code></strong> 看每列缺失率，再决定哪些删、哪些填、哪些缺失太严重整列丢弃。</strong></p>
-<h3>5. <code>fillna()</code>：填什么是建模决策，不是纯技术</h3>
+<h3 id="5-fillna-填什么是建模决策-不是纯技术">5. <code>fillna()</code>：填什么是建模决策，不是纯技术</h3>
 <pre><code class="language-python">df['Age'] = df['Age'].fillna(df['Age'].median())        # 中位数
 df['Age'] = df['Age'].fillna(df['Age'].mean())          # 均值
 df['Embarked'] = df['Embarked'].fillna(df['Embarked'].mode()[0])  # 众数（分类变量常用）
 </code></pre>
 <p>⚠️ <code>mode()</code> 返回 Series（理论上可能多个并列众数），要加 <code>[0]</code> 取第一个；直接 <code>fillna(mode())</code> 不报错但填不进想要的单一值。</p>
-<h3>6. ⚠️⚠️ 实际踩坑：<code>fillna(inplace=True)</code> → ChainedAssignmentError（Copy-on-Write）</h3>
+<h3 id="6-实际踩坑-fillnainplace-true-chainedassignmenterrorcopy-on-write">6. ⚠️⚠️ 实际踩坑：<code>fillna(inplace=True)</code> → ChainedAssignmentError（Copy-on-Write）</h3>
 <p>实测报错：</p>
 <pre><code class="language-plain">ChainedAssignmentError: A value is being set on a copy ... through chained assignment using an inplace method.
 Such inplace method never works to update the original DataFrame...
@@ -179,13 +181,13 @@ Such inplace method never works to update the original DataFrame...
 <p><code>df['Age'].fillna(..., inplace=True)</code> 拆成两步：①<code>df['Age']</code> 摘出这一列；②<code>.fillna(inplace=True)</code> 原地改。<strong>在 CoW 模式下，第①步摘出来的永远是独立拷贝，不再是指向原表的视图</strong>，所以第②步改的是临时拷贝，改完被丢弃，原 <code>df</code> 没动。新版 Pandas（2.0+ 引入 CoW，未来默认开启）检测到这种「改了注定被扔的东西」直接报 error，而非旧版的 warning。</p>
 <p><strong>CoW 核心规则</strong>：任何「摘取子集」（切片、按列取、布尔筛选）默认返回逻辑上独立的数据，不和原表共享内存——这其实是 Pandas 在主动修复历史上「视图/拷贝分不清」的问题。<strong>好处</strong>：链式赋值「看似改了实际没改也不报错」的模糊地带消失了，要么报错提醒、要么干脆安全只读。<strong>坏处</strong>：依赖「链式 inplace 能改原表」的旧代码、旧教程在新版上全失效。</p>
 <p><strong>结论 → 定死一条规则：只用 <strong><code>**df['列名'] = df['列名'].方法()**</code></strong> 形式，永远不用 <strong><code>**inplace=True**</code></strong>。</strong> 见〇.1。</p>
-<h3>陷阱题（已答对，核心已 get）</h3>
+<h3 id="陷阱题已答对-核心已-get">陷阱题（已答对，核心已 get）</h3>
 <p>全局均值填 <code>Age</code> 缺失，技术正确能跑通，但对训练模型的潜在问题？ <strong>答</strong>：丢失特征之间的相关性。具体：头等舱乘客平均年龄明显比三等舱大（头等舱多中老年富人，三等舱多年轻劳工移民）。用全局均值（约29.7）一刀切填，会把「三等舱+缺失年龄」的乘客强行填成更接近头等舱分布的29.7，<strong>抹平 Age 与 Pclass/Sex/SibSp 的关联，人为注入不符合该群体真实分布的值</strong>，模型在 Age 特征上的判断力变弱。更合理：<strong>按组填</strong>（见下方 transform）。</p>
 <pre><code class="language-python">df['Age'] = df.groupby('Pclass')['Age'].transform(lambda x: x.fillna(x.mean()))
 </code></pre>
 <hr>
-<h2>五、groupby：拆分-应用-合并三段式</h2>
-<h3>1. 核心心智模型 split → apply → combine</h3>
+<h2 id="五-groupby-拆分-应用-合并三段式">五、groupby：拆分-应用-合并三段式</h2>
+<h3 id="1-核心心智模型-split-apply-combine">1. 核心心智模型 split → apply → combine</h3>
 <ol>
 <li><strong>拆分（split）</strong>：按某列把表切成几堆（按 Pclass 切成1/2/3等舱三堆）</li>
 <li><strong>应用（apply）</strong>：对每堆分别算点什么（平均年龄、人数）</li>
@@ -193,41 +195,41 @@ Such inplace method never works to update the original DataFrame...
 </ol>
 <pre><code class="language-python">df.groupby('Pclass')['Age'].mean()   # 按Pclass拆 → 每堆取Age算mean → 自动合并成小表
 </code></pre>
-<h3>2. ⚠️ <code>groupby()</code> 本身不返回看得懂的结果</h3>
+<h3 id="2-groupby-本身不返回看得懂的结果">2. ⚠️ <code>groupby()</code> 本身不返回看得懂的结果</h3>
 <pre><code class="language-python">df.groupby('Pclass')   # 打印是 &lt;...DataFrameGroupBy object at 0x...&gt;，看不到数据
 </code></pre>
 <p>因为 <code>groupby()</code><strong>只完成「拆分」，没做「应用」</strong>——只是按组标记好、准备好，没决定每组算什么，所以无结果可展示。必须接具体统计方法（<code>.mean()</code>/<code>.sum()</code>/<code>.count()</code>）才触发完整三段式。</p>
-<h3>3. 选哪列做「应用」决定结果形状</h3>
+<h3 id="3-选哪列做-应用-决定结果形状">3. 选哪列做「应用」决定结果形状</h3>
 <pre><code class="language-python">df.groupby('Pclass')['Age'].mean()          # 单列 → 返回 Series（索引是Pclass）
 df.groupby('Pclass')[['Age','Fare']].mean() # 多列 → 返回 DataFrame
 df.groupby('Pclass').mean(numeric_only=True)# 所有数值列 → DataFrame
 </code></pre>
 <p>⚠️ 最后一行不加 <code>numeric_only=True</code>，新版 Pandas 会报错/警告（Name/Sex/Ticket 是字符串没法求均值，老版静默跳过，新版要求显式声明）——又一个「行为随版本变」的坑。</p>
-<h3>4. ⚠️ 分组列变成「索引」，不是普通列</h3>
+<h3 id="4-分组列变成-索引-不是普通列">4. ⚠️ 分组列变成「索引」，不是普通列</h3>
 <pre><code class="language-python">result = df.groupby('Pclass')['Age'].mean()
 # 输出里 Pclass 看着像列，其实是 index（索引）
 result['Pclass']     # ❌ KeyError，Pclass 是索引不是列名
 result.loc[1]        # ✅ 按索引标签取，拿 Pclass=1 的均值
 result.reset_index() # ✅ 把索引变回普通列
 </code></pre>
-<h3>5. ⚠️ 实际踩坑：<code>reset_index()</code> 没赋值回去 → 仍 KeyError</h3>
+<h3 id="5-实际踩坑-reset-index-没赋值回去-仍-keyerror">5. ⚠️ 实际踩坑：<code>reset_index()</code> 没赋值回去 → 仍 KeyError</h3>
 <pre><code class="language-python">result.reset_index()        # ⚠️ 只生成新DataFrame并返回，没改 result 本身！
 result['Pclass']            # 仍报 KeyError
 result = result.reset_index()   # ✅ 必须重新赋值
 # 或一步：result = df.groupby('Pclass')['Age'].mean().reset_index()
 </code></pre>
 <p>和 fillna/sort_values 同一规律：<strong>非 inplace 方法默认返回新对象，不改原变量</strong>。今天这条规律在 reset_index 上又中招了一次。</p>
-<h3>6. <code>agg()</code>：一次多个统计量 / 每列不同统计量</h3>
+<h3 id="6-agg-一次多个统计量-每列不同统计量">6. <code>agg()</code>：一次多个统计量 / 每列不同统计量</h3>
 <pre><code class="language-python">df.groupby('Pclass')['Age'].agg(['mean','min','max','count'])         # 同列多统计量
 df.groupby('Pclass').agg({'Age':'mean','Fare':'max','Survived':'sum'}) # 字典：每列各算各的
 </code></pre>
 <p>字典写法：key 是列名，value 是要对这列做的统计——一行算出「各舱位平均年龄/最高票价/存活人数」的综合报表。</p>
-<h3>7. ⚠️ <code>size()</code> vs <code>count()</code></h3>
+<h3 id="7-size-vs-count">7. ⚠️ <code>size()</code> vs <code>count()</code></h3>
 <pre><code class="language-python">df.groupby('Pclass').size()          # 每组多少行（不管缺失）
 df.groupby('Pclass')['Age'].count()  # 每组里 Age 非缺失的个数
 </code></pre>
 <p>Age 有缺失时两者不一样。算缺失率要用 <code>size() - count()</code> 再除 <code>size()</code>，别拿 <code>count()</code> 当总人数。</p>
-<h3>陷阱题（已答对）</h3>
+<h3 id="陷阱题已答对-3">陷阱题（已答对）</h3>
 <pre><code class="language-python">df.groupby('Sex')['Survived'].mean()
 </code></pre>
 <p><code>Survived</code> 是 0/1，求 <code>.mean()</code> 算出来是什么？为什么对「看起来是分类标签」的列求均值有意义？ <strong>答</strong>：算出来是<strong>存活率</strong>。<code>sum(Survived)</code> 本质是「数有多少个1」（0加了等于没加），<code>mean</code> = 1的个数 / 总数 = 1的比例。所以「0/1列求均值」= 「这类里百分之多少存活」，数学上完全等价，不是凑巧。<strong>这是〇章「布尔/0-1 当数字用」的同一逻辑的另一面：求和=数True个数，求均值=算True比例。</strong> 凡看到「对 0/1 或 True/False 列求 mean」，直接翻译成「在算占比」。</p>
@@ -236,28 +238,28 @@ df.groupby('Pclass')['Age'].count()  # 每组里 Age 非缺失的个数
 <li>多维度：<code>df.groupby(['Sex','Pclass'])['Survived'].mean()</code> 传列表 → 多重分组，结果是 MultiIndex（多层索引）；<code>.unstack()</code> 可把第二层索引展开成列，变成「行Sex×列Pclass」的交叉表。</li>
 </ul>
 <hr>
-<h2>六、数据类型转换：<code>astype</code>、分类变量 <code>Categorical</code></h2>
-<h3>1. <code>astype()</code> 基本转换</h3>
+<h2 id="六-数据类型转换-astype-分类变量-categorical">六、数据类型转换：<code>astype</code>、分类变量 <code>Categorical</code></h2>
+<h3 id="1-astype-基本转换">1. <code>astype()</code> 基本转换</h3>
 <pre><code class="language-python">df['Pclass'] = df['Pclass'].astype(str)   # 数字转字符串
 df['Age'] = df['Age'].astype(int)          # 浮点转整数
 </code></pre>
-<h3>2. ⚠️ <code>Age</code> 直接 <code>astype(int)</code> 会报错（报错保护）</h3>
+<h3 id="2-age-直接-astypeint-会报错报错保护">2. ⚠️ <code>Age</code> 直接 <code>astype(int)</code> 会报错（报错保护）</h3>
 <pre><code class="language-python">df['Age'].astype(int)   # ❌ Cannot convert non-finite values (NA or inf) to integer
 </code></pre>
 <p>回到一章——Age 因缺失被存成 float64。<strong>整数类型完全不支持 NaN</strong>，只要还有一个 NaN，强转 int 直接报错，而不是把 NaN 静默转成奇怪的值。这是「报错保护你」的好例子，跟「静默错误」相反，Pandas 主动拦住、不让你在不知情下丢失缺失信息。 <strong>正确顺序：先处理缺失，再转类型</strong>（这也解释了为什么「缺失值处理」排在「类型转换」前面讲——实际清洗流程本身就有先后依赖）：</p>
 <pre><code class="language-python">df['Age'] = df['Age'].fillna(df['Age'].median())
 df['Age'] = df['Age'].astype(int)
 </code></pre>
-<h3>3. ⚠️ 字符串「看起来像数字」不代表能直接转</h3>
+<h3 id="3-字符串-看起来像数字-不代表能直接转">3. ⚠️ 字符串「看起来像数字」不代表能直接转</h3>
 <pre><code class="language-python">df['Ticket'].astype(int)   # ❌ ValueError
 </code></pre>
 <p><code>Ticket</code> 混杂纯数字（<code>&quot;349909&quot;</code>）和带字母前缀（<code>&quot;A/5 21171&quot;</code>、<code>&quot;STON/O2. 3101282&quot;</code>）。转换前先抽样看实际内容（<code>df['Ticket'].head(20)</code>），别想当然。</p>
-<h3>4. 重点：<code>Categorical</code>（分类变量）</h3>
+<h3 id="4-重点-categorical分类变量">4. 重点：<code>Categorical</code>（分类变量）</h3>
 <pre><code class="language-python">df['Sex'] = df['Sex'].astype('category')
 df['Embarked'] = df['Embarked'].astype('category')
 </code></pre>
 <p>普通 <code>object</code> 把每行字符串当独立 Python 对象存，891行里大量重复的 <code>'male'</code> 内存里不共享。<code>category</code> 的做法：<strong>只存一份「取值字典」（male=0, female=1），每行实际存数字编号而非完整字符串</strong>。好处：①<strong>省内存</strong>（取值种类少、行数多时显著）；②<strong>加速分组/排序</strong>（底层比数字编号，不逐字符比字符串）。</p>
-<h3>5. ⚠️ <code>category</code> 是「封闭」的：加新值报错/变 NaN</h3>
+<h3 id="5-category-是-封闭-的-加新值报错-变-nan">5. ⚠️ <code>category</code> 是「封闭」的：加新值报错/变 NaN</h3>
 <pre><code class="language-python">df['Sex'] = df['Sex'].astype('category')
 df.loc[0, 'Sex'] = 'unknown'   # ⚠️ 'unknown' 不在原分类列表 → 旧版报错 / 某些场景静默变NaN
 # 正确：先显式声明新类别
@@ -265,9 +267,9 @@ df['Sex'] = df['Sex'].cat.add_categories(['unknown'])
 df.loc[0, 'Sex'] = 'unknown'
 </code></pre>
 <p><code>category</code> 的取值范围在转换那一刻就固定，事后加新类别要显式 <code>add_categories</code>。「以前能随便赋字符串，转 category 后突然赋值不生效/报错」的根源就在这。</p>
-<h3>6. 与 NumPy/PyTorch 的衔接</h3>
+<h3 id="6-与-numpy-pytorch-的衔接">6. 与 NumPy/PyTorch 的衔接</h3>
 <p><code>category</code> 做的「把字符串类别映射成整数编号」，在学 PyTorch 处理分类特征（<code>nn.Embedding</code>）时会再次出现——Embedding 输入也要求整数索引，不能直接喂字符串。现在用 Pandas 把这步做熟，后面顺理成章。</p>
-<h3>陷阱题（用户答「更快」，是真优势但非核心考点）</h3>
+<h3 id="陷阱题用户答-更快-是真优势但非核心考点">陷阱题（用户答「更快」，是真优势但非核心考点）</h3>
 <pre><code class="language-python">df['Pclass'] = df['Pclass'].astype('category')
 df.groupby('Pclass')['Survived'].mean()
 </code></pre>
@@ -281,7 +283,7 @@ df.groupby('Pclass')['Survived'].mean()
 </code></pre>
 <p>（注：<code>observed</code> 默认值在新版变化中，未来可能默认 True；结果对不上先 <code>pd.__version__</code> 确认——又一个版本坑。）</p>
 <hr>
-<h2>七、综合实战：Titanic 完整流程（读取→清洗→分组统计）</h2>
+<h2 id="七-综合实战-titanic-完整流程读取-清洗-分组统计">七、综合实战：Titanic 完整流程（读取→清洗→分组统计）</h2>
 <pre><code class="language-python">import pandas as pd
 import numpy as np
 
@@ -316,17 +318,17 @@ print(summary)   # Survived已是bool，sum仍能数True个数
 </code></pre>
 <p>设计要点：<strong>缺失值处理「分列分策略」</strong>（Age按组填 / Embarked众数填 / Cabin整列丢）正是「不是所有缺失都用同一策略，先看缺失率和重要性」的体现。<code>**Survived**</code>** 转 bool 后 <strong><code>**sum**</code></strong> 仍可用**——bool 求和=数True个数，又一次「布尔当数字」。</p>
 <hr>
-<h2>八、追问后才真正弄清的三个点（很有价值，单独存档）</h2>
-<h3>1. <code>loc</code>/<code>iloc</code> 为什么有两个参数</h3>
+<h2 id="八-追问后才真正弄清的三个点很有价值-单独存档">八、追问后才真正弄清的三个点（很有价值，单独存档）</h2>
+<h3 id="1-loc-iloc-为什么有两个参数">1. <code>loc</code>/<code>iloc</code> 为什么有两个参数</h3>
 <p>逗号前管行、逗号后管列；只给一个参数=只定位行、拿整行。详见二.2。</p>
-<h3>2. DataFrame 到底是什么数据结构、为什么要用它</h3>
+<h3 id="2-dataframe-到底是什么数据结构-为什么要用它">2. DataFrame 到底是什么数据结构、为什么要用它</h3>
 <ul>
 <li><strong>是什么</strong>：可理解为<strong>一组 Series（带标签的一维数组）打包在一起，共享同一套行标签</strong>。每一列（Series）骨子里就是一个 NumPy 数组 + 一层「每个元素对应一个行标签」的壳——所以 <code>df['Age']</code> 的 dtype 是 float64（底层就是 NumPy float64 数组）。不同列之间类型可完全不同（Age float64 / Name object），因为<strong>每列各自是独立一维数组</strong>，DataFrame 只是横向拼起来共用行标签，不要求所有列同一种 dtype。</li>
 <li><strong>行列地位不对等</strong>：<strong>列有名字（column 靠名字访问，第一公民），行有标签（index，可数字可任意，如日期）</strong>。这正是 <code>loc</code>/<code>iloc</code> 存在的根本原因——<strong>正因为给每行贴了「标签」（不一定是连续整数），才需要区分「按标签找」(loc) 和「按物理位置找」(iloc)</strong>；若只能用连续整数当标签，二者根本没必要分。这也解释了「筛选后 loc/iloc 分道扬镳」：标签是自带身份证号不重排，位置只描述现在排第几、每次操作后重数。</li>
 <li><strong>为什么用它</strong>（对比 NumPy 数组）：①<strong>按名字而非位置访问</strong>（<code>df['Age']</code> vs <code>arr[:,5]</code>，可读性好，数据加列/换序不错位）；②<strong>异构类型共存</strong>（数字/字符串/日期/分类混存，这是关系型数据天然形态，NumPy「全员同类型」无法表达）；③<strong>整套表格操作 API</strong>（groupby、布尔筛选、merge/join、缺失值处理——语义都针对「有名字的列、有意义的行」设计，NumPy 得手写循环模拟）。</li>
 <li><strong>与 PyTorch 的关系</strong>（提前打预防针）：<strong>Tensor 又回到「全员同类型、只能按位置访问」的世界</strong>（像 NumPy 数组）。典型工作流：<strong>用 Pandas 做清洗/筛选/探索（这些事 DataFrame 方便），训练前把清洗好的 DataFrame 转成纯数值的 NumPy 数组/Tensor</strong>（要求所有列先变统一数字类型——这也是「类型转换/分类编码」要专门学的原因，字符串列没法直接喂模型）。今天所学都在为「原始杂乱表格 → 模型能吃的纯数字矩阵」这条流水线的「清洗探索阶段」做准备，DataFrame 不是终点。</li>
 </ul>
-<h3>3. <code>transform</code> 详解：聚合 vs 转换</h3>
+<h3 id="3-transform-详解-聚合-vs-转换">3. <code>transform</code> 详解：聚合 vs 转换</h3>
 <p>我们用过 <code>df.groupby('Pclass')['Age'].transform(lambda x: x.fillna(x.mean()))</code>。</p>
 <ul>
 <li><code>**mean()**</code>** 等 = 聚合（aggregation），多对一**：每组多行压缩成一个数，合并后只剩组数那么多行（3个Pclass→3行）。</li>
@@ -337,7 +339,7 @@ print(summary)   # Survived已是bool，sum仍能数True个数
 <li><strong>小例子</strong>（6行2组）：<code>mean()</code> → 只2行（头等舱30、三等舱20）没法套回6行；<code>transform(fillna(x.mean()))</code> → 6行对齐，头等舱缺的填30、三等舱缺的填20。</li>
 </ul>
 <hr>
-<h2>九、今天踩过 / 纠正过的坑（速查表）</h2>
+<h2 id="九-今天踩过-纠正过的坑速查表">九、今天踩过 / 纠正过的坑（速查表）</h2>
 <table>
 <thead>
 <tr>
@@ -507,7 +509,7 @@ print(summary)   # Survived已是bool，sum仍能数True个数
 </tbody>
 </table>
 <hr>
-<h2>十、可以自己再做的小实验</h2>
+<h2 id="十-可以自己再做的小实验">十、可以自己再做的小实验</h2>
 <ol>
 <li>手敲一个迷你 DataFrame（指定 <code>index=[10,20,30,40]</code>），分别用 <code>loc[20]</code> 和 <code>iloc[1]</code> 取数，亲眼看「标签 vs 位置」；再筛掉一行后看 <code>loc[10]</code> 报错、<code>iloc[0]</code> 正常。</li>
 <li>验证「Series 骨子里是 NumPy 数组」：<code>type(df['Age'].values)</code>、<code>df['Age'].dtype</code>，对比 NumPy 数组的同名属性。</li>
@@ -518,9 +520,10 @@ print(summary)   # Survived已是bool，sum仍能数True个数
 <li>转 <code>category</code> 后筛掉某个 Pclass 的全部数据，对比 <code>groupby</code> 加不加 <code>observed=True</code> 的结果行数差异。</li>
 </ol>
 <hr>
-<h2>衔接 Day 8</h2>
+<h2 id="衔接-day-8">衔接 Day 8</h2>
 <p>明天进入 PyTorch 基础，会把 Day 5 手写的线性回归用 PyTorch 重写，<code>autograd</code> 会自动算出 Day 5 手推的那个梯度——手推过一遍就不会当黑盒。届时数据预处理会用到今天的 Pandas 功夫：<strong>清洗好的 DataFrame 要转成纯数值的 Tensor</strong>（Tensor 像 NumPy 数组一样「全员同类型、只按位置访问」），所有字符串/分类列必须先经 <code>category</code> 或数字编码——今天「类型转换」那一节正是为此铺垫。Day 6 的 loss 曲线 / 预测散点 / 残差直方图三件套，到时可直接复用来可视化 PyTorch 版训练过程。今天的核心收获浓缩成两句：<strong>①任何修改一律 <strong><code>**df['col']=df['col'].method()**</code></strong> 或 <strong><code>**df.loc[cond,col]=v**</code></strong>，永不用 inplace（CoW 时代的硬要求）；②loc 按标签、iloc 按位置，筛选/排序后二者必然分家。</strong></p>
-</div></article>
+</div></article></div><nav class="article-neighbors" aria-label="相邻文章"><a class="article-neighbor previous" href="/learning/pytorch/notes/foundation/day-6-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-matplotlib%E5%AD%A6%E4%B9%A0.html">← <span>上一篇</span>Day 6 学习笔记：matplotlib学习</a><a class="article-neighbor next" href="/learning/pytorch/notes/foundation/day-8-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-pandas%E8%BF%9B%E9%98%B6%E4%B8%8Enumpy%E4%BA%92%E8%BD%AC.html"><span>下一篇</span>Day 8 学习笔记： pandas进阶与numpy互转 →</a></nav>
   </main>
+  <script src="/assets/pytorch-reading.js" defer></script>
 </body>
 </html>
