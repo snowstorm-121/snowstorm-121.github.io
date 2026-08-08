@@ -578,6 +578,30 @@ function preprocessMarkdown(markdown, context, md) {
 async function renderNote(note, context) {
   const md = new MarkdownIt({ html: false, linkify: true, breaks: false });
   const { markdown, placeholders } = preprocessMarkdown(note.content, { ...context, note }, md);
+  const hasTaskMarker = (tokens, index, closingType) => {
+    for (let cursor = index + 1, depth = 0; cursor < tokens.length; cursor += 1) {
+      const token = tokens[cursor];
+      if (token.type === closingType && depth === 0) break;
+      if (token.nesting === 1) depth += 1;
+      else if (token.nesting === -1 && depth > 0) depth -= 1;
+      if (token.content?.includes('PYTORCH_TASK_')) return true;
+    }
+    return false;
+  };
+  for (const listType of ['bullet_list', 'ordered_list']) {
+    const openType = `${listType}_open`;
+    const closeType = `${listType}_close`;
+    const defaultListOpen = md.renderer.rules[openType] || ((tokens, index, options, env, self) => self.renderToken(tokens, index, options));
+    md.renderer.rules[openType] = (tokens, index, options, env, self) => {
+      if (hasTaskMarker(tokens, index, closeType)) tokens[index].attrJoin('class', 'task-list');
+      return defaultListOpen(tokens, index, options, env, self);
+    };
+  }
+  const defaultListItemOpen = md.renderer.rules.list_item_open || ((tokens, index, options, env, self) => self.renderToken(tokens, index, options));
+  md.renderer.rules.list_item_open = (tokens, index, options, env, self) => {
+    if (hasTaskMarker(tokens, index, 'list_item_close')) tokens[index].attrJoin('class', 'task-list-item');
+    return defaultListItemOpen(tokens, index, options, env, self);
+  };
   const defaultImage = md.renderer.rules.image;
   md.renderer.rules.image = (tokens, index, options, env, self) => {
     const token = tokens[index];
@@ -660,7 +684,12 @@ function readingHeadings(content) {
   const usedIds = new Set();
   const items = [];
   const decorated = content.replace(/<h([23])>([\s\S]*?)<\/h\1>/g, (match, level, inner) => {
-    const text = inner.replace(/<[^>]+>/g, '').replaceAll('&quot;', '"').replaceAll('&amp;', '&').trim();
+    const inlineText = inner.replace(/<[^>]+>/g, '').replaceAll('&quot;', '"').replaceAll('&amp;', '&').trim();
+    const imageAlt = [...inner.matchAll(/<img\b[^>]*\balt="([^"]*)"[^>]*>/g)]
+      .map((image) => image[1].replaceAll('&quot;', '"').replaceAll('&amp;', '&').trim())
+      .find(Boolean);
+    const text = inlineText || imageAlt || '';
+    if (!text) return match;
     const base = slugify(text);
     let id = base;
     let suffix = 2;

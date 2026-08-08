@@ -261,21 +261,21 @@ total: 2
 <p>验证集只有 2 条样本，因此这个准确率只用于确认流程，不能作为模型泛化能力的可靠结论。</p>
 <hr>
 <h2 id="八-day-4-必做任务验收结果">八、Day 4 必做任务验收结果</h2>
-<ul>
-<li><input type="checkbox" checked disabled> 理解 BERT 是预训练 Transformer Encoder，不是 tokenizer。</li>
-<li><input type="checkbox" checked disabled> 理解 <code>BertForSequenceClassification</code> 是 BERT Encoder 加句子分类头。</li>
-<li><input type="checkbox" checked disabled> 理解四个输入字段及其 shape。</li>
-<li><input type="checkbox" checked disabled> 理解 <code>labels</code> 是句子级标签，shape 为 <code>[B]</code>。</li>
-<li><input type="checkbox" checked disabled> 成功在 MPS 上加载并运行 BERT。</li>
-<li><input type="checkbox" checked disabled> 成功得到 <code>logits.shape == [2, 2]</code>。</li>
-<li><input type="checkbox" checked disabled> 成功得到标量 loss。</li>
-<li><input type="checkbox" checked disabled> 成功执行 <code>loss.backward()</code>。</li>
-<li><input type="checkbox" checked disabled> 检查到分类层梯度存在。</li>
-<li><input type="checkbox" checked disabled> 成功执行 <code>optimizer.step()</code>。</li>
-<li><input type="checkbox" checked disabled> 确认分类层参数发生变化。</li>
-<li><input type="checkbox" checked disabled> 成功跑通 1 个 epoch。</li>
-<li><input type="checkbox" checked disabled> 使用独立验证数据完成 <code>eval()</code> 和 <code>no_grad()</code>。</li>
-<li><input type="checkbox" checked disabled> 没有把最终测试集用于训练或调参。</li>
+<ul class="task-list">
+<li class="task-list-item"><input type="checkbox" checked disabled> 理解 BERT 是预训练 Transformer Encoder，不是 tokenizer。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 理解 <code>BertForSequenceClassification</code> 是 BERT Encoder 加句子分类头。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 理解四个输入字段及其 shape。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 理解 <code>labels</code> 是句子级标签，shape 为 <code>[B]</code>。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 成功在 MPS 上加载并运行 BERT。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 成功得到 <code>logits.shape == [2, 2]</code>。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 成功得到标量 loss。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 成功执行 <code>loss.backward()</code>。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 检查到分类层梯度存在。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 成功执行 <code>optimizer.step()</code>。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 确认分类层参数发生变化。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 成功跑通 1 个 epoch。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 使用独立验证数据完成 <code>eval()</code> 和 <code>no_grad()</code>。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 没有把最终测试集用于训练或调参。</li>
 </ul>
 <p>最终闭环：</p>
 <pre><code class="language-text">batch -&gt; BERT -&gt; logits / loss -&gt; backward -&gt; optimizer.step() -&gt; 1 个 epoch -&gt; validation

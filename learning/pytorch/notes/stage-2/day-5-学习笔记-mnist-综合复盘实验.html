@@ -551,19 +551,19 @@ ax.set_title(&quot;Accuracy curve&quot;)
 <p>本次在最终 test 后想到 Dropout，是一个独立的正则化练习；若继续，只能先比较 train/val 行为，不应再次用同一 test 集选择 Dropout 是否更好。</p>
 <hr>
 <h2 id="十-day-5-掌握清单">十、Day 5 掌握清单</h2>
-<ul>
-<li><input type="checkbox" checked disabled> 能加载一个新但接口兼容的数据集 MNIST。</li>
-<li><input type="checkbox" checked disabled> 能从官方训练集划分 train / val，并固定划分随机种子。</li>
-<li><input type="checkbox" checked disabled> 能从输入 shape 设计 <code>Flatten -&gt; MLP -&gt; logits</code>。</li>
-<li><input type="checkbox" checked disabled> 能独立写 <code>train_one_epoch</code> 与 <code>evaluate</code>。</li>
-<li><input type="checkbox" checked disabled> 能解释 <code>train()</code>、<code>eval()</code>、<code>no_grad()</code> 的不同职责。</li>
-<li><input type="checkbox" checked disabled> 能使用 Adam 与 StepLR，并把 <code>scheduler.step()</code> 放在 epoch 结束处。</li>
-<li><input type="checkbox" checked disabled> 能只按验证集保存 best model。</li>
-<li><input type="checkbox" checked disabled> 能区分 best model 与 last checkpoint。</li>
-<li><input type="checkbox" checked disabled> 能记录、绘制并解读 loss / train acc / val acc。</li>
-<li><input type="checkbox" checked disabled> 能加载 best model，并仅在 test 集做一次最终评估。</li>
-<li><input type="checkbox" disabled> 能从 last checkpoint 恢复模型、optimizer、scheduler、epoch 与 history 后继续训练。</li>
-<li><input type="checkbox" disabled> 选做：完成仅基于验证集的 Dropout 对比实验，并解释其是否改善泛化行为。</li>
+<ul class="task-list">
+<li class="task-list-item"><input type="checkbox" checked disabled> 能加载一个新但接口兼容的数据集 MNIST。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 能从官方训练集划分 train / val，并固定划分随机种子。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 能从输入 shape 设计 <code>Flatten -&gt; MLP -&gt; logits</code>。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 能独立写 <code>train_one_epoch</code> 与 <code>evaluate</code>。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 能解释 <code>train()</code>、<code>eval()</code>、<code>no_grad()</code> 的不同职责。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 能使用 Adam 与 StepLR，并把 <code>scheduler.step()</code> 放在 epoch 结束处。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 能只按验证集保存 best model。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 能区分 best model 与 last checkpoint。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 能记录、绘制并解读 loss / train acc / val acc。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 能加载 best model，并仅在 test 集做一次最终评估。</li>
+<li class="task-list-item"><input type="checkbox" disabled> 能从 last checkpoint 恢复模型、optimizer、scheduler、epoch 与 history 后继续训练。</li>
+<li class="task-list-item"><input type="checkbox" disabled> 选做：完成仅基于验证集的 Dropout 对比实验，并解释其是否改善泛化行为。</li>
 </ul>
 <h2 id="今日一句话总结">今日一句话总结</h2>
 <blockquote>

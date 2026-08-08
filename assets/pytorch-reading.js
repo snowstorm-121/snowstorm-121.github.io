@@ -4,9 +4,9 @@
 
   function refreshProgress() {
     const root = document.documentElement;
-    const range = Math.max(root.scrollHeight - root.clientHeight, 1);
+    const range = root.scrollHeight - root.clientHeight;
     const position = root.scrollTop || document.body.scrollTop || 0;
-    const percent = Math.min(100, Math.max(0, (position / range) * 100));
+    const percent = range > 0 ? Math.min(100, Math.max(0, (position / range) * 100)) : 0;
     progress.style.setProperty('--reading-progress', `${percent.toFixed(2).replace(/\.00$/, '')}%`);
   }
 

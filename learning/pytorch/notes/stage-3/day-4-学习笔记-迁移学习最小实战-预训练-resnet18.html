@@ -343,14 +343,14 @@ test acc: 86.67%
 <li><strong>将预训练权重 <code>.pth</code> 复制并提交到代码目录</strong>：它应保留在 PyTorch 缓存，代码只保留加载逻辑。</li>
 </ol>
 <h3 id="本日验收">本日验收</h3>
-<ul>
-<li><input type="checkbox" checked disabled> 能解释迁移学习为什么可能有效，以及它不保证对所有目标域都有效。</li>
-<li><input type="checkbox" checked disabled> 能解释 backbone 是“图片 -&gt; 特征”的主体，<code>fc</code> 是“特征 -&gt; 类别”的分类头。</li>
-<li><input type="checkbox" checked disabled> 能推导 <code>[B, 3, 224, 224] -&gt; [B, 512] -&gt; [B, 10]</code>。</li>
-<li><input type="checkbox" checked disabled> 能说明 <code>requires_grad=False</code>、<code>model.eval()</code>、<code>torch.no_grad()</code> 的区别。</li>
-<li><input type="checkbox" checked disabled> 能完成冻结、替换分类头、仅优化 <code>model.fc.parameters()</code> 的代码翻译。</li>
-<li><input type="checkbox" checked disabled> 能说明 validation 用于模型选择，test 仅用于最终一次评估。</li>
-<li><input type="checkbox" checked disabled> 能解释为什么保存最佳模型时需要 <code>copy.deepcopy(model.state_dict())</code>。</li>
+<ul class="task-list">
+<li class="task-list-item"><input type="checkbox" checked disabled> 能解释迁移学习为什么可能有效，以及它不保证对所有目标域都有效。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 能解释 backbone 是“图片 -&gt; 特征”的主体，<code>fc</code> 是“特征 -&gt; 类别”的分类头。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 能推导 <code>[B, 3, 224, 224] -&gt; [B, 512] -&gt; [B, 10]</code>。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 能说明 <code>requires_grad=False</code>、<code>model.eval()</code>、<code>torch.no_grad()</code> 的区别。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 能完成冻结、替换分类头、仅优化 <code>model.fc.parameters()</code> 的代码翻译。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 能说明 validation 用于模型选择，test 仅用于最终一次评估。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 能解释为什么保存最佳模型时需要 <code>copy.deepcopy(model.state_dict())</code>。</li>
 </ul>
 <hr>
 <h2 id="十-选做-后置">十、选做 / 后置</h2>

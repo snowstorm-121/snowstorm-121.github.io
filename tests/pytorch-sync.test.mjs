@@ -99,7 +99,8 @@ test('renders Markdown, wiki links, local images, and Python attachments without
   const html = await readFile(path.join(output, 'notes', main.stageKey, `${main.slug}.html`), 'utf8');
 
   assert.match(html, /<table>/);
-  assert.match(html, /<ul>/);
+  assert.match(html, /<ul(?: class="task-list")?>/);
+  assert.match(html, /<li class="task-list-item"><input type="checkbox" disabled>/);
   assert.match(html, /type="checkbox" disabled/);
   assert.match(html, /<blockquote>/);
   assert.match(html, /<pre><code class="language-js">/);

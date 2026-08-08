@@ -215,16 +215,16 @@ hidden states [B, L, d_model]
 <p><code>attention_mask</code> 会在 Attention 分数进入 Softmax 前屏蔽 padding 位置，这正好连接 Day 1 的 mask 机制。</p>
 <hr>
 <h2 id="十-day-3-验收结果">十、Day 3 验收结果</h2>
-<ul>
-<li><input type="checkbox" checked disabled> tokenizer 成功加载并完成批量编码；</li>
-<li><input type="checkbox" checked disabled> 理解 <code>input_ids</code> 是词表编号，不是语义向量；</li>
-<li><input type="checkbox" checked disabled> 理解 <code>attention_mask</code> 与 Attention 权重的区别；</li>
-<li><input type="checkbox" checked disabled> 理解单句样本中 <code>token_type_ids</code> 全为 0 的原因；</li>
-<li><input type="checkbox" checked disabled> 使用 PyTorch 原生 Dataset 完成样本封装；</li>
-<li><input type="checkbox" checked disabled> 验证 DataLoader batch shape <code>[2, 12]</code>；</li>
-<li><input type="checkbox" checked disabled> 验证 dtype 为 <code>torch.int64</code>；</li>
-<li><input type="checkbox" checked disabled> 成功将 batch 迁移到 MPS；</li>
-<li><input type="checkbox" checked disabled> 暂未进入 BERT 微调，符合 Day 3 范围。</li>
+<ul class="task-list">
+<li class="task-list-item"><input type="checkbox" checked disabled> tokenizer 成功加载并完成批量编码；</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 理解 <code>input_ids</code> 是词表编号，不是语义向量；</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 理解 <code>attention_mask</code> 与 Attention 权重的区别；</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 理解单句样本中 <code>token_type_ids</code> 全为 0 的原因；</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 使用 PyTorch 原生 Dataset 完成样本封装；</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 验证 DataLoader batch shape <code>[2, 12]</code>；</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 验证 dtype 为 <code>torch.int64</code>；</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 成功将 batch 迁移到 MPS；</li>
+<li class="task-list-item"><input type="checkbox" checked disabled> 暂未进入 BERT 微调，符合 Day 3 范围。</li>
 </ul>
 <h2 id="十一-下一步行动">十一、下一步行动</h2>
 <p>Day 4 使用今天已经得到的 batch，完成最小闭环：</p>
