@@ -24,6 +24,7 @@ const MANIFEST_VERSION = 1;
 const MAX_REMOTE_ASSET_BYTES = 10 * 1024 * 1024;
 const REMOTE_FETCH_TIMEOUT_MS = 15_000;
 const MAX_REMOTE_REDIRECTS = 5;
+const SAFE_BREAK_TOKEN = 'PYTORCH_SAFE_HTML_BREAK';
 const COLLATOR = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' });
 const STAGES = new Map([
   ['foundation_stage', { key: 'foundation', label: '基础阶段' }],
@@ -526,6 +527,27 @@ function transformOutsideInlineCode(value, transform) {
   return output + transform(value.slice(plainStart));
 }
 
+function sanitizeRawHtmlSegment(segment, state) {
+  let output = '';
+  let cursor = 0;
+  while (cursor < segment.length) {
+    if (state.inComment) {
+      const commentEnd = segment.indexOf('-->', cursor);
+      if (commentEnd < 0) return output;
+      state.inComment = false;
+      cursor = commentEnd + 3;
+      continue;
+    }
+    const commentStart = segment.indexOf('<!--', cursor);
+    const plainEnd = commentStart < 0 ? segment.length : commentStart;
+    output += segment.slice(cursor, plainEnd).replace(/<br\s*\/?>/gi, SAFE_BREAK_TOKEN);
+    if (commentStart < 0) break;
+    state.inComment = true;
+    cursor = commentStart + 4;
+  }
+  return output;
+}
+
 function pageTemplate({ title, eyebrow, body, pageClass = 'pytorch-archive-page', reading = false }) {
   const readingProgress = reading ? '<div class="reading-progress" data-reading-progress aria-hidden="true"></div>\n' : '';
   const readingScript = reading ? '  <script src="/assets/pytorch-reading.js" defer></script>\n' : '';
@@ -556,6 +578,7 @@ function preprocessMarkdown(markdown, context, md) {
     for (let line = token.map[0]; line < token.map[1]; line += 1) protectedLines.add(line);
   }
   const placeholders = [];
+  const rawHtmlState = { inComment: false };
   const lines = markdown.split(/\r?\n/).map((line, lineIndex) => {
     if (protectedLines.has(lineIndex)) return line;
     let transformed = line.replace(/^(\s*)- \[([ xX])\]\s+/, (_, indent, checked) => {
@@ -563,7 +586,8 @@ function preprocessMarkdown(markdown, context, md) {
       return `${indent}- ${marker} `;
     });
     transformed = transformOutsideInlineCode(transformed, (segment) => {
-      const withWikiLinks = segment.replace(/(!?)\[\[([^\]]+)\]\]/g, (_, embed, body) => {
+      const sanitizedSegment = sanitizeRawHtmlSegment(segment, rawHtmlState);
+      const withWikiLinks = sanitizedSegment.replace(/(!?)\[\[([^\]]+)\]\]/g, (_, embed, body) => {
         const [rawTarget, rawLabel] = body.split('|', 2);
         const label = rawLabel || path.basename(rawTarget);
         const extension = path.extname(rawTarget.split('#', 1)[0]).toLowerCase();
@@ -669,6 +693,9 @@ async function renderNote(note, context) {
       registerLocalAsset(context.localAssets, destination, asset);
       token.attrSet('src', `${SITE_ROOT}/${destination.split('/').map(encodeURIComponent).join('/')}`);
     }
+    if (!self.renderInlineAsText(token.children, options, env).trim()) {
+      token.children = [{ type: 'text', content: `${note.title} 图示` }];
+    }
     token.attrSet('loading', 'lazy');
     return defaultImage(tokens, index, options, env, self);
   };
@@ -684,6 +711,7 @@ async function renderNote(note, context) {
     return defaultLinkOpen(tokens, index, options, env, self);
   };
   let html = md.render(markdown)
+    .replaceAll(SAFE_BREAK_TOKEN, '<br>')
     .replaceAll('PYTORCH_TASK_UNCHECKED', '<input type="checkbox" disabled>')
     .replaceAll('PYTORCH_TASK_CHECKED', '<input type="checkbox" checked disabled>');
   for (const placeholder of placeholders) {
@@ -733,12 +761,13 @@ function renderStageIndex(stage, notes, stages) {
 }
 
 function readingHeadings(content) {
+  const decodeHtmlEntities = createMarkdownParser().utils.unescapeAll;
   const usedIds = new Set();
   const items = [];
   const decorated = content.replace(/<h([23])>([\s\S]*?)<\/h\1>/g, (match, level, inner) => {
-    const inlineText = inner.replace(/<[^>]+>/g, '').replaceAll('&quot;', '"').replaceAll('&amp;', '&').trim();
+    const inlineText = decodeHtmlEntities(inner.replace(/<[^>]+>/g, '')).trim();
     const imageAlt = [...inner.matchAll(/<img\b[^>]*\balt="([^"]*)"[^>]*>/g)]
-      .map((image) => image[1].replaceAll('&quot;', '"').replaceAll('&amp;', '&').trim())
+      .map((image) => decodeHtmlEntities(image[1]).trim())
       .find(Boolean);
     const text = inlineText || imageAlt || '';
     if (!text) return match;
@@ -1064,8 +1093,8 @@ export async function synchronize({
       remoteAssets: remote.remoteAssets,
       warnings,
     });
-    const stageNotes = note.isOverview ? [note] : notes.filter((candidate) => candidate.stageKey === note.stageKey);
-    outputs.set(`notes/${note.stageKey}/${note.slug}.html`, renderArticle(note, html, stageNotes));
+    const readingSequence = note.isOverview ? [note] : notes.filter((candidate) => !candidate.isOverview);
+    outputs.set(`notes/${note.stageKey}/${note.slug}.html`, renderArticle(note, html, readingSequence));
     outputs.set(`markdown/${note.stageKey}/${note.slug}.md`, note.content);
   }
   for (const [destination, source] of localAssets) outputs.set(destination, await readFile(source));

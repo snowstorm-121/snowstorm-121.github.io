@@ -410,33 +410,33 @@ w_big   = train_rng.normal(scale=10.0, size=d)
 <tbody>
 <tr>
 <td>1</td>
-<td><code>pip install</code>&lt;br/&gt; 装了没用</td>
+<td><code>pip install</code><br> 装了没用</td>
 <td>裸 pip 未必指向当前环境的 python，静默装到别处</td>
-<td>用 <code>python -m pip install</code>&lt;br/&gt;；装完 <code>python -c &quot;import x&quot;</code>&lt;br/&gt; 验证</td>
+<td>用 <code>python -m pip install</code><br>；装完 <code>python -c &quot;import x&quot;</code><br> 验证</td>
 </tr>
 <tr>
 <td>2</td>
-<td><code>plt.*</code>&lt;br/&gt; 画到了错的地方</td>
+<td><code>plt.*</code><br> 画到了错的地方</td>
 <td>状态机靠隐藏「当前 ax」指针，subplots 后当前=最后创建的 ax</td>
-<td>非简单图一律用 OO（<code>fig, ax</code>&lt;br/&gt;），明确 <code>ax.xxx</code></td>
+<td>非简单图一律用 OO（<code>fig, ax</code><br>），明确 <code>ax.xxx</code></td>
 </tr>
 <tr>
 <td>3</td>
-<td><code>plt.title</code>&lt;br/&gt; 加到右图</td>
+<td><code>plt.title</code><br> 加到右图</td>
 <td>gca() 是 ax2（最后创建）</td>
 <td>用 <code>ax1.set_title(...)</code></td>
 </tr>
 <tr>
 <td>4</td>
 <td>OO 方法名</td>
-<td>状态机 <code>plt.xlabel</code>&lt;br/&gt;，OO 要 <code>ax.set_xlabel</code>&lt;br/&gt;（加 set_）</td>
+<td>状态机 <code>plt.xlabel</code><br>，OO 要 <code>ax.set_xlabel</code><br>（加 set_）</td>
 <td>title/xlabel/xlim/xticks 切 ax 都加 set_</td>
 </tr>
 <tr>
 <td>5</td>
 <td>中文显示成方块</td>
 <td>默认字体无中文</td>
-<td>设 <code>font.family='Arial Unicode MS'</code>&lt;br/&gt;，<strong>写在 import pyplot 之前</strong></td>
+<td>设 <code>font.family='Arial Unicode MS'</code><br>，<strong>写在 import pyplot 之前</strong></td>
 </tr>
 <tr>
 <td>6</td>
@@ -448,11 +448,11 @@ w_big   = train_rng.normal(scale=10.0, size=d)
 <td>7</td>
 <td>subplots 返回值形状</td>
 <td>1×1单对象 / 1行N列一维 / M×N二维，静默变</td>
-<td>一律 <code>axes = axes.flatten()</code>&lt;br/&gt; 后用单下标</td>
+<td>一律 <code>axes = axes.flatten()</code><br> 后用单下标</td>
 </tr>
 <tr>
 <td>8</td>
-<td><code>axes[i]</code>&lt;br/&gt; 取二维</td>
+<td><code>axes[i]</code><br> 取二维</td>
 <td>取的是整行数组不是单个 ax，调 .plot 不报错也不画</td>
 <td>flatten 后再索引</td>
 </tr>
@@ -477,7 +477,7 @@ w_big   = train_rng.normal(scale=10.0, size=d)
 <tr>
 <td>12</td>
 <td>MSE 漏平方</td>
-<td><code>mean(err)</code>&lt;br/&gt; 残差正负抵消≈0，对数轴扎向负无穷成竖线</td>
+<td><code>mean(err)</code><br> 残差正负抵消≈0，对数轴扎向负无穷成竖线</td>
 <td>必须 <code>mean(err**2)</code></td>
 </tr>
 <tr>
@@ -500,15 +500,15 @@ w_big   = train_rng.normal(scale=10.0, size=d)
 </tr>
 <tr>
 <td>16</td>
-<td><code>plot('o')</code>&lt;br/&gt; 当散点</td>
+<td><code>plot('o')</code><br> 当散点</td>
 <td>本质折线图会按序处理；不能逐点上色</td>
-<td>真散点 + 逐点颜色用 <code>scatter</code>&lt;br/&gt;(c=, cmap=)</td>
+<td>真散点 + 逐点颜色用 <code>scatter</code><br>(c=, cmap=)</td>
 </tr>
 <tr>
 <td>17</td>
 <td>对角线 <code>[0,1],[0,1]</code></td>
 <td>固定坐标不在散点值域，看不见</td>
-<td>用 <code>y.min(), y.max()</code>&lt;br/&gt; 动态取</td>
+<td>用 <code>y.min(), y.max()</code><br> 动态取</td>
 </tr>
 <tr>
 <td>18</td>

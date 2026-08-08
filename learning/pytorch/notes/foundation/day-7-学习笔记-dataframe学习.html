@@ -352,15 +352,15 @@ print(summary)   # Survived已是bool，sum仍能数True个数
 <tbody>
 <tr>
 <td>1</td>
-<td><code>fillna(inplace=True)</code>&lt;br/&gt; 报 ChainedAssignmentError</td>
-<td>CoW 下 <code>df['col']</code>&lt;br/&gt; 摘出的是拷贝，inplace 改的是注定被扔的临时对象，原表没动</td>
-<td>只用 <code>df['col']=df['col'].method()</code>&lt;br/&gt;，永不用 inplace</td>
+<td><code>fillna(inplace=True)</code><br> 报 ChainedAssignmentError</td>
+<td>CoW 下 <code>df['col']</code><br> 摘出的是拷贝，inplace 改的是注定被扔的临时对象，原表没动</td>
+<td>只用 <code>df['col']=df['col'].method()</code><br>，永不用 inplace</td>
 </tr>
 <tr>
 <td>2</td>
 <td>链式赋值 <code>df[cond]['col']=v</code></td>
 <td>中间对象是视图还是拷贝不保证，可能不生效；CoW 版直接报错</td>
-<td><code>df.loc[cond,'col']=v</code>&lt;br/&gt; 一步到位</td>
+<td><code>df.loc[cond,'col']=v</code><br> 一步到位</td>
 </tr>
 <tr>
 <td>3</td>
@@ -370,51 +370,51 @@ print(summary)   # Survived已是bool，sum仍能数True个数
 </tr>
 <tr>
 <td>4</td>
-<td>筛选后 <code>loc[0]</code>&lt;br/&gt; KeyError</td>
+<td>筛选后 <code>loc[0]</code><br> KeyError</td>
 <td>标签0那行被筛掉了，门牌号0不存在</td>
 <td>用 iloc[0]，或先 reset_index(drop=True)</td>
 </tr>
 <tr>
 <td>5</td>
-<td><code>reset_index()</code>&lt;br/&gt; 没赋值回去</td>
+<td><code>reset_index()</code><br> 没赋值回去</td>
 <td>默认返回新对象不改原变量，原表仍是旧索引</td>
-<td><code>df=df.reset_index(...)</code>&lt;br/&gt; 重新赋值</td>
+<td><code>df=df.reset_index(...)</code><br> 重新赋值</td>
 </tr>
 <tr>
 <td>6</td>
-<td><code>[]</code>&lt;br/&gt; 切片 <code>df[0:5]</code>&lt;br/&gt; 当取列</td>
+<td><code>[]</code><br> 切片 <code>df[0:5]</code><br> 当取列</td>
 <td>单列名取列、但切片取行，不对称的静默重载</td>
 <td>取行用 loc/iloc；取列明确写列名/列表</td>
 </tr>
 <tr>
 <td>7</td>
-<td>多条件用 <code>and</code>&lt;br/&gt;/<code>or</code></td>
+<td>多条件用 <code>and</code><br>/<code>or</code></td>
 <td>Series 没法转单个布尔值 → ValueError 真值有歧义</td>
-<td>用 <code>&amp;</code>&lt;br/&gt;/`</td>
+<td>用 <code>&amp;</code><br>/`</td>
 </tr>
 <tr>
 <td>8</td>
-<td><code>&amp;</code>&lt;br/&gt;/`</td>
-<td>`&lt;br/&gt; 不加括号</td>
-<td><code>&amp;</code>&lt;br/&gt; 优先级高于 <code>&gt;</code>&lt;br/&gt;/<code>==</code>&lt;br/&gt;，先算 <code>30 &amp; Series</code></td>
+<td><code>&amp;</code><br>/`</td>
+<td>`<br> 不加括号</td>
+<td><code>&amp;</code><br> 优先级高于 <code>&gt;</code><br>/<code>==</code><br>，先算 <code>30 &amp; Series</code></td>
 </tr>
 <tr>
 <td>9</td>
-<td><code>A &gt; B == C</code>&lt;br/&gt; 链式比较</td>
-<td>展开成 <code>(A&gt;B) and (B==C)</code>&lt;br/&gt;，隐藏的 and 两边是 Series → ValueError</td>
+<td><code>A &gt; B == C</code><br> 链式比较</td>
+<td>展开成 <code>(A&gt;B) and (B==C)</code><br>，隐藏的 and 两边是 Series → ValueError</td>
 <td>别写链式比较；条件分开加括号</td>
 </tr>
 <tr>
 <td>10</td>
-<td><code>~(Age&gt;30)</code>&lt;br/&gt; 把 NaN 行选进来</td>
+<td><code>~(Age&gt;30)</code><br> 把 NaN 行选进来</td>
 <td>NaN&gt;30=False，~False=True，NaN 反而满足条件（我先讲错被纠正）</td>
 <td>不要 NaN 就 <code>&amp; df['col'].notna()</code></td>
 </tr>
 <tr>
 <td>11</td>
-<td><code>==np.nan</code>&lt;br/&gt; 判断缺失</td>
+<td><code>==np.nan</code><br> 判断缺失</td>
 <td>NaN 不等于任何值（含自己），永远 False，静默给空结果</td>
-<td>用 <code>isna()</code>&lt;br/&gt;/<code>notna()</code></td>
+<td>用 <code>isna()</code><br>/<code>notna()</code></td>
 </tr>
 <tr>
 <td>12</td>
@@ -424,43 +424,43 @@ print(summary)   # Survived已是bool，sum仍能数True个数
 </tr>
 <tr>
 <td>13</td>
-<td>裸 <code>dropna()</code>&lt;br/&gt; 删光数据</td>
+<td>裸 <code>dropna()</code><br> 删光数据</td>
 <td>Cabin 缺77%，几乎每行都中招，不报错</td>
-<td>先 <code>isna().sum()</code>&lt;br/&gt; 看缺失率，分列定策略</td>
+<td>先 <code>isna().sum()</code><br> 看缺失率，分列定策略</td>
 </tr>
 <tr>
 <td>14</td>
 <td>groupby 后取分组列</td>
 <td>分组列变成 index 不是普通列</td>
-<td><code>reset_index()</code>&lt;br/&gt;（并赋值回）后再当列用</td>
+<td><code>reset_index()</code><br>（并赋值回）后再当列用</td>
 </tr>
 <tr>
 <td>15</td>
-<td><code>groupby()</code>&lt;br/&gt; 打印看不懂</td>
+<td><code>groupby()</code><br> 打印看不懂</td>
 <td>只拆分没应用，无结果可展示</td>
-<td>接 <code>.mean()/.sum()/.agg()</code>&lt;br/&gt; 才触发</td>
+<td>接 <code>.mean()/.sum()/.agg()</code><br> 才触发</td>
 </tr>
 <tr>
 <td>16</td>
-<td><code>groupby().mean()</code>&lt;br/&gt; 报错/警告</td>
+<td><code>groupby().mean()</code><br> 报错/警告</td>
 <td>新版含字符串列要显式声明</td>
 <td>加 <code>numeric_only=True</code></td>
 </tr>
 <tr>
 <td>17</td>
-<td><code>size()</code>&lt;br/&gt; vs <code>count()</code>&lt;br/&gt; 混用</td>
+<td><code>size()</code><br> vs <code>count()</code><br> 混用</td>
 <td>size 数总行、count 数非缺失个数，有缺失时不等</td>
-<td>算缺失率用 <code>size()-count()</code>&lt;br/&gt;，别拿 count 当总数</td>
+<td>算缺失率用 <code>size()-count()</code><br>，别拿 count 当总数</td>
 </tr>
 <tr>
 <td>18</td>
-<td><code>Age.astype(int)</code>&lt;br/&gt; 报错</td>
+<td><code>Age.astype(int)</code><br> 报错</td>
 <td>整数类型不支持 NaN，报错保护</td>
 <td>先 fillna 再 astype(int)</td>
 </tr>
 <tr>
 <td>19</td>
-<td><code>Ticket.astype(int)</code>&lt;br/&gt; 报错</td>
+<td><code>Ticket.astype(int)</code><br> 报错</td>
 <td>object 列混杂字母前缀，格式不统一</td>
 <td>转前 head() 抽样看；混杂的别强转数字</td>
 </tr>
@@ -468,7 +468,7 @@ print(summary)   # Survived已是bool，sum仍能数True个数
 <td>20</td>
 <td>category 加新值失败</td>
 <td>category 封闭，取值范围转换时固定</td>
-<td>先 <code>cat.add_categories([...])</code>&lt;br/&gt; 再赋值</td>
+<td>先 <code>cat.add_categories([...])</code><br> 再赋值</td>
 </tr>
 <tr>
 <td>21</td>
@@ -484,27 +484,27 @@ print(summary)   # Survived已是bool，sum仍能数True个数
 </tr>
 <tr>
 <td>23</td>
-<td><code>df1=df; df2=df</code>&lt;br/&gt; 做对比实验</td>
+<td><code>df1=df; df2=df</code><br> 做对比实验</td>
 <td>指向同一对象，改一个连带改另一个</td>
-<td>用 <code>df.copy()</code>&lt;br/&gt; 拷贝独立两份</td>
+<td>用 <code>df.copy()</code><br> 拷贝独立两份</td>
 </tr>
 <tr>
 <td>24</td>
 <td>transform 写成 <code>x.mean</code></td>
 <td>漏括号拿到方法对象，不是计算结果</td>
-<td><code>x.mean()</code>&lt;br/&gt;；且结果要赋回 <code>df['col']=...</code></td>
+<td><code>x.mean()</code><br>；且结果要赋回 <code>df['col']=...</code></td>
 </tr>
 <tr>
 <td>25</td>
 <td><code>df_a = df.groupby(...)['Age'].transform(...)</code></td>
 <td>把 Series 赋给了 df_a 变量本身，其他列全丢</td>
-<td><code>df_a['Age'] = ...</code>&lt;br/&gt;，只替换那一列</td>
+<td><code>df_a['Age'] = ...</code><br>，只替换那一列</td>
 </tr>
 <tr>
 <td>26</td>
-<td><code>df.fillna(数字)</code>&lt;br/&gt; 只想填一列</td>
+<td><code>df.fillna(数字)</code><br> 只想填一列</td>
 <td>会用同一个数字填所有列（类型不匹配出问题）</td>
-<td><code>df['col']=df['col'].fillna(...)</code>&lt;br/&gt; 精确到列</td>
+<td><code>df['col']=df['col'].fillna(...)</code><br> 精确到列</td>
 </tr>
 </tbody>
 </table>

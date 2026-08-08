@@ -125,22 +125,55 @@ test("dimmed atlas controls preserve readable text while dimming only star decor
   assert.match(styles, /\.atlas-control:hover,\s*\.atlas-control:focus-visible\s*\{[^}]*opacity:\s*1/);
 });
 
-test("the compact learning chart keeps active stage-3 and its focus ring inside the chart", () => {
-  const compact = styles.match(/@media \(max-width: 420px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
-  const stageThree = compact.match(/\.atlas-map-node\[data-atlas-key="stage-3"\]\s*\{[^}]*\}/)?.[0] ?? "";
-  const shift = Number(stageThree.match(/left:\s*calc\(var\(--node-x\)\s*-\s*(\d+(?:\.\d+)?)%\)/)?.[1]);
-  const chartWidth = 277;
-  const stageThreeX = chartWidth * .9;
-  const nodeWidth = 82;
+test("every right-edge atlas node uses one responsive clamp that keeps its active focus ring inside the chart", () => {
+  const body = styles.match(/body\.archive-atlas-page\s*\{[^}]*\}/)?.[0] ?? "";
+  const baseNode = styles.match(/\.atlas-map-node\s*\{[^}]*\}/)?.[0] ?? "";
+  const mobileNode = styles.match(/@media \(max-width: 720px\)[\s\S]*?\.atlas-map-node\s*\{[^}]*\}/)?.[0]
+    .match(/\.atlas-map-node\s*\{[^}]*\}$/)?.[0] ?? "";
+  const compactNode = styles.match(/@media \(max-width: 420px\)[\s\S]*?\.atlas-map-node\s*\{[^}]*\}/)?.[0]
+    .match(/\.atlas-map-node\s*\{[^}]*\}$/)?.[0] ?? "";
+  const cssNumber = (rule, property) => Number(rule.match(new RegExp(`${property}:\\s*(\\d+(?:\\.\\d+)?)px`))?.[1]);
+  const rightEdgeNodes = Object.entries(pages).flatMap(([pageName, html]) =>
+    [...html.matchAll(/class="atlas-map-node[^"]*"[^>]*style="[^"]*--node-x:\s*(\d+(?:\.\d+)?)%[^"]*"[^>]*data-atlas-key="([^"]+)"/g)]
+      .map((match) => ({ pageName, xPercent: Number(match[1]), key: match[2] }))
+      .filter(({ xPercent }) => xPercent >= 80),
+  );
+
+  assert.doesNotMatch(body, /overflow(?:-x)?:\s*hidden/);
+  assert.match(styles, /\.atlas-chart\s*\{[^}]*overflow:\s*hidden/);
+  assert.match(baseNode, /left:\s*clamp\(var\(--atlas-node-safe-x\),\s*var\(--node-x\),\s*calc\(100% - var\(--atlas-node-safe-x\)\)\)/);
+  assert.doesNotMatch(styles, /\.atlas-map-node\[data-atlas-key=/);
+  assert.deepEqual(rightEdgeNodes.map(({ pageName, key }) => `${pageName}:${key}`), [
+    "learning:stage-2",
+    "learning:stage-3",
+    "learning:stage-4",
+    "living:paper-stars",
+    "living:mountain-letter",
+    "research:experiment-tide",
+    "research:engineering-map",
+  ]);
+
   const focusInset = 8;
   const activeScale = 1.08;
-  const focusRight = stageThreeX - chartWidth * (shift / 100) + ((nodeWidth + focusInset * 2) * activeScale) / 2;
+  const maxNodeParallax = 5 * .22;
+  const responsiveCases = [
+    { chartWidth: 1016, nodeWidth: cssNumber(baseNode, "width"), safeX: cssNumber(baseNode, "--atlas-node-safe-x") },
+    { chartWidth: 698, nodeWidth: cssNumber(baseNode, "width"), safeX: cssNumber(baseNode, "--atlas-node-safe-x") },
+    { chartWidth: 692, nodeWidth: cssNumber(mobileNode, "width"), safeX: cssNumber(mobileNode, "--atlas-node-safe-x") },
+    { chartWidth: 292, nodeWidth: cssNumber(compactNode, "width"), safeX: cssNumber(compactNode, "--atlas-node-safe-x") },
+  ];
 
-  assert.ok(Number.isFinite(shift));
   assert.match(styles, /\.atlas-map-node\.is-active\s*\{[^}]*scale\(1\.08\)/);
   assert.match(styles, /\.atlas-control:focus-visible::after\s*\{[^}]*inset:\s*-8px/);
-  assert.match(styles, /\.atlas-chart\s*\{[^}]*overflow:\s*hidden/);
-  assert.ok(focusRight <= chartWidth, `stage-3 focus right edge ${focusRight}px exceeds ${chartWidth}px chart width`);
+  for (const { chartWidth, nodeWidth, safeX } of responsiveCases) {
+    assert.ok(Number.isFinite(nodeWidth));
+    assert.ok(Number.isFinite(safeX));
+    for (const { pageName, key, xPercent } of rightEdgeNodes) {
+      const centerX = Math.min(chartWidth - safeX, chartWidth * xPercent / 100);
+      const focusRight = centerX + ((nodeWidth + focusInset * 2) * activeScale) / 2 + maxNodeParallax;
+      assert.ok(focusRight <= chartWidth, `${pageName}:${key} focus right edge ${focusRight}px exceeds ${chartWidth}px chart width`);
+    }
+  }
 });
 
 class FakeElement {

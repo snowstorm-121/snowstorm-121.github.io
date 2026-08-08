@@ -297,51 +297,51 @@ X = torch.tensor(features)   # 独立 Tensor（不共享内存）
 <tbody>
 <tr>
 <td>1</td>
-<td><code>df['col'].map({...})</code>&lt;br/&gt; 不生效</td>
+<td><code>df['col'].map({...})</code><br> 不生效</td>
 <td>map 默认返回新对象、不改原表，没赋值就丢了</td>
 <td><code>df['col'] = df['col'].map({...})</code></td>
 </tr>
 <tr>
 <td>2</td>
-<td><code>map</code>&lt;br/&gt; 字典没覆盖全 → 静默 NaN</td>
+<td><code>map</code><br> 字典没覆盖全 → 静默 NaN</td>
 <td>查不到的 key 静默变 NaN，不报错</td>
-<td>映射后 <code>isna().sum()</code>&lt;br/&gt; 校验缺失数不变；或先 <code>set</code>&lt;br/&gt; 对取值</td>
+<td>映射后 <code>isna().sum()</code><br> 校验缺失数不变；或先 <code>set</code><br> 对取值</td>
 </tr>
 <tr>
 <td>3</td>
-<td><code>df.apply</code>&lt;br/&gt; 以为逐元素</td>
+<td><code>df.apply</code><br> 以为逐元素</td>
 <td>DataFrame 上 apply 默认逐<strong>列</strong>（传整列 Series），不是逐格</td>
-<td>逐格用 <code>df.map()</code>&lt;br/&gt;(原 applymap)；逐行用 <code>apply(axis=1)</code></td>
+<td>逐格用 <code>df.map()</code><br>(原 applymap)；逐行用 <code>apply(axis=1)</code></td>
 </tr>
 <tr>
 <td>4</td>
-<td><code>axis=1</code>&lt;br/&gt; 方向读反</td>
+<td><code>axis=1</code><br> 方向读反</td>
 <td>axis=1 = 逐<strong>行</strong>处理（结果按行收缩），不是&quot;沿列&quot;</td>
 <td>记死：axis=0 逐列、axis=1 逐行；和 NumPy 一致</td>
 </tr>
 <tr>
 <td>5</td>
-<td>用 <code>apply(lambda)</code>&lt;br/&gt; 做能向量化的事</td>
+<td>用 <code>apply(lambda)</code><br> 做能向量化的事</td>
 <td>apply 是隐藏 Python 循环，比向量化慢几十倍</td>
-<td>加减乘除/比较/<code>.str</code>&lt;br/&gt; 方法族优先向量化，apply 留给复杂逻辑</td>
+<td>加减乘除/比较/<code>.str</code><br> 方法族优先向量化，apply 留给复杂逻辑</td>
 </tr>
 <tr>
 <td>6</td>
 <td>merge 行数&quot;爆炸&quot;</td>
 <td>键重复时做笛卡尔积（左m×右n），不报错</td>
-<td>merge 前查 <code>key.is_unique</code>&lt;br/&gt;；后对比 len 是否符合预期</td>
+<td>merge 前查 <code>key.is_unique</code><br>；后对比 len 是否符合预期</td>
 </tr>
 <tr>
 <td>7</td>
-<td>merge 后 <code>df['Age']</code>&lt;br/&gt; KeyError</td>
-<td>同名非键列被自动加 <code>_x</code>&lt;br/&gt;/<code>_y</code>&lt;br/&gt; 后缀，静默改名</td>
-<td><code>suffixes=(...)</code>&lt;br/&gt; 自定义；或 merge 前手动 rename</td>
+<td>merge 后 <code>df['Age']</code><br> KeyError</td>
+<td>同名非键列被自动加 <code>_x</code><br>/<code>_y</code><br> 后缀，静默改名</td>
+<td><code>suffixes=(...)</code><br> 自定义；或 merge 前手动 rename</td>
 </tr>
 <tr>
 <td>8</td>
-<td><code>left_on/right_on</code>&lt;br/&gt; 后多一列</td>
+<td><code>left_on/right_on</code><br> 后多一列</td>
 <td>两个键列都保留（值一样）</td>
-<td>手动 <code>drop</code>&lt;br/&gt; 多余的那列</td>
+<td>手动 <code>drop</code><br> 多余的那列</td>
 </tr>
 <tr>
 <td>9</td>
@@ -351,43 +351,43 @@ X = torch.tensor(features)   # 独立 Tensor（不共享内存）
 </tr>
 <tr>
 <td>10</td>
-<td>以为 <code>how='left'</code>&lt;br/&gt; 保留两表左半</td>
+<td>以为 <code>how='left'</code><br> 保留两表左半</td>
 <td>left 只保证&quot;左表全部行&quot;在，与左表没提到的右表内容无关</td>
 <td>找&quot;右表中无匹配&quot;的，把右表放左做 left 或用 outer</td>
 </tr>
 <tr>
 <td>11</td>
 <td>concat 后索引重复</td>
-<td><code>axis=0</code>&lt;br/&gt; 默认不重置索引，出现两个 0、两个 1</td>
-<td><code>ignore_index=True</code>&lt;br/&gt; 重新从 0 连续编号</td>
+<td><code>axis=0</code><br> 默认不重置索引，出现两个 0、两个 1</td>
+<td><code>ignore_index=True</code><br> 重新从 0 连续编号</td>
 </tr>
 <tr>
 <td>12</td>
-<td>concat 后 <code>loc[0]</code>&lt;br/&gt; 返回多行</td>
+<td>concat 后 <code>loc[0]</code><br> 返回多行</td>
 <td>标签 0 重复 → loc 静默返回 DataFrame 而非一行</td>
 <td>同上，拼接即加 <code>ignore_index=True</code></td>
 </tr>
 <tr>
 <td>13</td>
-<td><code>concat(axis=1)</code>&lt;br/&gt; 索引错开静默 NaN</td>
+<td><code>concat(axis=1)</code><br> 索引错开静默 NaN</td>
 <td>按索引取并集对齐，对不上填 NaN；不是按位置硬拼</td>
 <td>拼前确认索引一致；不一致先 reset_index 或改用 merge</td>
 </tr>
 <tr>
 <td>14</td>
-<td><code>concat(axis=1)</code>&lt;br/&gt; 数据张冠李戴</td>
+<td><code>concat(axis=1)</code><br> 数据张冠李戴</td>
 <td>索引&quot;凑巧都存在&quot;会对齐成错配的行，完全无声</td>
-<td>用 merge+主键；或 <code>df1.index.equals(df2.index)</code>&lt;br/&gt; 检查</td>
+<td>用 merge+主键；或 <code>df1.index.equals(df2.index)</code><br> 检查</td>
 </tr>
 <tr>
 <td>15</td>
-<td><code>category</code>&lt;br/&gt; 转 NumPy 拉齐成什么</td>
+<td><code>category</code><br> 转 NumPy 拉齐成什么</td>
 <td>看底层类别取值本质：数字→数值类型(int64)，字符串→object（<strong>我连两次讲错，见八章</strong>）</td>
 <td>别看类型标签名，看类别实际是数字还是字符串；实测确认</td>
 </tr>
 <tr>
 <td>16</td>
-<td><code>category</code>&lt;br/&gt; 转 NumPy 拿到原始值非编码</td>
+<td><code>category</code><br> 转 NumPy 拿到原始值非编码</td>
 <td>to_numpy 取显示值（3/1/2），不是 cat.codes（0/1/2）</td>
 <td>要整数编码显式 <code>.cat.codes.to_numpy()</code></td>
 </tr>
@@ -399,21 +399,21 @@ X = torch.tensor(features)   # 独立 Tensor（不共享内存）
 </tr>
 <tr>
 <td>18</td>
-<td><code>to_numpy()</code>&lt;br/&gt; 是视图还是拷贝</td>
+<td><code>to_numpy()</code><br> 是视图还是拷贝</td>
 <td>不保证；类型拉齐时几乎是拷贝，单一 dtype 连续时常是视图</td>
-<td>永远显式 <code>to_numpy(copy=True)</code>&lt;br/&gt;，不靠猜</td>
+<td>永远显式 <code>to_numpy(copy=True)</code><br>，不靠猜</td>
 </tr>
 <tr>
 <td>19</td>
-<td><code>to_numpy(dtype='int')</code>&lt;br/&gt; 遇 NaN</td>
+<td><code>to_numpy(dtype='int')</code><br> 遇 NaN</td>
 <td>整数类型不支持 NaN → 报错保护（同 Day7 astype(int)）</td>
 <td>先 fillna 再转 int；含 NaN 的列默认已是 float64</td>
 </tr>
 <tr>
 <td>20</td>
-<td><code>torch.from_numpy</code>&lt;br/&gt; 改一个连带改另一个</td>
+<td><code>torch.from_numpy</code><br> 改一个连带改另一个</td>
 <td>from_numpy 默认共享内存（视图），文档明确</td>
-<td>要独立用 <code>torch.tensor(arr)</code>&lt;br/&gt;（拷贝）</td>
+<td>要独立用 <code>torch.tensor(arr)</code><br>（拷贝）</td>
 </tr>
 </tbody>
 </table>

@@ -180,6 +180,44 @@ test('renders Markdown, wiki links, local images, and Python attachments without
   assert.match(result.warnings[0], /Missing Note/);
 });
 
+test('converts only safe raw breaks, hides OCR comments, labels images, and fully decodes TOC entities', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(
+    path.join(source, 'Stage1', 'Main.md'),
+    [
+      '# Main',
+      '',
+      'Before<br>After',
+      '',
+      '| A | B |',
+      '| --- | --- |',
+      '| left<br/>right | value |',
+      '',
+      '<!-- 这是一张图片，ocr 内容为：OCR secret description -->',
+      '![](attachments/plot.png)',
+      '',
+      '`<br>`',
+      '<script>unsafe()</script>',
+      '',
+      '## Entity &copy; &lt;tag&gt; &#x1F680;',
+    ].join('\n'),
+  );
+  const { synchronize } = await loadSyncModule();
+
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const html = await readFile(path.join(output, 'notes', 'stage-1', 'main.html'), 'utf8');
+
+  assert.match(html, /<p>Before<br>After<\/p>/);
+  assert.match(html, /<td>left<br>right<\/td>/);
+  assert.doesNotMatch(html, /OCR secret description|&lt;!--|<!--/);
+  assert.match(html, /<img[^>]+alt="Main 图示"[^>]*>/);
+  assert.match(html, /<code>&lt;br&gt;<\/code>/);
+  assert.match(html, /&lt;script&gt;unsafe\(\)&lt;\/script&gt;/);
+  assert.match(html, /<li class="toc-level-2"><a href="#entity-tag">Entity © &lt;tag&gt; 🚀<\/a><\/li>/);
+  assert.doesNotMatch(html, /&amp;lt;tag&amp;gt;/);
+});
+
 test('stops on secrets and missing local images before writing output', async (t) => {
   const { root, source, output } = await makeFixture();
   t.after(() => rm(root, { recursive: true, force: true }));

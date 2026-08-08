@@ -79,14 +79,16 @@ test('generated archive shells do not add trailing whitespace', async () => {
   }
 });
 
-test('every manifest article has a readable shell, resolvable local targets, and non-empty table-of-contents links', async () => {
+test('all 31 staged notes form one readable sequence across stage boundaries', async () => {
   assert.equal(manifest.notes.length, 32);
+  const stagedNotes = manifest.notes.filter((note) => !note.isOverview);
+  assert.equal(stagedNotes.length, 31);
   for (const note of manifest.notes) {
     const article = await readFile(notePath(note), 'utf8');
-    const stageNotes = manifest.notes.filter((candidate) => candidate.stageKey === note.stageKey);
-    const noteIndex = stageNotes.findIndex((candidate) => candidate.slug === note.slug);
-    const previous = noteIndex > 0 ? stageNotes[noteIndex - 1] : null;
-    const next = noteIndex >= 0 && noteIndex < stageNotes.length - 1 ? stageNotes[noteIndex + 1] : null;
+    const readingSequence = note.isOverview ? [note] : stagedNotes;
+    const noteIndex = readingSequence.findIndex((candidate) => candidate.slug === note.slug);
+    const previous = noteIndex > 0 ? readingSequence[noteIndex - 1] : null;
+    const next = noteIndex >= 0 && noteIndex < readingSequence.length - 1 ? readingSequence[noteIndex + 1] : null;
 
     assert.match(article, /class="[^"]*pytorch-reading-page(?:\s|\")/);
     assert.match(article, /class="reading-progress"[^>]*data-reading-progress/);
@@ -148,10 +150,16 @@ test('reading styles preserve a still, system-cursor long-form experience and gl
   assert.match(mobileCss, /\.reading-toc\s*\{[^}]*?position:\s*static/);
   assert.match(mobileCss, /\.note-content pre,\s*\.note-content table\s*\{[^}]*?max-width:\s*100%[^}]*?box-sizing:\s*border-box[^}]*?overflow-x:\s*auto/);
   assert.match(mobileCss, /\.note-content h2,\s*\.note-content h3\s*\{[^}]*?overflow-wrap:\s*anywhere/);
+  assert.match(mobileCss, /\.note-content a,\s*\.note-content :not\(pre\) > code\s*\{[^}]*?overflow-wrap:\s*anywhere/);
+  assert.match(mobileCss, /\.note-content pre code\s*\{[^}]*?white-space:\s*pre[^}]*?overflow-wrap:\s*normal/);
   assert.doesNotMatch(maxWidth720Block(wronglyScopedCss), /\.note-content pre,\s*\.note-content table/);
   assert.doesNotMatch(css, /(?:^|[{};])\s*(?:html|body)(?:\s*,\s*(?:html|body))*\s*\{[^}]*?\boverflow(?:-x)?\s*:\s*hidden\b/i);
   assert.match(css, /@media \(pointer: coarse\)[\s\S]*?\.reading-toc-details summary[\s\S]*?min-height:\s*44px/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation:\s*none[\s\S]*?transition:\s*none/);
+
+  const representative = await readFile(notePath(manifest.notes.find((note) => note.slug.includes('titanic'))), 'utf8');
+  assert.match(representative, /<a\b[^>]*href="[^"]{80,}"/);
+  assert.match(representative, /<code>[^<]{45,}<\/code>/);
 });
 
 test('reading progress handles missing elements, bounded positions, and zero scroll ranges without animation frames', async () => {

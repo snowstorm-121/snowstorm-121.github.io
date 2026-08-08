@@ -62,24 +62,24 @@ s - s.mean(axis=1, keepdims=True)  # 正确:每行减自己的均值
 <tbody>
 <tr>
 <td>参数名</td>
-<td><code>axis</code>&lt;br/&gt; / <code>keepdims</code></td>
-<td><code>dim</code>&lt;br/&gt; / <code>keepdim</code></td>
+<td><code>axis</code><br> / <code>keepdims</code></td>
+<td><code>dim</code><br> / <code>keepdim</code></td>
 <td>来回切容易写错（计划表里&quot;axis 参数和 keepdim&quot;本身就混用了两边的词）</td>
 </tr>
 <tr>
-<td><code>mean</code>&lt;br/&gt; 遇整数</td>
+<td><code>mean</code><br> 遇整数</td>
 <td>自动升 float64 返回</td>
 <td><strong>直接 RuntimeError</strong>，要求浮点/复数</td>
 <td>torch 要先 <code>.float()</code></td>
 </tr>
 <tr>
-<td><code>std</code>&lt;br/&gt; 默认</td>
-<td><code>ddof=0</code>&lt;br/&gt;（除以 N，总体）</td>
-<td><code>correction=1</code>&lt;br/&gt;（除以 N−1，无偏）</td>
+<td><code>std</code><br> 默认</td>
+<td><code>ddof=0</code><br>（除以 N，总体）</td>
+<td><code>correction=1</code><br>（除以 N−1，无偏）</td>
 <td><strong>同一组数默认给出不同标准差，都不报错</strong></td>
 </tr>
 <tr>
-<td><code>argmax</code>&lt;br/&gt; 并列</td>
+<td><code>argmax</code><br> 并列</td>
 <td>确定返回第一个</td>
 <td>不保证返回哪一个</td>
 <td>别依赖 torch 在并列时的落点</td>
@@ -313,31 +313,31 @@ for ep in range(epochs):
 <tbody>
 <tr>
 <td>1</td>
-<td><code>a.mean(axis=1)</code>&lt;br/&gt; 的形状</td>
-<td><code>(2,3)</code>&lt;br/&gt; 的它是 <code>(2,)</code>&lt;br/&gt;,不是 <code>(3,)</code>&lt;br/&gt;(我一开始说错)</td>
+<td><code>a.mean(axis=1)</code><br> 的形状</td>
+<td><code>(2,3)</code><br> 的它是 <code>(2,)</code><br>,不是 <code>(3,)</code><br>(我一开始说错)</td>
 <td>记&quot;被点名的轴消失&quot;</td>
 </tr>
 <tr>
 <td>2</td>
 <td>忘 keepdims 的后果</td>
 <td>非方阵<strong>报错</strong>(能发现);方阵<strong>静默错</strong>(发现不了)</td>
-<td>一律加 <code>keepdims=True</code>&lt;br/&gt; 得 <code>(行数,1)</code></td>
+<td>一律加 <code>keepdims=True</code><br> 得 <code>(行数,1)</code></td>
 </tr>
 <tr>
 <td>3</td>
-<td>np 和 torch 的 <code>std</code>&lt;br/&gt; 默认</td>
+<td>np 和 torch 的 <code>std</code><br> 默认</td>
 <td>np 除以 N,torch 除以 N−1,<strong>默认就不一样且不报错</strong></td>
-<td>显式写 <code>ddof</code>&lt;br/&gt; / <code>correction</code></td>
+<td>显式写 <code>ddof</code><br> / <code>correction</code></td>
 </tr>
 <tr>
 <td>4</td>
-<td><code>torch.mean</code>&lt;br/&gt; 遇整数</td>
+<td><code>torch.mean</code><br> 遇整数</td>
 <td>直接 RuntimeError</td>
 <td>先 <code>.float()</code></td>
 </tr>
 <tr>
 <td>5</td>
-<td><code>argmax</code>&lt;br/&gt; 并列</td>
+<td><code>argmax</code><br> 并列</td>
 <td>np 确定取第一个,torch 不保证</td>
 <td>别依赖 torch 并列落点</td>
 </tr>
@@ -351,54 +351,54 @@ for ep in range(epochs):
 <td>7</td>
 <td>np vs torch 随机状态</td>
 <td>两套完全独立,互不影响</td>
-<td>各 seed 各的(<code>np.random.seed</code>&lt;br/&gt; / <code>torch.manual_seed</code>&lt;br/&gt;)</td>
+<td>各 seed 各的(<code>np.random.seed</code><br> / <code>torch.manual_seed</code><br>)</td>
 </tr>
 <tr>
 <td>8</td>
 <td><code>rng.random(2,3)</code></td>
 <td>TypeError(3 被当 dtype)</td>
-<td>用 <code>random((2,3))</code>&lt;br/&gt; 或 <code>random(size=(2,3))</code></td>
+<td>用 <code>random((2,3))</code><br> 或 <code>random(size=(2,3))</code></td>
 </tr>
 <tr>
 <td>9</td>
-<td><code>rand(2,3)</code>&lt;br/&gt; vs <code>random((2,3))</code></td>
+<td><code>rand(2,3)</code><br> vs <code>random((2,3))</code></td>
 <td>旧 rand 分开参数,新 random 用元组</td>
 <td>看清是不是元组</td>
 </tr>
 <tr>
 <td>10</td>
-<td>线性回归 <code>(n,1)</code>&lt;br/&gt; vs <code>(n,)</code></td>
-<td>相减静默广播成 <code>(n,n)</code>&lt;br/&gt;,loss 错;报错却在更新 w 那行(离病根四行远)</td>
-<td>全程统一 <code>(n,)</code>&lt;br/&gt;,每个张量心里标形状</td>
+<td>线性回归 <code>(n,1)</code><br> vs <code>(n,)</code></td>
+<td>相减静默广播成 <code>(n,n)</code><br>,loss 错;报错却在更新 w 那行(离病根四行远)</td>
+<td>全程统一 <code>(n,)</code><br>,每个张量心里标形状</td>
 </tr>
 <tr>
 <td>11</td>
-<td><code>.shape(-1,1)</code>&lt;br/&gt; 笔误</td>
-<td><code>.shape</code>&lt;br/&gt; 是属性(元组)不是方法,调用它报&quot;tuple not callable&quot;</td>
+<td><code>.shape(-1,1)</code><br> 笔误</td>
+<td><code>.shape</code><br> 是属性(元组)不是方法,调用它报&quot;tuple not callable&quot;</td>
 <td>是 <code>.reshape(-1,1)</code></td>
 </tr>
 <tr>
 <td>12</td>
-<td><code>w -= lr*dw</code>&lt;br/&gt; 原地更新</td>
+<td><code>w -= lr*dw</code><br> 原地更新</td>
 <td>w 是整数会报错/截断</td>
 <td>初始化成 float</td>
 </tr>
 <tr>
 <td>13</td>
-<td><code>X @ err</code>&lt;br/&gt; 写反转置</td>
+<td><code>X @ err</code><br> 写反转置</td>
 <td>形状不匹配报错(d≠n 时)</td>
-<td>梯度对 w 是 <code>X.T @ err</code>&lt;br/&gt; → <code>(d,)</code></td>
+<td>梯度对 w 是 <code>X.T @ err</code><br> → <code>(d,)</code></td>
 </tr>
 <tr>
 <td>14</td>
-<td><code>permutation</code>&lt;br/&gt; vs <code>shuffle</code></td>
+<td><code>permutation</code><br> vs <code>shuffle</code></td>
 <td>前者返回新数组,后者原地改返回 None</td>
 <td>要清单用 permutation</td>
 </tr>
 <tr>
 <td>15</td>
 <td>小批量梯度分母</td>
-<td>是 <code>/m</code>&lt;br/&gt; 不是 <code>/n</code>&lt;br/&gt;;最后一批不满用 <code>len(idx)</code></td>
+<td>是 <code>/m</code><br> 不是 <code>/n</code><br>;最后一批不满用 <code>len(idx)</code></td>
 <td>动态取 m</td>
 </tr>
 <tr>

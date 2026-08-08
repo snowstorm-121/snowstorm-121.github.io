@@ -103,8 +103,7 @@ a.dtype    # dtype('int64')    数据类型
 </code></pre>
 <h3 id="2-理解-轴-axis-shape-怎么读">2. 理解「轴 axis」——shape 怎么读</h3>
 <p><code>shape</code> 是一个<strong>元组，从外往里读</strong>：</p>
-<p>&lt;!-- 这是一张图片，ocr 内容为：AXIS1(列,长度3) 形状为(2,3)的二维数组及其两个轴 3 1 2 AXIS0(行,长度2) 5 6 SHAPE(2,3) 2行X3列,共6个元素 --&gt;
-<img src="/learning/pytorch/assets/remote/a9afc298cb30084866e7.png" alt="" loading="lazy"></p>
+<p><img src="/learning/pytorch/assets/remote/a9afc298cb30084866e7.png" alt="Day 3 学习笔记：NumPy 数组基础 图示" loading="lazy"></p>
 <ul>
 <li><code>shape</code> 第 1 个数字 <code>2</code> → <strong>axis 0</strong>（行方向，最外层）</li>
 <li><code>shape</code> 第 2 个数字 <code>3</code> → <strong>axis 1</strong>（列方向）</li>
@@ -200,12 +199,12 @@ print(a)              # [0 1 2 3 4]  ← a 不受影响
 <tr>
 <td>改形状</td>
 <td><code>a.reshape(...)</code></td>
-<td><code>t.reshape(...)</code>&lt;br/&gt; / <code>t.view(...)</code></td>
+<td><code>t.reshape(...)</code><br> / <code>t.view(...)</code></td>
 </tr>
 <tr>
 <td>切片索引</td>
 <td><code>a[1:3, 0]</code></td>
-<td><code>t[1:3, 0]</code>&lt;br/&gt;（写法相同）</td>
+<td><code>t[1:3, 0]</code><br>（写法相同）</td>
 </tr>
 <tr>
 <td>数据类型</td>

@@ -104,6 +104,9 @@ body.pytorch-reading-page { background: #06111d; }
   .note-content table { max-width: 100%; box-sizing: border-box; overflow-x: auto; }
   .note-content h2,
   .note-content h3 { overflow-wrap: anywhere; }
+  .note-content a,
+  .note-content :not(pre) > code { overflow-wrap: anywhere; word-break: break-word; }
+  .note-content pre code { white-space: pre; overflow-wrap: normal; word-break: normal; }
   .stage-neighbors,
   .article-neighbors { gap: 10px; }
 }
