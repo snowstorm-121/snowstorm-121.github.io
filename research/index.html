@@ -3,17 +3,67 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#07101c">
+  <meta name="theme-color" content="#050b14">
   <title>烛微观澜 · SNOWSTORM</title>
+  <link rel="icon" href="../assets/homepage/profile-coast-backview.png" type="image/png">
   <link rel="stylesheet" href="../assets/library.css">
+  <link rel="stylesheet" href="../assets/archive-atlas.css">
   <link rel="stylesheet" href="../assets/cursor-shoal.css">
+  <script src="../assets/archive-atlas.js" defer></script>
   <script src="../assets/cursor-shoal.js" defer></script>
 </head>
-<body class="library-page">
-  <main class="library-shell">
-    <a class="library-brand" href="../index.html">SNOWSTORM / ARCHIVE</a>
-    <p class="library-eyebrow">PERSONAL RESEARCH</p>
-    <h1>烛微观澜</h1><p class="library-intro">从细小的问题出发，向更辽阔的答案靠近。</p><section class="empty-state"><p>尚待收录</p><span>个人研究与项目成果会在这里沉淀。</span></section>
+<body class="archive-atlas-page archive-atlas-research">
+  <header class="atlas-header">
+    <a class="atlas-home" href="../index.html">← 返回主页</a>
+    <span class="atlas-current" aria-label="当前档案">烛微观澜</span>
+    <nav class="atlas-switcher" aria-label="档案分类">
+      <a href="../learning/">星野问津</a>
+      <a href="../living/">人间照影</a>
+      <a href="../research/" aria-current="page">烛微观澜</a>
+    </nav>
+  </header>
+
+  <main class="library-shell" data-atlas-root data-atlas-selected="question-beacon">
+    <div class="atlas-prologue">
+      <div>
+        <p class="atlas-kicker">RESEARCH ARCHIVE / 03</p>
+        <h1>烛微观澜</h1>
+      </div>
+      <p class="atlas-intro">从细小的问题出发，把假设、实验、工程实现和结论放回同一张可追溯的航图。</p>
+    </div>
+
+    <section class="atlas-layout" aria-label="研究档案星图">
+      <div class="atlas-chart" data-atlas-map role="group" aria-label="研究四分类星图">
+        <svg class="atlas-routes" viewBox="0 0 760 620" aria-hidden="true">
+          <path class="atlas-coastline" d="M18 533 C111 470 202 547 288 505 S455 462 548 510 S666 487 744 542"/>
+          <path class="atlas-route is-active" data-atlas-route="question-beacon" d="M378 320 Q248 238 130 150"/>
+          <path class="atlas-route" data-atlas-route="experiment-tide" d="M378 320 Q505 220 628 138"/>
+          <path class="atlas-route" data-atlas-route="engineering-map" d="M378 320 Q515 400 640 488"/>
+          <path class="atlas-route" data-atlas-route="conclusion-islet" d="M378 320 Q246 416 124 490"/>
+        </svg>
+
+        <button class="atlas-map-node atlas-control is-active" style="--node-x: 17%; --node-y: 24%" type="button" data-atlas-control data-atlas-key="question-beacon" data-atlas-count="0 项" data-atlas-meta="研究起点" data-atlas-title="问题航标" data-atlas-description="先把真正要回答的问题和判断边界钉在航图上。" aria-pressed="true"><span>问题航标</span></button>
+        <button class="atlas-map-node atlas-control is-dimmed" style="--node-x: 82%; --node-y: 22%" type="button" data-atlas-control data-atlas-key="experiment-tide" data-atlas-count="0 项" data-atlas-meta="实验记录" data-atlas-title="实验潮汐" data-atlas-description="保存对照条件、运行结果与失败证据，不让结论脱离实验。" aria-pressed="false"><span>实验潮汐</span></button>
+        <button class="atlas-map-node atlas-control is-dimmed" style="--node-x: 83%; --node-y: 77%" type="button" data-atlas-control data-atlas-key="engineering-map" data-atlas-count="0 项" data-atlas-meta="工程实现" data-atlas-title="工程舱图" data-atlas-description="沉淀实现结构、数据流与可以复现的工程边界。" aria-pressed="false"><span>工程舱图</span></button>
+        <button class="atlas-map-node atlas-control is-dimmed" style="--node-x: 16%; --node-y: 78%" type="button" data-atlas-control data-atlas-key="conclusion-islet" data-atlas-count="0 项" data-atlas-meta="结论与限制" data-atlas-title="结论星屿" data-atlas-description="把回答、限制和下一步放在同一个可回望的落点。" aria-pressed="false"><span>结论星屿</span></button>
+      </div>
+
+      <aside class="atlas-index" aria-labelledby="research-atlas-index">
+        <p class="atlas-index-label" id="research-atlas-index">REFRACTION INDEX</p>
+        <h2 data-atlas-title aria-live="polite">问题航标</h2>
+        <div class="atlas-tally"><strong data-atlas-count>0 项</strong><span data-atlas-meta>研究起点</span></div>
+        <p class="atlas-description" data-atlas-description>先把真正要回答的问题和判断边界钉在航图上。</p>
+        <a class="atlas-destination" data-atlas-destination hidden>进入航线&nbsp; →</a>
+        <span class="atlas-empty" data-atlas-empty>尚待启航</span>
+
+        <ul class="atlas-directory" aria-label="研究档案索引">
+          <li><button class="atlas-index-button atlas-control is-active" type="button" data-atlas-control data-atlas-key="question-beacon" data-atlas-count="0 项" data-atlas-meta="研究起点" data-atlas-title="问题航标" data-atlas-description="先把真正要回答的问题和判断边界钉在航图上。" aria-pressed="true"><h3>问题航标</h3><p>研究起点</p><small>00</small></button></li>
+          <li><button class="atlas-index-button atlas-control is-dimmed" type="button" data-atlas-control data-atlas-key="experiment-tide" data-atlas-count="0 项" data-atlas-meta="实验记录" data-atlas-title="实验潮汐" data-atlas-description="保存对照条件、运行结果与失败证据，不让结论脱离实验。" aria-pressed="false"><h3>实验潮汐</h3><p>实验记录</p><small>00</small></button></li>
+          <li><button class="atlas-index-button atlas-control is-dimmed" type="button" data-atlas-control data-atlas-key="engineering-map" data-atlas-count="0 项" data-atlas-meta="工程实现" data-atlas-title="工程舱图" data-atlas-description="沉淀实现结构、数据流与可以复现的工程边界。" aria-pressed="false"><h3>工程舱图</h3><p>工程实现</p><small>00</small></button></li>
+          <li><button class="atlas-index-button atlas-control is-dimmed" type="button" data-atlas-control data-atlas-key="conclusion-islet" data-atlas-count="0 项" data-atlas-meta="结论与限制" data-atlas-title="结论星屿" data-atlas-description="把回答、限制和下一步放在同一个可回望的落点。" aria-pressed="false"><h3>结论星屿</h3><p>结论与限制</p><small>00</small></button></li>
+        </ul>
+      </aside>
+    </section>
   </main>
 </body>
 </html>
