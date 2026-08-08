@@ -148,6 +148,7 @@ test('reading styles preserve a still, system-cursor long-form experience and gl
   assert.match(css, /\.note-content img[\s\S]*?border:/);
   assert.match(css, /\.source-attachment[\s\S]*?backdrop-filter/);
   assert.match(mobileCss, /\.reading-toc\s*\{[^}]*?position:\s*static/);
+  assert.match(mobileCss, /\.note-content\s*\{[^}]*?overflow-wrap:\s*anywhere/);
   assert.match(mobileCss, /\.note-content pre,\s*\.note-content table\s*\{[^}]*?max-width:\s*100%[^}]*?box-sizing:\s*border-box[^}]*?overflow-x:\s*auto/);
   assert.match(mobileCss, /\.note-content h2,\s*\.note-content h3\s*\{[^}]*?overflow-wrap:\s*anywhere/);
   assert.match(mobileCss, /\.note-content a,\s*\.note-content :not\(pre\) > code\s*\{[^}]*?overflow-wrap:\s*anywhere/);
@@ -160,6 +161,7 @@ test('reading styles preserve a still, system-cursor long-form experience and gl
   const representative = await readFile(notePath(manifest.notes.find((note) => note.slug.includes('titanic'))), 'utf8');
   assert.match(representative, /<a\b[^>]*href="[^"]{80,}"/);
   assert.match(representative, /<code>[^<]{45,}<\/code>/);
+  assert.match(representative, /middle_age→senior/);
 });
 
 test('reading progress handles missing elements, bounded positions, and zero scroll ranges without animation frames', async () => {

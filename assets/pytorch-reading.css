@@ -99,7 +99,7 @@ body.pytorch-reading-page { background: #06111d; }
   .tide-stage a span { font-size: 15px; }
   .reading-layout { display: flex; flex-direction: column; gap: 20px; }
   .reading-toc { position: static; order: -1; width: 100%; }
-  .note-content { font-size: 15px; line-height: 1.82; }
+  .note-content { overflow-wrap: anywhere; font-size: 15px; line-height: 1.82; }
   .note-content pre,
   .note-content table { max-width: 100%; box-sizing: border-box; overflow-x: auto; }
   .note-content h2,
