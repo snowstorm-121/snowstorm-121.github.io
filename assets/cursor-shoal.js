@@ -1,6 +1,8 @@
 (() => {
   const PARTICLE_COUNT = 6;
   const TRAIL_DURATION = 180;
+  const TRAIL_MIN_SPEED = 4;
+  const TRAIL_MAX_SPEED = 40;
   const SCATTER_DURATION = 520;
   const INTERACTIVE_SELECTOR = 'a, button, [role="button"], summary, select';
   const FORMATION = Object.freeze([
@@ -14,9 +16,11 @@
   const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   const pointerQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
   let controller;
+  let destroyed = false;
 
   const now = () => globalThis.performance?.now?.() ?? Date.now();
   const canRun = () => !reduceMotionQuery.matches && pointerQuery.matches;
+  const isMousePointer = (event) => !event.pointerType || event.pointerType === "mouse";
   const textTarget = (target) => Boolean(target?.closest?.("input, textarea, [contenteditable]") ?? target?.matches?.("input, textarea, [contenteditable]"));
 
   function createLayer() {
@@ -40,6 +44,8 @@
       particles,
       frame: 0,
       visible: false,
+      pageActive: true,
+      pageVisible: document.visibilityState !== "hidden",
       target: null,
       hoveredTarget: null,
       selecting: false,
@@ -47,6 +53,7 @@
       pointer: { x: 0, y: 0, previousX: 0, previousY: 0, updatedAt: null },
       heading: 0,
       trailStrength: 0,
+      trailPeak: 0,
       lastMotionAt: 0,
       lastPointerAt: null,
       particlePositions: Array.from({ length: PARTICLE_COUNT }, () => ({ x: 0, y: 0 })),
@@ -58,8 +65,26 @@
     };
   }
 
+  function isVisible(state) {
+    return state.visible && state.pageActive && state.pageVisible && !state.selecting && !state.nativeTextTarget;
+  }
+
+  function stopFrame(state) {
+    if (!state.frame) return;
+    window.cancelAnimationFrame(state.frame);
+    state.frame = 0;
+  }
+
+  function ensureFrame(state) {
+    if (state.frame || !isVisible(state)) return;
+    state.frame = window.requestAnimationFrame(render);
+  }
+
   function syncVisibility(state) {
-    state.layer.classList.toggle("is-visible", state.visible && !state.selecting && !state.nativeTextTarget);
+    const visible = isVisible(state);
+    state.layer.classList.toggle("is-visible", visible);
+    if (visible) ensureFrame(state);
+    else stopFrame(state);
   }
 
   function setTarget(element) {
@@ -76,6 +101,14 @@
     if (reset) state.particlePositions.forEach((position) => Object.assign(position, { x: event.clientX, y: event.clientY }));
   }
 
+  function hideForNonMouse(state) {
+    state.visible = false;
+    state.nativeTextTarget = false;
+    state.hoveredTarget = null;
+    setTarget(null);
+    syncVisibility(state);
+  }
+
   function scatterAt(x, y) {
     if (!controller) return;
     setTarget(null);
@@ -89,6 +122,8 @@
   function render(timestamp) {
     if (!controller) return;
     const state = controller;
+    state.frame = 0;
+    if (!isVisible(state)) return;
     const { pointer } = state;
     const deltaX = pointer.x - pointer.previousX;
     const deltaY = pointer.y - pointer.previousY;
@@ -97,10 +132,11 @@
       const wanted = Math.atan2(deltaY, deltaX);
       const difference = Math.atan2(Math.sin(wanted - state.heading), Math.cos(wanted - state.heading));
       state.heading += difference * (speed > 12 ? .38 : .1);
+      state.trailPeak = Math.max(0, Math.min(1, (speed - TRAIL_MIN_SPEED) / (TRAIL_MAX_SPEED - TRAIL_MIN_SPEED)));
       state.lastMotionAt = timestamp;
       state.lastPointerAt = pointer.updatedAt;
     }
-    state.trailStrength = Math.max(0, 1 - ((timestamp - state.lastMotionAt) / TRAIL_DURATION));
+    state.trailStrength = state.trailPeak * Math.max(0, 1 - ((timestamp - state.lastMotionAt) / TRAIL_DURATION));
     state.core.style.setProperty("--shoal-trail", String(state.trailStrength));
     state.layer.classList.toggle("is-clicking", state.goldUntil > timestamp);
     const scattering = state.scatterUntil > timestamp;
@@ -159,7 +195,7 @@
       particle.style.transform = `translate3d(${position.x}px, ${position.y}px, 0) rotate(${degrees}deg) scale(${1 - index * .055})`;
       particle.style.opacity = "1";
     });
-    state.frame = window.requestAnimationFrame(render);
+    ensureFrame(state);
   }
 
   function setup() {
@@ -175,11 +211,13 @@
       syncVisibility(state);
     });
     listen(document, "pointermove", (event) => {
+      if (!isMousePointer(event)) return hideForNonMouse(state);
       updatePointer(state, event);
       state.visible = true;
       syncVisibility(state);
     });
     listen(document, "pointerover", (event) => {
+      if (!isMousePointer(event)) return hideForNonMouse(state);
       if (event.relatedTarget === null) updatePointer(state, event);
       state.visible = true;
       state.nativeTextTarget = textTarget(event.target);
@@ -188,6 +226,7 @@
       syncVisibility(state);
     });
     listen(document, "pointerout", (event) => {
+      if (!isMousePointer(event)) return hideForNonMouse(state);
       if (event.relatedTarget === null) {
         state.visible = false;
         state.nativeTextTarget = false;
@@ -201,14 +240,27 @@
       syncVisibility(state);
     });
     listen(document, "pointerdown", (event) => {
+      if (!isMousePointer(event)) return hideForNonMouse(state);
       if (!textTarget(event.target)) scatterAt(event.clientX, event.clientY);
+    });
+    listen(document, "visibilitychange", () => {
+      state.pageVisible = document.visibilityState !== "hidden";
+      syncVisibility(state);
+    });
+    listen(window, "pagehide", () => {
+      state.pageActive = false;
+      syncVisibility(state);
+    });
+    listen(window, "pageshow", () => {
+      state.pageActive = true;
+      syncVisibility(state);
     });
     return state;
   }
 
-  function destroy() {
+  function teardownController() {
     if (controller) {
-      window.cancelAnimationFrame(controller.frame);
+      if (controller.frame) window.cancelAnimationFrame(controller.frame);
       controller.listeners.forEach(({ target, type, handler }) => target.removeEventListener(type, handler));
       controller.layer.remove();
       controller = undefined;
@@ -218,18 +270,24 @@
   }
 
   function sync() {
-    destroy();
+    if (destroyed) return undefined;
     if (!canRun()) {
-      document.documentElement.dataset.bioluminescentShoal = "false";
+      teardownController();
       return undefined;
     }
-    controller = setup();
-    if (controller) render(now());
+    if (!controller) controller = setup();
     document.documentElement.dataset.bioluminescentShoal = String(Boolean(controller));
     return controller;
   }
 
-  window.MoonScaleShoal = { sync, destroy, render, setTarget, scatterAt, get controller() { return controller; } };
+  function destroy() {
+    destroyed = true;
+    reduceMotionQuery.removeEventListener("change", sync);
+    pointerQuery.removeEventListener("change", sync);
+    teardownController();
+  }
+
+  window.MoonScaleShoal = { sync, destroy, get controller() { return controller; } };
   reduceMotionQuery.addEventListener("change", sync);
   pointerQuery.addEventListener("change", sync);
   if (document.documentElement.dataset.moonScaleShoal === "true") sync();

@@ -198,6 +198,7 @@ function createMusicRuntime({
   const timers = [];
   const animationFrames = new Map();
   const cancelledAnimationFrames = [];
+  const mediaQueries = new Map();
   let nextAnimationFrame = 0;
 
   class FakeElement {
@@ -301,6 +302,7 @@ function createMusicRuntime({
 
   const document = {
     activeElement: null,
+    visibilityState: "visible",
     documentElement: new FakeElement("html"),
     listeners: documentListeners,
     querySelector(selector) { return elements.get(selector) ?? new FakeElement(); },
@@ -328,6 +330,7 @@ function createMusicRuntime({
   };
   document.body = new FakeElement("body");
   document.body.parent = document;
+  document.documentElement.dataset.moonScaleShoal = "true";
   document.documentElement.dataset.visitorCounterEndpoint = visitorEndpoint;
   let cookie = visitorCookie;
   Object.defineProperty(document, "cookie", {
@@ -345,10 +348,18 @@ function createMusicRuntime({
   const window = {
     innerWidth: 1440,
     innerHeight: 900,
-    matchMedia: (query) => ({
-      matches: query.includes("prefers-reduced-motion") ? reducedMotion : finePointer,
-      addEventListener() {},
-    }),
+    matchMedia(query) {
+      if (!mediaQueries.has(query)) {
+        const listeners = new Set();
+        mediaQueries.set(query, {
+          matches: query.includes("prefers-reduced-motion") ? reducedMotion : finePointer,
+          addEventListener(type, listener) { if (type === "change") listeners.add(listener); },
+          removeEventListener(type, listener) { if (type === "change") listeners.delete(listener); },
+          dispatchChange() { listeners.forEach((listener) => listener({ matches: this.matches })); },
+        });
+      }
+      return mediaQueries.get(query);
+    },
     setTimeout(callback, duration) {
       const timer = { callback, duration, active: true };
       timers.push(timer);
@@ -365,6 +376,9 @@ function createMusicRuntime({
     removeEventListener(type, listener) {
       const listeners = windowListeners.get(type) ?? [];
       windowListeners.set(type, listeners.filter((registered) => registered !== listener));
+    },
+    dispatch(type, event = {}) {
+      windowListeners.get(type)?.forEach((listener) => listener({ type, ...event }));
     },
     requestAnimationFrame(callback) {
       const frame = ++nextAnimationFrame;
@@ -418,6 +432,11 @@ function createMusicRuntime({
       if (!callback) return;
       animationFrames.delete(frame);
       callback(timestamp);
+    },
+    setMediaMatches(query, matches) {
+      const media = window.matchMedia(query);
+      media.matches = matches;
+      media.dispatchChange();
     },
     moonRipple: elements.get("#moon-ripple"),
     sessionStorage,
@@ -944,6 +963,7 @@ test("motion is capability-gated and has a complete reduced-motion fallback", ()
 test("moon-scale shoal is shared by the homepage and three archive entries", async () => {
   const entries = await Promise.all(["learning", "living", "research"].map((entry) => readFile(new URL(`../${entry}/index.html`, import.meta.url), "utf8")));
   assert.doesNotMatch(html, /id="bioluminescent-shoal"/);
+  assert.match(html, /<html[^>]*data-moon-scale-shoal="true"/);
   assert.match(html, /href="\.\/assets\/cursor-shoal\.css"/);
   assert.match(html, /src="\.\/assets\/cursor-shoal\.js" defer/);
   entries.forEach((entry) => {
@@ -974,11 +994,12 @@ test("moon-scale shoal is shared by the homepage and three archive entries", asy
   archiveRuntime.document.documentElement.dataset.moonScaleShoal = "true";
   vm.runInNewContext(sharedScript, { ...archiveRuntime, fetch: async () => ({ ok: false }), navigator: {} });
   assert.equal(archiveRuntime.document.body.children.filter((element) => element.id === "bioluminescent-shoal").length, 1);
-  assert.equal(archiveRuntime.animationFrameCount(), 1);
+  assert.equal(archiveRuntime.animationFrameCount(), 0, "an unseen shoal stays idle");
 });
 
 test("moon-scale shoal uses one RAF for vector steering, V formation, orbiting controls, and click return", () => {
   assert.doesNotMatch(sharedScript, /INTERACTIVE_SELECTOR[^;]*\[data-preview\]/);
+  assert.match(sharedScript, /if \(state\.frame \|\| !isVisible\(state\)\) return;/);
   assert.match(sharedScript, /state\.frame = window\.requestAnimationFrame\(render\);/);
   assert.match(sharedScript, /window\.cancelAnimationFrame\(controller\.frame\);/);
   assert.match(sharedScript, /const TRAIL_DURATION = 180;/);
@@ -992,6 +1013,8 @@ test("moon-scale shoal uses one RAF for vector steering, V formation, orbiting c
   assert.match(styles, /html\[data-night-navigation="on"\] #bioluminescent-shoal \.shoal-core/);
   assert.match(styles, /html\[data-night-navigation="on"\] #bioluminescent-shoal\.is-clicking \.shoal-core/);
   assert.doesNotMatch(sharedScript, /document\.createElement\([^)]*\)[\s\S]{0,300}pointermove/);
+  assert.doesNotMatch(sharedScript, /MoonScaleShoal\s*=\s*\{[^}]*\brender\b/);
+  assert.doesNotMatch(homepageScript, /MoonScaleShoal|syncBioluminescentShoal|renderShoalFrame/);
 });
 
 test("archive card surfaces remain free-following while real controls become shoal targets", () => {
@@ -1006,7 +1029,7 @@ test("archive card surfaces remain free-following while real controls become sho
   const control = { closest(selector) { return selector.includes("a, button") ? this : null; } };
 
   vm.runInNewContext(script, context);
-  const controller = vm.runInNewContext("shoalController", context);
+  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
 
   runtime.document.dispatch("pointerover", { target: archiveCard, clientX: 120, clientY: 80 });
   assert.equal(controller.target, null);
@@ -1029,7 +1052,7 @@ test("control clicks scatter the shoal and target mode orbits instead of pinning
   };
 
   vm.runInNewContext(script, context);
-  const controller = vm.runInNewContext("shoalController", context);
+  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
 
   runtime.document.dispatch("pointerover", { target: control, clientX: 120, clientY: 60 });
   now = 110;
@@ -1055,7 +1078,7 @@ test("a stationary control pointer resumes its orbit when click scatter ends", (
   };
 
   vm.runInNewContext(script, context);
-  const controller = vm.runInNewContext("shoalController", context);
+  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
 
   runtime.document.dispatch("pointerover", { target: control, clientX: 120, clientY: 60 });
   runtime.document.dispatch("pointerdown", { target: control, clientX: 120, clientY: 60 });
@@ -1077,7 +1100,7 @@ test("first in-page pointer movement reveals the shoal without a boundary entry"
   };
 
   vm.runInNewContext(script, context);
-  const controller = vm.runInNewContext("shoalController", context);
+  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
 
   assert.equal(controller.layer.classList.contains("is-visible"), false);
   runtime.document.dispatch("pointermove", { clientX: 120, clientY: 80 });
@@ -1095,7 +1118,7 @@ test("document boundary events hide the shoal and reenter at the new pointer pos
   const boundaryTarget = { closest() { return null; } };
 
   vm.runInNewContext(script, context);
-  const controller = vm.runInNewContext("shoalController", context);
+  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
 
   runtime.document.dispatch("pointermove", { target: boundaryTarget, clientX: 120, clientY: 80 });
   assert.equal(controller.layer.classList.contains("is-visible"), true);
@@ -1122,7 +1145,7 @@ test("first pointer position initializes particles without a viewport-wide corne
   };
 
   vm.runInNewContext(script, context);
-  const controller = vm.runInNewContext("shoalController", context);
+  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
 
   runtime.document.dispatch("pointermove", { clientX: 120, clientY: 80 });
   runtime.runAnimationFrame(16);
@@ -1143,8 +1166,9 @@ test("scatter follows a visible arc before returning to the V formation", () => 
   };
 
   vm.runInNewContext(script, context);
-  const controller = vm.runInNewContext("shoalController", context);
-  vm.runInNewContext("scatterShoalAt(120, 80)", context);
+  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 120, clientY: 80 });
+  runtime.document.dispatch("pointerdown", { pointerType: "mouse", target: runtime.document, clientX: 120, clientY: 80 });
 
   now = 260;
   runtime.runAnimationFrame(now);
@@ -1170,12 +1194,40 @@ test("reduced motion and coarse pointers skip the shoal while resync keeps one l
   const runtime = createMusicRuntime({ finePointer: true });
   const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
   vm.runInNewContext(script, context);
-  vm.runInNewContext("syncBioluminescentShoal()", context);
+  vm.runInNewContext("window.MoonScaleShoal.sync()", context);
   assert.equal(runtime.document.body.children.filter((element) => element.id === "bioluminescent-shoal").length, 1);
+  assert.equal(runtime.animationFrameCount(), 0);
+});
+
+test("mixed fine-pointer devices ignore and hide touch or pen pointer streams", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  let now = 0;
+  const context = {
+    ...runtime,
+    performance: { now: () => now },
+    fetch: async () => ({ ok: false }),
+    navigator: { maxTouchPoints: 5 },
+  };
+
+  runtime.document.documentElement.dataset.moonScaleShoal = "true";
+  vm.runInNewContext(sharedScript, context);
+  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 10, clientY: 10 });
+  assert.equal(controller.layer.classList.contains("is-visible"), true);
+  assert.equal(runtime.animationFrameCount(), 1);
+
+  runtime.document.dispatch("pointermove", { pointerType: "touch", clientX: 90, clientY: 80 });
+  runtime.document.dispatch("pointerdown", { pointerType: "pen", clientX: 90, clientY: 80 });
+  assert.equal(controller.layer.classList.contains("is-visible"), false);
+  assert.equal(runtime.animationFrameCount(), 0);
+  assert.equal(controller.scatterUntil, 0, "non-mouse input cannot scatter the shoal");
+
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 40, clientY: 30 });
+  assert.equal(controller.layer.classList.contains("is-visible"), true);
   assert.equal(runtime.animationFrameCount(), 1);
 });
 
-test("bioluminescent shoal schedules one cancellable RAF and clears its trail after 180ms", () => {
+test("trail strength uses a speed-normalized peak and decays to zero after 180ms", () => {
   const runtime = createMusicRuntime({ finePointer: true });
   let now = 0;
   const context = {
@@ -1185,40 +1237,79 @@ test("bioluminescent shoal schedules one cancellable RAF and clears its trail af
     navigator: {},
   };
 
-  vm.runInNewContext(script, context);
+  runtime.document.documentElement.dataset.moonScaleShoal = "true";
+  vm.runInNewContext(sharedScript, context);
 
-  assert.equal(runtime.animationFrameCount(), 1, "setup schedules the first shoal frame");
-  const controller = vm.runInNewContext("shoalController", context);
-  runtime.document.dispatch("pointermove", { clientX: 10, clientY: 10 });
+  assert.equal(runtime.animationFrameCount(), 0, "setup does not animate an invisible layer");
+  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 10, clientY: 10 });
   now = 16;
   runtime.runAnimationFrame(now);
-  runtime.document.dispatch("pointermove", { clientX: 110, clientY: 10 });
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 11, clientY: 10 });
   now = 32;
   runtime.runAnimationFrame(now);
+  assert.equal(controller.trailStrength, 0, "one-pixel motion does not create a fast trail");
+
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 111, clientY: 10 });
+  now = 48;
+  runtime.runAnimationFrame(now);
   const movingTrail = controller.trailStrength;
-  now = 106;
+  now = 138;
   runtime.runAnimationFrame(now);
   const settlingTrail = controller.trailStrength;
-  now = 213;
+  now = 229;
   runtime.runAnimationFrame(now);
 
-  assert.ok(movingTrail > settlingTrail && settlingTrail > 0, `trail strength decays instead of resetting after one frame (${movingTrail}, ${settlingTrail})`);
+  assert.equal(movingTrail, 1, "fast motion reaches the normalized peak");
+  assert.ok(settlingTrail > 0 && settlingTrail < movingTrail, `trail strength decays from its saved peak (${movingTrail}, ${settlingTrail})`);
   assert.equal(controller.trailStrength, 0, "trail has settled after 180 ms");
-  const pendingFrame = controller.frame;
-  vm.runInNewContext("destroyBioluminescentShoal()", context);
-  assert.ok(runtime.cancelledAnimationFrames.includes(pendingFrame), "destroy cancels the scheduled shoal frame");
+
+  const nightCore = shoalStyles.match(/html\[data-night-navigation="on"\] #bioluminescent-shoal \.shoal-core\s*\{[^}]*\}/)?.[0] ?? "";
+  assert.match(nightCore, /--shoal-trail-near:/);
+  assert.match(nightCore, /--shoal-trail-mid:/);
+  assert.match(nightCore, /--shoal-trail-far:/);
+  assert.doesNotMatch(nightCore, /box-shadow:/, "night mode changes trail color without replacing its three offsets");
 });
 
-test("public shoal destroy restores the system cursor contract", () => {
+test("shoal owns one visible-only RAF across starts, page lifecycle, and permanent destroy", () => {
   const runtime = createMusicRuntime({ finePointer: true });
   const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
 
-  vm.runInNewContext(script, context);
+  runtime.document.documentElement.dataset.moonScaleShoal = "true";
+  vm.runInNewContext(sharedScript, context);
   assert.equal(runtime.document.documentElement.dataset.bioluminescentShoal, "true");
+  assert.equal(runtime.animationFrameCount(), 0);
+
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 10, clientY: 10 });
+  vm.runInNewContext("window.MoonScaleShoal.sync(); window.MoonScaleShoal.sync()", context);
+  assert.equal(runtime.animationFrameCount(), 1, "repeated starts never create a second RAF");
+
+  runtime.document.dispatch("pointerout", { pointerType: "mouse", relatedTarget: null });
+  assert.equal(runtime.animationFrameCount(), 0, "leaving the document cancels animation");
+  runtime.document.dispatch("pointerover", { pointerType: "mouse", target: runtime.document, relatedTarget: null, clientX: 20, clientY: 20 });
+  assert.equal(runtime.animationFrameCount(), 1);
+
+  runtime.document.visibilityState = "hidden";
+  runtime.document.dispatch("visibilitychange");
+  assert.equal(runtime.animationFrameCount(), 0, "hidden pages cancel animation");
+  runtime.document.visibilityState = "visible";
+  runtime.document.dispatch("visibilitychange");
+  assert.equal(runtime.animationFrameCount(), 1, "a visible page resumes the one needed frame");
+
+  runtime.window.dispatch("pagehide");
+  assert.equal(runtime.animationFrameCount(), 0);
+  runtime.window.dispatch("pageshow");
+  assert.equal(runtime.animationFrameCount(), 1);
+
   vm.runInNewContext("window.MoonScaleShoal.destroy()", context);
 
   assert.equal(runtime.document.documentElement.dataset.bioluminescentShoal, "false", "public teardown restores the native cursor");
   assert.equal(runtime.document.body.children.filter((element) => element.id === "bioluminescent-shoal").length, 0);
+  assert.equal(runtime.animationFrameCount(), 0);
+  runtime.setMediaMatches("(hover: hover) and (pointer: fine)", false);
+  runtime.setMediaMatches("(hover: hover) and (pointer: fine)", true);
+  vm.runInNewContext("window.MoonScaleShoal.sync()", context);
+  assert.equal(runtime.document.body.children.filter((element) => element.id === "bioluminescent-shoal").length, 0, "destroy is a permanent terminal state");
   assert.equal(runtime.animationFrameCount(), 0);
 });
 

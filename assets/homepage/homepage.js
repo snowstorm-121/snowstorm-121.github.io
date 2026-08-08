@@ -59,9 +59,6 @@ const NIGHT_NAVIGATION_CEREMONY_DURATION = 1350;
 const VISITOR_COUNTER_ENDPOINT = document.documentElement.dataset.visitorCounterEndpoint ?? "";
 const VISITOR_COOKIE_NAME = "homepage_visitor_id";
 const VISITOR_COOKIE_MAX_AGE = 400 * 24 * 60 * 60;
-const SHOAL_PARTICLE_COUNT = 6;
-const SHOAL_INTERACTIVE_SELECTOR = 'a, button, [role="button"], summary, select';
-
 let trackIndex = 0;
 let lyricLines = [];
 let lyricLoad = 0;
@@ -71,7 +68,6 @@ let renderedLyricAccentIndex = -1;
 let pointerGlassEnabled = false;
 let idleTimer;
 let nightNavigationTimer;
-let shoalController;
 const lyricCache = new Map();
 const lyricAccents = ["#153a5b", "#8fc5d6", "#d7b28a"];
 const playerMotionCycles = new WeakMap();
@@ -101,34 +97,6 @@ function resetSceneLight() {
   const root = document.documentElement;
   root.style?.removeProperty("--scene-light-offset-x");
   root.style?.removeProperty("--scene-light-offset-y");
-}
-
-function setShoalTarget(element) {
-  window.MoonScaleShoal.setTarget(element);
-  shoalController = window.MoonScaleShoal.controller;
-}
-
-function getShoalTimestamp() {
-  return globalThis.performance?.now?.() ?? Date.now();
-}
-
-function scatterShoalAt(x, y) {
-  window.MoonScaleShoal.scatterAt(x, y);
-  shoalController = window.MoonScaleShoal.controller;
-}
-
-function renderShoalFrame(timestamp) {
-  window.MoonScaleShoal.render(timestamp);
-  shoalController = window.MoonScaleShoal.controller;
-}
-
-function destroyBioluminescentShoal() {
-  window.MoonScaleShoal.destroy();
-  shoalController = undefined;
-}
-
-function syncBioluminescentShoal() {
-  shoalController = window.MoonScaleShoal.sync();
 }
 
 function setVisitorCounterUnavailable() {
@@ -239,7 +207,6 @@ function syncMotionPreferences() {
     pointerGlassEnabled = pointerQuery.matches;
     root.dataset.pointerGlass = String(pointerGlassEnabled);
   }
-  syncBioluminescentShoal();
 }
 
 function setupPointerGlass() {
