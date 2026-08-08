@@ -193,13 +193,18 @@ test('scans every published text attachment or rejects it before writing output'
     },
     {
       name: 'invalid-utf8.js',
-      content: Buffer.from([0xff, 0xfe, 0xfd]),
-      error: /Stage1\/invalid-utf8\.js.*not UTF-8/i,
+      content: Buffer.concat([Buffer.from([0xff]), Buffer.from('AKIAIOSFODNN7EXAMPLE')]),
+      error: /Stage1\/invalid-utf8\.js:1.*credential/i,
     },
     {
       name: 'nul.py',
-      content: Buffer.from('safe\0text'),
-      error: /Stage1\/nul\.py.*binary/i,
+      content: Buffer.from('safe\0AKIAIOSFODNN7EXAMPLE'),
+      error: /Stage1\/nul\.py:1.*credential/i,
+    },
+    {
+      name: 'payload.log',
+      content: Buffer.concat([Buffer.from([0xff, 0x0a]), Buffer.from('AKIAIOSFODNN7EXAMPLE')]),
+      error: /Stage1\/payload\.log:2.*credential/i,
     },
   ];
 

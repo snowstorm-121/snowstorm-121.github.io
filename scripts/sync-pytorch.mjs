@@ -146,34 +146,11 @@ async function scanSecrets(notes, sourceRoot, publishedAttachments) {
   ];
   const findings = [];
   const sources = notes.map((note) => ({ sourcePath: note.sourcePath, content: note.content }));
-  const textExtensions = new Set([
-    '.bash', '.c', '.cc', '.cfg', '.conf', '.cpp', '.css', '.csv', '.env', '.fish',
-    '.go', '.h', '.hpp', '.htm', '.html', '.ini', '.ipynb', '.java', '.js', '.json',
-    '.jsonl', '.jsx', '.key', '.md', '.mjs', '.pem', '.py', '.r', '.rs', '.sh', '.sql',
-    '.toml', '.ts', '.tsv', '.tsx', '.txt', '.xml', '.yaml', '.yml', '.zsh',
-  ]);
   for (const absolutePath of publishedAttachments) {
     const buffer = await readFile(absolutePath);
-    const sourcePath = normalizePath(path.relative(sourceRoot, absolutePath));
-    const declaredText = textExtensions.has(path.extname(absolutePath).toLowerCase());
-    let content;
-    try {
-      content = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
-    } catch {
-      if (declaredText) {
-        throw new Error(`Credential scan stopped synchronization:\n${sourcePath}: published text attachment is not UTF-8`);
-      }
-      continue;
-    }
-    if (content.includes('\0')) {
-      if (declaredText) {
-        throw new Error(`Credential scan stopped synchronization:\n${sourcePath}: published text attachment is binary`);
-      }
-      continue;
-    }
     sources.push({
-      sourcePath,
-      content,
+      sourcePath: normalizePath(path.relative(sourceRoot, absolutePath)),
+      content: buffer.toString('latin1'),
     });
   }
   for (const source of sources) {
