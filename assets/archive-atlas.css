@@ -353,7 +353,7 @@ body.archive-atlas-page [data-atlas-directory] li { margin: 0; padding: 0; borde
 @media (max-width: 420px) {
   .atlas-chart { min-height: 410px; }
   .atlas-map-node { width: 82px; }
-  .atlas-map-node[data-atlas-key="stage-3"] { left: calc(var(--node-x) - 8%); }
+  .atlas-map-node[data-atlas-key="stage-3"] { left: calc(var(--node-x) - 10%); }
   .atlas-map-node span { max-width: 82px; font-size: 9px; }
   .atlas-map-node.is-core span { font-size: 14px; }
 }

@@ -112,9 +112,12 @@ test("atlas styling keeps an open chart, narrow glass index, mobile stack, and c
 });
 
 test("dimmed atlas controls preserve readable text while dimming only star decoration", () => {
-  const dimmed = styles.match(/\.atlas-control\.is-dimmed\s*\{[^}]*\}/)?.[0] ?? "";
+  const mapDimmed = styles.match(/\.atlas-map-node\.is-dimmed\s*\{[^}]*\}/)?.[0] ?? "";
+  const indexDimmed = styles.match(/\.atlas-index-button\.is-dimmed\s*\{[^}]*\}/)?.[0] ?? "";
 
-  assert.doesNotMatch(dimmed, /\bopacity\s*:/);
+  assert.doesNotMatch(styles, /\.atlas-control\.is-dimmed\s*\{/);
+  assert.doesNotMatch(mapDimmed, /\bopacity\s*:/);
+  assert.doesNotMatch(indexDimmed, /\bopacity\s*:/);
   assert.match(styles, /\.atlas-map-node\.is-dimmed::before\s*\{[^}]*border-color:[^}]*background:[^}]*box-shadow:/);
   assert.match(styles, /\.atlas-map-node\.is-dimmed span\s*\{[^}]*color:/);
   assert.match(styles, /\.atlas-index-button\.is-dimmed h3\s*\{[^}]*color:/);
@@ -122,12 +125,22 @@ test("dimmed atlas controls preserve readable text while dimming only star decor
   assert.match(styles, /\.atlas-control:hover,\s*\.atlas-control:focus-visible\s*\{[^}]*opacity:\s*1/);
 });
 
-test("the compact learning chart reserves room for the stage-3 focus ring", () => {
+test("the compact learning chart keeps active stage-3 and its focus ring inside the chart", () => {
   const compact = styles.match(/@media \(max-width: 420px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+  const stageThree = compact.match(/\.atlas-map-node\[data-atlas-key="stage-3"\]\s*\{[^}]*\}/)?.[0] ?? "";
+  const shift = Number(stageThree.match(/left:\s*calc\(var\(--node-x\)\s*-\s*(\d+(?:\.\d+)?)%\)/)?.[1]);
+  const chartWidth = 277;
+  const stageThreeX = chartWidth * .9;
+  const nodeWidth = 82;
+  const focusInset = 8;
+  const activeScale = 1.08;
+  const focusRight = stageThreeX - chartWidth * (shift / 100) + ((nodeWidth + focusInset * 2) * activeScale) / 2;
 
-  assert.match(compact, /\.atlas-map-node\[data-atlas-key="stage-3"\]\s*\{[^}]*left:\s*calc\(var\(--node-x\)\s*-\s*8%\)/);
+  assert.ok(Number.isFinite(shift));
+  assert.match(styles, /\.atlas-map-node\.is-active\s*\{[^}]*scale\(1\.08\)/);
   assert.match(styles, /\.atlas-control:focus-visible::after\s*\{[^}]*inset:\s*-8px/);
   assert.match(styles, /\.atlas-chart\s*\{[^}]*overflow:\s*hidden/);
+  assert.ok(focusRight <= chartWidth, `stage-3 focus right edge ${focusRight}px exceeds ${chartWidth}px chart width`);
 });
 
 class FakeElement {
