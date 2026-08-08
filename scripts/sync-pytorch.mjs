@@ -3,11 +3,14 @@
 import { createHash } from 'node:crypto';
 import {
   access,
+  cp,
   lstat,
+  mkdtemp,
   mkdir,
   readFile,
   readdir,
   realpath,
+  rename,
   rm,
   stat,
   writeFile,
@@ -126,12 +129,27 @@ export async function collectSourceNotes(sourceRoot, previousManifest = {}) {
   return notes;
 }
 
+function createMarkdownParser() {
+  return new MarkdownIt({ html: false, linkify: true, breaks: false });
+}
+
+function markdownImageSources(markdown, md = createMarkdownParser()) {
+  const sources = [];
+  const visit = (tokens) => {
+    for (const token of tokens) {
+      if (token.type === 'image') sources.push(token.attrGet('src'));
+      if (token.children) visit(token.children);
+    }
+  };
+  visit(md.parse(markdown, {}));
+  return sources.filter(Boolean);
+}
+
 export function findRemoteImageUrls(markdown) {
   const urls = new Set();
-  const markdownImage = /!\[[^\]]*\]\(\s*(https?:\/\/[^\s)]+)(?:\s+["'][^"']*["'])?\s*\)/gi;
-  const htmlImage = /<img\b[^>]*\bsrc=["'](https?:\/\/[^"']+)["'][^>]*>/gi;
-  for (const pattern of [markdownImage, htmlImage]) {
-    for (const match of markdown.matchAll(pattern)) urls.add(match[1]);
+  for (const source of markdownImageSources(markdown)) {
+    if (source.startsWith('//')) throw new Error(`Protocol-relative remote image is not allowed: ${source}`);
+    if (isRemote(source)) urls.add(source);
   }
   return [...urls].sort();
 }
@@ -253,6 +271,14 @@ function findAsset(rawTarget, currentNote, assetFiles, sourceRoot) {
 function attachmentDestination(file, currentNote) {
   const name = path.basename(file).normalize('NFC');
   return `assets/${currentNote.stageKey}/${name}`;
+}
+
+function registerLocalAsset(localAssets, destination, source) {
+  const existing = localAssets.get(destination);
+  if (existing && path.resolve(existing) !== path.resolve(source)) {
+    throw new Error(`Attachment destination collision at ${destination}: ${existing} and ${source}`);
+  }
+  localAssets.set(destination, source);
 }
 
 function remoteHttpUrl(value) {
@@ -550,7 +576,7 @@ function preprocessMarkdown(markdown, context, md) {
             if (embed) throw new Error(`${context.note.sourcePath}:${lineIndex + 1}: missing attachment ${rawTarget}`);
           } else {
             const destination = attachmentDestination(asset, context.note);
-            context.localAssets.set(destination, asset);
+            registerLocalAsset(context.localAssets, destination, asset);
             const url = `${SITE_ROOT}/${destination.split('/').map(encodeURIComponent).join('/')}`;
             if (extension === '.py' && embed) {
               const token = `PYTORCH_SOURCE_ATTACHMENT_${placeholders.length}`;
@@ -575,8 +601,32 @@ function preprocessMarkdown(markdown, context, md) {
   return { markdown: lines.join('\n'), placeholders };
 }
 
+function collectPublicationInputs(notes, context) {
+  const remoteUrls = new Set();
+  for (const note of notes) {
+    const md = createMarkdownParser();
+    const { markdown } = preprocessMarkdown(note.content, {
+      ...context,
+      note,
+      warnings: [],
+    }, md);
+    for (const source of markdownImageSources(markdown, md)) {
+      if (source.startsWith('//')) throw new Error(`${note.sourcePath}: protocol-relative remote image is not allowed: ${source}`);
+      if (isRemote(source)) {
+        remoteUrls.add(source);
+        continue;
+      }
+      if (source.startsWith('/')) continue;
+      const asset = findAsset(source, note, context.assetFiles, context.sourceRoot);
+      if (!asset) throw new Error(`${note.sourcePath}: missing image ${source}`);
+      registerLocalAsset(context.localAssets, attachmentDestination(asset, note), asset);
+    }
+  }
+  return [...remoteUrls].sort();
+}
+
 async function renderNote(note, context) {
-  const md = new MarkdownIt({ html: false, linkify: true, breaks: false });
+  const md = createMarkdownParser();
   const { markdown, placeholders } = preprocessMarkdown(note.content, { ...context, note }, md);
   const hasTaskMarker = (tokens, index, closingType) => {
     for (let cursor = index + 1, depth = 0; cursor < tokens.length; cursor += 1) {
@@ -606,7 +656,9 @@ async function renderNote(note, context) {
   md.renderer.rules.image = (tokens, index, options, env, self) => {
     const token = tokens[index];
     const source = token.attrGet('src');
-    if (isRemote(source)) {
+    if (source.startsWith('//')) {
+      throw new Error(`${note.sourcePath}: protocol-relative remote image is not allowed: ${source}`);
+    } else if (isRemote(source)) {
       const destination = context.remoteAssets[source];
       if (!destination) throw new Error(`${note.sourcePath}: new remote image ${source}; run with --fetch-remote-assets`);
       token.attrSet('src', `${SITE_ROOT}/${destination}`);
@@ -614,7 +666,7 @@ async function renderNote(note, context) {
       const asset = findAsset(source, note, context.assetFiles, context.sourceRoot);
       if (!asset) throw new Error(`${note.sourcePath}: missing image ${source}`);
       const destination = attachmentDestination(asset, note);
-      context.localAssets.set(destination, asset);
+      registerLocalAsset(context.localAssets, destination, asset);
       token.attrSet('src', `${SITE_ROOT}/${destination.split('/').map(encodeURIComponent).join('/')}`);
     }
     token.attrSet('loading', 'lazy');
@@ -729,21 +781,84 @@ async function fileExists(file) {
   }
 }
 
+function isRecord(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function validateManifest(manifest) {
+  if (!isRecord(manifest)) throw new Error('Invalid PyTorch manifest: root must be an object');
+  if (manifest.version !== MANIFEST_VERSION) {
+    throw new Error(`Invalid PyTorch manifest version: expected ${MANIFEST_VERSION}`);
+  }
+  const allowedFields = new Set(['version', 'stages', 'notes', 'attachments', 'remoteAssets', 'warnings', 'generatedFiles']);
+  for (const field of Object.keys(manifest)) {
+    if (!allowedFields.has(field)) throw new Error(`Invalid PyTorch manifest field: ${field}`);
+  }
+  for (const field of ['stages', 'notes', 'attachments', 'warnings', 'generatedFiles']) {
+    if (!Array.isArray(manifest[field])) throw new Error(`Invalid PyTorch manifest: ${field} must be an array`);
+  }
+  if (!isRecord(manifest.remoteAssets)) throw new Error('Invalid PyTorch manifest: remoteAssets must be an object');
+
+  const requireStringFields = (entries, label, fields) => entries.forEach((entry, index) => {
+    if (!isRecord(entry)) throw new Error(`Invalid PyTorch manifest: ${label}[${index}] must be an object`);
+    for (const field of fields) {
+      if (typeof entry[field] !== 'string' || !entry[field]) {
+        throw new Error(`Invalid PyTorch manifest: ${label}[${index}].${field} must be a non-empty string`);
+      }
+    }
+  });
+  requireStringFields(manifest.stages, 'stages', ['key', 'label']);
+  requireStringFields(manifest.notes, 'notes', ['stageKey', 'stageLabel', 'title', 'slug', 'sourcePath']);
+  requireStringFields(manifest.attachments, 'attachments', ['sourcePath', 'path']);
+  manifest.notes.forEach((note, index) => {
+    if ('isOverview' in note && typeof note.isOverview !== 'boolean') {
+      throw new Error(`Invalid PyTorch manifest: notes[${index}].isOverview must be a boolean`);
+    }
+  });
+  manifest.warnings.forEach((warning, index) => {
+    if (typeof warning !== 'string') throw new Error(`Invalid PyTorch manifest: warnings[${index}] must be a string`);
+  });
+  for (const [url, assetPath] of Object.entries(manifest.remoteAssets)) {
+    if (!url || typeof assetPath !== 'string' || !assetPath) {
+      throw new Error('Invalid PyTorch manifest: remoteAssets entries must map URLs to non-empty paths');
+    }
+  }
+  manifest.generatedFiles.forEach((generatedPath, index) => {
+    if (typeof generatedPath !== 'string' || !generatedPath) {
+      throw new Error(`Invalid PyTorch manifest: generatedFiles[${index}] must be a non-empty string`);
+    }
+  });
+  if (new Set(manifest.generatedFiles).size !== manifest.generatedFiles.length) {
+    throw new Error('Invalid PyTorch manifest: duplicate generated path');
+  }
+  if (!manifest.generatedFiles.includes('manifest.json')) {
+    throw new Error('Invalid PyTorch manifest: generatedFiles must include manifest.json');
+  }
+  const generated = new Set(manifest.generatedFiles);
+  for (const assetPath of [
+    ...manifest.attachments.map((attachment) => attachment.path),
+    ...Object.values(manifest.remoteAssets),
+  ]) {
+    if (!generated.has(assetPath)) throw new Error(`Invalid PyTorch manifest: unmanaged published path ${assetPath}`);
+  }
+}
+
 async function readManifest(outputRoot) {
   try {
-    return JSON.parse(await readFile(await safeManagedPath(outputRoot, 'manifest.json'), 'utf8'));
+    const manifest = JSON.parse(await readFile(await safeManagedPath(outputRoot, 'manifest.json'), 'utf8'));
+    validateManifest(manifest);
+    return manifest;
   } catch (error) {
-    if (error.code === 'ENOENT') return {};
+    if (error.code === 'ENOENT') return null;
     throw error;
   }
 }
 
-async function buildRemoteAssets(notes, previousManifest, options) {
-  const urls = new Set(notes.flatMap((note) => findRemoteImageUrls(note.content)));
+async function buildRemoteAssets(urls, previousManifest, options) {
   const remoteAssets = {};
   const downloaded = new Map();
   const previous = previousManifest.remoteAssets || {};
-  for (const url of [...urls].sort()) {
+  for (const url of urls) {
     if (previous[url]) {
       const existing = await safeManagedPath(options.outputRoot, previous[url]);
       if (!(await fileExists(existing))) throw new Error(`Missing localized remote image: ${previous[url]}`);
@@ -815,23 +930,67 @@ async function safeManagedPath(outputRoot, relativePath) {
   return absolute;
 }
 
-async function writeOutputs(outputRoot, outputs, previousManifest) {
-  const desired = new Set(outputs.keys());
-  const destinations = new Map();
-  const managedPaths = new Set([
-    ...outputs.keys(),
-    ...(previousManifest.generatedFiles || []).filter((oldPath) => !desired.has(oldPath)),
-  ]);
-  for (const relativePath of managedPaths) {
-    destinations.set(relativePath, await safeManagedPath(outputRoot, relativePath));
-  }
-  for (const oldPath of previousManifest.generatedFiles || []) {
-    if (!desired.has(oldPath)) await rm(destinations.get(oldPath), { force: true });
-  }
-  for (const [relativePath, content] of outputs) {
-    const destination = destinations.get(relativePath);
-    await mkdir(path.dirname(destination), { recursive: true });
-    await writeFile(destination, content);
+async function writeOutputs(outputRoot, outputs, previousManifest, { writeFileImpl = writeFile } = {}) {
+  const resolvedRoot = path.resolve(outputRoot);
+  const parent = path.dirname(resolvedRoot);
+  await mkdir(parent, { recursive: true });
+  const transactionRoot = await mkdtemp(path.join(parent, `.${path.basename(resolvedRoot)}-sync-`));
+  const stagedRoot = path.join(transactionRoot, 'next');
+  const backupRoot = path.join(transactionRoot, 'previous');
+  let backupOwnsSnapshot = false;
+
+  try {
+    if (await fileExists(resolvedRoot)) {
+      await cp(resolvedRoot, stagedRoot, { recursive: true, preserveTimestamps: true, verbatimSymlinks: true });
+    } else {
+      await mkdir(stagedRoot, { recursive: true });
+    }
+    const desired = new Set(outputs.keys());
+    const destinations = new Map();
+    const managedPaths = new Set([
+      ...outputs.keys(),
+      ...(previousManifest.generatedFiles || []).filter((oldPath) => !desired.has(oldPath)),
+    ]);
+    for (const relativePath of managedPaths) {
+      destinations.set(relativePath, await safeManagedPath(stagedRoot, relativePath));
+    }
+    for (const oldPath of previousManifest.generatedFiles || []) {
+      if (!desired.has(oldPath)) await rm(destinations.get(oldPath), { force: true });
+    }
+    for (const [relativePath, content] of outputs) {
+      const destination = destinations.get(relativePath);
+      await mkdir(path.dirname(destination), { recursive: true });
+      await writeFileImpl(destination, content);
+    }
+    await checkOutputs(stagedRoot, outputs, previousManifest);
+
+    const hadPreviousSnapshot = await fileExists(resolvedRoot);
+    if (hadPreviousSnapshot) {
+      await rename(resolvedRoot, backupRoot);
+      backupOwnsSnapshot = true;
+    }
+    try {
+      await rename(stagedRoot, resolvedRoot);
+    } catch (publishError) {
+      if (backupOwnsSnapshot) {
+        try {
+          await rename(backupRoot, resolvedRoot);
+          backupOwnsSnapshot = false;
+        } catch (rollbackError) {
+          throw new AggregateError(
+            [publishError, rollbackError],
+            `PyTorch publish failed; previous snapshot remains at ${backupRoot}`,
+          );
+        }
+      }
+      throw publishError;
+    }
+    if (backupOwnsSnapshot) {
+      await rm(backupRoot, { recursive: true, force: true }).catch(() => {});
+      backupOwnsSnapshot = false;
+    }
+  } finally {
+    if (!backupOwnsSnapshot) await rm(transactionRoot, { recursive: true, force: true });
   }
 }
 
@@ -867,19 +1026,30 @@ export async function synchronize({
   fetchRemoteAssets = false,
   check = false,
   fetchAsset,
+  writeFileImpl,
 }) {
   if (!sourceRoot) throw new Error('Missing required --source directory');
   const resolvedSource = path.resolve(sourceRoot);
   const resolvedOutput = path.resolve(outputRoot);
   if (!(await stat(resolvedSource)).isDirectory()) throw new Error(`Source is not a directory: ${resolvedSource}`);
-  const previousManifest = await readManifest(resolvedOutput);
+  const previousManifest = await readManifest(resolvedOutput) || {};
+  for (const generatedPath of previousManifest.generatedFiles || []) {
+    await safeManagedPath(resolvedOutput, generatedPath);
+  }
   const notes = await collectSourceNotes(resolvedSource, previousManifest);
   const allFiles = await walkFiles(resolvedSource);
   const assetFiles = allFiles.filter((file) => path.extname(file).toLowerCase() !== '.md');
   const noteIndex = buildNoteIndex(notes);
   const warnings = [];
   const localAssets = new Map();
-  const remote = await buildRemoteAssets(notes, previousManifest, {
+  const remoteUrls = collectPublicationInputs(notes, {
+    sourceRoot: resolvedSource,
+    noteIndex,
+    assetFiles,
+    localAssets,
+  });
+  await scanSecrets(notes, resolvedSource, [...new Set(localAssets.values())]);
+  const remote = await buildRemoteAssets(remoteUrls, previousManifest, {
     outputRoot: resolvedOutput,
     fetchRemoteAssets,
     fetchAsset,
@@ -898,7 +1068,6 @@ export async function synchronize({
     outputs.set(`notes/${note.stageKey}/${note.slug}.html`, renderArticle(note, html, stageNotes));
     outputs.set(`markdown/${note.stageKey}/${note.slug}.md`, note.content);
   }
-  await scanSecrets(notes, resolvedSource, [...new Set(localAssets.values())]);
   for (const [destination, source] of localAssets) outputs.set(destination, await readFile(source));
   const stages = [...STAGES.values()];
   outputs.set('index.html', renderArchiveIndex(notes, stages));
@@ -919,7 +1088,7 @@ export async function synchronize({
   };
   outputs.set('manifest.json', `${JSON.stringify(manifest, null, 2)}\n`);
   if (check) await checkOutputs(resolvedOutput, outputs, previousManifest);
-  else await writeOutputs(resolvedOutput, outputs, previousManifest);
+  else await writeOutputs(resolvedOutput, outputs, previousManifest, { writeFileImpl });
   return {
     notes: notes.length,
     stages: stages.length,

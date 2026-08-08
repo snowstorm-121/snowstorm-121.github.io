@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -74,6 +74,20 @@ async function makeFixture() {
   return { root, source, output };
 }
 
+async function snapshotTree(root) {
+  const snapshot = {};
+  async function walk(directory) {
+    const entries = await readdir(directory, { withFileTypes: true });
+    for (const entry of entries) {
+      const absolute = path.join(directory, entry.name);
+      if (entry.isDirectory()) await walk(absolute);
+      else snapshot[path.relative(root, absolute)] = (await readFile(absolute)).toString('base64');
+    }
+  }
+  await walk(root);
+  return snapshot;
+}
+
 test('discovers the real 32-note, seven-stage archive and preserves all 24 legacy slugs', async () => {
   const { collectSourceNotes, findRemoteImageUrls } = await loadSyncModule();
   const manifest = JSON.parse(await readFile(path.join(repoRoot, 'learning/pytorch/manifest.json'), 'utf8'));
@@ -86,6 +100,56 @@ test('discovers the real 32-note, seven-stage archive and preserves all 24 legac
   assert.equal(urls.size, 29);
   const routes = new Set(notes.map((note) => `notes/${note.stageKey}/${note.slug}.html`));
   for (const legacyRoute of legacyRoutes) assert.ok(routes.has(legacyRoute), `legacy URL changed: ${legacyRoute}`);
+});
+
+test('remote image discovery follows markdown-it image tokens and rejects protocol-relative sources', async (t) => {
+  const { findRemoteImageUrls, synchronize } = await loadSyncModule();
+  const balancedUrl = 'https://images.example.test/a_(b).png';
+  const ignored = 'https://images.example.test/ignored.png';
+  const markdown = [
+    `![real](${balancedUrl})`,
+    `\`![inline](${ignored})\``,
+    `\\![escaped](${ignored})`,
+    '```md',
+    `![fenced](${ignored})`,
+    '```',
+    `<img src="${ignored}" alt="raw">`,
+  ].join('\n');
+
+  assert.deepEqual(findRemoteImageUrls(markdown), [balancedUrl]);
+
+  const fixture = await makeFixture();
+  t.after(() => rm(fixture.root, { recursive: true, force: true }));
+  await writeFile(path.join(fixture.source, 'Stage1', 'Main.md'), markdown);
+  const requested = [];
+  await synchronize({
+    sourceRoot: fixture.source,
+    outputRoot: fixture.output,
+    fetchRemoteAssets: true,
+    fetchAsset: async (url) => {
+      requested.push(url);
+      return tinyPng;
+    },
+  });
+  assert.deepEqual(requested, [balancedUrl]);
+  const manifest = JSON.parse(await readFile(path.join(fixture.output, 'manifest.json'), 'utf8'));
+  assert.deepEqual(Object.keys(manifest.remoteAssets), [balancedUrl]);
+
+  await writeFile(path.join(fixture.source, 'Stage1', 'Main.md'), '![unsafe](//images.example.test/unsafe.png)\n');
+  let fetches = 0;
+  await assert.rejects(
+    synchronize({
+      sourceRoot: fixture.source,
+      outputRoot: fixture.output,
+      fetchRemoteAssets: true,
+      fetchAsset: async () => {
+        fetches += 1;
+        return tinyPng;
+      },
+    }),
+    /protocol-relative.*image/i,
+  );
+  assert.equal(fetches, 0);
 });
 
 test('renders Markdown, wiki links, local images, and Python attachments without dead links', async (t) => {
@@ -223,6 +287,55 @@ test('scans every published text attachment or rejects it before writing output'
       await assert.rejects(readFile(path.join(output, 'manifest.json')), /ENOENT/);
     });
   }
+});
+
+test('credential findings in Markdown or pending attachments prevent every remote fetch', async (t) => {
+  const { synchronize } = await loadSyncModule();
+  for (const location of ['markdown', 'attachment']) {
+    await t.test(location, async (subtest) => {
+      const { root, source, output } = await makeFixture();
+      subtest.after(() => rm(root, { recursive: true, force: true }));
+      const remote = 'https://images.example.test/never-requested.png';
+      if (location === 'markdown') {
+        await writeFile(path.join(source, 'Stage1', 'Main.md'), `AKIAIOSFODNN7EXAMPLE\n![remote](${remote})\n`);
+      } else {
+        await writeFile(path.join(source, 'Stage1', 'secret.js'), 'const key = "AKIAIOSFODNN7EXAMPLE";\n');
+        await writeFile(path.join(source, 'Stage1', 'Main.md'), `[[secret.js|Download]]\n![remote](${remote})\n`);
+      }
+      let fetches = 0;
+      await assert.rejects(
+        synchronize({
+          sourceRoot: source,
+          outputRoot: output,
+          fetchRemoteAssets: true,
+          fetchAsset: async () => {
+            fetches += 1;
+            return tinyPng;
+          },
+        }),
+        /credential scan/i,
+      );
+      assert.equal(fetches, 0, `${location} scanning finishes before remote I/O`);
+    });
+  }
+});
+
+test('same-stage attachments with the same basename cannot overwrite one another', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(source, 'Stage1', 'alpha'), { recursive: true });
+  await mkdir(path.join(source, 'Stage1', 'beta'), { recursive: true });
+  await writeFile(path.join(source, 'Stage1', 'alpha', 'shared.png'), 'alpha');
+  await writeFile(path.join(source, 'Stage1', 'beta', 'shared.png'), 'beta');
+  await writeFile(path.join(source, 'Stage1', 'alpha', 'Alpha.md'), '![alpha](shared.png)\n');
+  await writeFile(path.join(source, 'Stage1', 'beta', 'Beta.md'), '![beta](shared.png)\n');
+  const { synchronize } = await loadSyncModule();
+
+  await assert.rejects(
+    synchronize({ sourceRoot: source, outputRoot: output }),
+    /attachment destination collision.*shared\.png/i,
+  );
+  await assert.rejects(readFile(path.join(output, 'manifest.json')), /ENOENT/);
 });
 
 test('rejects traversal, absolute, and symlinked managed paths for manifest read, check, delete, and write', async (t) => {
@@ -706,6 +819,76 @@ test('fetches new remote images only with opt-in and requires the localized file
     synchronize({ sourceRoot: source, outputRoot: output, check: true }),
     /missing localized remote image/i,
   );
+});
+
+test('manifest loading enforces version, required field types, and unique generated paths', async (t) => {
+  const cases = [
+    {
+      name: 'version',
+      mutate(manifest) { manifest.version = 999; },
+      error: /manifest.*version/i,
+    },
+    {
+      name: 'missing generatedFiles',
+      mutate(manifest) { delete manifest.generatedFiles; },
+      error: /manifest.*generatedFiles/i,
+    },
+    {
+      name: 'notes type',
+      mutate(manifest) { manifest.notes = {}; },
+      error: /manifest.*notes.*array/i,
+    },
+    {
+      name: 'duplicate generated path',
+      mutate(manifest) { manifest.generatedFiles.push(manifest.generatedFiles[0]); },
+      error: /manifest.*duplicate.*path/i,
+    },
+  ];
+  const { synchronize } = await loadSyncModule();
+
+  for (const fixture of cases) {
+    await t.test(fixture.name, async (subtest) => {
+      const { root, source, output } = await makeFixture();
+      subtest.after(() => rm(root, { recursive: true, force: true }));
+      await synchronize({ sourceRoot: source, outputRoot: output });
+      const manifestPath = path.join(output, 'manifest.json');
+      const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+      fixture.mutate(manifest);
+      await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+      await assert.rejects(
+        synchronize({ sourceRoot: source, outputRoot: output }),
+        fixture.error,
+      );
+    });
+  }
+});
+
+test('a staged write failure leaves the complete previous published snapshot intact', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  await writeFile(path.join(output, 'assets', 'keep-me.txt'), 'unmanaged');
+  const before = await snapshotTree(output);
+  await writeFile(path.join(source, 'Stage1', 'Main.md'), '# Changed\n');
+  let writes = 0;
+
+  await assert.rejects(
+    synchronize({
+      sourceRoot: source,
+      outputRoot: output,
+      writeFileImpl: async (...args) => {
+        writes += 1;
+        if (writes === 3) throw new Error('injected staged write failure');
+        return writeFile(...args);
+      },
+    }),
+    /injected staged write failure/i,
+  );
+
+  assert.ok(writes >= 3, 'failure happened after publication staging began');
+  assert.deepEqual(await snapshotTree(output), before);
 });
 
 test('--check detects drift and manifest cleanup never removes unmanaged files', async (t) => {
