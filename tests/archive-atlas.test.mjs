@@ -93,7 +93,7 @@ test("atlas styling keeps an open chart, narrow glass index, mobile stack, and c
   assert.match(index, /width:\s*min\(/);
   assert.match(index, /backdrop-filter:\s*blur/);
   assert.match(styles, /\.atlas-route\.is-active/);
-  assert.match(styles, /\.atlas-control\.is-dimmed/);
+  assert.match(styles, /\.atlas-(?:map-node|index-button)\.is-dimmed/);
   assert.match(styles, /animation:\s*atlas-drift/);
   assert.match(styles, /--atlas-parallax-x/);
   assert.match(mobile, /\.atlas-layout\s*\{[^}]*grid-template-columns:\s*1fr/);
@@ -109,6 +109,25 @@ test("atlas styling keeps an open chart, narrow glass index, mobile stack, and c
   assert.match(reduced, /\.atlas-map-node, \.atlas-map-node\.is-active\s*\{[^}]*transform:\s*translate\(-50%,\s*-50%\) !important/);
   assert.match(reduced, /stroke-dashoffset:\s*0/);
   assert.match(styles, /\.atlas-index \.atlas-index-button h3\s*\{[^}]*font-size:\s*13px/);
+});
+
+test("dimmed atlas controls preserve readable text while dimming only star decoration", () => {
+  const dimmed = styles.match(/\.atlas-control\.is-dimmed\s*\{[^}]*\}/)?.[0] ?? "";
+
+  assert.doesNotMatch(dimmed, /\bopacity\s*:/);
+  assert.match(styles, /\.atlas-map-node\.is-dimmed::before\s*\{[^}]*border-color:[^}]*background:[^}]*box-shadow:/);
+  assert.match(styles, /\.atlas-map-node\.is-dimmed span\s*\{[^}]*color:/);
+  assert.match(styles, /\.atlas-index-button\.is-dimmed h3\s*\{[^}]*color:/);
+  assert.match(styles, /\.atlas-index-button\.is-dimmed small\s*\{[^}]*color:/);
+  assert.match(styles, /\.atlas-control:hover,\s*\.atlas-control:focus-visible\s*\{[^}]*opacity:\s*1/);
+});
+
+test("the compact learning chart reserves room for the stage-3 focus ring", () => {
+  const compact = styles.match(/@media \(max-width: 420px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+
+  assert.match(compact, /\.atlas-map-node\[data-atlas-key="stage-3"\]\s*\{[^}]*left:\s*calc\(var\(--node-x\)\s*-\s*8%\)/);
+  assert.match(styles, /\.atlas-control:focus-visible::after\s*\{[^}]*inset:\s*-8px/);
+  assert.match(styles, /\.atlas-chart\s*\{[^}]*overflow:\s*hidden/);
 });
 
 class FakeElement {

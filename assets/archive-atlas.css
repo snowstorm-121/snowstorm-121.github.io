@@ -209,7 +209,24 @@ button { color: inherit; font: inherit; }
 .atlas-map-node.is-core span { color: var(--atlas-ink); font-size: 16px; }
 .atlas-map-node.is-active { z-index: 2; filter: drop-shadow(0 0 10px rgba(222, 196, 159, .5)); transform: translate(calc(-50% + var(--atlas-parallax-x) * .22), calc(-50% + var(--atlas-parallax-y) * .22)) scale(1.08); }
 .atlas-map-node.is-active::before { border-color: #f4ddba; background: #f1d7af; box-shadow: 0 0 0 8px rgba(222, 196, 159, .1), 0 0 28px rgba(222, 196, 159, .7); }
-.atlas-control.is-dimmed { opacity: .34; filter: saturate(.55); }
+.atlas-map-node.is-dimmed::before {
+  border-color: rgba(140, 181, 208, .48);
+  background: #5c7d94;
+  box-shadow: 0 0 0 3px rgba(147, 201, 236, .05), 0 0 10px rgba(147, 201, 236, .2);
+}
+.atlas-map-node.is-dimmed span { color: var(--atlas-ink); }
+.atlas-index-button.is-dimmed { background: rgba(255, 255, 255, .025); }
+.atlas-index-button.is-dimmed::before { border-color: rgba(177, 211, 233, .38); background: rgba(177, 211, 233, .3); }
+.atlas-index-button.is-dimmed h3 { color: var(--atlas-ink); }
+.atlas-index-button.is-dimmed small { color: #dcebf5; }
+.atlas-map-node.is-dimmed:hover::before,
+.atlas-map-node.is-dimmed:focus-visible::before {
+  border-color: rgba(222, 196, 159, .82);
+  background: #b9d8ed;
+  box-shadow: 0 0 0 5px rgba(147, 201, 236, .08), 0 0 18px rgba(147, 201, 236, .46);
+}
+.atlas-index-button.is-dimmed:hover,
+.atlas-index-button.is-dimmed:focus-visible { background: rgba(255, 255, 255, .075); }
 .atlas-control:hover,
 .atlas-control:focus-visible { opacity: 1; outline: none; }
 .atlas-control:focus-visible::after {
@@ -336,6 +353,7 @@ body.archive-atlas-page [data-atlas-directory] li { margin: 0; padding: 0; borde
 @media (max-width: 420px) {
   .atlas-chart { min-height: 410px; }
   .atlas-map-node { width: 82px; }
+  .atlas-map-node[data-atlas-key="stage-3"] { left: calc(var(--node-x) - 8%); }
   .atlas-map-node span { max-width: 82px; font-size: 9px; }
   .atlas-map-node.is-core span { font-size: 14px; }
 }
