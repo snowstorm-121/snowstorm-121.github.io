@@ -13,6 +13,37 @@ const STAGE_KEYS = ['foundation', 'stage-1', 'stage-2', 'stage-3', 'stage-4', 's
 const readArchive = (relativePath) => readFile(path.join(archiveRoot, relativePath), 'utf8');
 const notePath = (note) => path.join(archiveRoot, 'notes', note.stageKey, `${note.slug}.html`);
 const noteUrl = (note) => `/learning/pytorch/notes/${note.stageKey}/${encodeURIComponent(note.slug)}.html`;
+function maxWidth720Block(css) {
+  const match = /@media\s*\(\s*max-width\s*:\s*720px\s*\)\s*\{/.exec(css);
+  if (!match) return '';
+
+  const start = match.index + match[0].length;
+  let depth = 1;
+  let quote = '';
+
+  for (let index = start; index < css.length; index += 1) {
+    const character = css[index];
+    if (quote) {
+      if (character === '\\') index += 1;
+      else if (character === quote) quote = '';
+      continue;
+    }
+    if (css.startsWith('/*', index)) {
+      const commentEnd = css.indexOf('*/', index + 2);
+      index = commentEnd === -1 ? css.length : commentEnd + 1;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+    } else if (character === '{') {
+      depth += 1;
+    } else if (character === '}' && --depth === 0) {
+      return css.slice(start, index);
+    }
+  }
+
+  return '';
+}
 
 test('PyTorch archive presents its seven ordered stages as a tide timeline', async () => {
   const index = await readArchive('index.html');
@@ -94,6 +125,15 @@ test('every manifest article has a readable shell, resolvable local targets, and
 
 test('reading styles preserve a still, system-cursor long-form experience and glass treatment for note content', async () => {
   const css = await readFile(path.join(repoRoot, 'assets', 'pytorch-reading.css'), 'utf8');
+  const mobileCss = maxWidth720Block(css);
+  const wronglyScopedCss = `
+    .note-content pre,
+    .note-content table { max-width: 100%; box-sizing: border-box; overflow-x: auto; }
+    @media (max-width: 720px) {
+      .note-content h2,
+      .note-content h3 { overflow-wrap: anywhere; }
+    }
+  `;
 
   assert.match(css, /body\.pytorch-reading-page[\s\S]*?cursor:\s*auto/);
   assert.match(css, /\.reading-layout[\s\S]*?minmax\(0,\s*46rem\)/);
@@ -105,9 +145,11 @@ test('reading styles preserve a still, system-cursor long-form experience and gl
   assert.match(css, /\.note-content input\[type="checkbox"\][\s\S]*?accent-color/);
   assert.match(css, /\.note-content img[\s\S]*?border:/);
   assert.match(css, /\.source-attachment[\s\S]*?backdrop-filter/);
-  assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.reading-toc[\s\S]*?position:\s*static/);
-  assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.note-content pre,\s*\.note-content table\s*\{[\s\S]*?max-width:\s*100%[\s\S]*?box-sizing:\s*border-box[\s\S]*?overflow-x:\s*auto/);
-  assert.match(css, /@media \(max-width: 720px\)[\s\S]*?\.note-content h2,\s*\.note-content h3\s*\{[\s\S]*?overflow-wrap:\s*anywhere/);
+  assert.match(mobileCss, /\.reading-toc\s*\{[^}]*?position:\s*static/);
+  assert.match(mobileCss, /\.note-content pre,\s*\.note-content table\s*\{[^}]*?max-width:\s*100%[^}]*?box-sizing:\s*border-box[^}]*?overflow-x:\s*auto/);
+  assert.match(mobileCss, /\.note-content h2,\s*\.note-content h3\s*\{[^}]*?overflow-wrap:\s*anywhere/);
+  assert.doesNotMatch(maxWidth720Block(wronglyScopedCss), /\.note-content pre,\s*\.note-content table/);
+  assert.doesNotMatch(css, /(?:^|[{};])\s*(?:html|body)(?:\s*,\s*(?:html|body))*\s*\{[^}]*?\boverflow(?:-x)?\s*:\s*hidden\b/i);
   assert.match(css, /@media \(pointer: coarse\)[\s\S]*?\.reading-toc-details summary[\s\S]*?min-height:\s*44px/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?animation:\s*none[\s\S]*?transition:\s*none/);
 });
