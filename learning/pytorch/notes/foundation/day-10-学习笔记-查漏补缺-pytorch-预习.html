@@ -51,7 +51,7 @@
         布局约定/常用公式            收敛≠预测稳定              手动梯度 vs autograd
         知识缺口·低优先              应用到旧项目               allclose交叉验证
 </code></pre>
-<p><img src="/learning/pytorch/assets/remote/0839d95098d2ffc82113.png" alt="Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习 图示" loading="lazy"></p>
+<p><img src="/learning/pytorch/assets/remote/0839d95098d2ffc82113.png" alt="图示：@DAY9现象复盘 维度记账法 收敛预测稳定 标量推导矩阵形式 应用到旧项目 数学翻译能力 矩阵求导认知 TENSOR VS NUMPY 布局约定/常用公式 DTYPE/内存/AUTOGRAD 知识缺口低优先 DAY 10 下周铺垫核心 …" loading="lazy"></p>
 <p><strong>递进逻辑</strong>：补数学（①②） → 补工程直觉（③） → 应用到已有项目（④） → 过渡新工具（⑤） → 练习收尾</p>
 <p><strong>关键发现</strong>：数学一直是对的，所有 bug 都出在&quot;框架机制 / 代码翻译&quot;这一层。</p>
 <hr>
@@ -71,7 +71,7 @@
 │ → 你的强项(考研)  │     │ → 关键模式识别     │     │ → 转置自动确定     │
 └──────────────────┘     └──────────────────┘     └──────────────────┘
 </code></pre>
-<p><img src="/learning/pytorch/assets/remote/08cbe80dcd0a4d647e4b.png" alt="Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习 图示" loading="lazy"></p>
+<p><img src="/learning/pytorch/assets/remote/08cbe80dcd0a4d647e4b.png" alt="图示：2 标量层面推完 识别求和矩阵乘 维度反推转置 1 3 单样本用链式法则 看到(标量向量) 目标SHAPE参数SHAPE 推到化简干净 唯一能凑出的组合 就是一次矩阵乘法 你的强项(考研) 关键模式识别 转置自动确定 这套流程对任意新模型…" loading="lazy"></p>
 <p>这套流程对任意新模型通用：softmax 回归、全连接层、卷积层都是同一套。</p>
 <h3 id="实例-线性回归">实例：线性回归</h3>
 <p>设 <code>X:(n,d)</code>，<code>w:(d,1)</code>，<code>y:(n,1)</code>，预测 <code>ŷ=Xw:(n,1)</code>，误差 <code>error=ŷ-y:(n,1)</code>。求 <code>∂L/∂w</code>，已知结果必须是 <code>(d,1)</code>。</p>
@@ -166,7 +166,7 @@
        · 整数索引取整行/列 a[1,:]        · concatenate/stack/where
        · 链式切片（view 的 view）       · reshape 在不连续数组上 ⚠
 </code></pre>
-<p><img src="/learning/pytorch/assets/remote/12c55f31c2ac50953481.png" alt="Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习 图示" loading="lazy"></p>
+<p><img src="/learning/pytorch/assets/remote/12c55f31c2ac50953481.png" alt="图示：一个数组操作 能只改STRIDE完成吗? 不能 VIEW.共享内存 COPY独立内存 必然/通常是VIEW 必然是COPY .花式索引A[[1,3,51] 基本切片 A[2:7] 转置AT(永远VIEW) 布尔索引A[MASK] 运算符A…" loading="lazy"></p>
 <h3 id="stride-图解-转置为什么永远是-view">stride 图解：转置为什么永远是 view</h3>
 <p>实测 <code>a=np.arange(12).reshape(3,4)</code> 的 <code>strides=(32,8)</code>，转置后 <code>a.T</code> 的 <code>strides=(8,32)</code>——<strong>底层内存一个字节都没动，只是把 stride 两个数字顺序换了一下</strong>。</p>
 <pre><code class="language-plain">底层内存（一维连续，从头到尾不变）：
@@ -183,7 +183,7 @@ a.T 用 strides=(8,32) 读 → shape(4,3) · 同一块内存：
   行0: 0 4 8    行1: 1 5 9    行2: 2 6 10    行3: 3 7 11
   只是把两个 stride 数字对调 → 必然 view · C_CONTIGUOUS 变 False
 </code></pre>
-<p><img src="/learning/pytorch/assets/remote/04d4baeb91983acc3ee6.png" alt="Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习 图示" loading="lazy"></p>
+<p><img src="/learning/pytorch/assets/remote/04d4baeb91983acc3ee6.png" alt="图示：底层内存(一维连续,从头到尾不变) 7 9 3 5 6 10 11 8 4 地址每格8字节(INT64) A用STRIDES(32,8)读 &gt; SHAPE(3,4) 行0:0123 行1:4567 行2:891011 沿行跳32字节(4个…" loading="lazy"></p>
 <h3 id="stride-图解-reshape-为什么分裂成两种行为最阴险的坑">stride 图解：reshape 为什么分裂成两种行为（最阴险的坑）</h3>
 <pre><code class="language-plain">┌─────────────────────────────┐      ┌─────────────────────────────┐
 │ 情况A · a.reshape(12)         │      │ 情况B · a.T.reshape(12)       │
@@ -196,7 +196,7 @@ a.T 用 strides=(8,32) 读 → shape(4,3) · 同一块内存：
 │ 不挪数据                      │      │ NumPy 不报错、不警告！          │
 └─────────────────────────────┘      └─────────────────────────────┘
 </code></pre>
-<p><img src="/learning/pytorch/assets/remote/dfe827470529f11aadda.png" alt="Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习 图示" loading="lazy"></p>
+<p><img src="/learning/pytorch/assets/remote/dfe827470529f11aadda.png" alt="图示：情况A.RESHAPE(12) 情况B.A.T.RESHAPE(12) A.T不连续(转置过) A本身连续(C_CONTIGUOUSTRUE) 底层顺序:012...11 底层顺序:012...11 期望顺序:048159... 期望顺序…" loading="lazy"></p>
 <p><strong>静默坑·务必记住</strong>：<code>X.T.reshape(...)</code> 之后期望&quot;修改 reshape 结果能影响原数组 X&quot;——<strong>程序不报任何错，只是悄悄没有按你以为的方式工作</strong>。预判技巧：reshape 前先查 <code>arr.flags['C_CONTIGUOUS']</code>，能提前知道这次会不会 copy。</p>
 <h3 id="坑-base-属性已不可靠实测结论">坑：.base 属性已不可靠（实测结论）</h3>
 <p><strong>写进笔记的结论</strong>：实测发现：转置、整数索引取行等操作，<code>np.shares_memory(a,b)</code> 为 <strong>True</strong>（确实共享），但 <code>b.base is a</code> 却是 <strong>False</strong>（NumPy 内部经过中间对象包装，<code>.base</code> 链条不直接指向原数组）。<strong>判断是否 view/copy 只能用 np.shares_memory()，不要用 .base is 来判断</strong>。<code>.base</code> 更适合追溯&quot;谁是最初所有者&quot;，但不是 view 判断的可靠依据。</p>
@@ -221,7 +221,7 @@ a.T 用 strides=(8,32) 读 → shape(4,3) · 同一块内存：
 长尾平台期原理：越接近最优点，梯度(=error)越小，
 步长越小，权重移动越慢但仍在漂移
 </code></pre>
-<p><img src="/learning/pytorch/assets/remote/b40db8474ea537f5a619.png" alt="Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习 图示" loading="lazy"></p>
+<p><img src="/learning/pytorch/assets/remote/b40db8474ea537f5a619.png" alt="图示：LOSS 0.69 0.69 长尾平台期 越接近最优点,梯度(ERROR)越小, 陡降 步长越小,权重移动越慢但仍在漂移 -0.26 0.43 停在这 0.43 041 EPOCH" loading="lazy"></p>
 <p><strong>&quot;变化不大&quot;是相对绝对数值看起来不大，不代表权重已到最优点附近。</strong> loss 从 0.43 降到 0.42 看着只差 0.01，给人快收敛的错觉，但后面还要走很长平台期才能逼近最优权重。</p>
 <h3 id="决策边界-vs-概率校准第二层-核心">决策边界 vs 概率校准（第二层 · 核心）</h3>
 <pre><code class="language-plain">┌───────────────────────────────┐    ┌───────────────────────────────┐
@@ -235,7 +235,7 @@ a.T 用 strides=(8,32) 读 → shape(4,3) · 同一块内存：
 │ 准确率不变                     │    │ 权重数值差异大，准确率纹丝不动    │
 └───────────────────────────────┘    └───────────────────────────────┘
 </code></pre>
-<p><img src="/learning/pytorch/assets/remote/a5942abbf7b4a415e617.png" alt="Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习 图示" loading="lazy"></p>
+<p><img src="/learning/pytorch/assets/remote/a5942abbf7b4a415e617.png" alt="图示：后4000轮在调:置信度 准确率只关心:边界方向 概率值0.7慢慢推向0.95 SIGMOID(Z)&gt;0.5两侧分对多少 三&quot;我对这个判断有多自信&quot; 而不是&quot;调整判断本身&quot; 只要落对一侧 准确率对置信度不敏感 准确率不变 权重数值差异大,…" loading="lazy"></p>
 <p><strong>精确化的面试说法（重要）</strong>：别说&quot;权重收敛但预测不稳定&quot;（听起来像模型有问题）。该说：<em>分类准确率这个指标对权重是否真正收敛到最优点不敏感——只要决策边界方向正确，准确率就会提前饱和；但若后续要做概率校准（如风控看具体违约概率数值），或要部署后继续微调，没充分收敛的权重就会暴露问题。</em></p>
 <p><strong>实践启示·早停判断标准</strong>：判断&quot;是否该停止训练&quot;<strong>别只看 loss 绝对数值的变化幅度</strong>。可以看 loss 下降的相对比例，或直接监控权重变化量 <code>np.linalg.norm(w_new - w_old)</code> 是否小于阈值——这比单看 loss 曲线更能反映权重是否真稳定。下周 PyTorch 的 early stopping 背后逻辑类似。</p>
 <hr>
@@ -286,7 +286,7 @@ a.T 用 strides=(8,32) 读 → shape(4,3) · 同一块内存：
 
 ∴ &quot;PyTorch默认float32&quot;只在规则A成立；数据来自外部转换时按规则B，必须显式检查
 </code></pre>
-<p><img src="/learning/pytorch/assets/remote/e14f0e0e7157807781e3.png" alt="Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习 图示" loading="lazy"></p>
+<p><img src="/learning/pytorch/assets/remote/e14f0e0e7157807781e3.png" alt="图示：规则B从已有NUMPY转 规则A?从头创建 尊重原数据DTYPE(保留,不转换) 用PYTORCH自己的偏好 FLOAT32 TORCH.TENSOR([1.0,2.0]) + FLOAT32 FROM_NUMPY(F64数组) - FL…" loading="lazy"></p>
 <p><strong>Q：为什么 <strong><code>**torch.tensor(a)**</code></strong>（a 是 numpy float64）打印出来是 float64，不是默认的 float32？**<strong>A：</strong> 因为这是</strong>从已有的 numpy 数组创建**（规则B），数据类型直接用 numpy 原来的 dtype。只有&quot;直接从 Python list 创建&quot;（规则A）才用 PyTorch 自己的 float32 偏好。<strong>创建来源决定默认行为</strong>——这条规则吃透了，就不会被表面的&quot;PyTorch 默认 float32&quot;误导。</p>
 <p><strong>实践准则·下周直接用</strong>：任何时候用 <code>torch.from_numpy()</code> / <code>torch.tensor(numpy_array)</code> 把数据从 NumPy 喂进 PyTorch（写数据加载、特征处理时几乎必然发生，因 pandas/sklearn 全基于 NumPy），**写完这行紧接着显式 <strong><code>**.float()**</code></strong> 或创建时指定 **<code>**dtype=torch.float32**</code>。低成本高回报，别依赖&quot;应该是对的&quot;。</p>
 <h3 id="内存共享-from-numpy-vs-tensor-的两套契约教程常漏">内存共享：from_numpy vs tensor 的两套契约（教程常漏）</h3>
@@ -302,7 +302,7 @@ torch.tensor(numpy_array) → copy·独立内存
 │   [内存A]     │ ─ ─ ─ ─→ │   [内存B]     │
 └──────────────┘          └──────────────┘
 </code></pre>
-<p><img src="/learning/pytorch/assets/remote/6e4bd90428d60262c0fe.png" alt="Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习 图示" loading="lazy"></p>
+<p><img src="/learning/pytorch/assets/remote/6e4bd90428d60262c0fe.png" alt="图示：TORCH.FROM_NUMPY()/.NUMPY()零拷贝.共享内存 改一边,另一边跟着变 NUMPY 数组 TENSOR 同一块内存 FROM_X命名零拷贝信号 外壳1 外壳2 TORCH.TENSOR(NUMPY_ARRAY)&gt;CO…" loading="lazy"></p>
 <table>
 <thead>
 <tr>
@@ -361,7 +361,7 @@ torch.tensor(numpy_array) → copy·独立内存
   │ 梯度写入 w.grad/b.grad（累加!) │  │ False，不生成.grad,不浪费算力│
   └──────────────────────────────┘  └──────────────────────────┘
 </code></pre>
-<p><img src="/learning/pytorch/assets/remote/4dc83280a2eba027d5ce.png" alt="Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习 图示" loading="lazy"></p>
+<p><img src="/learning/pytorch/assets/remote/4dc83280a2eba027d5ce.png" alt="图示：(代码执行到哪,图就长到哪) 前向 FORWARD W,B REQUIRES_GRAD-TRUE YO(Z) LOSS Z 三 XW+B 标量(0维) GRAD_FN GRAD_FN X,Y 反向 LOSS.BACKWARD() (沿图自…" loading="lazy"></p>
 <p>&quot;动态&quot; = 不预定义整图，执行到哪建到哪（区别于 TF 早期静态图） <code>grad_fn</code> 从 None(叶子w) → MulBackward → PowBackward，就是图被搭起来的实时证据</p>
 <p><strong>Q：既然是&quot;手动实现&quot;逻辑回归，为什么还要用 autograd？不该手动算梯度吗？**<strong>A：</strong> 关键区分不是&quot;手动 vs 自动&quot;，而是</strong>用不用高层模块（nn.Module / nn.Linear / optim）**。今天练的是中间过渡形态：<strong>前向计算（z、sigmoid、loss）依然全手写（和 Day9 一样），只有梯度这步改用 loss.backward() 让 autograd 自动算</strong>，参数更新仍手写。目的是直观对比&quot;我用矩阵公式推的梯度&quot;和&quot;autograd 自动算的梯度&quot;是否数值一致，交叉验证 Day9 的数学。三个层次：① Day9 全手动（不用 autograd）→ ② 今天（手写前向 + autograd + 手动更新）→ ③ 下周 nn.Module 全自动。</p>
 <h3 id="requires-grad-默认值设计权衡面试加分">requires_grad 默认值设计权衡（面试加分）</h3>
@@ -375,7 +375,7 @@ torch.tensor(numpy_array) → copy·独立内存
 │ ∴ w要开，数据X不开                │    │ 显式选择，而非默认行为             │
 └────────────────────────────────┘    └────────────────────────────────┘
 </code></pre>
-<p><img src="/learning/pytorch/assets/remote/07b1edf0b7889cfc38d3.png" alt="Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习 图示" loading="lazy"></p>
+<p><img src="/learning/pytorch/assets/remote/07b1edf0b7889cfc38d3.png" alt="图示：NUMPYVIEW/COPY(方向相反) PYTORCH REQUIRES_GRAD 默认FALSE(不追踪梯度) 默认尽量VIEW(共享内存) 只对要优化的参数(W.B)手动/自动开 只有必须重排数据时才 COPY 因追踪图开销大(存图…" loading="lazy"></p>
 <p><strong>我答错过的点（记录）</strong>：被问&quot;自己实现 PyTorch 逻辑回归，w、b 该怎么写才能让 autograd 自动算梯度&quot;时，<strong>我答了 <strong><code>**requires_grad=False**</code></strong>，正好答反了</strong>。正解：需要被优化、需要 autograd 算梯度的对象（w、b）<strong>必须 requires_grad=True</strong>；数据 X、y 保持默认 False。<strong>记忆钩子：requires_grad=True 翻译成人话 = &quot;请帮我记住它怎么参与运算，因为我之后要问它的梯度&quot;。</strong></p>
 <h3 id="五个必知机制细节都是踩过的坑">五个必知机制细节（都是踩过的坑）</h3>
 <ol>
@@ -415,7 +415,7 @@ torch.tensor(numpy_array) → copy·独立内存
 ✓┄┄ 全部修复 → torch.allclose 输出 True / True
      （autograd 与手推梯度一致）
 </code></pre>
-<p><img src="/learning/pytorch/assets/remote/e72949d9a64bef034d1f.png" alt="Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习 图示" loading="lazy"></p>
+<p><img src="/learning/pytorch/assets/remote/e72949d9a64bef034d1f.png" alt="图示：SIGMOID 加错负号 SIGMOID(-Z) 应是SIGMOID(Z),多个负号让模型学反方向.纯笔误但杀伤大 循环没更新参数 跑1000次但W_AUTO原地不动不动不动不动000遍 参数更新没用TORCH.NO_GRAD() 计算图…" loading="lazy"></p>
 <h3 id="最终正确代码骨架">最终正确代码骨架</h3>
 <pre><code class="language-python"># 数据：requires_grad 默认 False
 X = torch.tensor(X_np, dtype=torch.float32)
@@ -545,7 +545,7 @@ print(torch.allclose(w_auto, w_manual, atol=1e-5))   # True
 </tr>
 </tbody>
 </table>
-<p><img src="/learning/pytorch/assets/remote/191e08d841b3b66e9973.png" alt="Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习 图示" loading="lazy"></p>
+<p><img src="/learning/pytorch/assets/remote/191e08d841b3b66e9973.png" alt="图示：正解 表现 是否报错 直接 IF 静默 字符 FLAGS返回BOOL 非字符 C_CONTIGUOUS-'TRUE' 串比较 串,永远走ELSE X.FLAGS['C_CONTIGUOUS']: 补 没覆盖转置不连续的真正 测试只用连续数…" loading="lazy"></p>
 <p>注：11 个坑里 <strong>10 个是静默错误</strong>（不报错），只有 1 个会报错。这正是为什么&quot;先猜再验证&quot;和&quot;判断习惯&quot;比事后查代码更重要。</p>
 <h3 id="b-我问的值得记录的问题">B · 我问的值得记录的问题</h3>
 <table>

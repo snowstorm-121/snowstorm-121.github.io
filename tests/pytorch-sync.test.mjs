@@ -194,10 +194,33 @@ test('converts only safe raw breaks, hides OCR comments, labels images, and full
       '| --- | --- |',
       '| left<br/>right | value |',
       '',
-      '<!-- 这是一张图片，ocr 内容为：OCR secret description -->',
+      '<!-- 这是一张图片，ocr 内容为：OCR secret with',
+      '',
+      '`inline secret` inside -->',
       '![](attachments/plot.png)',
       '',
       '`<br>`',
+      '`multi',
+      '<br>',
+      'line`',
+      'Escaped \\<br>',
+      '',
+      'PYTORCH_SAFE_HTML_BREAK',
+      'PYTORCH_SAFE_<!-- join -->HTML_BREAK',
+      '',
+      '```text',
+      'PYTORCH_SAFE_HTML_BREAK',
+      '```',
+      '',
+      '<!-- ocr 内容为：wiki chart -->',
+      '![[plot.png]]',
+      '',
+      '![](attachments/plot.png)',
+      '',
+      '<!-- ocr 内容为：reference chart -->',
+      '![][plot-ref]',
+      '',
+      '[plot-ref]: attachments/plot.png',
       '<script>unsafe()</script>',
       '',
       '## Entity &copy; &lt;tag&gt; &#x1F680;',
@@ -210,12 +233,36 @@ test('converts only safe raw breaks, hides OCR comments, labels images, and full
 
   assert.match(html, /<p>Before<br>After<\/p>/);
   assert.match(html, /<td>left<br>right<\/td>/);
-  assert.doesNotMatch(html, /OCR secret description|&lt;!--|<!--/);
-  assert.match(html, /<img[^>]+alt="Main 图示"[^>]*>/);
+  assert.doesNotMatch(html, /<code>inline secret<\/code>|&lt;!--|<!--/);
+  assert.match(html, /<img[^>]+alt="图示：OCR secret with inline secret inside"[^>]*>/);
   assert.match(html, /<code>&lt;br&gt;<\/code>/);
+  assert.match(html, /<code>multi &lt;br&gt; line<\/code>/);
+  assert.match(html, /Escaped &lt;br&gt;/);
+  assert.match(html, /<p>PYTORCH_SAFE_HTML_BREAK\nPYTORCH_SAFE_HTML_BREAK<\/p>/);
+  assert.match(html, /<code class="language-text">PYTORCH_SAFE_HTML_BREAK\n<\/code>/);
+  assert.match(html, /<img[^>]+alt="图示：wiki chart"[^>]*>/);
+  assert.match(html, /<img[^>]+alt="Main 图示"[^>]*>/);
+  assert.match(html, /<img[^>]+alt="图示：reference chart"[^>]*>/);
   assert.match(html, /&lt;script&gt;unsafe\(\)&lt;\/script&gt;/);
   assert.match(html, /<li class="toc-level-2"><a href="#entity-tag">Entity © &lt;tag&gt; 🚀<\/a><\/li>/);
   assert.doesNotMatch(html, /&amp;lt;tag&amp;gt;/);
+});
+
+test('cross-stage article neighbors distinguish identical slugs by stage', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await mkdir(path.join(source, 'Stage2'), { recursive: true });
+  await writeFile(path.join(source, 'Stage1', 'Same.md'), '# Stage 1 Same\n');
+  await writeFile(path.join(source, 'Stage2', 'Same.md'), '# Stage 2 Same\n');
+  const { synchronize } = await loadSyncModule();
+
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const html = await readFile(path.join(output, 'notes', 'stage-2', 'same.html'), 'utf8');
+  const neighbors = html.match(/<nav class="article-neighbors"[\s\S]*?<\/nav>/)?.[0] ?? '';
+
+  assert.match(neighbors, /class="article-neighbor previous" href="\/learning\/pytorch\/notes\/stage-1\/same\.html"/);
+  assert.match(neighbors, /class="article-neighbor next" aria-hidden="true"/);
+  assert.doesNotMatch(neighbors, /class="article-neighbor next" href="\/learning\/pytorch\/notes\/stage-2\/same\.html"/);
 });
 
 test('stops on secrets and missing local images before writing output', async (t) => {

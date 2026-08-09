@@ -128,12 +128,16 @@
     const deltaX = pointer.x - pointer.previousX;
     const deltaY = pointer.y - pointer.previousY;
     const speed = Math.hypot(deltaX, deltaY);
+    const currentTrail = state.trailPeak * Math.max(0, 1 - ((timestamp - state.lastMotionAt) / TRAIL_DURATION));
     if (speed > .01 && pointer.updatedAt !== state.lastPointerAt) {
       const wanted = Math.atan2(deltaY, deltaX);
       const difference = Math.atan2(Math.sin(wanted - state.heading), Math.cos(wanted - state.heading));
       state.heading += difference * (speed > 12 ? .38 : .1);
-      state.trailPeak = Math.max(0, Math.min(1, (speed - TRAIL_MIN_SPEED) / (TRAIL_MAX_SPEED - TRAIL_MIN_SPEED)));
-      state.lastMotionAt = timestamp;
+      const nextPeak = Math.max(0, Math.min(1, (speed - TRAIL_MIN_SPEED) / (TRAIL_MAX_SPEED - TRAIL_MIN_SPEED)));
+      if (nextPeak > currentTrail) {
+        state.trailPeak = nextPeak;
+        state.lastMotionAt = timestamp;
+      }
       state.lastPointerAt = pointer.updatedAt;
     }
     state.trailStrength = state.trailPeak * Math.max(0, 1 - ((timestamp - state.lastMotionAt) / TRAIL_DURATION));

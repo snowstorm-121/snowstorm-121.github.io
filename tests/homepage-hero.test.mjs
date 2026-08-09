@@ -1254,6 +1254,11 @@ test("trail strength uses a speed-normalized peak and decays to zero after 180ms
   now = 48;
   runtime.runAnimationFrame(now);
   const movingTrail = controller.trailStrength;
+  now = 78;
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 112, clientY: 10 });
+  now = 80;
+  runtime.runAnimationFrame(now);
+  const slowedTrail = controller.trailStrength;
   now = 138;
   runtime.runAnimationFrame(now);
   const settlingTrail = controller.trailStrength;
@@ -1261,6 +1266,7 @@ test("trail strength uses a speed-normalized peak and decays to zero after 180ms
   runtime.runAnimationFrame(now);
 
   assert.equal(movingTrail, 1, "fast motion reaches the normalized peak");
+  assert.ok(slowedTrail > 0 && slowedTrail < movingTrail, `a slow sample preserves the decaying fast trail (${movingTrail}, ${slowedTrail})`);
   assert.ok(settlingTrail > 0 && settlingTrail < movingTrail, `trail strength decays from its saved peak (${movingTrail}, ${settlingTrail})`);
   assert.equal(controller.trailStrength, 0, "trail has settled after 180 ms");
 

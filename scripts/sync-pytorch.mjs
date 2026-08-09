@@ -24,7 +24,6 @@ const MANIFEST_VERSION = 1;
 const MAX_REMOTE_ASSET_BYTES = 10 * 1024 * 1024;
 const REMOTE_FETCH_TIMEOUT_MS = 15_000;
 const MAX_REMOTE_REDIRECTS = 5;
-const SAFE_BREAK_TOKEN = 'PYTORCH_SAFE_HTML_BREAK';
 const COLLATOR = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' });
 const STAGES = new Map([
   ['foundation_stage', { key: 'foundation', label: '基础阶段' }],
@@ -131,7 +130,52 @@ export async function collectSourceNotes(sourceRoot, previousManifest = {}) {
 }
 
 function createMarkdownParser() {
-  return new MarkdownIt({ html: false, linkify: true, breaks: false });
+  const md = new MarkdownIt({ html: false, linkify: true, breaks: false });
+  md.block.ruler.before('paragraph', 'pytorch_html_comment', (state, startLine, endLine, silent) => {
+    const start = state.bMarks[startLine] + state.tShift[startLine];
+    if (state.sCount[startLine] - state.blkIndent >= 4 || !state.src.startsWith('<!--', start)) return false;
+    let nextLine = startLine;
+    let closed = false;
+    for (; nextLine < endLine; nextLine += 1) {
+      const lineStart = state.bMarks[nextLine] + state.tShift[nextLine];
+      const line = state.src.slice(lineStart, state.eMarks[nextLine]);
+      if (line.includes('-->')) {
+        nextLine += 1;
+        closed = true;
+        break;
+      }
+    }
+    if (!closed) return false;
+    if (silent) return true;
+    const content = state.getLines(startLine, nextLine, state.blkIndent, true);
+    const token = state.push('pytorch_comment', '', 0);
+    token.block = true;
+    token.map = [startLine, nextLine];
+    token.meta = { alt: semanticOcrAlt(content.slice(4, content.indexOf('-->'))) };
+    state.line = nextLine;
+    return true;
+  }, { alt: ['paragraph', 'reference', 'blockquote'] });
+  md.inline.ruler.before('text', 'pytorch_safe_raw_html', (state, silent) => {
+    const source = state.src.slice(state.pos);
+    if (source.startsWith('<!--')) {
+      const end = source.indexOf('-->');
+      if (end < 0) return false;
+      if (!silent) {
+        const token = state.push('pytorch_comment', '', 0);
+        token.meta = { alt: semanticOcrAlt(source.slice(4, end)) };
+        state.pos += end + 3;
+      }
+      return true;
+    }
+    const safeBreak = /^<br\s*\/?>/i.exec(source);
+    if (!safeBreak) return false;
+    if (!silent) {
+      state.push('safe_break', 'br', 0);
+      state.pos += safeBreak[0].length;
+    }
+    return true;
+  }, { alt: ['terminator'] });
+  return md;
 }
 
 function markdownImageSources(markdown, md = createMarkdownParser()) {
@@ -527,25 +571,13 @@ function transformOutsideInlineCode(value, transform) {
   return output + transform(value.slice(plainStart));
 }
 
-function sanitizeRawHtmlSegment(segment, state) {
-  let output = '';
-  let cursor = 0;
-  while (cursor < segment.length) {
-    if (state.inComment) {
-      const commentEnd = segment.indexOf('-->', cursor);
-      if (commentEnd < 0) return output;
-      state.inComment = false;
-      cursor = commentEnd + 3;
-      continue;
-    }
-    const commentStart = segment.indexOf('<!--', cursor);
-    const plainEnd = commentStart < 0 ? segment.length : commentStart;
-    output += segment.slice(cursor, plainEnd).replace(/<br\s*\/?>/gi, SAFE_BREAK_TOKEN);
-    if (commentStart < 0) break;
-    state.inComment = true;
-    cursor = commentStart + 4;
-  }
-  return output;
+function semanticOcrAlt(comment) {
+  const match = comment.match(/ocr\s*内容为\s*[:：]\s*([\s\S]+)/i);
+  if (!match) return null;
+  const normalized = match[1].replace(/`+/g, '').replace(/\s+/g, ' ').trim();
+  if (!normalized) return null;
+  const summary = normalized.length > 120 ? `${normalized.slice(0, 119)}…` : normalized;
+  return `图示：${summary}`;
 }
 
 function pageTemplate({ title, eyebrow, body, pageClass = 'pytorch-archive-page', reading = false }) {
@@ -578,7 +610,6 @@ function preprocessMarkdown(markdown, context, md) {
     for (let line = token.map[0]; line < token.map[1]; line += 1) protectedLines.add(line);
   }
   const placeholders = [];
-  const rawHtmlState = { inComment: false };
   const lines = markdown.split(/\r?\n/).map((line, lineIndex) => {
     if (protectedLines.has(lineIndex)) return line;
     let transformed = line.replace(/^(\s*)- \[([ xX])\]\s+/, (_, indent, checked) => {
@@ -586,8 +617,7 @@ function preprocessMarkdown(markdown, context, md) {
       return `${indent}- ${marker} `;
     });
     transformed = transformOutsideInlineCode(transformed, (segment) => {
-      const sanitizedSegment = sanitizeRawHtmlSegment(segment, rawHtmlState);
-      const withWikiLinks = sanitizedSegment.replace(/(!?)\[\[([^\]]+)\]\]/g, (_, embed, body) => {
+      const withWikiLinks = segment.replace(/(!?)\[\[([^\]]+)\]\]/g, (_, embed, body) => {
         const [rawTarget, rawLabel] = body.split('|', 2);
         const label = rawLabel || path.basename(rawTarget);
         const extension = path.extname(rawTarget.split('#', 1)[0]).toLowerCase();
@@ -677,6 +707,11 @@ async function renderNote(note, context) {
     return defaultListItemOpen(tokens, index, options, env, self);
   };
   const defaultImage = md.renderer.rules.image;
+  md.renderer.rules.safe_break = () => '<br>';
+  md.renderer.rules.pytorch_comment = (tokens, index, options, env) => {
+    if (tokens[index].meta.alt) env.pendingSemanticImageAlt = tokens[index].meta.alt;
+    return '';
+  };
   md.renderer.rules.image = (tokens, index, options, env, self) => {
     const token = tokens[index];
     const source = token.attrGet('src');
@@ -693,7 +728,11 @@ async function renderNote(note, context) {
       registerLocalAsset(context.localAssets, destination, asset);
       token.attrSet('src', `${SITE_ROOT}/${destination.split('/').map(encodeURIComponent).join('/')}`);
     }
-    if (!self.renderInlineAsText(token.children, options, env).trim()) {
+    const semanticAlt = env.pendingSemanticImageAlt;
+    env.pendingSemanticImageAlt = null;
+    if (semanticAlt) {
+      token.children = [{ type: 'text', content: semanticAlt }];
+    } else if (!self.renderInlineAsText(token.children, options, env).trim()) {
       token.children = [{ type: 'text', content: `${note.title} 图示` }];
     }
     token.attrSet('loading', 'lazy');
@@ -710,8 +749,8 @@ async function renderNote(note, context) {
     if (isRemote(href)) token.attrSet('rel', 'noreferrer');
     return defaultLinkOpen(tokens, index, options, env, self);
   };
-  let html = md.render(markdown)
-    .replaceAll(SAFE_BREAK_TOKEN, '<br>')
+  let html = md.render(markdown, {})
+    .replaceAll('<p></p>\n', '')
     .replaceAll('PYTORCH_TASK_UNCHECKED', '<input type="checkbox" disabled>')
     .replaceAll('PYTORCH_TASK_CHECKED', '<input type="checkbox" checked disabled>');
   for (const placeholder of placeholders) {
@@ -788,7 +827,7 @@ function renderArticle(note, content, stageNotes) {
     : `<a href="../../${note.stageKey}/">${escapeHtml(note.stageLabel)}</a>`;
   const { content: decoratedContent, items } = readingHeadings(content);
   const toc = items.map((item) => `<li class="toc-level-${item.level}"><a href="#${item.id}">${escapeHtml(item.text)}</a></li>`).join('');
-  const current = stageNotes.findIndex((candidate) => candidate.slug === note.slug);
+  const current = stageNotes.findIndex((candidate) => candidate.stageKey === note.stageKey && candidate.slug === note.slug);
   const previous = current > 0 ? stageNotes[current - 1] : null;
   const next = current >= 0 && current < stageNotes.length - 1 ? stageNotes[current + 1] : null;
   const neighbors = `<nav class="article-neighbors" aria-label="相邻文章">${previous ? `<a class="article-neighbor previous" href="${noteUrl(previous)}">← <span>上一篇</span>${escapeHtml(previous.title)}</a>` : '<span class="article-neighbor previous" aria-hidden="true"></span>'}${next ? `<a class="article-neighbor next" href="${noteUrl(next)}"><span>下一篇</span>${escapeHtml(next.title)} →</a>` : '<span class="article-neighbor next" aria-hidden="true"></span>'}</nav>`;

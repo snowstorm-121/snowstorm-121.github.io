@@ -123,6 +123,12 @@ test('all 31 staged notes form one readable sequence across stage boundaries', a
 
   const taskArticle = await readFile(notePath(manifest.notes.find((note) => note.stageKey === 'stage-6')), 'utf8');
   assert.match(taskArticle, /<ul class="task-list">[\s\S]*?<li class="task-list-item"><input type="checkbox"/);
+
+  const titanicArticle = await readFile(notePath(manifest.notes.find((note) => note.slug.includes('titanic'))), 'utf8');
+  const titanicImageAlts = [...titanicArticle.matchAll(/<img\b[^>]*\balt="([^"]+)"[^>]*>/g)].map((match) => match[1]);
+  assert.ok(titanicImageAlts.length > 1);
+  assert.ok(new Set(titanicImageAlts).size > 1, 'a multi-diagram note does not repeat one generic alt for every image');
+  assert.ok(titanicImageAlts.some((alt) => alt.includes('阶段0明确目标')), 'diagram alt retains nearby OCR semantics');
 });
 
 test('reading styles preserve a still, system-cursor long-form experience and glass treatment for note content', async () => {
