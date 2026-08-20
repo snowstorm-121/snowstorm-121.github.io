@@ -1227,7 +1227,7 @@ test("mixed fine-pointer devices ignore and hide touch or pen pointer streams", 
   assert.equal(runtime.animationFrameCount(), 1);
 });
 
-test("trail strength uses a speed-normalized peak and decays to zero after 180ms", () => {
+test("trail strength normalizes distance by sample time and decays from fast to slow motion", () => {
   const runtime = createMusicRuntime({ finePointer: true });
   let now = 0;
   const context = {
@@ -1243,31 +1243,31 @@ test("trail strength uses a speed-normalized peak and decays to zero after 180ms
   assert.equal(runtime.animationFrameCount(), 0, "setup does not animate an invisible layer");
   const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
   runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 10, clientY: 10 });
-  now = 16;
   runtime.runAnimationFrame(now);
-  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 11, clientY: 10 });
-  now = 32;
+  now = 1000;
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 50, clientY: 10 });
   runtime.runAnimationFrame(now);
-  assert.equal(controller.trailStrength, 0, "one-pixel motion does not create a fast trail");
+  const slowTrail = controller.trailStrength;
 
-  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 111, clientY: 10 });
-  now = 48;
+  now = 1016;
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 90, clientY: 10 });
   runtime.runAnimationFrame(now);
-  const movingTrail = controller.trailStrength;
-  now = 78;
-  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 112, clientY: 10 });
-  now = 80;
+  const fastTrail = controller.trailStrength;
+
+  now = 1046;
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 91, clientY: 10 });
   runtime.runAnimationFrame(now);
   const slowedTrail = controller.trailStrength;
-  now = 138;
+  now = 1106;
   runtime.runAnimationFrame(now);
   const settlingTrail = controller.trailStrength;
-  now = 229;
+  now = 1197;
   runtime.runAnimationFrame(now);
 
-  assert.equal(movingTrail, 1, "fast motion reaches the normalized peak");
-  assert.ok(slowedTrail > 0 && slowedTrail < movingTrail, `a slow sample preserves the decaying fast trail (${movingTrail}, ${slowedTrail})`);
-  assert.ok(settlingTrail > 0 && settlingTrail < movingTrail, `trail strength decays from its saved peak (${movingTrail}, ${settlingTrail})`);
+  assert.ok(slowTrail < .1, `40px over 1s remains a low-speed trail (${slowTrail})`);
+  assert.ok(fastTrail > .9, `40px over 16ms reaches a high-speed trail (${fastTrail})`);
+  assert.ok(slowedTrail > 0 && slowedTrail < fastTrail, `a slow sample preserves the decaying fast trail (${fastTrail}, ${slowedTrail})`);
+  assert.ok(settlingTrail > 0 && settlingTrail < slowedTrail, `trail strength continues decaying (${slowedTrail}, ${settlingTrail})`);
   assert.equal(controller.trailStrength, 0, "trail has settled after 180 ms");
 
   const nightCore = shoalStyles.match(/html\[data-night-navigation="on"\] #bioluminescent-shoal \.shoal-core\s*\{[^}]*\}/)?.[0] ?? "";

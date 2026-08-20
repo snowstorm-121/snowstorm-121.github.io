@@ -5,7 +5,6 @@ import {
   access,
   cp,
   lstat,
-  mkdtemp,
   mkdir,
   readFile,
   readdir,
@@ -37,6 +36,10 @@ const STAGES = new Map([
 
 function normalizePath(value) {
   return value.split(path.sep).join('/');
+}
+
+function caseFoldPath(value) {
+  return normalizePath(value).normalize('NFC').toLocaleLowerCase('en-US');
 }
 
 function escapeHtml(value) {
@@ -319,11 +322,12 @@ function attachmentDestination(file, currentNote) {
 }
 
 function registerLocalAsset(localAssets, destination, source) {
-  const existing = localAssets.get(destination);
-  if (existing && path.resolve(existing) !== path.resolve(source)) {
-    throw new Error(`Attachment destination collision at ${destination}: ${existing} and ${source}`);
+  const existing = [...localAssets.entries()]
+    .find(([registeredDestination]) => caseFoldPath(registeredDestination) === caseFoldPath(destination));
+  if (existing && path.resolve(existing[1]) !== path.resolve(source)) {
+    throw new Error(`Attachment destination collision at ${destination}: ${existing[1]} and ${source}`);
   }
-  localAssets.set(destination, source);
+  if (!existing) localAssets.set(destination, source);
 }
 
 function remoteHttpUrl(value) {
@@ -878,7 +882,14 @@ function validateManifest(manifest) {
   requireStringFields(manifest.stages, 'stages', ['key', 'label']);
   requireStringFields(manifest.notes, 'notes', ['stageKey', 'stageLabel', 'title', 'slug', 'sourcePath']);
   requireStringFields(manifest.attachments, 'attachments', ['sourcePath', 'path']);
+  const noteRoutes = new Set();
   manifest.notes.forEach((note, index) => {
+    if (note.slug !== note.slug.normalize('NFC') || !/^[\p{Letter}\p{Number}]+(?:-[\p{Letter}\p{Number}]+)*$/u.test(note.slug)) {
+      throw new Error(`Invalid PyTorch manifest: notes[${index}].slug has an unsafe format`);
+    }
+    const route = caseFoldPath(`${note.stageKey}/${note.slug}`);
+    if (noteRoutes.has(route)) throw new Error(`Invalid PyTorch manifest: duplicate note slug ${note.stageKey}/${note.slug}`);
+    noteRoutes.add(route);
     if ('isOverview' in note && typeof note.isOverview !== 'boolean') {
       throw new Error(`Invalid PyTorch manifest: notes[${index}].isOverview must be a boolean`);
     }
@@ -896,7 +907,7 @@ function validateManifest(manifest) {
       throw new Error(`Invalid PyTorch manifest: generatedFiles[${index}] must be a non-empty string`);
     }
   });
-  if (new Set(manifest.generatedFiles).size !== manifest.generatedFiles.length) {
+  if (new Set(manifest.generatedFiles.map(caseFoldPath)).size !== manifest.generatedFiles.length) {
     throw new Error('Invalid PyTorch manifest: duplicate generated path');
   }
   if (!manifest.generatedFiles.includes('manifest.json')) {
@@ -998,67 +1009,214 @@ async function safeManagedPath(outputRoot, relativePath) {
   return absolute;
 }
 
+function publishTransactionRoot(outputRoot) {
+  const resolvedRoot = path.resolve(outputRoot);
+  return path.join(path.dirname(resolvedRoot), `.${path.basename(resolvedRoot)}-sync-transaction`);
+}
+
+function validatePublishJournal(journal) {
+  if (!isRecord(journal) || journal.version !== 1 || !['prepared', 'committed'].includes(journal.state)) {
+    throw new Error('Invalid PyTorch publish journal');
+  }
+  const allowedFields = new Set(['version', 'state', 'previousFiles', 'nextFiles']);
+  for (const field of Object.keys(journal)) {
+    if (!allowedFields.has(field)) throw new Error(`Invalid PyTorch publish journal field: ${field}`);
+  }
+  for (const field of ['previousFiles', 'nextFiles']) {
+    if (!Array.isArray(journal[field]) || journal[field].some((entry) => typeof entry !== 'string' || !entry)) {
+      throw new Error(`Invalid PyTorch publish journal: ${field}`);
+    }
+    if (new Set(journal[field].map(caseFoldPath)).size !== journal[field].length) {
+      throw new Error(`Invalid PyTorch publish journal: duplicate ${field} path`);
+    }
+  }
+}
+
+function samePathSet(left, right) {
+  return left.length === right.length && new Set(left).size === left.length
+    && left.every((entry) => right.includes(entry));
+}
+
+async function validateJournalManifests(transactionRoot, journal) {
+  const nextManifestPath = path.join(transactionRoot, 'next-manifest.json');
+  let nextManifestInfo;
+  try {
+    nextManifestInfo = await lstat(nextManifestPath);
+  } catch (error) {
+    if (error.code === 'ENOENT') throw new Error('Invalid PyTorch publish journal: missing next manifest');
+    throw error;
+  }
+  if (nextManifestInfo.isSymbolicLink() || !nextManifestInfo.isFile()) {
+    throw new Error('Invalid PyTorch publish journal: unsafe next manifest');
+  }
+  const nextManifest = JSON.parse(await readFile(nextManifestPath, 'utf8'));
+  validateManifest(nextManifest);
+  if (!samePathSet(journal.nextFiles, nextManifest.generatedFiles)) {
+    throw new Error('Invalid PyTorch publish journal: nextFiles do not match next manifest');
+  }
+  if (!journal.previousFiles.length) return;
+  const previousManifest = JSON.parse(await readFile(
+    await safeManagedPath(path.join(transactionRoot, 'previous'), 'manifest.json'),
+    'utf8',
+  ));
+  validateManifest(previousManifest);
+  if (!samePathSet(journal.previousFiles, previousManifest.generatedFiles)) {
+    throw new Error('Invalid PyTorch publish journal: previousFiles do not match previous manifest');
+  }
+}
+
+async function writePublishJournal(transactionRoot, journal) {
+  const pendingPath = path.join(transactionRoot, 'journal.next.json');
+  await writeFile(pendingPath, `${JSON.stringify(journal, null, 2)}\n`);
+  await rename(pendingPath, path.join(transactionRoot, 'journal.json'));
+}
+
+async function samePublishedFile(left, right) {
+  try {
+    const [leftRealPath, rightRealPath] = await Promise.all([realpath(left), realpath(right)]);
+    return leftRealPath === rightRealPath;
+  } catch (error) {
+    if (error.code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+async function readPublishJournal(transactionRoot) {
+  const journalPath = path.join(transactionRoot, 'journal.json');
+  const journal = JSON.parse(await readFile(journalPath, 'utf8'));
+  validatePublishJournal(journal);
+  await validateJournalManifests(transactionRoot, journal);
+  return journal;
+}
+
+async function recoverPublishTransaction(outputRoot) {
+  const transactionRoot = publishTransactionRoot(outputRoot);
+  let transactionInfo;
+  try {
+    transactionInfo = await lstat(transactionRoot);
+  } catch (error) {
+    if (error.code === 'ENOENT') return;
+    throw error;
+  }
+  if (transactionInfo.isSymbolicLink() || !transactionInfo.isDirectory()) {
+    throw new Error(`Unsafe PyTorch publish transaction: ${transactionRoot}`);
+  }
+
+  const journalPath = path.join(transactionRoot, 'journal.json');
+  let journalInfo;
+  try {
+    journalInfo = await lstat(journalPath);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    await rm(transactionRoot, { recursive: true, force: true });
+    return;
+  }
+  if (journalInfo.isSymbolicLink() || !journalInfo.isFile()) {
+    throw new Error('Invalid PyTorch publish journal file');
+  }
+  const journal = await readPublishJournal(transactionRoot);
+  const previousRoot = path.join(transactionRoot, 'previous');
+  const recoveryRoot = path.join(transactionRoot, 'recovery');
+  const previousByCaseFold = new Map(journal.previousFiles.map((entry) => [caseFoldPath(entry), entry]));
+  const nextByCaseFold = new Map(journal.nextFiles.map((entry) => [caseFoldPath(entry), entry]));
+
+  if (journal.state === 'prepared') {
+    await rm(recoveryRoot, { recursive: true, force: true });
+    await mkdir(recoveryRoot, { recursive: true });
+    for (const relativePath of journal.previousFiles) {
+      const source = await safeManagedPath(previousRoot, relativePath);
+      const recovery = await safeManagedPath(recoveryRoot, relativePath);
+      const destination = await safeManagedPath(outputRoot, relativePath);
+      await mkdir(path.dirname(recovery), { recursive: true });
+      await cp(source, recovery, { preserveTimestamps: true, verbatimSymlinks: true });
+      await mkdir(path.dirname(destination), { recursive: true });
+      if (!await samePublishedFile(recovery, destination)) await rename(recovery, destination);
+    }
+    const publishFiles = journal.nextFiles.filter((entry) => entry !== 'manifest.json');
+    publishFiles.push('manifest.json');
+    for (const relativePath of publishFiles) {
+      const previousAlias = previousByCaseFold.get(caseFoldPath(relativePath));
+      const destination = await safeManagedPath(outputRoot, relativePath);
+      if (previousAlias) {
+        const previousDestination = await safeManagedPath(outputRoot, previousAlias);
+        if (await samePublishedFile(previousDestination, destination)) continue;
+      }
+      await rm(destination, { force: true });
+    }
+  } else {
+    for (const relativePath of journal.previousFiles) {
+      const nextAlias = nextByCaseFold.get(caseFoldPath(relativePath));
+      const destination = await safeManagedPath(outputRoot, relativePath);
+      if (nextAlias) {
+        const nextDestination = await safeManagedPath(outputRoot, nextAlias);
+        if (await samePublishedFile(destination, nextDestination)) continue;
+      }
+      await rm(destination, { force: true });
+    }
+  }
+  await rm(transactionRoot, { recursive: true, force: true });
+}
+
 async function writeOutputs(outputRoot, outputs, previousManifest, { writeFileImpl = writeFile } = {}) {
   const resolvedRoot = path.resolve(outputRoot);
   const parent = path.dirname(resolvedRoot);
   await mkdir(parent, { recursive: true });
-  const transactionRoot = await mkdtemp(path.join(parent, `.${path.basename(resolvedRoot)}-sync-`));
+  const transactionRoot = publishTransactionRoot(resolvedRoot);
+  await recoverPublishTransaction(resolvedRoot);
+  await mkdir(transactionRoot, { recursive: true });
   const stagedRoot = path.join(transactionRoot, 'next');
   const backupRoot = path.join(transactionRoot, 'previous');
-  let backupOwnsSnapshot = false;
 
   try {
-    if (await fileExists(resolvedRoot)) {
-      await cp(resolvedRoot, stagedRoot, { recursive: true, preserveTimestamps: true, verbatimSymlinks: true });
-    } else {
-      await mkdir(stagedRoot, { recursive: true });
-    }
-    const desired = new Set(outputs.keys());
-    const destinations = new Map();
-    const managedPaths = new Set([
-      ...outputs.keys(),
-      ...(previousManifest.generatedFiles || []).filter((oldPath) => !desired.has(oldPath)),
-    ]);
-    for (const relativePath of managedPaths) {
-      destinations.set(relativePath, await safeManagedPath(stagedRoot, relativePath));
-    }
-    for (const oldPath of previousManifest.generatedFiles || []) {
-      if (!desired.has(oldPath)) await rm(destinations.get(oldPath), { force: true });
-    }
+    await mkdir(stagedRoot, { recursive: true });
+    await mkdir(backupRoot, { recursive: true });
     for (const [relativePath, content] of outputs) {
-      const destination = destinations.get(relativePath);
+      const destination = await safeManagedPath(stagedRoot, relativePath);
       await mkdir(path.dirname(destination), { recursive: true });
       await writeFileImpl(destination, content);
     }
-    await checkOutputs(stagedRoot, outputs, previousManifest);
+    await checkOutputs(stagedRoot, outputs, {});
 
-    const hadPreviousSnapshot = await fileExists(resolvedRoot);
-    if (hadPreviousSnapshot) {
-      await rename(resolvedRoot, backupRoot);
-      backupOwnsSnapshot = true;
+    for (const relativePath of previousManifest.generatedFiles || []) {
+      const source = await safeManagedPath(resolvedRoot, relativePath);
+      const destination = await safeManagedPath(backupRoot, relativePath);
+      await mkdir(path.dirname(destination), { recursive: true });
+      await cp(source, destination, { preserveTimestamps: true, verbatimSymlinks: true });
     }
-    try {
-      await rename(stagedRoot, resolvedRoot);
-    } catch (publishError) {
-      if (backupOwnsSnapshot) {
-        try {
-          await rename(backupRoot, resolvedRoot);
-          backupOwnsSnapshot = false;
-        } catch (rollbackError) {
-          throw new AggregateError(
-            [publishError, rollbackError],
-            `PyTorch publish failed; previous snapshot remains at ${backupRoot}`,
-          );
-        }
+    const journal = {
+      version: 1,
+      state: 'prepared',
+      previousFiles: previousManifest.generatedFiles || [],
+      nextFiles: [...outputs.keys()],
+    };
+    validatePublishJournal(journal);
+    await writeFile(path.join(transactionRoot, 'next-manifest.json'), outputs.get('manifest.json'));
+    await validateJournalManifests(transactionRoot, journal);
+    await writePublishJournal(transactionRoot, journal);
+
+    const publishFiles = journal.nextFiles.filter((entry) => entry !== 'manifest.json');
+    publishFiles.push('manifest.json');
+    for (const relativePath of publishFiles) {
+      const source = await safeManagedPath(stagedRoot, relativePath);
+      const destination = await safeManagedPath(resolvedRoot, relativePath);
+      await mkdir(path.dirname(destination), { recursive: true });
+      await rename(source, destination);
+    }
+    await writePublishJournal(transactionRoot, { ...journal, state: 'committed' });
+    const nextByCaseFold = new Map(journal.nextFiles.map((entry) => [caseFoldPath(entry), entry]));
+    for (const relativePath of journal.previousFiles) {
+      const destination = await safeManagedPath(resolvedRoot, relativePath);
+      const nextAlias = nextByCaseFold.get(caseFoldPath(relativePath));
+      if (nextAlias) {
+        const nextDestination = await safeManagedPath(resolvedRoot, nextAlias);
+        if (await samePublishedFile(destination, nextDestination)) continue;
       }
-      throw publishError;
+      await rm(destination, { force: true });
     }
-    if (backupOwnsSnapshot) {
-      await rm(backupRoot, { recursive: true, force: true }).catch(() => {});
-      backupOwnsSnapshot = false;
-    }
-  } finally {
-    if (!backupOwnsSnapshot) await rm(transactionRoot, { recursive: true, force: true });
+    await rm(transactionRoot, { recursive: true, force: true });
+  } catch (error) {
+    await recoverPublishTransaction(resolvedRoot);
+    throw error;
   }
 }
 
@@ -1100,6 +1258,7 @@ export async function synchronize({
   const resolvedSource = path.resolve(sourceRoot);
   const resolvedOutput = path.resolve(outputRoot);
   if (!(await stat(resolvedSource)).isDirectory()) throw new Error(`Source is not a directory: ${resolvedSource}`);
+  await recoverPublishTransaction(resolvedOutput);
   const previousManifest = await readManifest(resolvedOutput) || {};
   for (const generatedPath of previousManifest.generatedFiles || []) {
     await safeManagedPath(resolvedOutput, generatedPath);

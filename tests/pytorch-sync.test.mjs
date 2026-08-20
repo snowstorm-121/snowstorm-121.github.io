@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -421,6 +422,42 @@ test('same-stage attachments with the same basename cannot overwrite one another
     /attachment destination collision.*shared\.png/i,
   );
   await assert.rejects(readFile(path.join(output, 'manifest.json')), /ENOENT/);
+});
+
+test('case-folded attachment destinations cannot collide during deployment', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await writeFile(path.join(source, 'Stage1', 'Main.md'), '# Main\n');
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const before = await snapshotTree(output);
+  await mkdir(path.join(source, 'Stage1', 'alpha'), { recursive: true });
+  await mkdir(path.join(source, 'Stage1', 'beta'), { recursive: true });
+  await writeFile(path.join(source, 'Stage1', 'alpha', 'Plot.png'), 'alpha');
+  await writeFile(path.join(source, 'Stage1', 'beta', 'plot.png'), 'beta');
+  await writeFile(path.join(source, 'Stage1', 'alpha', 'Alpha.md'), '![alpha](Plot.png)\n');
+  await writeFile(path.join(source, 'Stage1', 'beta', 'Beta.md'), '![beta](plot.png)\n');
+  let writes = 0;
+
+  await assert.rejects(
+    synchronize({
+      sourceRoot: source,
+      outputRoot: output,
+      writeFileImpl: async (...args) => {
+        writes += 1;
+        return writeFile(...args);
+      },
+    }),
+    (error) => {
+      assert.match(error.message, /attachment destination collision/i);
+      assert.match(error.message, /alpha\/Plot\.png/);
+      assert.match(error.message, /beta\/plot\.png/);
+      return true;
+    },
+  );
+
+  assert.equal(writes, 0, 'collision validation finishes before deployment staging');
+  assert.deepEqual(await snapshotTree(output), before);
 });
 
 test('rejects traversal, absolute, and symlinked managed paths for manifest read, check, delete, and write', async (t) => {
@@ -928,6 +965,11 @@ test('manifest loading enforces version, required field types, and unique genera
       mutate(manifest) { manifest.generatedFiles.push(manifest.generatedFiles[0]); },
       error: /manifest.*duplicate.*path/i,
     },
+    {
+      name: 'case-fold duplicate generated path',
+      mutate(manifest) { manifest.generatedFiles.push('MANIFEST.JSON'); },
+      error: /manifest.*duplicate.*path/i,
+    },
   ];
   const { synchronize } = await loadSyncModule();
 
@@ -944,6 +986,67 @@ test('manifest loading enforces version, required field types, and unique genera
       await assert.rejects(
         synchronize({ sourceRoot: source, outputRoot: output }),
         fixture.error,
+      );
+    });
+  }
+});
+
+test('legacy manifest slugs are safe and case-fold unique before network or staging I/O', async (t) => {
+  const cases = [
+    {
+      name: 'unsafe slug format',
+      mutate(manifest) { manifest.notes.find((note) => note.title === 'Main').slug = 'bad_slug'; },
+      error: /invalid pytorch manifest: notes\[\d+\]\.slug.*format/i,
+    },
+    {
+      name: 'case-folded route collision',
+      mutate(manifest) {
+        manifest.notes.find((note) => note.title === 'Main').slug = 'Case-Slug';
+        manifest.notes.find((note) => note.title === 'Other Note').slug = 'case-slug';
+      },
+      error: /invalid pytorch manifest:.*duplicate.*slug/i,
+    },
+  ];
+  const { synchronize } = await loadSyncModule();
+
+  for (const fixture of cases) {
+    await t.test(fixture.name, async (subtest) => {
+      const { root, source, output } = await makeFixture();
+      subtest.after(() => rm(root, { recursive: true, force: true }));
+      await synchronize({ sourceRoot: source, outputRoot: output });
+      const manifestPath = path.join(output, 'manifest.json');
+      const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+      fixture.mutate(manifest);
+      await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+      await writeFile(path.join(source, 'Stage1', 'Main.md'), '![remote](https://images.example.test/new.png)\n');
+      const before = await snapshotTree(output);
+      let fetches = 0;
+      let writes = 0;
+
+      await assert.rejects(
+        synchronize({
+          sourceRoot: source,
+          outputRoot: output,
+          fetchRemoteAssets: true,
+          fetchAsset: async () => {
+            fetches += 1;
+            return tinyPng;
+          },
+          writeFileImpl: async (...args) => {
+            writes += 1;
+            return writeFile(...args);
+          },
+        }),
+        fixture.error,
+      );
+
+      assert.equal(fetches, 0, 'manifest validation precedes network I/O');
+      assert.equal(writes, 0, 'manifest validation precedes staging writes');
+      assert.deepEqual(await snapshotTree(output), before);
+      assert.deepEqual(
+        (await readdir(root)).filter((entry) => entry.startsWith('.output-sync-')),
+        [],
+        'manifest validation does not create a staging directory',
       );
     });
   }
@@ -974,6 +1077,103 @@ test('a staged write failure leaves the complete previous published snapshot int
 
   assert.ok(writes >= 3, 'failure happened after publication staging began');
   assert.deepEqual(await snapshotTree(output), before);
+});
+
+test('an incomplete publish journal is rejected without touching the public snapshot', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  await writeFile(path.join(output, 'assets', 'keep-me.txt'), 'unmanaged');
+  const before = await snapshotTree(output);
+  const manifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8'));
+  const transactionRoot = path.join(root, '.output-sync-transaction');
+  await mkdir(transactionRoot);
+  await writeFile(path.join(transactionRoot, 'journal.json'), `${JSON.stringify({
+    version: 1,
+    state: 'prepared',
+    previousFiles: manifest.generatedFiles,
+    nextFiles: manifest.generatedFiles,
+  }, null, 2)}\n`);
+
+  await assert.rejects(
+    synchronize({ sourceRoot: source, outputRoot: output, check: true }),
+    /invalid pytorch publish journal.*next manifest/i,
+  );
+  assert.deepEqual(await snapshotTree(output), before);
+});
+
+test('SIGKILL during publication keeps the public root and every old URL recoverable', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  await writeFile(path.join(output, 'assets', 'keep-me.txt'), 'unmanaged');
+  const previousManifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8'));
+  const before = await snapshotTree(output);
+  await writeFile(path.join(source, 'Stage1', 'Main.md'), '# Changed after interruption\n');
+  const childSource = `
+    import path from 'node:path';
+    import * as fs from 'node:fs/promises';
+    import { mock } from 'node:test';
+    const [moduleUrl, sourceRoot, outputRoot] = process.argv.slice(1);
+    const publicRoot = path.resolve(outputRoot);
+    const rename = fs.rename;
+    mock.module('node:fs/promises', {
+      namedExports: {
+        ...fs,
+        rename: async (from, to) => {
+          await rename(from, to);
+          const sourcePath = path.resolve(from);
+          const destinationPath = path.resolve(to);
+          if (sourcePath === publicRoot || destinationPath.startsWith(publicRoot + path.sep)) {
+            process.kill(process.pid, 'SIGKILL');
+          }
+        },
+      },
+    });
+    const { synchronize } = await import(moduleUrl + '?sigkill=' + Date.now());
+    await synchronize({ sourceRoot, outputRoot });
+  `;
+  const child = spawn(process.execPath, [
+    '--experimental-test-module-mocks',
+    '--input-type=module',
+    '--eval',
+    childSource,
+    scriptUrl,
+    source,
+    output,
+  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let stderr = '';
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const exit = await new Promise((resolve) => {
+    child.once('exit', (code, signal) => resolve({ code, signal }));
+  });
+
+  assert.equal(exit.signal, 'SIGKILL', `child was not interrupted during publish: ${stderr}`);
+  for (const relativePath of previousManifest.generatedFiles) {
+    await readFile(path.join(output, relativePath));
+  }
+  assert.equal(await readFile(path.join(output, 'assets', 'keep-me.txt'), 'utf8'), 'unmanaged');
+
+  await assert.rejects(
+    synchronize({ sourceRoot: source, outputRoot: output, check: true }),
+    /out of date/i,
+  );
+  assert.deepEqual(await snapshotTree(output), before, 'the next run recovers the complete old snapshot before checking');
+  assert.deepEqual(
+    (await readdir(root)).filter((entry) => entry.startsWith('.output-sync-')),
+    [],
+    'recovery removes the interrupted transaction',
+  );
+
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  await synchronize({ sourceRoot: source, outputRoot: output, check: true });
+  assert.match(
+    await readFile(path.join(output, 'notes', 'stage-1', 'main.html'), 'utf8'),
+    /Changed after interruption/,
+  );
 });
 
 test('--check detects drift and manifest cleanup never removes unmanaged files', async (t) => {

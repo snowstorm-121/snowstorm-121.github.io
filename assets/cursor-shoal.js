@@ -1,8 +1,8 @@
 (() => {
   const PARTICLE_COUNT = 6;
   const TRAIL_DURATION = 180;
-  const TRAIL_MIN_SPEED = 4;
-  const TRAIL_MAX_SPEED = 40;
+  const TRAIL_MIN_SPEED = .25;
+  const TRAIL_MAX_SPEED = 2.5;
   const SCATTER_DURATION = 520;
   const INTERACTIVE_SELECTOR = 'a, button, [role="button"], summary, select';
   const FORMATION = Object.freeze([
@@ -50,7 +50,7 @@
       hoveredTarget: null,
       selecting: false,
       nativeTextTarget: false,
-      pointer: { x: 0, y: 0, previousX: 0, previousY: 0, updatedAt: null },
+      pointer: { x: 0, y: 0, previousX: 0, previousY: 0, updatedAt: null, previousUpdatedAt: null },
       heading: 0,
       trailStrength: 0,
       trailPeak: 0,
@@ -97,7 +97,9 @@
     const reset = state.pointer.updatedAt === null || !state.visible;
     const previousX = reset ? event.clientX : state.pointer.x;
     const previousY = reset ? event.clientY : state.pointer.y;
-    state.pointer = { x: event.clientX, y: event.clientY, previousX, previousY, updatedAt: now() };
+    const updatedAt = now();
+    const previousUpdatedAt = reset ? updatedAt : state.pointer.updatedAt;
+    state.pointer = { x: event.clientX, y: event.clientY, previousX, previousY, updatedAt, previousUpdatedAt };
     if (reset) state.particlePositions.forEach((position) => Object.assign(position, { x: event.clientX, y: event.clientY }));
   }
 
@@ -128,12 +130,14 @@
     const deltaX = pointer.x - pointer.previousX;
     const deltaY = pointer.y - pointer.previousY;
     const speed = Math.hypot(deltaX, deltaY);
+    const deltaTime = Math.max(1, pointer.updatedAt - pointer.previousUpdatedAt);
+    const trailSpeed = speed / deltaTime;
     const currentTrail = state.trailPeak * Math.max(0, 1 - ((timestamp - state.lastMotionAt) / TRAIL_DURATION));
     if (speed > .01 && pointer.updatedAt !== state.lastPointerAt) {
       const wanted = Math.atan2(deltaY, deltaX);
       const difference = Math.atan2(Math.sin(wanted - state.heading), Math.cos(wanted - state.heading));
       state.heading += difference * (speed > 12 ? .38 : .1);
-      const nextPeak = Math.max(0, Math.min(1, (speed - TRAIL_MIN_SPEED) / (TRAIL_MAX_SPEED - TRAIL_MIN_SPEED)));
+      const nextPeak = Math.max(0, Math.min(1, (trailSpeed - TRAIL_MIN_SPEED) / (TRAIL_MAX_SPEED - TRAIL_MIN_SPEED)));
       if (nextPeak > currentTrail) {
         state.trailPeak = nextPeak;
         state.lastMotionAt = timestamp;
