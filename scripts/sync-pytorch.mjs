@@ -27,6 +27,13 @@ const REMOTE_FETCH_TIMEOUT_MS = 15_000;
 const MAX_REMOTE_REDIRECTS = 5;
 const PUBLISH_OWNER_FILE = 'owner.json';
 const PUBLISH_OWNER_KIND = 'snowstorm-pytorch-sync';
+const CLI_HELP = `Usage: node scripts/sync-pytorch.mjs [--source PATH] [--fetch-remote-assets] [--check]
+
+Concurrency contract:
+  Run only in an exclusive worktree with no external writers to learning/pytorch.
+  The owner sidecar excludes only another sync-pytorch process.
+  Editors, deployers, or other processes must not modify manifest-managed output while synchronization runs.
+  If this contract is violated, protection is not guaranteed.`;
 const COLLATOR = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' });
 const STAGES = new Map([
   ['foundation_stage', { key: 'foundation', label: '基础阶段' }],
@@ -1706,6 +1713,7 @@ function parseArguments(argv) {
     if (argument === '--source') options.sourceRoot = argv[++index];
     else if (argument === '--fetch-remote-assets') options.fetchRemoteAssets = true;
     else if (argument === '--check') options.check = true;
+    else if (argument === '--help') options.help = true;
     else throw new Error(`Unknown argument: ${argument}`);
   }
   return options;
@@ -1713,7 +1721,12 @@ function parseArguments(argv) {
 
 async function main() {
   try {
-    const result = await synchronize(parseArguments(process.argv.slice(2)));
+    const options = parseArguments(process.argv.slice(2));
+    if (options.help) {
+      console.log(CLI_HELP);
+      return;
+    }
+    const result = await synchronize(options);
     for (const warning of result.warnings) console.warn(`warning: ${warning}`);
     const mode = process.argv.includes('--check') ? 'checked' : 'synchronized';
     console.log(`PyTorch archive ${mode}: ${result.notes} notes, ${result.stages} stages, ${result.remoteAssets} remote images, ${result.warnings.length} warnings.`);

@@ -1473,6 +1473,26 @@ test('an empty unowned fixed transaction directory also fails closed', async (t)
   assert.deepEqual(await readdir(transactionRoot), []);
 });
 
+test('--help states the exclusive-worktree concurrency boundary', async () => {
+  const child = spawn(process.execPath, [fileURLToPath(scriptUrl), '--help'], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let stdout = '';
+  let stderr = '';
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => { stdout += chunk; });
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const exit = await new Promise((resolve) => child.once('exit', (code, signal) => resolve({ code, signal })));
+
+  assert.deepEqual(exit, { code: 0, signal: null });
+  assert.equal(stderr, '');
+  assert.match(stdout, /exclusive worktree/i);
+  assert.match(stdout, /owner sidecar excludes only another sync-pytorch process/i);
+  assert.match(stdout, /editors, deployers, or other processes must not modify manifest-managed output/i);
+  assert.match(stdout, /protection is not guaranteed/i);
+});
+
 test('a live publish transaction is exclusive and a dead owner is recoverable', async (t) => {
   const { root, source, output } = await makeFixture();
   t.after(() => rm(root, { recursive: true, force: true }));
