@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -87,6 +87,83 @@ async function snapshotTree(root) {
   }
   await walk(root);
   return snapshot;
+}
+
+async function writePublishOwner(transactionRoot, outputRoot) {
+  const owner = {
+    version: 1,
+    kind: 'snowstorm-pytorch-sync',
+    outputRoot: path.resolve(outputRoot),
+    transactionId: '00000000-0000-4000-8000-000000000001',
+    pid: 2147483647,
+  };
+  const serialized = `${JSON.stringify(owner, null, 2)}\n`;
+  await writeFile(path.join(transactionRoot, 'owner.json'), serialized);
+  await writeFile(path.join(path.dirname(transactionRoot), `.${path.basename(outputRoot)}-sync-owner.json`), serialized);
+}
+
+async function runInterruptedSync({ source, output, mode, check = false }) {
+  const childSource = `
+    import path from 'node:path';
+    import * as fs from 'node:fs/promises';
+    import { mock } from 'node:test';
+    const [moduleUrl, sourceRoot, outputRoot, mode, check] = process.argv.slice(1);
+    const publicRoot = path.resolve(outputRoot);
+    const parent = path.dirname(publicRoot);
+    const transactionRoot = path.join(parent, '.' + path.basename(publicRoot) + '-sync-transaction');
+    const gcPrefix = '.' + path.basename(publicRoot) + '-sync-gc-';
+    const rename = fs.rename;
+    const rm = fs.rm;
+    const mkdir = fs.mkdir;
+    mock.module('node:fs/promises', {
+      namedExports: {
+        ...fs,
+        mkdir: async (target, options) => {
+          const result = await mkdir(target, options);
+          if (mode === 'acquire' && path.resolve(target) === transactionRoot) {
+            process.kill(process.pid, 'SIGKILL');
+          }
+          return result;
+        },
+        rename: async (from, to) => {
+          await rename(from, to);
+          const sourcePath = path.resolve(from);
+          const destinationPath = path.resolve(to);
+          if (mode === 'publish' && sourcePath.startsWith(path.join(transactionRoot, 'next') + path.sep)
+            && destinationPath.startsWith(publicRoot + path.sep)) process.kill(process.pid, 'SIGKILL');
+          if (mode === 'rotate' && sourcePath === transactionRoot
+            && path.dirname(destinationPath) === parent && path.basename(destinationPath).startsWith(gcPrefix)) {
+            process.kill(process.pid, 'SIGKILL');
+          }
+        },
+        rm: async (target, options) => {
+          await rm(target, options);
+          const targetPath = path.resolve(target);
+          if (mode === 'gc-delete' && path.dirname(targetPath).startsWith(path.join(parent, gcPrefix))) {
+            process.kill(process.pid, 'SIGKILL');
+          }
+        },
+      },
+    });
+    const { synchronize } = await import(moduleUrl + '?cleanup=' + Date.now());
+    await synchronize({ sourceRoot, outputRoot, check: check === 'true' });
+  `;
+  const child = spawn(process.execPath, [
+    '--experimental-test-module-mocks',
+    '--input-type=module',
+    '--eval',
+    childSource,
+    scriptUrl,
+    source,
+    output,
+    mode,
+    String(check),
+  ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  let stderr = '';
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const exit = await new Promise((resolve) => child.once('exit', (code, signal) => resolve({ code, signal })));
+  return { ...exit, stderr };
 }
 
 test('discovers the real 32-note, seven-stage archive and preserves all 24 legacy slugs', async () => {
@@ -179,6 +256,24 @@ test('renders Markdown, wiki links, local images, and Python attachments without
   assert.match(html, /download[^>]*>Download source<\/a>/);
   assert.equal(result.warnings.length, 1);
   assert.match(result.warnings[0], /Missing Note/);
+});
+
+test('matching source H1 stays verbatim without a duplicate wrapper title', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(path.join(source, 'Stage1', 'No Heading.md'), 'Body without a source heading.\n');
+  const { synchronize } = await loadSyncModule();
+  const sourceMarkdown = await readFile(path.join(source, 'Stage1', 'Main.md'));
+
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const matching = await readFile(path.join(output, 'notes', 'stage-1', 'main.html'), 'utf8');
+  const wrapped = await readFile(path.join(output, 'notes', 'stage-1', 'no-heading.html'), 'utf8');
+  const publishedMarkdown = await readFile(path.join(output, 'markdown', 'stage-1', 'main.md'));
+
+  assert.equal((matching.match(/<h1(?:\s[^>]*)?>Main<\/h1>/g) ?? []).length, 1);
+  assert.match(matching, /<div class="note-content"><h1>Main<\/h1>/);
+  assert.match(wrapped, /<article class="note-article"><h1>No Heading<\/h1><div class="note-content">/);
+  assert.deepEqual(publishedMarkdown, sourceMarkdown, 'source Markdown bytes stay unchanged');
 });
 
 test('converts only safe raw breaks, hides OCR comments, labels images, and fully decodes TOC entities', async (t) => {
@@ -1052,6 +1147,50 @@ test('legacy manifest slugs are safe and case-fold unique before network or stag
   }
 });
 
+test('new notes deterministically avoid case-folded legacy routes before network or staging I/O', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { collectSourceNotes, synchronize } = await loadSyncModule();
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const manifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8'));
+  manifest.notes.find((note) => note.title === 'Main').slug = 'Case-Slug';
+  manifest.notes.find((note) => note.title === 'Other Note').slug = 'case-slug-2';
+  await writeFile(path.join(source, 'Stage1', 'case slug.md'), [
+    '# case slug',
+    '![remote](https://images.example.test/new.png)',
+    '![[missing.png]]',
+  ].join('\n'));
+
+  const notes = await collectSourceNotes(source, manifest);
+  assert.equal(notes.find((note) => note.title === 'Main').slug, 'Case-Slug');
+  assert.equal(notes.find((note) => note.title === 'case slug').slug, 'case-slug-3');
+  assert.equal(
+    new Set(notes.map((note) => `${note.stageKey}/${note.slug}`.normalize('NFC').toLocaleLowerCase('en-US'))).size,
+    notes.length,
+  );
+
+  let fetches = 0;
+  let writes = 0;
+  await assert.rejects(
+    synchronize({
+      sourceRoot: source,
+      outputRoot: output,
+      fetchRemoteAssets: true,
+      fetchAsset: async () => {
+        fetches += 1;
+        return tinyPng;
+      },
+      writeFileImpl: async (...args) => {
+        writes += 1;
+        return writeFile(...args);
+      },
+    }),
+    /missing image/i,
+  );
+  assert.equal(fetches, 0, 'route collection and local validation precede remote fetches');
+  assert.equal(writes, 0, 'route collection and local validation precede staging writes');
+});
+
 test('a staged write failure leaves the complete previous published snapshot intact', async (t) => {
   const { root, source, output } = await makeFixture();
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -1079,6 +1218,202 @@ test('a staged write failure leaves the complete previous published snapshot int
   assert.deepEqual(await snapshotTree(output), before);
 });
 
+test('next-only publication refuses a case-folded unmanaged target even when bytes match', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  await writeFile(path.join(source, 'Stage1', 'Fresh.md'), '# Fresh\n');
+
+  const reference = path.join(root, 'reference');
+  await synchronize({ sourceRoot: source, outputRoot: reference });
+  const expected = await readFile(path.join(reference, 'notes', 'stage-1', 'fresh.html'));
+  const unmanaged = path.join(output, 'notes', 'STAGE-1', 'FRESH.HTML');
+  await mkdir(path.dirname(unmanaged), { recursive: true });
+  await writeFile(unmanaged, expected);
+  const before = await snapshotTree(output);
+
+  await assert.rejects(
+    synchronize({ sourceRoot: source, outputRoot: output }),
+    /unmanaged.*target|target.*unmanaged|ownership/i,
+  );
+  assert.deepEqual(await snapshotTree(output), before);
+  assert.deepEqual(await readFile(unmanaged), expected);
+});
+
+test('a case-fold alias is still unmanaged when it resolves to the managed inode', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const manifestPath = path.join(output, 'manifest.json');
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  manifest.generatedFiles = manifest.generatedFiles.map((entry) => (
+    entry === 'notes/stage-1/main.html' ? 'notes/stage-1/MAIN.HTML' : entry
+  ));
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  const before = await snapshotTree(output);
+
+  await assert.rejects(
+    synchronize({ sourceRoot: source, outputRoot: output }),
+    /unmanaged.*target|target.*unmanaged|ownership/i,
+  );
+  assert.deepEqual(await snapshotTree(output), before);
+});
+
+test('a managed target replaced after preflight is not overwritten even when bytes match', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const target = path.join(output, 'notes', 'stage-1', 'main.html');
+  const original = await readFile(target);
+  const replacement = path.join(root, 'manual-main.html');
+  await writeFile(path.join(source, 'Stage1', 'Main.md'), '# Changed after preflight\n');
+  let replaced = false;
+
+  await assert.rejects(
+    synchronize({
+      sourceRoot: source,
+      outputRoot: output,
+      writeFileImpl: async (...args) => {
+        if (!replaced) {
+          replaced = true;
+          await writeFile(replacement, original);
+          await rename(replacement, target);
+        }
+        return writeFile(...args);
+      },
+    }),
+    /ownership|changed after.*preflight|public target/i,
+  );
+  assert.equal(replaced, true, 'the replacement happened after ownership preflight');
+  assert.deepEqual(await readFile(target), original, 'the same-content manual inode is preserved');
+});
+
+test('the final ownership revalidation directly precedes a managed replacement', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const target = path.join(output, 'notes', 'stage-1', 'main.html');
+  const original = await readFile(target);
+  const replacement = path.join(root, 'manual-main.html');
+  await writeFile(replacement, original);
+  await writeFile(path.join(source, 'Stage1', 'Main.md'), '# Changed after anchor creation\n');
+  const childSource = `
+    import path from 'node:path';
+    import * as fs from 'node:fs/promises';
+    import { mock } from 'node:test';
+    const [moduleUrl, sourceRoot, outputRoot, replacement, target] = process.argv.slice(1);
+    const transactionRoot = path.join(
+      path.dirname(path.resolve(outputRoot)),
+      '.' + path.basename(path.resolve(outputRoot)) + '-sync-transaction',
+    );
+    const publishedTarget = path.join(transactionRoot, 'published', 'notes', 'stage-1', 'main.html');
+    const link = fs.link;
+    const lstat = fs.lstat;
+    const rename = fs.rename;
+    let armed = false;
+    let targetStats = 0;
+    mock.module('node:fs/promises', {
+      namedExports: {
+        ...fs,
+        link: async (from, to) => {
+          await link(from, to);
+          if (path.resolve(to) === publishedTarget) armed = true;
+        },
+        lstat: async (...args) => {
+          const result = await lstat(...args);
+          if (armed && path.resolve(args[0]) === path.resolve(target)) {
+            targetStats += 1;
+            if (targetStats === 2) {
+              armed = false;
+              await rename(replacement, target);
+            }
+          }
+          return result;
+        },
+      },
+    });
+    const { synchronize } = await import(moduleUrl + '?replace-after-anchor=' + Date.now());
+    await synchronize({ sourceRoot, outputRoot });
+  `;
+  const child = spawn(process.execPath, [
+    '--experimental-test-module-mocks',
+    '--input-type=module',
+    '--eval',
+    childSource,
+    scriptUrl,
+    source,
+    output,
+    replacement,
+    target,
+  ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  let stderr = '';
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const exit = await new Promise((resolve) => child.once('exit', (code, signal) => resolve({ code, signal })));
+
+  assert.notEqual(exit.code, 0, 'the publication must reject the post-anchor replacement');
+  assert.match(stderr, /ownership|changed after.*preflight|public target/i);
+  assert.deepEqual(await readFile(target), original, 'the same-content manual inode is preserved');
+});
+
+test('prepared recovery preserves a same-content manual next-only target it did not publish', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  await writeFile(path.join(source, 'Stage1', 'Fresh.md'), '# Fresh\n');
+  const transactionRoot = path.join(root, '.output-sync-transaction');
+  const childSource = `
+    import path from 'node:path';
+    import * as fs from 'node:fs/promises';
+    import { mock } from 'node:test';
+    const [moduleUrl, sourceRoot, outputRoot, transactionRoot] = process.argv.slice(1);
+    const rename = fs.rename;
+    mock.module('node:fs/promises', {
+      namedExports: {
+        ...fs,
+        rename: async (from, to) => {
+          await rename(from, to);
+          if (path.resolve(to) === path.join(path.resolve(transactionRoot), 'journal.json')) {
+            const journal = JSON.parse(await fs.readFile(to, 'utf8'));
+            if (journal.state === 'prepared') process.kill(process.pid, 'SIGKILL');
+          }
+        },
+      },
+    });
+    const { synchronize } = await import(moduleUrl + '?prepared=' + Date.now());
+    await synchronize({ sourceRoot, outputRoot });
+  `;
+  const child = spawn(process.execPath, [
+    '--experimental-test-module-mocks',
+    '--input-type=module',
+    '--eval',
+    childSource,
+    scriptUrl,
+    source,
+    output,
+    transactionRoot,
+  ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  let stderr = '';
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const exit = await new Promise((resolve) => child.once('exit', (code, signal) => resolve({ code, signal })));
+  assert.equal(exit.signal, 'SIGKILL', `child did not stop at prepared journal: ${stderr}`);
+
+  const staged = await readFile(path.join(transactionRoot, 'next', 'notes', 'stage-1', 'fresh.html'));
+  const manual = path.join(output, 'notes', 'stage-1', 'fresh.html');
+  await writeFile(manual, staged);
+  await assert.rejects(
+    synchronize({ sourceRoot: source, outputRoot: output, check: true }),
+    /out of date/i,
+  );
+  assert.deepEqual(await readFile(manual), staged);
+});
+
 test('an incomplete publish journal is rejected without touching the public snapshot', async (t) => {
   const { root, source, output } = await makeFixture();
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -1089,6 +1424,7 @@ test('an incomplete publish journal is rejected without touching the public snap
   const manifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8'));
   const transactionRoot = path.join(root, '.output-sync-transaction');
   await mkdir(transactionRoot);
+  await writePublishOwner(transactionRoot, output);
   await writeFile(path.join(transactionRoot, 'journal.json'), `${JSON.stringify({
     version: 1,
     state: 'prepared',
@@ -1101,6 +1437,124 @@ test('an incomplete publish journal is rejected without touching the public snap
     /invalid pytorch publish journal.*next manifest/i,
   );
   assert.deepEqual(await snapshotTree(output), before);
+});
+
+test('an unowned fixed transaction directory fails closed without deleting its contents', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const before = await snapshotTree(output);
+  const transactionRoot = path.join(root, '.output-sync-transaction');
+  const foreign = path.join(transactionRoot, 'do-not-delete.txt');
+  await mkdir(transactionRoot);
+  await writeFile(foreign, 'foreign bytes');
+
+  await assert.rejects(
+    synchronize({ sourceRoot: source, outputRoot: output, check: true }),
+    /unowned|ownership|owner marker/i,
+  );
+  assert.equal(await readFile(foreign, 'utf8'), 'foreign bytes');
+  assert.deepEqual(await snapshotTree(output), before);
+});
+
+test('an empty unowned fixed transaction directory also fails closed', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const transactionRoot = path.join(root, '.output-sync-transaction');
+  await mkdir(transactionRoot);
+
+  await assert.rejects(
+    synchronize({ sourceRoot: source, outputRoot: output, check: true }),
+    /unowned|ownership|owner marker/i,
+  );
+  assert.deepEqual(await readdir(transactionRoot), []);
+});
+
+test('a live publish transaction is exclusive and a dead owner is recoverable', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const childSource = `
+    import * as fs from 'node:fs/promises';
+    const [moduleUrl, sourceRoot, outputRoot] = process.argv.slice(1);
+    const { synchronize } = await import(moduleUrl + '?active=' + Date.now());
+    let announced = false;
+    await synchronize({
+      sourceRoot,
+      outputRoot,
+      writeFileImpl: async (...args) => {
+        await fs.writeFile(...args);
+        if (!announced) {
+          announced = true;
+          process.stdout.write('READY\\n');
+          await new Promise(() => {});
+        }
+      },
+    });
+  `;
+  const child = spawn(process.execPath, [
+    '--input-type=module',
+    '--eval',
+    childSource,
+    scriptUrl,
+    source,
+    output,
+  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let exited = false;
+  child.once('exit', () => { exited = true; });
+  t.after(async () => {
+    if (!exited) child.kill('SIGKILL');
+    if (!exited) await new Promise((resolve) => child.once('exit', resolve));
+  });
+  await new Promise((resolve, reject) => {
+    let stdout = '';
+    const timeout = setTimeout(() => reject(new Error('active sync did not reach staging')), 5000);
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+      if (stdout.includes('READY\n')) {
+        clearTimeout(timeout);
+        resolve();
+      }
+    });
+    child.once('exit', (code, signal) => {
+      clearTimeout(timeout);
+      reject(new Error(`active sync exited early (${code ?? signal})`));
+    });
+  });
+
+  await assert.rejects(
+    synchronize({ sourceRoot: source, outputRoot: output, check: true }),
+    /active|busy|in progress|acquire/i,
+  );
+  await readFile(path.join(root, '.output-sync-transaction', 'owner.json'));
+
+  child.kill('SIGKILL');
+  await new Promise((resolve) => child.once('exit', resolve));
+  await synchronize({ sourceRoot: source, outputRoot: output, check: true });
+  assert.deepEqual(
+    (await readdir(root)).filter((entry) => entry.startsWith('.output-sync-')),
+    [],
+  );
+});
+
+test('SIGKILL after exclusive acquisition but before the inner marker converges', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await synchronize({ sourceRoot: source, outputRoot: output });
+
+  const exit = await runInterruptedSync({ source, output, mode: 'acquire' });
+  assert.equal(exit.signal, 'SIGKILL', `acquisition was not interrupted: ${exit.stderr}`);
+  await synchronize({ sourceRoot: source, outputRoot: output, check: true });
+  assert.deepEqual(
+    (await readdir(root)).filter((entry) => entry.startsWith('.output-sync-')),
+    [],
+  );
 });
 
 test('SIGKILL during publication keeps the public root and every old URL recoverable', async (t) => {
@@ -1173,6 +1627,54 @@ test('SIGKILL during publication keeps the public root and every old URL recover
   assert.match(
     await readFile(path.join(output, 'notes', 'stage-1', 'main.html'), 'utf8'),
     /Changed after interruption/,
+  );
+});
+
+test('SIGKILL during prepared cleanup converges through an owned GC handoff', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  await writeFile(path.join(output, 'assets', 'keep-me.txt'), 'unmanaged');
+  const before = await snapshotTree(output);
+  await writeFile(path.join(source, 'Stage1', 'Main.md'), '# Prepared cleanup interruption\n');
+
+  const publishExit = await runInterruptedSync({ source, output, mode: 'publish' });
+  assert.equal(publishExit.signal, 'SIGKILL', `publication was not interrupted: ${publishExit.stderr}`);
+  const cleanupExit = await runInterruptedSync({ source, output, mode: 'rotate', check: true });
+  assert.equal(cleanupExit.signal, 'SIGKILL', `prepared cleanup did not reach GC handoff: ${cleanupExit.stderr}`);
+
+  await assert.rejects(
+    synchronize({ sourceRoot: source, outputRoot: output, check: true }),
+    /out of date/i,
+  );
+  assert.deepEqual(await snapshotTree(output), before);
+  assert.deepEqual(
+    (await readdir(root)).filter((entry) => entry.startsWith('.output-sync-')),
+    [],
+  );
+});
+
+test('SIGKILL during committed GC deletion converges without touching unmanaged files', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const unmanaged = path.join(output, 'assets', 'keep-me.txt');
+  await writeFile(unmanaged, 'unmanaged');
+  await rm(path.join(source, 'Stage1', 'Other Note.md'));
+  await writeFile(path.join(source, 'Stage1', 'Main.md'), '# Committed cleanup interruption\n');
+
+  const exit = await runInterruptedSync({ source, output, mode: 'gc-delete' });
+  assert.equal(exit.signal, 'SIGKILL', `committed cleanup was not interrupted: ${exit.stderr}`);
+  await synchronize({ sourceRoot: source, outputRoot: output, check: true });
+
+  assert.equal(await readFile(unmanaged, 'utf8'), 'unmanaged');
+  await assert.rejects(readFile(path.join(output, 'notes', 'stage-1', 'other-note.html')), /ENOENT/);
+  assert.match(await readFile(path.join(output, 'notes', 'stage-1', 'main.html'), 'utf8'), /Committed cleanup interruption/);
+  assert.deepEqual(
+    (await readdir(root)).filter((entry) => entry.startsWith('.output-sync-')),
+    [],
   );
 });
 

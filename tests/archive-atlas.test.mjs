@@ -259,8 +259,12 @@ function createAtlasRuntime({ reducedMotion = false } = {}) {
     },
   };
   const motionQuery = { matches: reducedMotion, addEventListener() {} };
-  const window = { matchMedia: () => motionQuery };
-  return { controls, count, description, destination, document, empty, map, meta, root, routes, title, window };
+  const navigations = [];
+  const window = {
+    matchMedia: () => motionQuery,
+    location: { assign(href) { navigations.push(href); } },
+  };
+  return { controls, count, description, destination, document, empty, map, meta, navigations, root, routes, title, window };
 }
 
 test("mouse, focus, Enter, Space, and touch clicks converge on one selected atlas state", () => {
@@ -287,6 +291,7 @@ test("mouse, focus, Enter, Space, and touch clicks converge on one selected atla
   const enter = stageIndex.dispatch("keydown", { key: "Enter" });
   assert.equal(enter.defaultPrevented, true);
   assert.equal(runtime.root.dataset.atlasSelected, "stage-1");
+  assert.deepEqual(runtime.navigations, ["./pytorch/stage-1/"]);
   const space = emptyMap.dispatch("keydown", { key: " " });
   assert.equal(space.defaultPrevented, true);
   assert.equal(runtime.root.dataset.atlasSelected, "empty");
@@ -294,6 +299,7 @@ test("mouse, focus, Enter, Space, and touch clicks converge on one selected atla
   assert.equal(runtime.empty.textContent, "尚待启航");
   assert.equal(runtime.destination.hidden, true);
   assert.equal(runtime.destination.getAttribute("href"), null);
+  assert.deepEqual(runtime.navigations, ["./pytorch/stage-1/"], "empty nodes remain selectable without navigating");
 
   pytorchMap.dispatch("click", { pointerType: "touch" });
   assert.equal(runtime.root.dataset.atlasSelected, "pytorch");

@@ -94,7 +94,8 @@ test('all 31 staged notes form one readable sequence across stage boundaries', a
     assert.match(article, /class="reading-progress"[^>]*data-reading-progress/);
     assert.match(article, /class="reading-layout"/);
     assert.match(article, /class="reading-toc"/);
-    assert.match(article, /<details class="reading-toc-details" open>/);
+    assert.match(article, /<details class="reading-toc-details">/);
+    assert.doesNotMatch(article, /<details class="reading-toc-details" open>/);
     assert.match(article, /href="\/learning\/"[^>]*>[^<]*返回星图</);
     const neighbors = article.match(/<nav class="article-neighbors"[\s\S]*?<\/nav>/)?.[0] ?? '';
     assert.match(neighbors, previous ? new RegExp(`href="${noteUrl(previous).replaceAll('/', '\\/')}"`) : /class="article-neighbor previous" aria-hidden="true"/);
@@ -117,6 +118,8 @@ test('all 31 staged notes form one readable sequence across stage boundaries', a
   const stageFive = manifest.notes.find((note) => note.stageKey === 'stage-5');
   const stageFiveArticle = await readFile(notePath(stageFive), 'utf8');
   const stageFiveMarkdown = await readArchive(`markdown/${stageFive.stageKey}/${stageFive.slug}.md`);
+  assert.ok((stageFiveArticle.match(/class="toc-level-[23]"/g) ?? []).length > 60, 'fixture exercises a long TOC');
+  assert.match(stageFiveArticle, /<details class="reading-toc-details">/);
   const localPath = '/Users/yyy/code/pytorch_study/Stage_5_Projects/bert-full-vs-lora/';
   assert.match(stageFiveMarkdown, new RegExp(localPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   assert.match(stageFiveArticle, new RegExp(localPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
@@ -145,6 +148,8 @@ test('reading styles preserve a still, system-cursor long-form experience and gl
 
   assert.match(css, /body\.pytorch-reading-page[\s\S]*?cursor:\s*auto/);
   assert.match(css, /\.reading-layout[\s\S]*?minmax\(0,\s*46rem\)/);
+  assert.match(css, /\.reading-toc-details\s*\{[^}]*?max-height:\s*calc\(100vh\s*-\s*52px\)[^}]*?overflow:\s*hidden/);
+  assert.match(css, /\.reading-toc-details ol\s*\{[^}]*?max-height:\s*calc\(100vh\s*-\s*104px\)[^}]*?overflow-y:\s*auto/);
   assert.match(css, /\.note-content table[\s\S]*?backdrop-filter/);
   assert.match(css, /\.note-content pre[\s\S]*?background:/);
   assert.match(css, /\.note-content blockquote[\s\S]*?border-left:/);

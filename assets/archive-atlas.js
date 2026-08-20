@@ -15,7 +15,7 @@
 
   function selectNode(control) {
     const key = control?.dataset.atlasKey;
-    if (!key) return;
+    if (!key) return "";
 
     const source = controls.find((candidate) => candidate.dataset.atlasKey === key) ?? control;
     root.dataset.atlasSelected = key;
@@ -42,6 +42,7 @@
       empty.hidden = Boolean(href);
       empty.textContent = "尚待启航";
     }
+    return href ?? "";
   }
 
   controls.forEach((control) => {
@@ -53,7 +54,8 @@
     control.addEventListener("keydown", (event) => {
       if (event.key !== "Enter" && event.key !== " ") return;
       event.preventDefault();
-      selectNode(control);
+      const href = selectNode(control);
+      if (href) window.location.assign(href);
     });
   });
 

@@ -1,9 +1,10 @@
 #!/usr/bin/env node
 
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   access,
   cp,
+  link,
   lstat,
   mkdir,
   readFile,
@@ -11,6 +12,7 @@ import {
   realpath,
   rename,
   rm,
+  rmdir,
   stat,
   writeFile,
 } from 'node:fs/promises';
@@ -23,6 +25,8 @@ const MANIFEST_VERSION = 1;
 const MAX_REMOTE_ASSET_BYTES = 10 * 1024 * 1024;
 const REMOTE_FETCH_TIMEOUT_MS = 15_000;
 const MAX_REMOTE_REDIRECTS = 5;
+const PUBLISH_OWNER_FILE = 'owner.json';
+const PUBLISH_OWNER_KIND = 'snowstorm-pytorch-sync';
 const COLLATOR = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' });
 const STAGES = new Map([
   ['foundation_stage', { key: 'foundation', label: '基础阶段' }],
@@ -74,7 +78,13 @@ async function walkFiles(root) {
   const files = [];
   async function walk(directory) {
     const entries = await readdir(directory, { withFileTypes: true });
-    entries.sort((a, b) => COLLATOR.compare(a.name, b.name));
+    entries.sort((a, b) => {
+      const collated = COLLATOR.compare(a.name, b.name);
+      if (collated) return collated;
+      const left = a.name.normalize('NFC');
+      const right = b.name.normalize('NFC');
+      return left < right ? -1 : left > right ? 1 : 0;
+    });
     for (const entry of entries) {
       if (entry.name.startsWith('.')) continue;
       const absolute = path.join(directory, entry.name);
@@ -105,16 +115,29 @@ export async function collectSourceNotes(sourceRoot, previousManifest = {}) {
   const files = (await walkFiles(root)).filter((file) => path.extname(file).toLowerCase() === '.md');
   const legacy = legacySlugMap(previousManifest);
   const notes = [];
-  const usedSlugs = new Set();
+  const reservedLegacyRoutes = new Set();
   for (const absolutePath of files) {
     const sourcePath = normalizePath(path.relative(root, absolutePath));
     const title = sourceTitle(sourcePath);
     const stage = classifyNote(sourcePath);
-    const baseSlug = legacy.get(`${stage.stageKey}\0${title}`) || slugify(title);
+    const legacySlug = legacy.get(`${stage.stageKey}\0${title}`);
+    if (legacySlug) reservedLegacyRoutes.add(caseFoldPath(`${stage.stageKey}/${legacySlug}`));
+  }
+  const usedRoutes = new Set();
+  for (const absolutePath of files) {
+    const sourcePath = normalizePath(path.relative(root, absolutePath));
+    const title = sourceTitle(sourcePath);
+    const stage = classifyNote(sourcePath);
+    const legacySlug = legacy.get(`${stage.stageKey}\0${title}`);
+    const baseSlug = legacySlug || slugify(title);
     let slug = baseSlug;
     let suffix = 2;
-    while (usedSlugs.has(`${stage.stageKey}/${slug}`)) slug = `${baseSlug}-${suffix++}`;
-    usedSlugs.add(`${stage.stageKey}/${slug}`);
+    if (legacySlug) reservedLegacyRoutes.delete(caseFoldPath(`${stage.stageKey}/${legacySlug}`));
+    while (
+      usedRoutes.has(caseFoldPath(`${stage.stageKey}/${slug}`))
+      || reservedLegacyRoutes.has(caseFoldPath(`${stage.stageKey}/${slug}`))
+    ) slug = `${baseSlug}-${suffix++}`;
+    usedRoutes.add(caseFoldPath(`${stage.stageKey}/${slug}`));
     notes.push({
       ...stage,
       title,
@@ -825,6 +848,13 @@ function readingHeadings(content) {
   return { content: decorated, items };
 }
 
+function startsWithMatchingH1(content, title) {
+  const match = /^\s*<h1(?:\s[^>]*)?>([\s\S]*?)<\/h1>/.exec(content);
+  if (!match) return false;
+  const text = createMarkdownParser().utils.unescapeAll(match[1].replace(/<[^>]+>/g, '')).trim();
+  return text.normalize('NFC') === title.trim().normalize('NFC');
+}
+
 function renderArticle(note, content, stageNotes) {
   const stageCrumb = note.isOverview
     ? `<span>${escapeHtml(note.stageLabel)}</span>`
@@ -835,12 +865,13 @@ function renderArticle(note, content, stageNotes) {
   const previous = current > 0 ? stageNotes[current - 1] : null;
   const next = current >= 0 && current < stageNotes.length - 1 ? stageNotes[current + 1] : null;
   const neighbors = `<nav class="article-neighbors" aria-label="相邻文章">${previous ? `<a class="article-neighbor previous" href="${noteUrl(previous)}">← <span>上一篇</span>${escapeHtml(previous.title)}</a>` : '<span class="article-neighbor previous" aria-hidden="true"></span>'}${next ? `<a class="article-neighbor next" href="${noteUrl(next)}"><span>下一篇</span>${escapeHtml(next.title)} →</a>` : '<span class="article-neighbor next" aria-hidden="true"></span>'}</nav>`;
+  const title = startsWithMatchingH1(content, note.title) ? '' : `<h1>${escapeHtml(note.title)}</h1>`;
   return pageTemplate({
     title: note.title,
     eyebrow: note.stageLabel,
     pageClass: 'pytorch-reading-page',
     reading: true,
-    body: `<a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span>${stageCrumb}</nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details" open><summary>本页目录</summary><ol>${toc}</ol></details></aside><article class="note-article"><h1>${escapeHtml(note.title)}</h1><div class="note-content">${decoratedContent}</div></article></div>${neighbors}`,
+    body: `<a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span>${stageCrumb}</nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details"><summary>本页目录</summary><ol>${toc}</ol></details></aside><article class="note-article">${title}<div class="note-content">${decoratedContent}</div></article></div>${neighbors}`,
   });
 }
 
@@ -1014,11 +1045,184 @@ function publishTransactionRoot(outputRoot) {
   return path.join(path.dirname(resolvedRoot), `.${path.basename(resolvedRoot)}-sync-transaction`);
 }
 
+function publishOwnerPath(outputRoot) {
+  const resolvedRoot = path.resolve(outputRoot);
+  return path.join(path.dirname(resolvedRoot), `.${path.basename(resolvedRoot)}-sync-owner.json`);
+}
+
+function publishPendingOwnerPath(outputRoot, transactionId) {
+  const resolvedRoot = path.resolve(outputRoot);
+  return path.join(
+    path.dirname(resolvedRoot),
+    `.${path.basename(resolvedRoot)}-sync-owner-${transactionId}.json.tmp`,
+  );
+}
+
+function publishGarbagePrefix(outputRoot) {
+  return `.${path.basename(path.resolve(outputRoot))}-sync-gc-`;
+}
+
+function publishGarbageRoot(outputRoot, transactionId) {
+  return path.join(
+    path.dirname(path.resolve(outputRoot)),
+    `${publishGarbagePrefix(outputRoot)}${transactionId}`,
+  );
+}
+
+function validatePublishOwner(owner, outputRoot) {
+  if (!isRecord(owner) || owner.version !== 1 || owner.kind !== PUBLISH_OWNER_KIND) {
+    throw new Error('Invalid PyTorch publish owner marker');
+  }
+  const allowedFields = new Set(['version', 'kind', 'outputRoot', 'transactionId', 'pid']);
+  for (const field of Object.keys(owner)) {
+    if (!allowedFields.has(field)) throw new Error(`Invalid PyTorch publish owner marker field: ${field}`);
+  }
+  if (owner.outputRoot !== path.resolve(outputRoot)) {
+    throw new Error('Invalid PyTorch publish owner marker output root');
+  }
+  if (typeof owner.transactionId !== 'string' || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(owner.transactionId)) {
+    throw new Error('Invalid PyTorch publish owner marker transaction id');
+  }
+  if (!Number.isSafeInteger(owner.pid) || owner.pid <= 0) {
+    throw new Error('Invalid PyTorch publish owner marker pid');
+  }
+  return owner;
+}
+
+async function readPublishOwnerFile(markerPath, outputRoot) {
+  let markerInfo;
+  try {
+    markerInfo = await lstat(markerPath);
+  } catch (error) {
+    if (error.code === 'ENOENT') return null;
+    throw error;
+  }
+  if (markerInfo.isSymbolicLink() || !markerInfo.isFile()) {
+    throw new Error('Invalid PyTorch publish owner marker file');
+  }
+  let owner;
+  try {
+    owner = JSON.parse(await readFile(markerPath, 'utf8'));
+  } catch (error) {
+    throw new Error(`Invalid PyTorch publish owner marker: ${error.message}`);
+  }
+  return validatePublishOwner(owner, outputRoot);
+}
+
+async function readPublishOwner(transactionRoot, outputRoot) {
+  return readPublishOwnerFile(path.join(transactionRoot, PUBLISH_OWNER_FILE), outputRoot);
+}
+
+function samePublishOwner(left, right) {
+  return left.transactionId === right.transactionId
+    && left.outputRoot === right.outputRoot
+    && left.pid === right.pid;
+}
+
+function publishOwnerIsActive(owner) {
+  try {
+    process.kill(owner.pid, 0);
+    return true;
+  } catch (error) {
+    if (error.code === 'ESRCH') return false;
+    if (error.code === 'EPERM') return true;
+    throw error;
+  }
+}
+
+async function removePublishOwnerMarker(outputRoot, owner) {
+  const markerPath = publishOwnerPath(outputRoot);
+  const pendingPath = publishPendingOwnerPath(outputRoot, owner.transactionId);
+  if (await samePublishedFile(pendingPath, markerPath)) await rm(pendingPath, { force: true });
+  const current = await readPublishOwnerFile(markerPath, outputRoot);
+  if (!current || !samePublishOwner(current, owner)) {
+    throw new Error('PyTorch publish owner changed during cleanup');
+  }
+  await rm(markerPath);
+}
+
+async function createOwnedPublishTransaction(outputRoot) {
+  const transactionRoot = publishTransactionRoot(outputRoot);
+  const owner = {
+    version: 1,
+    kind: PUBLISH_OWNER_KIND,
+    outputRoot: path.resolve(outputRoot),
+    transactionId: randomUUID(),
+    pid: process.pid,
+  };
+  const ownerMarker = publishOwnerPath(outputRoot);
+  const pendingMarker = publishPendingOwnerPath(outputRoot, owner.transactionId);
+  await writeFile(pendingMarker, `${JSON.stringify(owner, null, 2)}\n`, { flag: 'wx' });
+  try {
+    await link(pendingMarker, ownerMarker);
+  } catch (error) {
+    await rm(pendingMarker, { force: true });
+    if (error.code === 'EEXIST') throw new Error(`Unable to acquire PyTorch publish transaction: ${transactionRoot}`);
+    throw error;
+  }
+  await rm(pendingMarker);
+  let created = false;
+  try {
+    await mkdir(transactionRoot);
+    created = true;
+    await link(ownerMarker, path.join(transactionRoot, PUBLISH_OWNER_FILE));
+  } catch (error) {
+    if (created) {
+      await rm(path.join(transactionRoot, PUBLISH_OWNER_FILE), { force: true });
+      try {
+        await rmdir(transactionRoot);
+      } catch {}
+    }
+    await removePublishOwnerMarker(outputRoot, owner);
+    if (error.code === 'EEXIST') throw new Error(`Unable to acquire PyTorch publish transaction: ${transactionRoot}`);
+    throw error;
+  }
+  return { owner, transactionRoot };
+}
+
+async function removeOwnedPublishTree(root, outputRoot, expectedOwner) {
+  const rootInfo = await lstat(root);
+  if (rootInfo.isSymbolicLink() || !rootInfo.isDirectory()) {
+    throw new Error(`Unsafe PyTorch publish cleanup root: ${root}`);
+  }
+  const owner = await readPublishOwner(root, outputRoot);
+  if (!owner) {
+    if (!(await readdir(root)).length) {
+      await rmdir(root);
+      return;
+    }
+    throw new Error(`Unowned PyTorch publish cleanup root: ${root}`);
+  }
+  if (!samePublishOwner(owner, expectedOwner)) {
+    throw new Error(`Mismatched PyTorch publish cleanup owner: ${root}`);
+  }
+  const entries = await readdir(root);
+  for (const entry of entries) {
+    if (entry === PUBLISH_OWNER_FILE) continue;
+    await rm(path.join(root, entry), { recursive: true, force: true });
+  }
+  await rm(path.join(root, PUBLISH_OWNER_FILE));
+  await rmdir(root);
+}
+
+async function handoffPublishTransaction(outputRoot, transactionRoot, owner) {
+  const gcRoot = publishGarbageRoot(outputRoot, owner.transactionId);
+  try {
+    await lstat(gcRoot);
+    throw new Error(`PyTorch publish cleanup target already exists: ${gcRoot}`);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  await rename(transactionRoot, gcRoot);
+  await removeOwnedPublishTree(gcRoot, outputRoot, owner);
+  await removePublishOwnerMarker(outputRoot, owner);
+}
+
 function validatePublishJournal(journal) {
   if (!isRecord(journal) || journal.version !== 1 || !['prepared', 'committed'].includes(journal.state)) {
     throw new Error('Invalid PyTorch publish journal');
   }
-  const allowedFields = new Set(['version', 'state', 'previousFiles', 'nextFiles']);
+  const allowedFields = new Set(['version', 'state', 'previousFiles', 'nextFiles', 'createdFiles']);
   for (const field of Object.keys(journal)) {
     if (!allowedFields.has(field)) throw new Error(`Invalid PyTorch publish journal field: ${field}`);
   }
@@ -1028,6 +1232,17 @@ function validatePublishJournal(journal) {
     }
     if (new Set(journal[field].map(caseFoldPath)).size !== journal[field].length) {
       throw new Error(`Invalid PyTorch publish journal: duplicate ${field} path`);
+    }
+  }
+  if (journal.createdFiles !== undefined) {
+    if (!Array.isArray(journal.createdFiles) || journal.createdFiles.some((entry) => typeof entry !== 'string' || !entry)) {
+      throw new Error('Invalid PyTorch publish journal: createdFiles');
+    }
+    if (new Set(journal.createdFiles.map(caseFoldPath)).size !== journal.createdFiles.length) {
+      throw new Error('Invalid PyTorch publish journal: duplicate createdFiles path');
+    }
+    if (journal.createdFiles.some((entry) => !journal.nextFiles.includes(entry))) {
+      throw new Error('Invalid PyTorch publish journal: createdFiles must be nextFiles');
     }
   }
 }
@@ -1071,13 +1286,94 @@ async function writePublishJournal(transactionRoot, journal) {
   await rename(pendingPath, path.join(transactionRoot, 'journal.json'));
 }
 
-async function samePublishedFile(left, right) {
+async function publishedFileIdentity(file) {
   try {
-    const [leftRealPath, rightRealPath] = await Promise.all([realpath(left), realpath(right)]);
-    return leftRealPath === rightRealPath;
+    const info = await lstat(file, { bigint: true });
+    return { dev: info.dev.toString(), ino: info.ino.toString() };
   } catch (error) {
-    if (error.code === 'ENOENT') return false;
+    if (error.code === 'ENOENT') return null;
     throw error;
+  }
+}
+
+function sameFileIdentity(left, right) {
+  return Boolean(left && right && left.dev === right.dev && left.ino === right.ino);
+}
+
+async function samePublishedFile(left, right) {
+  const [leftIdentity, rightIdentity] = await Promise.all([
+    publishedFileIdentity(left),
+    publishedFileIdentity(right),
+  ]);
+  return sameFileIdentity(leftIdentity, rightIdentity);
+}
+
+async function publicEntriesByCaseFold(outputRoot) {
+  const entries = new Map();
+  async function walk(directory, prefix = '') {
+    let children;
+    try {
+      children = await readdir(directory, { withFileTypes: true });
+    } catch (error) {
+      if (error.code === 'ENOENT') return;
+      throw error;
+    }
+    for (const child of children) {
+      const relativePath = prefix ? `${prefix}/${child.name}` : child.name;
+      const folded = caseFoldPath(relativePath);
+      const aliases = entries.get(folded) || [];
+      aliases.push(relativePath);
+      entries.set(folded, aliases);
+      if (child.isDirectory()) await walk(path.join(directory, child.name), relativePath);
+    }
+  }
+  await walk(outputRoot);
+  return entries;
+}
+
+async function preflightPublicOwnership(outputRoot, nextFiles, previousFiles) {
+  const previousPaths = new Set(previousFiles);
+  const publicEntries = await publicEntriesByCaseFold(outputRoot);
+  const createdFiles = [];
+  const previousIdentities = new Map();
+  for (const relativePath of previousFiles) {
+    const destination = await safeManagedPath(outputRoot, relativePath);
+    const identity = await publishedFileIdentity(destination);
+    if (identity) previousIdentities.set(relativePath, identity);
+  }
+  for (const relativePath of nextFiles) {
+    const folded = caseFoldPath(relativePath);
+    for (const existingPath of publicEntries.get(folded) || []) {
+      if (!previousPaths.has(existingPath)) {
+        throw new Error(`Unmanaged public target blocks PyTorch publication: ${existingPath}`);
+      }
+    }
+    const destination = await safeManagedPath(outputRoot, relativePath);
+    if (!await fileExists(destination)) createdFiles.push(relativePath);
+  }
+  return { createdFiles, previousIdentities };
+}
+
+async function assertPublicOwnershipUnchanged(outputRoot, relativePath, previousFiles, backupRoot, created) {
+  const publicEntries = await publicEntriesByCaseFold(outputRoot);
+  const previousPaths = new Set(previousFiles);
+  const aliases = publicEntries.get(caseFoldPath(relativePath)) || [];
+  for (const existingPath of aliases) {
+    if (!previousPaths.has(existingPath)) {
+      throw new Error(`Unmanaged public target blocks PyTorch publication: ${existingPath}`);
+    }
+    const existing = await safeManagedPath(outputRoot, existingPath);
+    const backup = await safeManagedPath(backupRoot, existingPath);
+    if (!await samePublishedFile(existing, backup)) {
+      throw new Error(`Public target changed after ownership preflight: ${existingPath}`);
+    }
+  }
+  const destination = await safeManagedPath(outputRoot, relativePath);
+  if (!created) {
+    const backup = await safeManagedPath(backupRoot, relativePath);
+    if (!await samePublishedFile(destination, backup)) {
+      throw new Error(`Public target changed after ownership preflight: ${relativePath}`);
+    }
   }
 }
 
@@ -1089,17 +1385,68 @@ async function readPublishJournal(transactionRoot) {
   return journal;
 }
 
-async function recoverPublishTransaction(outputRoot) {
+async function recoverPublishTransaction(outputRoot, expectedTransactionId) {
   const transactionRoot = publishTransactionRoot(outputRoot);
+  const owner = await readPublishOwnerFile(publishOwnerPath(outputRoot), outputRoot);
   let transactionInfo;
   try {
     transactionInfo = await lstat(transactionRoot);
   } catch (error) {
-    if (error.code === 'ENOENT') return;
-    throw error;
+    if (error.code !== 'ENOENT') throw error;
+    transactionInfo = null;
+  }
+  if (!owner) {
+    if (!transactionInfo) return;
+    if (transactionInfo.isSymbolicLink() || !transactionInfo.isDirectory()) {
+      throw new Error(`Unsafe PyTorch publish transaction: ${transactionRoot}`);
+    }
+    throw new Error(`Unowned PyTorch publish transaction directory: ${transactionRoot}`);
+  }
+  if (expectedTransactionId && owner.transactionId !== expectedTransactionId) {
+    throw new Error('A different PyTorch publish transaction is active');
+  }
+  if (!expectedTransactionId && publishOwnerIsActive(owner)) {
+    throw new Error(`A PyTorch publish transaction is already active (pid ${owner.pid})`);
+  }
+
+  const gcRoot = publishGarbageRoot(outputRoot, owner.transactionId);
+  let gcInfo;
+  try {
+    gcInfo = await lstat(gcRoot);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    gcInfo = null;
+  }
+  if (transactionInfo && gcInfo) {
+    throw new Error('Invalid PyTorch publish state: transaction and cleanup roots both exist');
+  }
+  if (gcInfo) {
+    if (gcInfo.isSymbolicLink() || !gcInfo.isDirectory()) {
+      throw new Error(`Unsafe PyTorch publish cleanup root: ${gcRoot}`);
+    }
+    await removeOwnedPublishTree(gcRoot, outputRoot, owner);
+    await removePublishOwnerMarker(outputRoot, owner);
+    return;
+  }
+  if (!transactionInfo) {
+    await removePublishOwnerMarker(outputRoot, owner);
+    return;
   }
   if (transactionInfo.isSymbolicLink() || !transactionInfo.isDirectory()) {
     throw new Error(`Unsafe PyTorch publish transaction: ${transactionRoot}`);
+  }
+
+  const innerOwner = await readPublishOwner(transactionRoot, outputRoot);
+  if (!innerOwner) {
+    if ((await readdir(transactionRoot)).length) {
+      throw new Error(`Unowned PyTorch publish transaction directory: ${transactionRoot}`);
+    }
+    await rmdir(transactionRoot);
+    await removePublishOwnerMarker(outputRoot, owner);
+    return;
+  }
+  if (!samePublishOwner(innerOwner, owner)) {
+    throw new Error(`Mismatched PyTorch publish transaction owner: ${transactionRoot}`);
   }
 
   const journalPath = path.join(transactionRoot, 'journal.json');
@@ -1108,7 +1455,7 @@ async function recoverPublishTransaction(outputRoot) {
     journalInfo = await lstat(journalPath);
   } catch (error) {
     if (error.code !== 'ENOENT') throw error;
-    await rm(transactionRoot, { recursive: true, force: true });
+    await handoffPublishTransaction(outputRoot, transactionRoot, owner);
     return;
   }
   if (journalInfo.isSymbolicLink() || !journalInfo.isFile()) {
@@ -1116,8 +1463,8 @@ async function recoverPublishTransaction(outputRoot) {
   }
   const journal = await readPublishJournal(transactionRoot);
   const previousRoot = path.join(transactionRoot, 'previous');
+  const publishedRoot = path.join(transactionRoot, 'published');
   const recoveryRoot = path.join(transactionRoot, 'recovery');
-  const previousByCaseFold = new Map(journal.previousFiles.map((entry) => [caseFoldPath(entry), entry]));
   const nextByCaseFold = new Map(journal.nextFiles.map((entry) => [caseFoldPath(entry), entry]));
 
   if (journal.state === 'prepared') {
@@ -1127,21 +1474,21 @@ async function recoverPublishTransaction(outputRoot) {
       const source = await safeManagedPath(previousRoot, relativePath);
       const recovery = await safeManagedPath(recoveryRoot, relativePath);
       const destination = await safeManagedPath(outputRoot, relativePath);
+      const nextAlias = nextByCaseFold.get(caseFoldPath(relativePath));
+      const published = nextAlias
+        ? await safeManagedPath(publishedRoot, nextAlias)
+        : null;
+      const destinationIdentity = await publishedFileIdentity(destination);
+      if (destinationIdentity && (!published || !await samePublishedFile(published, destination))) continue;
       await mkdir(path.dirname(recovery), { recursive: true });
       await cp(source, recovery, { preserveTimestamps: true, verbatimSymlinks: true });
       await mkdir(path.dirname(destination), { recursive: true });
-      if (!await samePublishedFile(recovery, destination)) await rename(recovery, destination);
+      await rename(recovery, destination);
     }
-    const publishFiles = journal.nextFiles.filter((entry) => entry !== 'manifest.json');
-    publishFiles.push('manifest.json');
-    for (const relativePath of publishFiles) {
-      const previousAlias = previousByCaseFold.get(caseFoldPath(relativePath));
+    for (const relativePath of journal.createdFiles || []) {
       const destination = await safeManagedPath(outputRoot, relativePath);
-      if (previousAlias) {
-        const previousDestination = await safeManagedPath(outputRoot, previousAlias);
-        if (await samePublishedFile(previousDestination, destination)) continue;
-      }
-      await rm(destination, { force: true });
+      const published = await safeManagedPath(publishedRoot, relativePath);
+      if (await samePublishedFile(published, destination)) await rm(destination, { force: true });
     }
   } else {
     for (const relativePath of journal.previousFiles) {
@@ -1151,21 +1498,29 @@ async function recoverPublishTransaction(outputRoot) {
         const nextDestination = await safeManagedPath(outputRoot, nextAlias);
         if (await samePublishedFile(destination, nextDestination)) continue;
       }
-      await rm(destination, { force: true });
+      const backup = await safeManagedPath(previousRoot, relativePath);
+      if (await samePublishedFile(destination, backup)) await rm(destination, { force: true });
     }
   }
-  await rm(transactionRoot, { recursive: true, force: true });
+  await handoffPublishTransaction(outputRoot, transactionRoot, owner);
 }
 
 async function writeOutputs(outputRoot, outputs, previousManifest, { writeFileImpl = writeFile } = {}) {
   const resolvedRoot = path.resolve(outputRoot);
   const parent = path.dirname(resolvedRoot);
   await mkdir(parent, { recursive: true });
-  const transactionRoot = publishTransactionRoot(resolvedRoot);
   await recoverPublishTransaction(resolvedRoot);
-  await mkdir(transactionRoot, { recursive: true });
+  const nextFiles = [...outputs.keys()];
+  const { createdFiles, previousIdentities } = await preflightPublicOwnership(
+    resolvedRoot,
+    nextFiles,
+    previousManifest.generatedFiles || [],
+  );
+  const createdPaths = new Set(createdFiles);
+  const { owner, transactionRoot } = await createOwnedPublishTransaction(resolvedRoot);
   const stagedRoot = path.join(transactionRoot, 'next');
   const backupRoot = path.join(transactionRoot, 'previous');
+  const publishedRoot = path.join(transactionRoot, 'published');
 
   try {
     await mkdir(stagedRoot, { recursive: true });
@@ -1180,14 +1535,22 @@ async function writeOutputs(outputRoot, outputs, previousManifest, { writeFileIm
     for (const relativePath of previousManifest.generatedFiles || []) {
       const source = await safeManagedPath(resolvedRoot, relativePath);
       const destination = await safeManagedPath(backupRoot, relativePath);
+      const expectedIdentity = previousIdentities.get(relativePath);
+      if (!expectedIdentity) {
+        throw new Error(`Public target changed after ownership preflight: ${relativePath}`);
+      }
       await mkdir(path.dirname(destination), { recursive: true });
-      await cp(source, destination, { preserveTimestamps: true, verbatimSymlinks: true });
+      await link(source, destination);
+      if (!sameFileIdentity(await publishedFileIdentity(destination), expectedIdentity)) {
+        throw new Error(`Public target changed after ownership preflight: ${relativePath}`);
+      }
     }
     const journal = {
       version: 1,
       state: 'prepared',
       previousFiles: previousManifest.generatedFiles || [],
-      nextFiles: [...outputs.keys()],
+      nextFiles,
+      createdFiles,
     };
     validatePublishJournal(journal);
     await writeFile(path.join(transactionRoot, 'next-manifest.json'), outputs.get('manifest.json'));
@@ -1199,8 +1562,19 @@ async function writeOutputs(outputRoot, outputs, previousManifest, { writeFileIm
     for (const relativePath of publishFiles) {
       const source = await safeManagedPath(stagedRoot, relativePath);
       const destination = await safeManagedPath(resolvedRoot, relativePath);
+      const published = await safeManagedPath(publishedRoot, relativePath);
       await mkdir(path.dirname(destination), { recursive: true });
-      await rename(source, destination);
+      await mkdir(path.dirname(published), { recursive: true });
+      await link(source, published);
+      await assertPublicOwnershipUnchanged(
+        resolvedRoot,
+        relativePath,
+        journal.previousFiles,
+        backupRoot,
+        createdPaths.has(relativePath),
+      );
+      if (createdPaths.has(relativePath)) await link(source, destination);
+      else await rename(source, destination);
     }
     await writePublishJournal(transactionRoot, { ...journal, state: 'committed' });
     const nextByCaseFold = new Map(journal.nextFiles.map((entry) => [caseFoldPath(entry), entry]));
@@ -1211,11 +1585,12 @@ async function writeOutputs(outputRoot, outputs, previousManifest, { writeFileIm
         const nextDestination = await safeManagedPath(resolvedRoot, nextAlias);
         if (await samePublishedFile(destination, nextDestination)) continue;
       }
-      await rm(destination, { force: true });
+      const backup = await safeManagedPath(backupRoot, relativePath);
+      if (await samePublishedFile(destination, backup)) await rm(destination, { force: true });
     }
-    await rm(transactionRoot, { recursive: true, force: true });
+    await handoffPublishTransaction(resolvedRoot, transactionRoot, owner);
   } catch (error) {
-    await recoverPublishTransaction(resolvedRoot);
+    await recoverPublishTransaction(resolvedRoot, owner.transactionId);
     throw error;
   }
 }
