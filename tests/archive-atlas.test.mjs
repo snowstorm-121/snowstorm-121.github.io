@@ -27,9 +27,13 @@ const cssDeclarations = (source) => source.split(";").flatMap((declaration) => {
 const protectedRule = (source, selector, properties) => {
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const protectedProperties = new Set(properties);
-  const candidates = [...source.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(
-    new RegExp(`(?:^|[{}])\\s*${escapedSelector}\\s*\\{([^{}]*)\\}`, "g"),
-  )].map((match) => ({ body: match[1], declarations: cssDeclarations(match[1]) }))
+  const uncommented = source.replace(/\/\*[\s\S]*?\*\//g, "");
+  const candidates = [...uncommented.matchAll(
+    new RegExp(`${escapedSelector}\\s*\\{([^{}]*)\\}`, "g"),
+  )].filter((match) => {
+    const preceding = uncommented.slice(0, match.index).trimEnd();
+    return !preceding || /[{}]$/.test(preceding);
+  }).map((match) => ({ body: match[1], declarations: cssDeclarations(match[1]) }))
     .filter(({ declarations }) => declarations.some(({ property }) => protectedProperties.has(property)));
   assert.equal(candidates.length, 1, `${selector} must have one canonical protected rule`);
   for (const property of properties) {
@@ -382,6 +386,16 @@ test("atlas parallax contract rejects later active transform declarations and ru
   );
 });
 
+test("atlas parallax contract rejects an immediately adjacent active transform override", () => {
+  const active = rule(styles, "\\.atlas-map-node\\.is-active");
+  const adjacentActive = styles.replace(active, `${active}.atlas-map-node.is-active { transform: translateX(12px); }`);
+
+  assert.throws(
+    () => atlasParallaxFactors(adjacentActive),
+    /.atlas-map-node.is-active must have one canonical protected rule/,
+  );
+});
+
 test("atlas parallax contract rejects a responsive base transform override", () => {
   const responsiveOverride = `${styles}\n@media (max-width: 720px) { .atlas-map-node { transform: translateX(12px); } }`;
 
@@ -405,6 +419,16 @@ test("atlas marker contract rejects a later content-box override", () => {
 
   assert.throws(
     () => atlasMarkerRules(contentBox),
+    /.atlas-map-node::before must have one canonical protected rule/,
+  );
+});
+
+test("atlas marker contract rejects an immediately adjacent content-box override", () => {
+  const marker = rule(styles, "\\.atlas-map-node::before");
+  const adjacentContentBox = styles.replace(marker, `${marker}.atlas-map-node::before { box-sizing: content-box; }`);
+
+  assert.throws(
+    () => atlasMarkerRules(adjacentContentBox),
     /.atlas-map-node::before must have one canonical protected rule/,
   );
 });
