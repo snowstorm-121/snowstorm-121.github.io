@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, readFile, readdir, rename, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -158,6 +159,65 @@ async function runInterruptedSync({ source, output, mode, check = false }) {
     output,
     mode,
     String(check),
+  ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  let stderr = '';
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const exit = await new Promise((resolve) => child.once('exit', (code, signal) => resolve({ code, signal })));
+  return { ...exit, stderr };
+}
+
+async function runRemoteAssetReadRace({ source, output, assetPath, mode, replacement }) {
+  const childSource = `
+    import path from 'node:path';
+    import * as fs from 'node:fs/promises';
+    import { mock } from 'node:test';
+    const [moduleUrl, sourceRoot, outputRoot, assetPath, mode, replacementHex] = process.argv.slice(1);
+    const target = path.resolve(assetPath);
+    const readFile = fs.readFile;
+    const rename = fs.rename;
+    const rm = fs.rm;
+    const writeFile = fs.writeFile;
+    let raced = false;
+    mock.module('node:fs/promises', {
+      namedExports: {
+        ...fs,
+        readFile: async (...args) => {
+          if (raced || path.resolve(args[0]) !== target) return readFile(...args);
+          const data = await readFile(...args);
+          raced = true;
+          if (mode === 'missing') {
+            await rm(target);
+            const error = new Error('injected remote asset disappearance');
+            error.code = 'ENOENT';
+            throw error;
+          }
+          const pending = target + '.replacement';
+          await writeFile(pending, Buffer.from(replacementHex, 'hex'));
+          await rename(pending, target);
+          return data;
+        },
+      },
+    });
+    const { synchronize } = await import(moduleUrl + '?remote-read-race=' + Date.now());
+    await synchronize({
+      sourceRoot,
+      outputRoot,
+      fetchRemoteAssets: mode === 'missing',
+      fetchAsset: async () => Buffer.from(replacementHex, 'hex'),
+    });
+  `;
+  const child = spawn(process.execPath, [
+    '--experimental-test-module-mocks',
+    '--input-type=module',
+    '--eval',
+    childSource,
+    scriptUrl,
+    source,
+    output,
+    assetPath,
+    mode,
+    replacement.toString('hex'),
   ], { stdio: ['ignore', 'ignore', 'pipe'] });
   let stderr = '';
   child.stderr.setEncoding('utf8');
@@ -1006,7 +1066,7 @@ test('cancels unused response bodies without masking remote image errors', async
   });
 });
 
-test('fetches new remote images only with opt-in and requires the localized file afterward', async (t) => {
+test('fetches new remote images only with opt-in and refetches a missing localized file only with opt-in', async (t) => {
   const { root, source, output } = await makeFixture();
   t.after(() => rm(root, { recursive: true, force: true }));
   const remoteUrl = 'https://images.example.test/plot.png';
@@ -1028,7 +1088,8 @@ test('fetches new remote images only with opt-in and requires the localized file
     },
   });
   const manifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8'));
-  const [assetPath] = Object.values(manifest.remoteAssets);
+  const [remoteEntry] = Object.values(manifest.remoteAssets);
+  const assetPath = typeof remoteEntry === 'string' ? remoteEntry : remoteEntry.path;
   assert.deepEqual(await readFile(path.join(output, assetPath)), tinyPng);
 
   await rm(path.join(output, assetPath));
@@ -1036,6 +1097,187 @@ test('fetches new remote images only with opt-in and requires the localized file
     synchronize({ sourceRoot: source, outputRoot: output, check: true }),
     /missing localized remote image/i,
   );
+  await assert.rejects(
+    synchronize({ sourceRoot: source, outputRoot: output }),
+    /missing localized remote image/i,
+  );
+
+  const refetched = Buffer.concat([tinyPng, Buffer.from('refetched')]);
+  let refetches = 0;
+  await synchronize({
+    sourceRoot: source,
+    outputRoot: output,
+    fetchRemoteAssets: true,
+    fetchAsset: async (url) => {
+      refetches += 1;
+      assert.equal(url, remoteUrl);
+      return refetched;
+    },
+  });
+  const repairedManifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8'));
+  assert.equal(refetches, 1);
+  assert.deepEqual(await readFile(path.join(output, repairedManifest.remoteAssets[remoteUrl].path)), refetched);
+  assert.equal(
+    repairedManifest.remoteAssets[remoteUrl].sha256,
+    createHash('sha256').update(refetched).digest('hex'),
+  );
+  await synchronize({ sourceRoot: source, outputRoot: output, check: true });
+});
+
+test('manifest digests detect valid remote image substitution and normal sync does not bless it', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const remoteUrl = 'https://images.example.test/digest.png';
+  const original = Buffer.concat([tinyPng, Buffer.from('original')]);
+  const substituted = Buffer.concat([tinyPng, Buffer.from('substituted')]);
+  await writeFile(path.join(source, 'Stage1', 'Main.md'), `![remote](${remoteUrl})\n`);
+  const { synchronize } = await loadSyncModule();
+
+  await synchronize({
+    sourceRoot: source,
+    outputRoot: output,
+    fetchRemoteAssets: true,
+    fetchAsset: async () => original,
+  });
+  const manifestPath = path.join(output, 'manifest.json');
+  const beforeManifest = await readFile(manifestPath);
+  const manifest = JSON.parse(beforeManifest);
+  const entry = manifest.remoteAssets[remoteUrl];
+  const assetPath = path.join(output, typeof entry === 'string' ? entry : entry.path);
+  await writeFile(assetPath, substituted);
+
+  await assert.rejects(
+    synchronize({ sourceRoot: source, outputRoot: output, check: true }),
+    /digest|integrity|checksum/i,
+  );
+  await assert.rejects(
+    synchronize({ sourceRoot: source, outputRoot: output }),
+    /digest|integrity|checksum/i,
+  );
+  let fetches = 0;
+  await assert.rejects(
+    synchronize({
+      sourceRoot: source,
+      outputRoot: output,
+      fetchRemoteAssets: true,
+      fetchAsset: async () => {
+        fetches += 1;
+        return original;
+      },
+    }),
+    /digest|integrity|checksum/i,
+  );
+  assert.equal(fetches, 0, 'the fetch flag must not replace or bless an existing digest mismatch');
+  assert.deepEqual(await readFile(manifestPath), beforeManifest, 'normal sync must not bless substituted bytes');
+  assert.deepEqual(await readFile(assetPath), substituted, 'failed sync must leave the public asset untouched');
+  assert.deepEqual(entry, {
+    path: path.relative(output, assetPath),
+    sha256: createHash('sha256').update(original).digest('hex'),
+  });
+});
+
+test('an opted-in sync refetches a remote asset that disappears during its verified read', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const remoteUrl = 'https://images.example.test/disappearing.png';
+  const original = Buffer.concat([tinyPng, Buffer.from('original')]);
+  const refetched = Buffer.concat([tinyPng, Buffer.from('refetched')]);
+  await writeFile(path.join(source, 'Stage1', 'Main.md'), `![remote](${remoteUrl})\n`);
+  const { synchronize } = await loadSyncModule();
+  await synchronize({
+    sourceRoot: source,
+    outputRoot: output,
+    fetchRemoteAssets: true,
+    fetchAsset: async () => original,
+  });
+  const initialManifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8'));
+  const assetPath = path.join(output, initialManifest.remoteAssets[remoteUrl].path);
+
+  const exit = await runRemoteAssetReadRace({
+    source,
+    output,
+    assetPath,
+    mode: 'missing',
+    replacement: refetched,
+  });
+
+  assert.equal(exit.code, 0, exit.stderr);
+  assert.equal(exit.signal, null);
+  const repairedManifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8'));
+  assert.deepEqual(await readFile(assetPath), refetched);
+  assert.equal(repairedManifest.remoteAssets[remoteUrl].sha256, createHash('sha256').update(refetched).digest('hex'));
+  await synchronize({ sourceRoot: source, outputRoot: output, check: true });
+});
+
+test('normal sync rejects a structured remote asset swapped before ownership preflight', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const remoteUrl = 'https://images.example.test/preflight-swap.png';
+  const original = Buffer.concat([tinyPng, Buffer.from('original')]);
+  const substituted = Buffer.concat([tinyPng, Buffer.from('substituted')]);
+  await writeFile(path.join(source, 'Stage1', 'Main.md'), `![remote](${remoteUrl})\n`);
+  const { synchronize } = await loadSyncModule();
+  await synchronize({
+    sourceRoot: source,
+    outputRoot: output,
+    fetchRemoteAssets: true,
+    fetchAsset: async () => original,
+  });
+  const manifestPath = path.join(output, 'manifest.json');
+  const beforeManifest = await readFile(manifestPath);
+  const manifest = JSON.parse(beforeManifest);
+  const assetPath = path.join(output, manifest.remoteAssets[remoteUrl].path);
+
+  const exit = await runRemoteAssetReadRace({
+    source,
+    output,
+    assetPath,
+    mode: 'swap',
+    replacement: substituted,
+  });
+
+  assert.notEqual(exit.code, 0, 'the late substitution must abort publication');
+  assert.equal(exit.signal, null);
+  assert.match(exit.stderr, /digest|integrity|checksum/i);
+  assert.deepEqual(await readFile(manifestPath), beforeManifest);
+  assert.deepEqual(await readFile(assetPath), substituted, 'the failed sync must not overwrite the replacement');
+});
+
+test('legacy path-only remote manifest entries upgrade to stable digests without refetching', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const remoteUrl = 'https://images.example.test/legacy.png';
+  const original = Buffer.concat([tinyPng, Buffer.from('legacy')]);
+  await writeFile(path.join(source, 'Stage1', 'Main.md'), `![remote](${remoteUrl})\n`);
+  const { synchronize } = await loadSyncModule();
+
+  await synchronize({
+    sourceRoot: source,
+    outputRoot: output,
+    fetchRemoteAssets: true,
+    fetchAsset: async () => original,
+  });
+  const manifestPath = path.join(output, 'manifest.json');
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  const entry = manifest.remoteAssets[remoteUrl];
+  manifest.remoteAssets[remoteUrl] = typeof entry === 'string' ? entry : entry.path;
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+  let fetches = 0;
+  await synchronize({
+    sourceRoot: source,
+    outputRoot: output,
+    fetchAsset: async () => {
+      fetches += 1;
+      return original;
+    },
+  });
+  const upgraded = JSON.parse(await readFile(manifestPath, 'utf8'));
+  assert.equal(fetches, 0);
+  assert.deepEqual(upgraded.remoteAssets[remoteUrl], {
+    path: typeof entry === 'string' ? entry : entry.path,
+    sha256: createHash('sha256').update(original).digest('hex'),
+  });
 });
 
 test('manifest loading enforces version, required field types, and unique generated paths', async (t) => {
@@ -1064,6 +1306,16 @@ test('manifest loading enforces version, required field types, and unique genera
       name: 'case-fold duplicate generated path',
       mutate(manifest) { manifest.generatedFiles.push('MANIFEST.JSON'); },
       error: /manifest.*duplicate.*path/i,
+    },
+    {
+      name: 'malformed remote asset digest',
+      mutate(manifest) {
+        manifest.remoteAssets['https://images.example.test/malformed.png'] = {
+          path: 'manifest.json',
+          sha256: 'not-a-sha256',
+        };
+      },
+      error: /manifest.*remoteAssets.*sha256/i,
     },
   ];
   const { synchronize } = await loadSyncModule();
@@ -1717,6 +1969,25 @@ test('--check detects drift and manifest cleanup never removes unmanaged files',
   await synchronize({ sourceRoot: source, outputRoot: output });
   assert.equal(await readFile(unmanaged, 'utf8'), 'unmanaged');
   await assert.rejects(readFile(path.join(output, 'notes', 'stage-1', 'other-note.html'), 'utf8'), /ENOENT/);
+});
+
+test('--check detects a missing managed article and normal sync restores it', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const article = path.join(output, 'notes', 'stage-1', 'main.html');
+  const expected = await readFile(article);
+  await rm(article);
+
+  await assert.rejects(
+    synchronize({ sourceRoot: source, outputRoot: output, check: true }),
+    /out of date/i,
+  );
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  assert.deepEqual(await readFile(article), expected);
+  await synchronize({ sourceRoot: source, outputRoot: output, check: true });
 });
 
 test('overview article breadcrumb links back to the archive instead of a nonexistent stage', async (t) => {

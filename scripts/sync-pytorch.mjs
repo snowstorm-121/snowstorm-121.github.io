@@ -320,6 +320,14 @@ function remoteAssetPath(url, extension) {
   return `assets/remote/${digest}${extension}`;
 }
 
+function sha256Digest(data) {
+  return createHash('sha256').update(data).digest('hex');
+}
+
+function remoteAssetManifestPath(entry) {
+  return typeof entry === 'string' ? entry : entry.path;
+}
+
 function isRemote(value) {
   return /^https?:\/\//i.test(value);
 }
@@ -935,9 +943,22 @@ function validateManifest(manifest) {
   manifest.warnings.forEach((warning, index) => {
     if (typeof warning !== 'string') throw new Error(`Invalid PyTorch manifest: warnings[${index}] must be a string`);
   });
-  for (const [url, assetPath] of Object.entries(manifest.remoteAssets)) {
-    if (!url || typeof assetPath !== 'string' || !assetPath) {
-      throw new Error('Invalid PyTorch manifest: remoteAssets entries must map URLs to non-empty paths');
+  for (const [url, entry] of Object.entries(manifest.remoteAssets)) {
+    if (!url) throw new Error('Invalid PyTorch manifest: remoteAssets URLs must be non-empty');
+    if (typeof entry === 'string') {
+      if (!entry) throw new Error('Invalid PyTorch manifest: remoteAssets entries must map URLs to non-empty paths');
+      continue;
+    }
+    if (!isRecord(entry) || typeof entry.path !== 'string' || !entry.path) {
+      throw new Error('Invalid PyTorch manifest: remoteAssets entries must contain a non-empty path');
+    }
+    if (typeof entry.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(entry.sha256)) {
+      throw new Error('Invalid PyTorch manifest: remoteAssets entry sha256 must be 64 lowercase hex characters');
+    }
+    for (const field of Object.keys(entry)) {
+      if (!['path', 'sha256'].includes(field)) {
+        throw new Error(`Invalid PyTorch manifest: remoteAssets entry field ${field}`);
+      }
     }
   }
   manifest.generatedFiles.forEach((generatedPath, index) => {
@@ -954,7 +975,7 @@ function validateManifest(manifest) {
   const generated = new Set(manifest.generatedFiles);
   for (const assetPath of [
     ...manifest.attachments.map((attachment) => attachment.path),
-    ...Object.values(manifest.remoteAssets),
+    ...Object.values(manifest.remoteAssets).map(remoteAssetManifestPath),
   ]) {
     if (!generated.has(assetPath)) throw new Error(`Invalid PyTorch manifest: unmanaged published path ${assetPath}`);
   }
@@ -973,19 +994,15 @@ async function readManifest(outputRoot) {
 
 async function buildRemoteAssets(urls, previousManifest, options) {
   const remoteAssets = {};
+  const manifestEntries = {};
   const downloaded = new Map();
   const previous = previousManifest.remoteAssets || {};
-  for (const url of urls) {
-    if (previous[url]) {
-      const existing = await safeManagedPath(options.outputRoot, previous[url]);
-      if (!(await fileExists(existing))) throw new Error(`Missing localized remote image: ${previous[url]}`);
-      const data = await readFile(existing);
-      validateRasterAsset(data, { sourceUrl: url, storedPath: previous[url] });
-      remoteAssets[url] = previous[url];
-      downloaded.set(previous[url], data);
-      continue;
-    }
-    if (!options.fetchRemoteAssets) throw new Error(`New remote image ${url}; run with --fetch-remote-assets`);
+  const remember = (url, assetPath, data) => {
+    remoteAssets[url] = assetPath;
+    manifestEntries[url] = { path: assetPath, sha256: sha256Digest(data) };
+    downloaded.set(assetPath, data);
+  };
+  const fetchRemoteAsset = async (url) => {
     const fetcher = options.fetchAsset || defaultFetchAsset;
     const fetched = await fetcher(url);
     const result = Buffer.isBuffer(fetched) || ArrayBuffer.isView(fetched)
@@ -997,11 +1014,41 @@ async function buildRemoteAssets(urls, previousManifest, options) {
       finalUrl: result.finalUrl || url,
       contentType: result.contentType || '',
     });
-    const destination = remoteAssetPath(url, validated.format.extension);
-    remoteAssets[url] = destination;
-    downloaded.set(destination, validated.buffer);
+    return {
+      assetPath: remoteAssetPath(url, validated.format.extension),
+      data: validated.buffer,
+    };
+  };
+  for (const url of urls) {
+    if (previous[url]) {
+      const previousEntry = previous[url];
+      const previousPath = remoteAssetManifestPath(previousEntry);
+      const existing = await safeManagedPath(options.outputRoot, previousPath);
+      let data;
+      try {
+        data = await readFile(existing);
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        if (!options.fetchRemoteAssets) {
+          throw new Error(`Missing localized remote image: ${previousPath}; run with --fetch-remote-assets to refetch`);
+        }
+        const fetched = await fetchRemoteAsset(url);
+        remember(url, fetched.assetPath, fetched.data);
+        continue;
+      }
+      const validated = validateRasterAsset(data, { sourceUrl: url, storedPath: previousPath });
+      const expectedDigest = typeof previousEntry === 'string' ? '' : previousEntry.sha256;
+      if (expectedDigest && sha256Digest(validated.buffer) !== expectedDigest) {
+        throw new Error(`Localized remote image digest mismatch: ${previousPath}`);
+      }
+      remember(url, previousPath, validated.buffer);
+      continue;
+    }
+    if (!options.fetchRemoteAssets) throw new Error(`New remote image ${url}; run with --fetch-remote-assets`);
+    const fetched = await fetchRemoteAsset(url);
+    remember(url, fetched.assetPath, fetched.data);
   }
-  return { remoteAssets, downloaded };
+  return { remoteAssets, manifestEntries, downloaded };
 }
 
 async function safeManagedPath(outputRoot, relativePath) {
@@ -1277,13 +1324,17 @@ async function validateJournalManifests(transactionRoot, journal) {
     throw new Error('Invalid PyTorch publish journal: nextFiles do not match next manifest');
   }
   if (!journal.previousFiles.length) return;
+  if (!journal.previousFiles.includes('manifest.json')) {
+    throw new Error('Invalid PyTorch publish journal: previousFiles are missing the manifest anchor');
+  }
   const previousManifest = JSON.parse(await readFile(
     await safeManagedPath(path.join(transactionRoot, 'previous'), 'manifest.json'),
     'utf8',
   ));
   validateManifest(previousManifest);
-  if (!samePathSet(journal.previousFiles, previousManifest.generatedFiles)) {
-    throw new Error('Invalid PyTorch publish journal: previousFiles do not match previous manifest');
+  const generated = new Set(previousManifest.generatedFiles);
+  if (journal.previousFiles.some((entry) => !generated.has(entry))) {
+    throw new Error('Invalid PyTorch publish journal: previousFiles are not managed by the previous manifest');
   }
 }
 
@@ -1523,6 +1574,12 @@ async function writeOutputs(outputRoot, outputs, previousManifest, { writeFileIm
     nextFiles,
     previousManifest.generatedFiles || [],
   );
+  const previousFiles = [...previousIdentities.keys()];
+  const previousRemoteDigests = new Map(
+    Object.values(previousManifest.remoteAssets || {})
+      .filter((entry) => typeof entry !== 'string')
+      .map((entry) => [entry.path, entry.sha256]),
+  );
   const createdPaths = new Set(createdFiles);
   const { owner, transactionRoot } = await createOwnedPublishTransaction(resolvedRoot);
   const stagedRoot = path.join(transactionRoot, 'next');
@@ -1539,23 +1596,24 @@ async function writeOutputs(outputRoot, outputs, previousManifest, { writeFileIm
     }
     await checkOutputs(stagedRoot, outputs, {});
 
-    for (const relativePath of previousManifest.generatedFiles || []) {
+    for (const relativePath of previousFiles) {
       const source = await safeManagedPath(resolvedRoot, relativePath);
       const destination = await safeManagedPath(backupRoot, relativePath);
       const expectedIdentity = previousIdentities.get(relativePath);
-      if (!expectedIdentity) {
-        throw new Error(`Public target changed after ownership preflight: ${relativePath}`);
-      }
       await mkdir(path.dirname(destination), { recursive: true });
       await link(source, destination);
       if (!sameFileIdentity(await publishedFileIdentity(destination), expectedIdentity)) {
         throw new Error(`Public target changed after ownership preflight: ${relativePath}`);
       }
+      const expectedDigest = previousRemoteDigests.get(relativePath);
+      if (expectedDigest && sha256Digest(await readFile(destination)) !== expectedDigest) {
+        throw new Error(`Localized remote image digest mismatch during publication: ${relativePath}`);
+      }
     }
     const journal = {
       version: 1,
       state: 'prepared',
-      previousFiles: previousManifest.generatedFiles || [],
+      previousFiles,
       nextFiles,
       createdFiles,
     };
@@ -1691,7 +1749,7 @@ export async function synchronize({
       sourcePath: normalizePath(path.relative(resolvedSource, source)),
       path: destination,
     })).sort((a, b) => COLLATOR.compare(a.path, b.path)),
-    remoteAssets: remote.remoteAssets,
+    remoteAssets: remote.manifestEntries,
     warnings,
     generatedFiles: [...outputs.keys(), 'manifest.json'].sort(COLLATOR.compare),
   };
