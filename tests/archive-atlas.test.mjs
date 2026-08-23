@@ -17,6 +17,43 @@ const manifest = JSON.parse(manifestSource);
 
 const rule = (source, selector) => source.match(new RegExp(String.raw`${selector}\s*\{[^}]*\}`))?.[0] ?? "";
 const cssPx = (source, property) => Number(source.match(new RegExp(String.raw`${property}:\s*(-?\d+(?:\.\d+)?)px`))?.[1]);
+const cssDeclarations = (source) => source.split(";").flatMap((declaration) => {
+  const separator = declaration.indexOf(":");
+  if (separator < 0) return [];
+  const property = declaration.slice(0, separator).trim().toLowerCase();
+  const value = declaration.slice(separator + 1).trim();
+  return property && value ? [{ property, value }] : [];
+});
+const protectedRule = (source, selector, properties) => {
+  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const protectedProperties = new Set(properties);
+  const candidates = [...source.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(
+    new RegExp(`(?:^|[{}])\\s*${escapedSelector}\\s*\\{([^{}]*)\\}`, "g"),
+  )].map((match) => ({ body: match[1], declarations: cssDeclarations(match[1]) }))
+    .filter(({ declarations }) => declarations.some(({ property }) => protectedProperties.has(property)));
+  assert.equal(candidates.length, 1, `${selector} must have one canonical protected rule`);
+  for (const property of properties) {
+    assert.equal(
+      candidates[0].declarations.filter((declaration) => declaration.property === property).length,
+      1,
+      `${selector} must declare protected ${property} exactly once`,
+    );
+  }
+  return `${selector} {${candidates[0].body}}`;
+};
+const keyframes = (source, name) => {
+  const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const definitions = [...source.matchAll(new RegExp(`@keyframes\\s+${escapedName}\\s*\\{`, "g"))];
+  assert.equal(definitions.length, 1, `${name} must have exactly one definition`);
+  const open = definitions[0].index + definitions[0][0].lastIndexOf("{");
+  let depth = 0;
+  for (let index = open; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    if (source[index] === "}") depth -= 1;
+    if (depth === 0) return source.slice(open + 1, index);
+  }
+  return "";
+};
 
 const keyframeDeclarations = (source) => {
   const declarations = new Map();
@@ -65,9 +102,9 @@ const atlasParallaxFactors = (source) => {
   const nodePattern = new RegExp(`^translate\\(calc\\(-50% \\+ var\\(--atlas-parallax-x\\) \\* (${number})\\), calc\\(var\\(--atlas-marker-offset-y\\) \\+ var\\(--atlas-parallax-y\\) \\* (${number})\\)\\)$`);
   const activePattern = new RegExp(`^${nodePattern.source.slice(1, -1)} scale\\((${number})\\)$`);
   const layers = [
-    ["routes", rule(source, "\\.atlas-routes"), routePattern],
-    ["base nodes", rule(source, "\\.atlas-map-node"), nodePattern],
-    ["active nodes", rule(source, "\\.atlas-map-node\\.is-active"), activePattern],
+    ["routes", protectedRule(source, ".atlas-routes", ["transform"]), routePattern],
+    ["base nodes", protectedRule(source, ".atlas-map-node", ["transform"]), nodePattern],
+    ["active nodes", protectedRule(source, ".atlas-map-node.is-active", ["transform"]), activePattern],
   ];
   const factors = {};
   for (const [name, ruleSource, pattern] of layers) {
@@ -86,6 +123,20 @@ const atlasParallaxFactors = (source) => {
   assert.ok(Number.isFinite(factors["active nodes"].scale), "active node scale must be finite");
   return factors;
 };
+const atlasMarkerRules = (source) => ({
+  baseNode: protectedRule(source, ".atlas-map-node", [
+    "--atlas-marker-offset-y",
+    "--atlas-marker-origin-y",
+    "position",
+    "top",
+    "left",
+    "transform",
+    "transform-origin",
+  ]),
+  coreMarker: protectedRule(source, ".atlas-map-node.is-core::before", ["width", "height"]),
+  coreNode: protectedRule(source, ".atlas-map-node.is-core", ["--atlas-marker-offset-y", "--atlas-marker-origin-y"]),
+  marker: protectedRule(source, ".atlas-map-node::before", ["box-sizing", "width", "height", "border", "animation"]),
+});
 
 const htmlAttribute = (tag, name) => tag.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i"))?.slice(1).find((value) => value !== undefined);
 const atlasCoordinateGeometry = (html, pageName) => {
@@ -265,6 +316,15 @@ test("normal marker keyframes reject an unsupported winning transform", () => {
   );
 });
 
+test("atlas drift contract rejects a later same-name keyframe definition", () => {
+  const unsafeWinner = `${styles}\n@keyframes atlas-drift { from { transform: translateX(8px); } to { opacity: 1; } }`;
+
+  assert.throws(
+    () => keyframes(unsafeWinner, "atlas-drift"),
+    /atlas-drift must have exactly one definition/,
+  );
+});
+
 test("shared coordinate-plane guard rejects the former separate full-chart SVG model", () => {
   const plane = learning.match(/<div class="atlas-coordinate-plane">([\s\S]*?)<\/div>/);
   assert.ok(plane);
@@ -307,14 +367,55 @@ test("atlas parallax contract rejects missing and divergent active factors", () 
   assert.throws(() => atlasParallaxFactors(missing), /active nodes must use the canonical atlas transform/);
 });
 
+test("atlas parallax contract rejects later active transform declarations and rules", () => {
+  const active = rule(styles, "\\.atlas-map-node\\.is-active");
+  const laterDeclaration = styles.replace(active, active.replace(/\s*\}$/, " transform: translateX(12px); }"));
+  const laterActive = `${styles}\n.atlas-map-node.is-active { transform: translateX(12px); }`;
+
+  assert.throws(
+    () => atlasParallaxFactors(laterDeclaration),
+    /.atlas-map-node.is-active must declare protected transform exactly once/,
+  );
+  assert.throws(
+    () => atlasParallaxFactors(laterActive),
+    /.atlas-map-node.is-active must have one canonical protected rule/,
+  );
+});
+
+test("atlas parallax contract rejects a responsive base transform override", () => {
+  const responsiveOverride = `${styles}\n@media (max-width: 720px) { .atlas-map-node { transform: translateX(12px); } }`;
+
+  assert.throws(
+    () => atlasParallaxFactors(responsiveOverride),
+    /.atlas-map-node must have one canonical protected rule/,
+  );
+});
+
+test("atlas marker contract rejects a tablet marker-offset override", () => {
+  const tabletOffset = `${styles}\n@media (max-width: 1024px) { .atlas-map-node { --atlas-marker-offset-y: -8px; } }`;
+
+  assert.throws(
+    () => atlasMarkerRules(tabletOffset),
+    /.atlas-map-node must have one canonical protected rule/,
+  );
+});
+
+test("atlas marker contract rejects a later content-box override", () => {
+  const contentBox = `${styles}\n.atlas-map-node::before { box-sizing: content-box; }`;
+
+  assert.throws(
+    () => atlasMarkerRules(contentBox),
+    /.atlas-map-node::before must have one canonical protected rule/,
+  );
+});
+
 test("atlas routes and marker centers share a size-independent coordinate plane", () => {
   const body = styles.match(/body\.archive-atlas-page\s*\{[^}]*\}/)?.[0] ?? "";
   const shell = styles.match(/\.archive-atlas-page \.library-shell\s*\{[^}]*\}/)?.[0] ?? "";
   const layout = styles.match(/\.atlas-layout\s*\{[^}]*\}/)?.[0] ?? "";
   const chart = rule(styles, "\\.atlas-chart");
-  const coordinatePlane = rule(styles, "\\.atlas-coordinate-plane");
-  const routeLayer = rule(styles, "\\.atlas-routes");
-  const baseNode = rule(styles, "\\.atlas-map-node");
+  const coordinatePlane = protectedRule(styles, ".atlas-coordinate-plane", ["position", "inset"]);
+  const routeLayer = protectedRule(styles, ".atlas-routes", ["position", "inset", "width", "height", "transform"]);
   const mobileSection = styles.slice(
     styles.indexOf("@media (max-width: 720px)"),
     styles.indexOf("@media (max-width: 420px)"),
@@ -327,22 +428,9 @@ test("atlas routes and marker centers share a size-independent coordinate plane"
   const compactChart = rule(compactSection, "\\.atlas-chart");
   const mobileNode = rule(mobileSection, "\\.atlas-map-node");
   const compactNode = rule(compactSection, "\\.atlas-map-node");
-  const marker = rule(styles, "\\.atlas-map-node::before");
-  const coreNode = rule(styles, "\\.atlas-map-node\\.is-core");
-  const coreMarker = rule(styles, "\\.atlas-map-node\\.is-core::before");
+  const { baseNode, marker, coreNode, coreMarker } = atlasMarkerRules(styles);
   const focusRing = rule(styles, "\\.atlas-control:focus-visible::after");
-  const keyframes = (name) => {
-    const start = styles.indexOf(`@keyframes ${name}`);
-    const open = styles.indexOf("{", start);
-    let depth = 0;
-    for (let index = open; index < styles.length; index += 1) {
-      if (styles[index] === "{") depth += 1;
-      if (styles[index] === "}") depth -= 1;
-      if (depth === 0) return styles.slice(open + 1, index);
-    }
-    return "";
-  };
-  const driftKeyframes = keyframes("atlas-drift");
+  const driftKeyframes = keyframes(styles, "atlas-drift");
   const parallax = atlasParallaxFactors(styles);
 
   assert.doesNotMatch(body, /overflow(?:-x)?:\s*hidden/);
@@ -388,21 +476,26 @@ test("atlas routes and marker centers share a size-independent coordinate plane"
 
   const activeScale = parallax["active nodes"].scale;
   const markerVariants = [
-    { name: "base", node: baseNode, marker },
-    { name: "core", node: coreNode, marker: coreMarker },
+    { name: "base", node: baseNode, marker, expected: { width: 9, height: 9, offset: -4.5, origin: 4.5 } },
+    { name: "core", node: coreNode, marker: coreMarker, expected: { width: 15, height: 15, offset: -7.5, origin: 7.5 } },
   ];
   const markerBorderWidth = cssPx(marker, "border");
+  assert.equal(markerBorderWidth, 1, "atlas markers must keep the fixed 1px border used by every viewport");
+  assert.equal(activeScale, 1.08, "atlas markers must keep the fixed active scale used by every viewport");
   for (const variant of markerVariants) {
-    const markerWidth = cssPx(variant.marker, "width");
-    const markerHeight = cssPx(variant.marker, "height");
-    const markerOffset = cssPx(variant.node, "--atlas-marker-offset-y");
-    const markerOrigin = cssPx(variant.node, "--atlas-marker-origin-y");
-    assert.ok([markerWidth, markerHeight, markerBorderWidth, markerOffset, markerOrigin, activeScale].every(Number.isFinite), `${variant.name} marker contract is incomplete`);
-    assert.equal(markerWidth, markerHeight, `${variant.name} marker must remain square`);
+    const actual = {
+      width: cssPx(variant.marker, "width"),
+      height: cssPx(variant.marker, "height"),
+      offset: cssPx(variant.node, "--atlas-marker-offset-y"),
+      origin: cssPx(variant.node, "--atlas-marker-origin-y"),
+    };
+    assert.deepEqual(actual, variant.expected, `${variant.name} marker must keep its fixed cross-viewport geometry`);
     for (const viewport of ["desktop", "tablet", "mobile", "compact"]) {
       for (const scale of [1, activeScale]) {
         for (const { selector } of animatedMarkerOffsets) {
-          const centerY = markerOffset + markerOrigin + scale * (markerHeight / 2 - markerOrigin);
+          const centerY = variant.expected.offset
+            + variant.expected.origin
+            + scale * (variant.expected.height / 2 - variant.expected.origin);
           const miss = Math.abs(centerY);
           assert.ok(miss <= 1, `${viewport} ${variant.name} marker misses its route by ${miss.toFixed(2)}px at ${selector} with scale ${scale}`);
         }
