@@ -18,122 +18,15 @@ const manifest = JSON.parse(manifestSource);
 const rule = (source, selector) => source.match(new RegExp(String.raw`${selector}\s*\{[^}]*\}`))?.[0] ?? "";
 const cssPx = (source, property) => Number(source.match(new RegExp(String.raw`${property}:\s*(-?\d+(?:\.\d+)?)px`))?.[1]);
 
-const identityTransform = () => [
-  1, 0, 0, 0,
-  0, 1, 0, 0,
-  0, 0, 1, 0,
-  0, 0, 0, 1,
-];
-const multiplyTransforms = (left, right) => {
-  const product = Array(16).fill(0);
-  for (let row = 0; row < 4; row += 1) {
-    for (let column = 0; column < 4; column += 1) {
-      for (let index = 0; index < 4; index += 1) {
-        product[row * 4 + column] += left[row * 4 + index] * right[index * 4 + column];
-      }
-    }
-  }
-  return product;
-};
-const translationTransform = (x = 0, y = 0, z = 0) => [
-  1, 0, 0, x,
-  0, 1, 0, y,
-  0, 0, 1, z,
-  0, 0, 0, 1,
-];
-class UnsupportedMotionSyntax extends Error {}
-const unsupportedMotionSyntax = (value) => new UnsupportedMotionSyntax(`unsupported keyframe motion syntax: ${value}`);
-const cssNumber = (value, context) => {
-  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(value)) {
-    throw new Error(`unparseable ${context} value: ${value}`);
-  }
-  return Number(value);
-};
-const cssLength = (value, context) => {
-  const match = value.match(/^([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)(px)?$/i);
-  if (!match) {
-    if (/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?(?:%|[a-z]+)$/i.test(value)
-      || /^(?:calc|min|max|clamp|var|env)\(/i.test(value)) {
-      throw unsupportedMotionSyntax(`${context}(${value})`);
-    }
-    throw new Error(`unparseable ${context} value: ${value}`);
-  }
-  if (!match[2] && Number(match[1]) !== 0) throw new Error(`unparseable ${context} value: ${value}`);
-  return Number(match[1]);
-};
-const transformArguments = (source) => source.split(",").map((value) => value.trim());
-const unsupportedTransformFunctions = new Set([
-  "perspective", "rotate", "rotate3d", "rotatex", "rotatey", "rotatez",
-  "scale", "scale3d", "scalex", "scaley", "scalez", "skew", "skewx", "skewy", "translatez",
-]);
-const cssWideKeywords = new Set(["inherit", "initial", "revert", "revert-layer", "unset"]);
-const rejectCssWideMotion = (source) => {
-  if (cssWideKeywords.has(source.trim().toLowerCase())) throw unsupportedMotionSyntax(source);
-};
-const translateLonghand = (source) => {
-  rejectCssWideMotion(source);
-  if (source.trim().toLowerCase() === "none") return identityTransform();
-  if (source.includes(",")) throw new Error(`unparseable translate value: ${source}`);
-  const values = source.trim().split(/\s+/).filter(Boolean);
-  if (values.length < 1 || values.length > 3) throw new Error(`unparseable translate value: ${source}`);
-  return translationTransform(...values.map((value) => cssLength(value, "translate")));
-};
-const transformFunction = (name, source) => {
-  const values = transformArguments(source);
-  const lengths = () => values.map((value) => cssLength(value, name));
-  if (name === "translate" && values.length >= 1 && values.length <= 2) {
-    const [x, y = 0] = lengths();
-    return translationTransform(x, y);
-  }
-  if (name === "translatex" && values.length === 1) return translationTransform(lengths()[0]);
-  if (name === "translatey" && values.length === 1) return translationTransform(0, lengths()[0]);
-  if (name === "translate3d" && values.length === 3) return translationTransform(...lengths());
-  if (name === "matrix" && values.length === 6) {
-    const [a, b, c, d, e, f] = values.map((value) => cssNumber(value, name));
-    return [
-      a, c, 0, e,
-      b, d, 0, f,
-      0, 0, 1, 0,
-      0, 0, 0, 1,
-    ];
-  }
-  if (name === "matrix3d" && values.length === 16) {
-    const columns = values.map((value) => cssNumber(value, name));
-    return Array.from({ length: 16 }, (_, index) => columns[(index % 4) * 4 + Math.floor(index / 4)]);
-  }
-  if (unsupportedTransformFunctions.has(name)) throw unsupportedMotionSyntax(`${name}(${source})`);
-  throw new Error(`unsupported transform function: ${name}(${source})`);
-};
-const transformList = (source = "none") => {
-  rejectCssWideMotion(source);
-  if (source.trim().toLowerCase() === "none") return identityTransform();
-  if (/\b(?:calc|min|max|clamp|var|env)\s*\(/i.test(source)) throw unsupportedMotionSyntax(source);
-  const pattern = /([a-z][\w-]*)\s*\(([^()]*)\)/gi;
-  let transform = identityTransform();
-  let cursor = 0;
-  for (const match of source.matchAll(pattern)) {
-    if (source.slice(cursor, match.index).trim()) throw new Error(`unparseable transform value: ${source}`);
-    transform = multiplyTransforms(transform, transformFunction(match[1].toLowerCase(), match[2]));
-    cursor = match.index + match[0].length;
-  }
-  if (cursor === 0 || source.slice(cursor).trim()) throw new Error(`unparseable transform value: ${source}`);
-  return transform;
-};
-const motionDeclarationMap = (source) => {
+const keyframeDeclarations = (source) => {
   const declarations = new Map();
   for (const declaration of source.replace(/\/\*[\s\S]*?\*\//g, "").split(";")) {
     const separator = declaration.indexOf(":");
     if (separator < 0) continue;
     const property = declaration.slice(0, separator).trim().toLowerCase();
-    const value = declaration.slice(separator + 1).trim();
-    if (!["translate", "transform"].includes(property) || /!\s*important\s*$/i.test(value)) continue;
-    try {
-      const parsed = property === "translate" ? translateLonghand(value) : transformList(value);
-      declarations.set(property, parsed);
-    } catch (error) {
-      if (error instanceof UnsupportedMotionSyntax) throw error;
-      // Invalid CSS declarations do not displace an earlier valid declaration.
-    }
+    const rawValue = declaration.slice(separator + 1).trim();
+    if (!property || !rawValue || /!\s*important\s*$/i.test(rawValue)) continue;
+    declarations.set(property, rawValue);
   }
   return declarations;
 };
@@ -145,11 +38,10 @@ const keyframeOffset = (selector) => {
   if (!match || Number(match[1]) > 100) throw new Error(`unparseable keyframe selector: ${selector}`);
   return Number(match[1]);
 };
-const keyframeMotionStates = (source) => {
+const markerKeyframeStates = (source) => {
   const frames = new Map();
-  const keyframes = source.replace(/\/\*[\s\S]*?\*\//g, "");
-  for (const [, selectorList, declarationSource] of keyframes.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    const declarations = motionDeclarationMap(declarationSource);
+  for (const [, selectorList, declarationSource] of source.replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const declarations = keyframeDeclarations(declarationSource);
     for (const selector of selectorList.split(",").map((value) => value.trim())) {
       const offset = keyframeOffset(selector);
       const frame = frames.get(offset) ?? { selector, declarations: new Map() };
@@ -158,33 +50,68 @@ const keyframeMotionStates = (source) => {
     }
   }
   return [...frames.entries()].sort(([left], [right]) => left - right).map(([, frame]) => {
-    const longhand = frame.declarations.get("translate") ?? identityTransform();
-    const transform = multiplyTransforms(longhand, frame.declarations.get("transform") ?? identityTransform());
-    const divisor = transform[15];
-    if (!divisor) throw new Error("keyframe transform maps its center to infinity");
-    return { selector: frame.selector, x: transform[3] / divisor, y: transform[7] / divisor };
+    for (const [property, value] of frame.declarations) {
+      const centerSafe = property === "opacity"
+        || (property === "transform" && value.trim().toLowerCase() === "none");
+      if (!centerSafe) throw new Error(`unsafe marker keyframe declaration: ${property}: ${value}`);
+    }
+    return { selector: frame.selector };
   });
 };
 
-const atlasCoordinateGeometry = (html, pageName) => {
-  const planes = [...html.matchAll(/<div class="atlas-coordinate-plane">([\s\S]*?)<\/div>/g)];
-  assert.equal(planes.length, 1, `${pageName} must expose exactly one shared atlas coordinate plane`);
-  const plane = planes[0][1];
-  const svg = plane.match(/<svg class="atlas-routes"[^>]*>/)?.[0] ?? "";
-  const viewBox = svg.match(/viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"/);
-  assert.ok(viewBox, `${pageName} coordinate plane has no parseable route viewBox`);
-  assert.match(svg, /preserveAspectRatio="none"/, `${pageName} routes must stretch with their shared plane`);
+const atlasParallaxFactors = (source) => {
+  const number = "[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:e[+-]?\\d+)?";
+  const routePattern = new RegExp(`^translate\\(calc\\(var\\(--atlas-parallax-x\\) \\* (${number})\\), calc\\(var\\(--atlas-parallax-y\\) \\* (${number})\\)\\)$`);
+  const nodePattern = new RegExp(`^translate\\(calc\\(-50% \\+ var\\(--atlas-parallax-x\\) \\* (${number})\\), calc\\(var\\(--atlas-marker-offset-y\\) \\+ var\\(--atlas-parallax-y\\) \\* (${number})\\)\\)$`);
+  const activePattern = new RegExp(`^${nodePattern.source.slice(1, -1)} scale\\((${number})\\)$`);
+  const layers = [
+    ["routes", rule(source, "\\.atlas-routes"), routePattern],
+    ["base nodes", rule(source, "\\.atlas-map-node"), nodePattern],
+    ["active nodes", rule(source, "\\.atlas-map-node\\.is-active"), activePattern],
+  ];
+  const factors = {};
+  for (const [name, ruleSource, pattern] of layers) {
+    const transform = ruleSource.match(/\btransform:\s*([^;}]+)/)?.[1].trim() ?? "";
+    const match = transform.match(pattern);
+    assert.ok(match, `${name} must use the canonical atlas transform`);
+    factors[name] = { x: Number(match[1]), y: Number(match[2]) };
+    assert.ok(Number.isFinite(factors[name].x) && Number.isFinite(factors[name].y), `${name} parallax factors must be finite`);
+    if (name === "active nodes") factors[name].scale = Number(match[3]);
+  }
+  for (const name of ["base nodes", "active nodes"]) {
+    for (const axis of ["x", "y"]) {
+      assert.equal(factors[name][axis], factors.routes[axis], `${name} ${axis}-parallax factor must match routes`);
+    }
+  }
+  assert.ok(Number.isFinite(factors["active nodes"].scale), "active node scale must be finite");
+  return factors;
+};
 
-  const nodes = new Map([...plane.matchAll(/<button class="[^"]*\batlas-map-node\b[^"]*"[^>]*style="([^"]*)"[^>]*data-atlas-key="([^"]+)"/g)].map((match) => {
-    const x = Number(match[1].match(/--node-x:\s*(\d+(?:\.\d+)?)%/)?.[1]);
-    const y = Number(match[1].match(/--node-y:\s*(\d+(?:\.\d+)?)%/)?.[1]);
-    assert.ok(Number.isFinite(x) && Number.isFinite(y), `${pageName}:${match[2]} has no percentage anchor`);
-    return [match[2], { x: x / 100, y: y / 100 }];
+const htmlAttribute = (tag, name) => tag.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i"))?.slice(1).find((value) => value !== undefined);
+const atlasCoordinateGeometry = (html, pageName) => {
+  assert.equal((html.match(/class="atlas-coordinate-plane"/g) ?? []).length, 1, `${pageName} must expose exactly one shared atlas coordinate plane`);
+  const directPlane = html.match(/<div class="atlas-coordinate-plane">\s*(<svg class="atlas-routes"[\s\S]*?<\/svg>)\s*((?:<button class="[^"]*\batlas-map-node\b[^"]*"[^>]*>[\s\S]*?<\/button>\s*)+)<\/div>/);
+  assert.ok(directPlane, `${pageName} coordinate plane must be the direct containing block for routes and every node`);
+  const routeLayer = directPlane[1];
+  const nodeMarkup = directPlane[2];
+  assert.equal((html.match(/<svg class="atlas-routes"/g) ?? []).length, 1, `${pageName} must expose exactly one atlas route layer`);
+  const viewBox = (htmlAttribute(routeLayer, "viewBox") ?? "").match(/^0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)$/);
+  assert.ok(viewBox, `${pageName} coordinate plane has no parseable route viewBox`);
+  assert.equal(htmlAttribute(routeLayer, "preserveAspectRatio"), "none", `${pageName} routes must stretch with their shared plane`);
+
+  const directNodes = [...nodeMarkup.matchAll(/<button class="[^"]*\batlas-map-node\b[^"]*"[^>]*>[\s\S]*?<\/button>/g)].map(([tag]) => tag);
+  assert.equal(directNodes.length, (html.match(/class="[^"]*\batlas-map-node\b/g) ?? []).length, `${pageName} coordinate plane must directly contain every node`);
+  const nodes = new Map(directNodes.map((tag) => {
+    const key = htmlAttribute(tag, "data-atlas-key");
+    const anchor = (htmlAttribute(tag, "style") ?? "").match(/^--node-x:\s*(\d+(?:\.\d+)?)%;\s*--node-y:\s*(\d+(?:\.\d+)?)%$/);
+    assert.ok(key, `${pageName} node has no atlas key`);
+    assert.ok(anchor, `${pageName}:${key} has no canonical percentage anchor`);
+    return [key, { x: Number(anchor[1]) / 100, y: Number(anchor[2]) / 100 }];
   }));
-  const routes = [...plane.matchAll(/<path class="[^"]*\batlas-route\b[^"]*"[^>]*data-atlas-route="([^"]+)"[^>]*d="([^"]+)"/g)];
-  const allNodeCount = (html.match(/class="[^"]*\batlas-map-node\b/g) ?? []).length;
+  assert.equal(nodes.size, directNodes.length, `${pageName} nodes must have unique keys`);
+
+  const routes = [...routeLayer.matchAll(/<path class="[^"]*\batlas-route\b[^"]*"[^>]*data-atlas-route="([^"]+)"[^>]*d="([^"]+)"/g)];
   const routeKeys = routes.map((route) => route[1]);
-  assert.equal(nodes.size, allNodeCount, `${pageName} nodes must all be children of the shared coordinate plane`);
   assert.equal(routes.length, nodes.size, `${pageName} must pair every node with one route`);
   assert.equal(new Set(routeKeys).size, routes.length, `${pageName} routes must have unique node keys`);
   assert.deepEqual([...routeKeys].sort(), [...nodes.keys()].sort(), `${pageName} route and node keys must match`);
@@ -301,93 +228,41 @@ test("dimmed atlas controls preserve readable text while dimming only star decor
   assert.match(styles, /\.atlas-control:hover,\s*\.atlas-control:focus-visible\s*\{[^}]*opacity:\s*1/);
 });
 
-test("keyframe motion honors cascade-last declarations across named and comma-separated states", () => {
+test("normal marker keyframes evaluate cascade winners with a center-safe allowlist", () => {
   const fixture = `
-    from, 12.5% {
-      translate: 90px 80px;
-      translate: 1px 2px;
-      transform: translateX(70px);
-      transform: translateX(3px) translateY(-4px);
-    }
+    from { transform: translateX(8px); transform: none; opacity: .68; }
+    50% { opacity: .84; }
+    to { opacity: 1; }
   `;
 
-  assert.deepEqual(keyframeMotionStates(fixture), [
-    { selector: "from", x: 4, y: -2 },
-    { selector: "12.5%", x: 4, y: -2 },
+  assert.deepEqual(markerKeyframeStates(fixture), [
+    { selector: "from" },
+    { selector: "50%" },
+    { selector: "to" },
   ]);
 });
 
-test("keyframe motion resolves every supported translation syntax across arbitrary states", () => {
-  const fixture = `
-    from { transform: translate(1px, 2px); }
-    25% { transform: translateX(3px) translateY(4px); }
-    50% { transform: translate3d(5px, 6px, 0); }
-    75% { transform: matrix(1, 0, 0, 1, 7, 8); }
-    to { transform: matrix3d(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 9, 10, 0, 1); }
-  `;
+for (const [name, declaration] of [
+  ["individual scale", "scale: 1.2"],
+  ["transform origin", "transform-origin: 0 0"],
+  ["offset path", 'offset-path: path("M0 0 L10 10")'],
+  ["offset distance", "offset-distance: 50%"],
+  ["scale combined with translation", "transform: translateX(0) scale(1.2)"],
+  ["unknown property", "--marker-shift: 10px"],
+]) {
+  test(`normal marker keyframes reject ${name}`, () => {
+    assert.throws(
+      () => markerKeyframeStates(`from { ${declaration}; } to { opacity: 1; }`),
+      /unsafe marker keyframe declaration/,
+    );
+  });
+}
 
-  assert.deepEqual(keyframeMotionStates(fixture), [
-    { selector: "from", x: 1, y: 2 },
-    { selector: "25%", x: 3, y: 4 },
-    { selector: "50%", x: 5, y: 6 },
-    { selector: "75%", x: 7, y: 8 },
-    { selector: "to", x: 9, y: 10 },
-  ]);
-});
-
-test("keyframe motion supports none and three-value translate longhand states", () => {
-  const fixture = "from { translate: none; } 50% { translate: 1px 2px 3px; } to { translate: 4px; }";
-
-  assert.deepEqual(keyframeMotionStates(fixture), [
-    { selector: "from", x: 0, y: 0 },
-    { selector: "50%", x: 1, y: 2 },
-    { selector: "to", x: 4, y: 0 },
-  ]);
-});
-
-test("keyframe motion merges cascading declarations at equivalent offsets", () => {
-  const fixture = `
-    from { translate: 1px; }
-    0%, 50% { transform: translateX(2px); }
-    50% { translate: 3px 4px; }
-    to { translate: 5px; }
-    100% { transform: translateY(6px); }
-  `;
-
-  assert.deepEqual(keyframeMotionStates(fixture), [
-    { selector: "from", x: 3, y: 0 },
-    { selector: "50%", x: 5, y: 4 },
-    { selector: "to", x: 5, y: 6 },
-  ]);
-});
-
-test("keyframe motion ignores important and invalid later declarations", () => {
-  const fixture = `
-    from {
-      translate: 1px 2px;
-      translate: 90px !important;
-      transform: translateX(3px);
-      transform: translate(8px 9px);
-    }
-    to { transform: translate3d(4px 5px 0); }
-  `;
-
-  assert.deepEqual(keyframeMotionStates(fixture), [
-    { selector: "from", x: 4, y: 2 },
-    { selector: "to", x: 0, y: 0 },
-  ]);
-});
-
-test("keyframe motion fails closed for valid motion outside its pixel translation contract", () => {
-  for (const fixture of [
-    "from { transform: translateX(100%); } to { opacity: 1; }",
-    "from { transform: translateX(2px) scale(1); } to { opacity: 1; }",
-    "from { transform: inherit; } to { opacity: 1; }",
-    "from { translate: 1em; } to { opacity: 1; }",
-    "from { translate: revert-layer; } to { opacity: 1; }",
-  ]) {
-    assert.throws(() => keyframeMotionStates(fixture), /unsupported keyframe motion syntax/);
-  }
+test("normal marker keyframes reject an unsupported winning transform", () => {
+  assert.throws(
+    () => markerKeyframeStates("from { transform: none; transform: translateX(1px); } to { opacity: 1; }"),
+    /unsafe marker keyframe declaration/,
+  );
 });
 
 test("shared coordinate-plane guard rejects the former separate full-chart SVG model", () => {
@@ -410,6 +285,26 @@ test("shared coordinate-plane guard requires a one-to-one route/node key mapping
     () => atlasCoordinateGeometry(duplicateRouteKey, "duplicate route fixture"),
     /routes must have unique node keys/,
   );
+});
+
+test("shared coordinate-plane guard rejects an intervening positioned wrapper", () => {
+  const positionedWrapper = learning
+    .replace('<div class="atlas-coordinate-plane">', '<div class="atlas-coordinate-plane"><div style="position: relative">')
+    .replace("        </div>\n      </div>\n\n      <aside", "        </div></div>\n      </div>\n\n      <aside");
+
+  assert.throws(
+    () => atlasCoordinateGeometry(positionedWrapper, "positioned wrapper fixture"),
+    /coordinate plane must be the direct containing block/,
+  );
+});
+
+test("atlas parallax contract rejects missing and divergent active factors", () => {
+  const active = rule(styles, "\\.atlas-map-node\\.is-active");
+  const divergent = styles.replace(active, active.replace("--atlas-parallax-x) * .22", "--atlas-parallax-x) * .31"));
+  const missing = styles.replace(active, active.replace("var(--atlas-parallax-y)", "var(--missing-parallax-y)"));
+
+  assert.throws(() => atlasParallaxFactors(divergent), /active nodes x-parallax factor must match routes/);
+  assert.throws(() => atlasParallaxFactors(missing), /active nodes must use the canonical atlas transform/);
 });
 
 test("atlas routes and marker centers share a size-independent coordinate plane", () => {
@@ -435,7 +330,6 @@ test("atlas routes and marker centers share a size-independent coordinate plane"
   const marker = rule(styles, "\\.atlas-map-node::before");
   const coreNode = rule(styles, "\\.atlas-map-node\\.is-core");
   const coreMarker = rule(styles, "\\.atlas-map-node\\.is-core::before");
-  const activeNode = rule(styles, "\\.atlas-map-node\\.is-active");
   const focusRing = rule(styles, "\\.atlas-control:focus-visible::after");
   const keyframes = (name) => {
     const start = styles.indexOf(`@keyframes ${name}`);
@@ -449,7 +343,7 @@ test("atlas routes and marker centers share a size-independent coordinate plane"
     return "";
   };
   const driftKeyframes = keyframes("atlas-drift");
-  const parallaxFactor = (source, axis) => Number(source.match(new RegExp(`--atlas-parallax-${axis}\\)\\s*\\*\\s*(\\d*\\.?\\d+)`))?.[1]);
+  const parallax = atlasParallaxFactors(styles);
 
   assert.doesNotMatch(body, /overflow(?:-x)?:\s*hidden/);
   assert.match(styles, /\.atlas-chart\s*\{[^}]*overflow:\s*hidden/);
@@ -470,17 +364,11 @@ test("atlas routes and marker centers share a size-independent coordinate plane"
   assert.match(baseNode, /justify-items:\s*center/);
   assert.match(baseNode, /padding:\s*0/);
   assert.match(baseNode, /border:\s*0/);
-  assert.match(baseNode, /transform:[^;}]*calc\(-50% \+ var\(--atlas-parallax-x\)/);
-  assert.match(baseNode, /transform:[^;}]*var\(--atlas-marker-offset-y\)/);
-  assert.match(baseNode, /transform-origin:[^;}]*var\(--atlas-marker-origin-y\)/);
-  assert.match(activeNode, /transform:[^;}]*calc\(-50% \+ var\(--atlas-parallax-x\)/);
-  assert.match(activeNode, /transform:[^;}]*var\(--atlas-marker-offset-y\)/);
-  assert.match(styles, /\*\s*\{[^}]*box-sizing:\s*border-box/);
-  for (const axis of ["x", "y"]) {
-    assert.equal(parallaxFactor(routeLayer, axis), parallaxFactor(baseNode, axis), `${axis}-parallax must preserve route/node coincidence`);
-  }
+  assert.match(baseNode, /transform-origin:\s*50% var\(--atlas-marker-origin-y\)/);
+  assert.match(marker, /box-sizing:\s*border-box/);
+  assert.match(marker, /animation:\s*atlas-drift\b/);
 
-  const animatedMarkerOffsets = keyframeMotionStates(driftKeyframes);
+  const animatedMarkerOffsets = markerKeyframeStates(driftKeyframes);
   assert.ok(animatedMarkerOffsets.length >= 2, "atlas-drift must expose start/end states and may add intermediates");
   assert.ok(animatedMarkerOffsets.some(({ selector }) => selector === "from" || selector === "0%"), "atlas-drift has no start state");
   assert.ok(animatedMarkerOffsets.some(({ selector }) => selector === "to" || selector === "100%"), "atlas-drift has no end state");
@@ -498,31 +386,33 @@ test("atlas routes and marker centers share a size-independent coordinate plane"
     }
   }
 
-  const activeScale = Number(activeNode.match(/scale\((\d+(?:\.\d+)?)\)/)?.[1]);
+  const activeScale = parallax["active nodes"].scale;
   const markerVariants = [
     { name: "base", node: baseNode, marker },
     { name: "core", node: coreNode, marker: coreMarker },
   ];
   const markerBorderWidth = cssPx(marker, "border");
-  const markerUsesBorderBox = /box-sizing:\s*border-box/.test(marker);
   for (const variant of markerVariants) {
+    const markerWidth = cssPx(variant.marker, "width");
     const markerHeight = cssPx(variant.marker, "height");
     const markerOffset = cssPx(variant.node, "--atlas-marker-offset-y");
     const markerOrigin = cssPx(variant.node, "--atlas-marker-origin-y");
-    const markerBoxHeight = markerHeight + (markerUsesBorderBox ? 0 : markerBorderWidth * 2);
-    assert.ok([markerBoxHeight, markerOffset, markerOrigin, activeScale].every(Number.isFinite), `${variant.name} marker contract is incomplete`);
-    for (const scale of [1, activeScale]) {
-      for (const { selector, x, y } of animatedMarkerOffsets) {
-        const centerY = markerOffset + markerOrigin + scale * (markerBoxHeight / 2 + y - markerOrigin);
-        const miss = Math.hypot(scale * x, centerY);
-        assert.ok(miss <= 1, `${variant.name} marker misses its route by ${miss.toFixed(2)}px at ${selector} with scale ${scale}`);
+    assert.ok([markerWidth, markerHeight, markerBorderWidth, markerOffset, markerOrigin, activeScale].every(Number.isFinite), `${variant.name} marker contract is incomplete`);
+    assert.equal(markerWidth, markerHeight, `${variant.name} marker must remain square`);
+    for (const viewport of ["desktop", "tablet", "mobile", "compact"]) {
+      for (const scale of [1, activeScale]) {
+        for (const { selector } of animatedMarkerOffsets) {
+          const centerY = markerOffset + markerOrigin + scale * (markerHeight / 2 - markerOrigin);
+          const miss = Math.abs(centerY);
+          assert.ok(miss <= 1, `${viewport} ${variant.name} marker misses its route by ${miss.toFixed(2)}px at ${selector} with scale ${scale}`);
+        }
       }
     }
   }
 
   const focusInset = Math.abs(cssPx(focusRing, "inset"));
   const pointerSpan = Number(script.match(/const x = [^;]*\*\s*(\d+(?:\.\d+)?)\s*;/)?.[1]);
-  const maxNodeParallax = pointerSpan / 2 * parallaxFactor(baseNode, "x");
+  const maxNodeParallax = pointerSpan / 2 * parallax["base nodes"].x;
   for (const [name, activeChart, activeNodeRule] of [
     ["desktop", chart, baseNode],
     ["mobile", mobileChart, mobileNode],
@@ -535,7 +425,7 @@ test("atlas routes and marker centers share a size-independent coordinate plane"
     assert.ok(safeX >= minimumSafeX, `${name} focus ring can escape the chart at the coordinate-plane edge`);
   }
 
-  assert.match(driftKeyframes, /(?:opacity|box-shadow|background|scale)\s*:/, "atlas-drift must retain a center-safe visual pulse");
+  assert.match(driftKeyframes, /opacity\s*:/, "atlas-drift must retain its center-safe opacity pulse");
 });
 
 class FakeElement {
