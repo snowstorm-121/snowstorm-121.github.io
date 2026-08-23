@@ -15,6 +15,101 @@ const [learning, living, research, styles, script, manifestSource] = await Promi
 const pages = { learning, living, research };
 const manifest = JSON.parse(manifestSource);
 
+const rule = (source, selector) => source.match(new RegExp(String.raw`${selector}\s*\{[^}]*\}`))?.[0] ?? "";
+const cssPx = (source, property) => Number(source.match(new RegExp(String.raw`${property}:\s*(-?\d+(?:\.\d+)?)px`))?.[1]);
+const verticalBox = (source, property) => {
+  const values = [...(source.match(new RegExp(String.raw`${property}:\s*([^;}]*)`))?.[1] ?? "").matchAll(/(-?\d+(?:\.\d+)?)(?:px)?/g)].map((match) => Number(match[1]));
+  if (values.length === 1) return { top: values[0], bottom: values[0] };
+  if (values.length === 2) return { top: values[0], bottom: values[0] };
+  if (values.length >= 3) return { top: values[0], bottom: values[2] };
+  return { top: 0, bottom: 0 };
+};
+const viewportBoundedWidth = (source, viewportWidth) => {
+  const match = source.match(/width:\s*min\((?:(\d+(?:\.\d+)?)px,\s*calc\(100% - (\d+(?:\.\d+)?)px\)|100% - (\d+(?:\.\d+)?)px,\s*(\d+(?:\.\d+)?)px)\)/);
+  if (!match) throw new Error("atlas shell width is not a parseable min() rule");
+  return Math.min(Number(match[1] ?? match[4]), viewportWidth - Number(match[2] ?? match[3]));
+};
+const viewportLayoutMinimum = (source, viewportHeight) => {
+  const match = source.match(/min-height:\s*min\((\d+(?:\.\d+)?)px,\s*calc\(100vh - (\d+(?:\.\d+)?)px\)\)/);
+  if (!match) throw new Error("atlas layout min-height is not a parseable viewport rule");
+  return Math.min(Number(match[1]), viewportHeight - Number(match[2]));
+};
+const responsiveGap = (source, viewportWidth) => {
+  const fixed = cssPx(source, "gap");
+  if (Number.isFinite(fixed)) return fixed;
+  const match = source.match(/gap:\s*clamp\((\d+(?:\.\d+)?)px,\s*(\d+(?:\.\d+)?)vw,\s*(\d+(?:\.\d+)?)px\)/);
+  if (!match) throw new Error("atlas layout gap is not parseable");
+  return Math.min(Number(match[3]), Math.max(Number(match[1]), viewportWidth * Number(match[2]) / 100));
+};
+const gridSidebarWidth = (source) => Number(source.match(/grid-template-columns:[^;]*?(\d+(?:\.\d+)?)px\)?\s*;/)?.[1]);
+
+const keyframeMotionStates = (source) => {
+  const states = [];
+  for (const [, selectorList, declarations] of source.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    for (const selector of selectorList.split(",").map((value) => value.trim())) {
+      if (!/^(?:from|to|\d+(?:\.\d+)?%)$/.test(selector)) throw new Error(`unparseable keyframe selector: ${selector}`);
+      const translation = { x: 0, y: 0 };
+      const translate = declarations.match(/\btranslate:\s*([^;}]*)/);
+      if (translate) {
+        const values = translate[1].trim().split(/\s+/).map((value) => {
+          const match = value.match(/^(-?\d+(?:\.\d+)?)(?:px)?$/);
+          if (!match) throw new Error(`unparseable translate value: ${value}`);
+          return Number(match[1]);
+        });
+        [translation.x, translation.y = 0] = values;
+      }
+      const transform = declarations.match(/\btransform:\s*([^;}]*)/);
+      if (transform) {
+        for (const [, name, valueSource] of transform[1].matchAll(/\b(translate|translate3d|translateX|translateY)\(([^)]*)\)/g)) {
+          const values = valueSource.split(/\s*,\s*|\s+/).filter(Boolean).map((value) => {
+            const match = value.match(/^(-?\d+(?:\.\d+)?)(?:px)?$/);
+            if (!match) throw new Error(`unparseable ${name} value: ${value}`);
+            return Number(match[1]);
+          });
+          if (name === "translateY") translation.y += values[0] ?? 0;
+          else if (name === "translateX") translation.x += values[0] ?? 0;
+          else {
+            translation.x += values[0] ?? 0;
+            translation.y += values[1] ?? 0;
+          }
+        }
+      }
+      states.push({ selector, ...translation });
+    }
+  }
+  return states;
+};
+
+const atlasIndexMinimumHeight = (html) => {
+  const index = rule(styles, "\\.atlas-index");
+  const label = rule(styles, "\\.atlas-index-label");
+  const heading = rule(styles, "\\.atlas-index h2");
+  const tally = rule(styles, "\\.atlas-tally");
+  const tallyValue = rule(styles, "\\.atlas-tally strong");
+  const description = rule(styles, "\\.atlas-description");
+  const destination = rule(styles, "\\.atlas-destination,\\s*\\.atlas-empty");
+  const directory = rule(styles, "\\.atlas-directory");
+  const indexButton = rule(styles, "\\.atlas-index-button");
+  const indexHeading = rule(styles, "\\.atlas-index \\.atlas-index-button h3");
+  const indexPadding = verticalBox(index, "padding");
+  const labelMargin = verticalBox(label, "margin");
+  const descriptionMargin = verticalBox(description, "margin");
+  const directoryMargin = verticalBox(directory, "margin");
+  const directoryPadding = verticalBox(directory, "padding");
+  const buttonPadding = verticalBox(indexButton, "padding");
+  const directoryRows = (html.match(/<ul [^>]*data-atlas-directory[^>]*>[\s\S]*?<\/ul>|<ul class="atlas-directory"[\s\S]*?<\/ul>/)?.[0].match(/<li\b/g) ?? []).length;
+  const descriptionMinimum = Number(description.match(/min-height:\s*(\d+(?:\.\d+)?)em/)?.[1]) * cssPx(description, "font-size");
+  const rowMinimum = cssPx(indexHeading, "font-size") + buttonPadding.top + buttonPadding.bottom;
+  return indexPadding.top + indexPadding.bottom
+    + cssPx(label, "font-size") + labelMargin.bottom
+    + cssPx(heading, "font-size")
+    + cssPx(tally, "margin-top") + cssPx(tallyValue, "font-size")
+    + descriptionMargin.top + descriptionMinimum + descriptionMargin.bottom
+    + cssPx(destination, "min-height")
+    + directoryMargin.top + directoryPadding.top + cssPx(directory, "border-top")
+    + directoryRows * rowMinimum + Math.max(0, directoryRows - 1) * cssPx(directory, "gap");
+};
+
 test("three archive entries share one semantic midnight atlas shell and local runtime", async () => {
   const titles = {
     learning: "星野问津",
@@ -125,6 +220,29 @@ test("dimmed atlas controls preserve readable text while dimming only star decor
   assert.match(styles, /\.atlas-control:hover,\s*\.atlas-control:focus-visible\s*\{[^}]*opacity:\s*1/);
 });
 
+test("atlas geometry checks every named and percentage keyframe state for translate motion", () => {
+  const fixture = "from { opacity: .7; } 50%, 75% { transform: translateY(4px); } to { translate: -2px 3px; }";
+
+  assert.deepEqual(keyframeMotionStates(fixture), [
+    { selector: "from", x: 0, y: 0 },
+    { selector: "50%", x: 0, y: 4 },
+    { selector: "75%", x: 0, y: 4 },
+    { selector: "to", x: -2, y: 3 },
+  ]);
+});
+
+test("atlas geometry accounts for page-specific index rows when sizing a desktop chart", () => {
+  const tabletSection = styles.slice(styles.indexOf("@media (max-width: 1024px)"), styles.indexOf("@media (max-width: 720px)"));
+  const chartMinimum = cssPx(rule(tabletSection, "\\.atlas-chart"), "min-height");
+  const layoutMinimum = viewportLayoutMinimum(rule(styles, "\\.atlas-layout"), 768);
+  const learningIndexMinimum = atlasIndexMinimumHeight(learning);
+
+  assert.ok(
+    Math.max(chartMinimum, layoutMinimum, learningIndexMinimum) > layoutMinimum,
+    "the eight-row learning index must expand the 1024x768 chart beyond the layout minimum",
+  );
+});
+
 test("atlas route endpoints and node anchors share one responsive coordinate plane", () => {
   const body = styles.match(/body\.archive-atlas-page\s*\{[^}]*\}/)?.[0] ?? "";
   const shell = styles.match(/\.archive-atlas-page \.library-shell\s*\{[^}]*\}/)?.[0] ?? "";
@@ -166,13 +284,6 @@ test("atlas route endpoints and node anchors share one responsive coordinate pla
   const cssNumber = (rule, property) => Number(rule.match(new RegExp(`${property}:\\s*(\\d+(?:\\.\\d+)?)px`))?.[1]);
   const cssSignedNumber = (rule, property) => Number(rule.match(new RegExp(`${property}:\\s*(-?\\d+(?:\\.\\d+)?)px`))?.[1]);
   const cssUnitless = (rule, property) => Number(rule.match(new RegExp(`${property}:\\s*(\\d+(?:\\.\\d+)?)`))?.[1]);
-  const cssMotionOffset = (declarations) => {
-    const number = "(-?\\d+(?:\\.\\d+)?)(?:px)?";
-    const translate = declarations.match(new RegExp(`\\btranslate:\\s*${number}(?:\\s+${number})?`));
-    if (translate) return { x: Number(translate[1]), y: Number(translate[2] ?? 0) };
-    const transform = declarations.match(new RegExp(`\\btransform:\\s*translate(?:3d)?\\(\\s*${number}(?:\\s*,?\\s*${number})?`));
-    return transform ? { x: Number(transform[1]), y: Number(transform[2] ?? 0) } : { x: 0, y: 0 };
-  };
 
   assert.doesNotMatch(body, /overflow(?:-x)?:\s*hidden/);
   assert.match(styles, /\.atlas-chart\s*\{[^}]*overflow:\s*hidden/);
@@ -182,8 +293,7 @@ test("atlas route endpoints and node anchors share one responsive coordinate pla
   assert.match(mobileSection, /\.archive-atlas-page \.library-shell\s*\{[^}]*width:\s*min\(100% - 28px,\s*1360px\)/);
   assert.match(mobileSection, /\.atlas-layout\s*\{[^}]*gap:\s*12px/);
 
-  const animatedMarkerOffsets = [...driftKeyframes.matchAll(/(?:from|to)\s*\{([^}]*)\}/g)]
-    .map(([, declarations]) => cssMotionOffset(declarations));
+  const animatedMarkerOffsets = keyframeMotionStates(driftKeyframes);
   assert.equal(animatedMarkerOffsets.length, 2, "atlas-drift must expose both animation endpoints");
 
   const focusInset = 8;
@@ -195,20 +305,22 @@ test("atlas route endpoints and node anchors share one responsive coordinate pla
   const lineHeight = cssUnitless(baseLabel, "line-height");
   const baseUsesMarkerOffset = /transform:[^;}]*var\(--atlas-marker-offset-y\)/.test(baseNode);
   const baseUsesMarkerOrigin = /transform-origin:[^;}]*var\(--atlas-marker-origin-y\)/.test(baseNode);
-  const chartForViewport = (width, height) => {
+  const chartForViewport = (html, width, height) => {
     const mobile = width <= 720;
     const compact = width <= 420;
-    const shellWidth = Math.min(1360, width - (mobile ? 28 : 48));
-    const gap = mobile ? 12 : width <= 1024 ? 18 : Math.min(44, Math.max(20, width * .03));
-    const chartWidth = mobile ? shellWidth : shellWidth - (width <= 1024 ? 260 : 300) - gap;
+    const activeShell = mobile ? rule(mobileSection, "\\.archive-atlas-page \\.library-shell") : shell;
+    const activeLayout = width <= 1024 ? rule(styles.slice(styles.indexOf("@media (max-width: 1024px)"), styles.indexOf("@media (max-width: 720px)")), "\\.atlas-layout") : layout;
+    const shellWidth = viewportBoundedWidth(activeShell, width);
+    const gap = responsiveGap(activeLayout, width);
+    const chartWidth = mobile ? shellWidth : shellWidth - gridSidebarWidth(activeLayout) - gap;
     const chartMinHeight = compact ? cssNumber(compactChart, "min-height")
       : mobile ? cssNumber(mobileChart, "min-height")
       : width <= 1024 ? cssNumber(styles.match(/@media \(max-width: 1024px\)\s*\{[\s\S]*?\.atlas-chart\s*\{[^}]*\}/)?.[0] ?? "", "min-height")
       : cssNumber(chart, "min-height");
-    const layoutMinHeight = Math.min(660, height - 190);
+    const layoutMinHeight = viewportLayoutMinimum(layout, height);
     return {
       chartWidth,
-      chartHeight: mobile ? chartMinHeight : Math.max(chartMinHeight, layoutMinHeight),
+      chartHeight: mobile ? chartMinHeight : Math.max(chartMinHeight, layoutMinHeight, atlasIndexMinimumHeight(html)),
       nodeWidth: cssNumber(compact ? compactNode : mobile ? mobileNode : baseNode, "width"),
       safeX: cssNumber(compact ? compactChart : mobile ? mobileChart : chart, "--atlas-node-safe-x"),
       fontSize: cssNumber(compact ? compactLabel : mobile ? mobileLabel : baseLabel, "font-size"),
@@ -220,15 +332,16 @@ test("atlas route endpoints and node anchors share one responsive coordinate pla
     { viewport: "1024x768", width: 1024, height: 768 },
     { viewport: "720x900", width: 720, height: 900 },
     { viewport: "320x568", width: 320, height: 568 },
-  ].map(({ viewport, width, height }) => ({ viewport, ...chartForViewport(width, height) }));
+  ];
 
   assert.match(styles, /\.atlas-map-node\.is-active\s*\{[^}]*scale\(1\.08\)/);
   assert.match(styles, /\.atlas-control:focus-visible::after\s*\{[^}]*inset:\s*-8px/);
   let worstMiss = { distance: 0, label: "" };
-  for (const { viewport, chartWidth, chartHeight, nodeWidth, safeX, fontSize, coreFontSize } of responsiveCases) {
-    assert.ok(Number.isFinite(nodeWidth));
-    assert.ok(Number.isFinite(safeX));
+  for (const { viewport, width, height } of responsiveCases) {
     for (const [pageName, html] of Object.entries(pages)) {
+      const { chartWidth, chartHeight, nodeWidth, safeX, fontSize, coreFontSize } = chartForViewport(html, width, height);
+      assert.ok(Number.isFinite(nodeWidth));
+      assert.ok(Number.isFinite(safeX));
       const viewBox = html.match(/<svg class="atlas-routes"[^>]*viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"[^>]*>/);
       assert.ok(viewBox, `${pageName} has no parseable atlas viewBox`);
       const viewWidth = Number(viewBox[1]);
