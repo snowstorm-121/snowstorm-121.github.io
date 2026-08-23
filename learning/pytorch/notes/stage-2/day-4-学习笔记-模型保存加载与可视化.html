@@ -703,17 +703,17 @@ Day 3 的 DataLoader batch
 <hr>
 <h2 id="八-掌握清单">八、掌握清单</h2>
 <ul class="task-list">
-<li class="task-list-item"><input type="checkbox" checked disabled> 能解释为什么保存 accuracy 不能恢复模型，保存参数才可以。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能说清 <code>state_dict</code> 保存什么、不保存什么。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能区分 <code>create_model()</code>、<code>torch.save()</code>、<code>torch.load()</code>、<code>load_state_dict()</code> 的职责。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能区分 <code>best_model.pth</code> 与 <code>last_checkpoint.pth</code>。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能解释为什么恢复训练还需要 optimizer 状态和 epoch。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能说清 <code>train()</code> / <code>eval()</code> 改变前向行为，不是保存/加载的前置条件。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能用验证集而不是测试集选择最佳模型。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能记录整轮 train/val loss 与 accuracy，并画出曲线。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能从 train/val 曲线趋势判断欠拟合、过拟合与不稳定的线索。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能定位并修复模型在 CPU、输入在 MPS 的设备不一致错误。</li>
-<li class="task-list-item"><input type="checkbox" disabled> 重新运行修复后的完整脚本，确认打印最终 test loss/test acc 且生成曲线图片。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-1"> <span id="pytorch-task-description-1" class="task-description">能解释为什么保存 accuracy 不能恢复模型，保存参数才可以。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-2"> <span id="pytorch-task-description-2" class="task-description">能说清 <code>state_dict</code> 保存什么、不保存什么。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-3"> <span id="pytorch-task-description-3" class="task-description">能区分 <code>create_model()</code>、<code>torch.save()</code>、<code>torch.load()</code>、<code>load_state_dict()</code> 的职责。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-4"> <span id="pytorch-task-description-4" class="task-description">能区分 <code>best_model.pth</code> 与 <code>last_checkpoint.pth</code>。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-5"> <span id="pytorch-task-description-5" class="task-description">能解释为什么恢复训练还需要 optimizer 状态和 epoch。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-6"> <span id="pytorch-task-description-6" class="task-description">能说清 <code>train()</code> / <code>eval()</code> 改变前向行为，不是保存/加载的前置条件。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-7"> <span id="pytorch-task-description-7" class="task-description">能用验证集而不是测试集选择最佳模型。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-8"> <span id="pytorch-task-description-8" class="task-description">能记录整轮 train/val loss 与 accuracy，并画出曲线。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-9"> <span id="pytorch-task-description-9" class="task-description">能从 train/val 曲线趋势判断欠拟合、过拟合与不稳定的线索。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-10"> <span id="pytorch-task-description-10" class="task-description">能定位并修复模型在 CPU、输入在 MPS 的设备不一致错误。</span></li>
+<li class="task-list-item"><input type="checkbox" disabled aria-labelledby="pytorch-task-description-11"> <span id="pytorch-task-description-11" class="task-description">重新运行修复后的完整脚本，确认打印最终 test loss/test acc 且生成曲线图片。</span></li>
 </ul>
 <h2 id="九-下一步">九、下一步</h2>
 <p>先完成最后一项运行验证：确认 <code>best_model.pth</code> 能在 MPS 上被加载并完成 test 集评估。之后进入第 5 周前，可将本项目作为基线：更换模型、学习率、Dropout、weight decay 时，都使用同样的 <code>history + best model + checkpoint</code> 结构做公平比较。</p>

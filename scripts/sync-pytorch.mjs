@@ -652,11 +652,18 @@ function preprocessMarkdown(markdown, context, md) {
     for (let line = token.map[0]; line < token.map[1]; line += 1) protectedLines.add(line);
   }
   const placeholders = [];
+  const taskPlaceholders = [];
   const lines = markdown.split(/\r?\n/).map((line, lineIndex) => {
     if (protectedLines.has(lineIndex)) return line;
-    let transformed = line.replace(/^(\s*)- \[([ xX])\]\s+/, (_, indent, checked) => {
-      const marker = checked.toLowerCase() === 'x' ? 'PYTORCH_TASK_CHECKED' : 'PYTORCH_TASK_UNCHECKED';
-      return `${indent}- ${marker} `;
+    let transformed = line.replace(/^(\s*)- \[([ xX])\]\s+(.*)$/, (_, indent, checked, description) => {
+      const index = taskPlaceholders.length;
+      const marker = `PYTORCH_TASK_${checked.toLowerCase() === 'x' ? 'CHECKED' : 'UNCHECKED'}_${index}_TOKEN`;
+      taskPlaceholders.push({
+        marker,
+        checked: checked.toLowerCase() === 'x',
+        descriptionId: `pytorch-task-description-${index + 1}`,
+      });
+      return `${indent}- ${marker} ${description}`;
     });
     transformed = transformOutsideInlineCode(transformed, (segment) => {
       const withWikiLinks = segment.replace(/(!?)\[\[([^\]]+)\]\]/g, (_, embed, body) => {
@@ -694,7 +701,7 @@ function preprocessMarkdown(markdown, context, md) {
     });
     return transformed;
   });
-  return { markdown: lines.join('\n'), placeholders };
+  return { markdown: lines.join('\n'), placeholders, taskPlaceholders };
 }
 
 function collectPublicationInputs(notes, context) {
@@ -723,7 +730,26 @@ function collectPublicationInputs(notes, context) {
 
 async function renderNote(note, context) {
   const md = createMarkdownParser();
-  const { markdown, placeholders } = preprocessMarkdown(note.content, { ...context, note }, md);
+  const { markdown, placeholders, taskPlaceholders } = preprocessMarkdown(note.content, { ...context, note }, md);
+  md.core.ruler.after('text_join', 'pytorch_task_labels', (state) => {
+    for (const token of state.tokens) {
+      if (token.type !== 'inline' || !token.children) continue;
+      const task = taskPlaceholders.find((candidate) => token.content.startsWith(`${candidate.marker} `));
+      if (!task) continue;
+      const childIndex = token.children.findIndex((child) => (
+        child.type === 'text' && child.content.startsWith(`${task.marker} `)
+      ));
+      if (childIndex < 0) throw new Error(`Unable to label task description in ${note.sourcePath}`);
+      token.children[childIndex].content = token.children[childIndex].content.slice(task.marker.length + 1);
+      const open = new state.Token('html_inline', '', 0);
+      const close = new state.Token('html_inline', '', 0);
+      const checked = task.checked ? ' checked' : '';
+      open.content = `<input type="checkbox"${checked} disabled aria-labelledby="${task.descriptionId}"> <span id="${task.descriptionId}" class="task-description">`;
+      close.content = '</span>';
+      token.children.splice(childIndex, 0, open);
+      token.children.push(close);
+    }
+  });
   const hasTaskMarker = (tokens, index, closingType) => {
     for (let cursor = index + 1, depth = 0; cursor < tokens.length; cursor += 1) {
       const token = tokens[cursor];
@@ -791,10 +817,7 @@ async function renderNote(note, context) {
     if (isRemote(href)) token.attrSet('rel', 'noreferrer');
     return defaultLinkOpen(tokens, index, options, env, self);
   };
-  let html = md.render(markdown, {})
-    .replaceAll('<p></p>\n', '')
-    .replaceAll('PYTORCH_TASK_UNCHECKED', '<input type="checkbox" disabled>')
-    .replaceAll('PYTORCH_TASK_CHECKED', '<input type="checkbox" checked disabled>');
+  let html = md.render(markdown, {}).replaceAll('<p></p>\n', '');
   for (const placeholder of placeholders) {
     const source = await readFile(placeholder.asset, 'utf8');
     const details = `<details class="source-attachment"><summary>${escapeHtml(placeholder.label)}</summary><a href="${placeholder.url}" download>Download source</a><pre><code class="language-python">${escapeHtml(source)}</code></pre></details>`;
@@ -863,11 +886,8 @@ function readingHeadings(content) {
   return { content: decorated, items };
 }
 
-function startsWithMatchingH1(content, title) {
-  const match = /^\s*<h1(?:\s[^>]*)?>([\s\S]*?)<\/h1>/.exec(content);
-  if (!match) return false;
-  const text = createMarkdownParser().utils.unescapeAll(match[1].replace(/<[^>]+>/g, '')).trim();
-  return text.normalize('NFC') === title.trim().normalize('NFC');
+function startsWithH1(content) {
+  return /^\s*<h1(?:\s[^>]*)?>[\s\S]*?<\/h1>/.test(content);
 }
 
 function renderArticle(note, content, stageNotes) {
@@ -880,7 +900,7 @@ function renderArticle(note, content, stageNotes) {
   const previous = current > 0 ? stageNotes[current - 1] : null;
   const next = current >= 0 && current < stageNotes.length - 1 ? stageNotes[current + 1] : null;
   const neighbors = `<nav class="article-neighbors" aria-label="相邻文章">${previous ? `<a class="article-neighbor previous" href="${noteUrl(previous)}">← <span>上一篇</span>${escapeHtml(previous.title)}</a>` : '<span class="article-neighbor previous" aria-hidden="true"></span>'}${next ? `<a class="article-neighbor next" href="${noteUrl(next)}"><span>下一篇</span>${escapeHtml(next.title)} →</a>` : '<span class="article-neighbor next" aria-hidden="true"></span>'}</nav>`;
-  const title = startsWithMatchingH1(content, note.title) ? '' : `<h1>${escapeHtml(note.title)}</h1>`;
+  const title = startsWithH1(content) ? '' : `<h1>${escapeHtml(note.title)}</h1>`;
   return pageTemplate({
     title: note.title,
     eyebrow: note.stageLabel,
@@ -1563,11 +1583,12 @@ async function recoverPublishTransaction(outputRoot, expectedTransactionId) {
   await handoffPublishTransaction(outputRoot, transactionRoot, owner);
 }
 
-async function writeOutputs(outputRoot, outputs, previousManifest, { writeFileImpl = writeFile } = {}) {
+async function writeOutputs(outputRoot, outputs, previousManifest, {
+  writeFileImpl = writeFile,
+  owner,
+  transactionRoot,
+} = {}) {
   const resolvedRoot = path.resolve(outputRoot);
-  const parent = path.dirname(resolvedRoot);
-  await mkdir(parent, { recursive: true });
-  await recoverPublishTransaction(resolvedRoot);
   const nextFiles = [...outputs.keys()];
   const { createdFiles, previousIdentities } = await preflightPublicOwnership(
     resolvedRoot,
@@ -1581,7 +1602,6 @@ async function writeOutputs(outputRoot, outputs, previousManifest, { writeFileIm
       .map((entry) => [entry.path, entry.sha256]),
   );
   const createdPaths = new Set(createdFiles);
-  const { owner, transactionRoot } = await createOwnedPublishTransaction(resolvedRoot);
   const stagedRoot = path.join(transactionRoot, 'next');
   const backupRoot = path.join(transactionRoot, 'previous');
   const publishedRoot = path.join(transactionRoot, 'published');
@@ -1698,70 +1718,88 @@ export async function synchronize({
   const resolvedSource = path.resolve(sourceRoot);
   const resolvedOutput = path.resolve(outputRoot);
   if (!(await stat(resolvedSource)).isDirectory()) throw new Error(`Source is not a directory: ${resolvedSource}`);
+  await mkdir(path.dirname(resolvedOutput), { recursive: true });
   await recoverPublishTransaction(resolvedOutput);
-  const previousManifest = await readManifest(resolvedOutput) || {};
-  for (const generatedPath of previousManifest.generatedFiles || []) {
-    await safeManagedPath(resolvedOutput, generatedPath);
-  }
-  const notes = await collectSourceNotes(resolvedSource, previousManifest);
-  const allFiles = await walkFiles(resolvedSource);
-  const assetFiles = allFiles.filter((file) => path.extname(file).toLowerCase() !== '.md');
-  const noteIndex = buildNoteIndex(notes);
-  const warnings = [];
-  const localAssets = new Map();
-  const remoteUrls = collectPublicationInputs(notes, {
-    sourceRoot: resolvedSource,
-    noteIndex,
-    assetFiles,
-    localAssets,
-  });
-  await scanSecrets(notes, resolvedSource, [...new Set(localAssets.values())]);
-  const remote = await buildRemoteAssets(remoteUrls, previousManifest, {
-    outputRoot: resolvedOutput,
-    fetchRemoteAssets,
-    fetchAsset,
-  });
-  const outputs = new Map(remote.downloaded);
-  for (const note of notes) {
-    const html = await renderNote(note, {
+  const { owner, transactionRoot } = await createOwnedPublishTransaction(resolvedOutput);
+  try {
+    const previousManifest = await readManifest(resolvedOutput) || {};
+    for (const generatedPath of previousManifest.generatedFiles || []) {
+      await safeManagedPath(resolvedOutput, generatedPath);
+    }
+    const notes = await collectSourceNotes(resolvedSource, previousManifest);
+    const allFiles = await walkFiles(resolvedSource);
+    const assetFiles = allFiles.filter((file) => path.extname(file).toLowerCase() !== '.md');
+    const noteIndex = buildNoteIndex(notes);
+    const warnings = [];
+    const localAssets = new Map();
+    const remoteUrls = collectPublicationInputs(notes, {
       sourceRoot: resolvedSource,
       noteIndex,
       assetFiles,
       localAssets,
-      remoteAssets: remote.remoteAssets,
-      warnings,
     });
-    const readingSequence = note.isOverview ? [note] : notes.filter((candidate) => !candidate.isOverview);
-    outputs.set(`notes/${note.stageKey}/${note.slug}.html`, renderArticle(note, html, readingSequence));
-    outputs.set(`markdown/${note.stageKey}/${note.slug}.md`, note.content);
+    await scanSecrets(notes, resolvedSource, [...new Set(localAssets.values())]);
+    const remote = await buildRemoteAssets(remoteUrls, previousManifest, {
+      outputRoot: resolvedOutput,
+      fetchRemoteAssets,
+      fetchAsset,
+    });
+    const outputs = new Map(remote.downloaded);
+    for (const note of notes) {
+      const html = await renderNote(note, {
+        sourceRoot: resolvedSource,
+        noteIndex,
+        assetFiles,
+        localAssets,
+        remoteAssets: remote.remoteAssets,
+        warnings,
+      });
+      const readingSequence = note.isOverview ? [note] : notes.filter((candidate) => !candidate.isOverview);
+      outputs.set(`notes/${note.stageKey}/${note.slug}.html`, renderArticle(note, html, readingSequence));
+      outputs.set(`markdown/${note.stageKey}/${note.slug}.md`, note.content);
+    }
+    for (const [destination, source] of localAssets) outputs.set(destination, await readFile(source));
+    const stages = [...STAGES.values()];
+    outputs.set('index.html', renderArchiveIndex(notes, stages));
+    for (const stage of stages) {
+      outputs.set(`${stage.key}/index.html`, renderStageIndex(stage, notes.filter((note) => note.stageKey === stage.key), stages));
+    }
+    const manifest = {
+      version: MANIFEST_VERSION,
+      stages,
+      notes: notes.map(notePublicData),
+      attachments: [...localAssets.entries()].map(([destination, source]) => ({
+        sourcePath: normalizePath(path.relative(resolvedSource, source)),
+        path: destination,
+      })).sort((a, b) => COLLATOR.compare(a.path, b.path)),
+      remoteAssets: remote.manifestEntries,
+      warnings,
+      generatedFiles: [...outputs.keys(), 'manifest.json'].sort(COLLATOR.compare),
+    };
+    outputs.set('manifest.json', `${JSON.stringify(manifest, null, 2)}\n`);
+    if (check) {
+      await checkOutputs(resolvedOutput, outputs, previousManifest);
+      await handoffPublishTransaction(resolvedOutput, transactionRoot, owner);
+    } else {
+      await writeOutputs(resolvedOutput, outputs, previousManifest, {
+        writeFileImpl,
+        owner,
+        transactionRoot,
+      });
+    }
+    return {
+      notes: notes.length,
+      stages: stages.length,
+      remoteAssets: Object.keys(remote.remoteAssets).length,
+      warnings,
+    };
+  } catch (error) {
+    const currentOwner = await readPublishOwnerFile(publishOwnerPath(resolvedOutput), resolvedOutput);
+    if (currentOwner && samePublishOwner(currentOwner, owner)) {
+      await recoverPublishTransaction(resolvedOutput, owner.transactionId);
+    }
+    throw error;
   }
-  for (const [destination, source] of localAssets) outputs.set(destination, await readFile(source));
-  const stages = [...STAGES.values()];
-  outputs.set('index.html', renderArchiveIndex(notes, stages));
-  for (const stage of stages) {
-    outputs.set(`${stage.key}/index.html`, renderStageIndex(stage, notes.filter((note) => note.stageKey === stage.key), stages));
-  }
-  const manifest = {
-    version: MANIFEST_VERSION,
-    stages,
-    notes: notes.map(notePublicData),
-    attachments: [...localAssets.entries()].map(([destination, source]) => ({
-      sourcePath: normalizePath(path.relative(resolvedSource, source)),
-      path: destination,
-    })).sort((a, b) => COLLATOR.compare(a.path, b.path)),
-    remoteAssets: remote.manifestEntries,
-    warnings,
-    generatedFiles: [...outputs.keys(), 'manifest.json'].sort(COLLATOR.compare),
-  };
-  outputs.set('manifest.json', `${JSON.stringify(manifest, null, 2)}\n`);
-  if (check) await checkOutputs(resolvedOutput, outputs, previousManifest);
-  else await writeOutputs(resolvedOutput, outputs, previousManifest, { writeFileImpl });
-  return {
-    notes: notes.length,
-    stages: stages.length,
-    remoteAssets: Object.keys(remote.remoteAssets).length,
-    warnings,
-  };
 }
 
 function parseArguments(argv) {

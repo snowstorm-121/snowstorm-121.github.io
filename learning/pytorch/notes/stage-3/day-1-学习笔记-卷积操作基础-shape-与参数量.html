@@ -237,13 +237,13 @@ for config in configs:
 <hr>
 <h2 id="七-掌握检查">七、掌握检查</h2>
 <ul class="task-list">
-<li class="task-list-item"><input type="checkbox" checked disabled> 能写出输入 <code>[N, Cin, H, W]</code>、卷积核 <code>[Cout, Cin, Kh, Kw]</code>、输出 <code>[N, Cout, Hout, Wout]</code>。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能从 <code>nn.Conv2d(16, 32, kernel_size=3)</code> 推出 <code>weight.shape = [32, 16, 3, 3]</code>。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能解释 <code>F.conv2d</code> 用于固定 Sobel 核，<code>nn.Conv2d</code> 用于可训练卷积层。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 已实际验证：<code>Linear(1024, 16)</code> 为 16400 个参数，<code>Conv2d(1, 16, 3, padding=1)</code> 为 160 个参数。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能准确说明参数共享和图像局部模式之间的关系。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 已实际验证四组 <code>stride/padding</code> 对输出 shape 的影响。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能说明连续三层 <code>3×3, stride=1, padding=1</code> 卷积保持高宽、感受野扩大到 <code>7×7</code>。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-1"> <span id="pytorch-task-description-1" class="task-description">能写出输入 <code>[N, Cin, H, W]</code>、卷积核 <code>[Cout, Cin, Kh, Kw]</code>、输出 <code>[N, Cout, Hout, Wout]</code>。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-2"> <span id="pytorch-task-description-2" class="task-description">能从 <code>nn.Conv2d(16, 32, kernel_size=3)</code> 推出 <code>weight.shape = [32, 16, 3, 3]</code>。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-3"> <span id="pytorch-task-description-3" class="task-description">能解释 <code>F.conv2d</code> 用于固定 Sobel 核，<code>nn.Conv2d</code> 用于可训练卷积层。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-4"> <span id="pytorch-task-description-4" class="task-description">已实际验证：<code>Linear(1024, 16)</code> 为 16400 个参数，<code>Conv2d(1, 16, 3, padding=1)</code> 为 160 个参数。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-5"> <span id="pytorch-task-description-5" class="task-description">能准确说明参数共享和图像局部模式之间的关系。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-6"> <span id="pytorch-task-description-6" class="task-description">已实际验证四组 <code>stride/padding</code> 对输出 shape 的影响。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-7"> <span id="pytorch-task-description-7" class="task-description">能说明连续三层 <code>3×3, stride=1, padding=1</code> 卷积保持高宽、感受野扩大到 <code>7×7</code>。</span></li>
 </ul>
 <h2 id="下一步">下一步</h2>
 <p>第 5 周 Day 2 将进入 LeNet，重点阅读“卷积/池化 -&gt; 展平 -&gt; 分类器”的完整数据流，并把本日的 <code>Conv2d</code> shape 合同接到真实 CNN 模型中。</p>

@@ -302,7 +302,7 @@ test('renders Markdown, wiki links, local images, and Python attachments without
 
   assert.match(html, /<table>/);
   assert.match(html, /<ul(?: class="task-list")?>/);
-  assert.match(html, /<li class="task-list-item"><input type="checkbox" disabled>/);
+  assert.match(html, /<li class="task-list-item"><input type="checkbox" disabled aria-labelledby="[^"]+"> <span id="[^"]+" class="task-description">todo<\/span>/);
   assert.match(html, /type="checkbox" disabled/);
   assert.match(html, /<blockquote>/);
   assert.match(html, /<pre><code class="language-js">/);
@@ -334,6 +334,88 @@ test('matching source H1 stays verbatim without a duplicate wrapper title', asyn
   assert.match(matching, /<div class="note-content"><h1>Main<\/h1>/);
   assert.match(wrapped, /<article class="note-article"><h1>No Heading<\/h1><div class="note-content">/);
   assert.deepEqual(publishedMarkdown, sourceMarkdown, 'source Markdown bytes stay unchanged');
+});
+
+test('leading source H1 suppresses the filename wrapper for all five Stage 4 titles', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  const stage4 = path.join(source, 'Stage4');
+  const cases = [
+    [
+      'Day 1 学习笔记：Attention 机制原理——Scaled Dot-Product Attention',
+      'Attention 机制原理：Scaled Dot-Product Attention',
+    ],
+    [
+      'Day 2 学习笔记：Multi-Head Attention——拆分与合并',
+      'Multi-Head Attention：拆分与合并',
+    ],
+    [
+      'Day 3 学习笔记：HuggingFace BERT tokenizer 与 DataLoader',
+      'HuggingFace BERT tokenizer 与 DataLoader',
+    ],
+    [
+      'Day 4 学习笔记：BERT 最小微调闭环',
+      'BERT 最小微调闭环',
+    ],
+    [
+      'Day 5 学习笔记：阶段四复盘——BERT 全量微调基线与 LoRA 对比准备',
+      '阶段四 Day 5 复盘：BERT 全量微调基线与 LoRA 对比准备',
+    ],
+  ];
+  await mkdir(stage4);
+  for (const [filenameTitle, sourceHeading] of cases) {
+    await writeFile(path.join(stage4, `${filenameTitle}.md`), `# ${sourceHeading}\n\nBody.\n`);
+  }
+
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const manifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8'));
+  for (const [filenameTitle, sourceHeading] of cases) {
+    const note = manifest.notes.find((candidate) => candidate.title === filenameTitle);
+    assert.ok(note, `missing generated manifest entry for ${filenameTitle}`);
+    const html = await readFile(path.join(output, 'notes', note.stageKey, `${note.slug}.html`), 'utf8');
+    const headings = [...html.matchAll(/<h1(?:\s[^>]*)?>([\s\S]*?)<\/h1>/g)].map((match) => match[1]);
+    assert.deepEqual(headings, [sourceHeading], `${filenameTitle} must render one authoritative H1`);
+    assert.equal(
+      await readFile(path.join(output, 'markdown', note.stageKey, `${note.slug}.md`), 'utf8'),
+      `# ${sourceHeading}\n\nBody.\n`,
+      `${filenameTitle} source prose must stay byte-for-byte unchanged`,
+    );
+  }
+});
+
+test('disabled task states are labelled by their adjacent formatted descriptions', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await writeFile(path.join(source, 'Stage1', 'Main.md'), [
+    '# Main',
+    '',
+    '- [ ] Prepare **batch**',
+    '- [x] Verify [result](Other Note.md)',
+  ].join('\n'));
+
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const html = await readFile(path.join(output, 'notes', 'stage-1', 'main.html'), 'utf8');
+  const descriptions = new Map(
+    [...html.matchAll(/<span id="([^"]+)" class="task-description">([\s\S]*?)<\/span>/g)]
+      .map((match) => [match[1], match[2]]),
+  );
+  const checkboxes = [...html.matchAll(/<input\b[^>]*\btype="checkbox"[^>]*>/g)].map((match) => match[0]);
+
+  assert.equal(checkboxes.length, 2);
+  assert.equal(descriptions.size, 2);
+  for (const checkbox of checkboxes) {
+    const labelledBy = /\baria-labelledby="([^"]+)"/.exec(checkbox)?.[1];
+    assert.ok(labelledBy, `task checkbox has no accessible description: ${checkbox}`);
+    assert.ok(descriptions.has(labelledBy), `missing adjacent description ${labelledBy}`);
+    assert.ok(descriptions.get(labelledBy).replace(/<[^>]+>/g, '').trim());
+    assert.match(checkbox, /\bdisabled\b/);
+  }
+  assert.match(html, /<span id="[^"]+" class="task-description">Prepare <strong>batch<\/strong><\/span>/);
+  assert.match(html, /<span id="[^"]+" class="task-description">Verify <a [^>]*>result<\/a><\/span>/);
+  assert.doesNotMatch(checkboxes[0], /\schecked(?:\s|>)/);
+  assert.match(checkboxes[1], /\schecked(?:\s|>)/);
 });
 
 test('converts only safe raw breaks, hides OCR comments, labels images, and fully decodes TOC entities', async (t) => {
@@ -1743,6 +1825,73 @@ test('--help states the exclusive-worktree concurrency boundary', async () => {
   assert.match(stdout, /owner sidecar excludes only another sync-pytorch process/i);
   assert.match(stdout, /editors, deployers, or other processes must not modify manifest-managed output/i);
   assert.match(stdout, /protection is not guaranteed/i);
+});
+
+test('owner acquisition precedes generation so a stale participant cannot orphan newer outputs', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await writeFile(path.join(source, 'Stage1', 'Main.md'), [
+    '# Main',
+    '![remote](https://images.example.test/paused.png)',
+  ].join('\n'));
+  await synchronize({
+    sourceRoot: source,
+    outputRoot: output,
+    fetchRemoteAssets: true,
+    fetchAsset: async () => tinyPng,
+  });
+  const initialManifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8'));
+  const remotePath = initialManifest.remoteAssets['https://images.example.test/paused.png'].path;
+  await rm(path.join(output, remotePath));
+
+  let announceFetch;
+  let releaseFetch;
+  const fetchStarted = new Promise((resolve) => { announceFetch = resolve; });
+  const fetchGate = new Promise((resolve) => { releaseFetch = resolve; });
+  const staleRun = synchronize({
+    sourceRoot: source,
+    outputRoot: output,
+    fetchRemoteAssets: true,
+    fetchAsset: async () => {
+      announceFetch();
+      await fetchGate;
+      return tinyPng;
+    },
+  });
+  await fetchStarted;
+
+  const freshSource = path.join(source, 'Stage1', 'Fresh.md');
+  await writeFile(freshSource, '# Fresh\n');
+  let competingError;
+  try {
+    await synchronize({
+      sourceRoot: source,
+      outputRoot: output,
+      fetchRemoteAssets: true,
+      fetchAsset: async () => tinyPng,
+    });
+  } catch (error) {
+    competingError = error;
+  } finally {
+    await rm(freshSource);
+    releaseFetch();
+  }
+  await staleRun;
+  await synchronize({ sourceRoot: source, outputRoot: output, check: true });
+
+  assert.match(
+    competingError?.message || '',
+    /active|busy|in progress|acquire/i,
+    'the participant that starts after ownership is held must fail before publishing',
+  );
+  const manifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8'));
+  assert.equal(manifest.notes.some((note) => note.title === 'Fresh'), false);
+  await assert.rejects(
+    readFile(path.join(output, 'notes', 'stage-1', 'fresh.html')),
+    { code: 'ENOENT' },
+    'a rejected participant must not leave a generated file outside the winning manifest',
+  );
 });
 
 test('a live publish transaction is exclusive and a dead owner is recoverable', async (t) => {

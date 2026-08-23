@@ -344,13 +344,13 @@ test acc: 86.67%
 </ol>
 <h3 id="本日验收">本日验收</h3>
 <ul class="task-list">
-<li class="task-list-item"><input type="checkbox" checked disabled> 能解释迁移学习为什么可能有效，以及它不保证对所有目标域都有效。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能解释 backbone 是“图片 -&gt; 特征”的主体，<code>fc</code> 是“特征 -&gt; 类别”的分类头。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能推导 <code>[B, 3, 224, 224] -&gt; [B, 512] -&gt; [B, 10]</code>。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能说明 <code>requires_grad=False</code>、<code>model.eval()</code>、<code>torch.no_grad()</code> 的区别。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能完成冻结、替换分类头、仅优化 <code>model.fc.parameters()</code> 的代码翻译。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能说明 validation 用于模型选择，test 仅用于最终一次评估。</li>
-<li class="task-list-item"><input type="checkbox" checked disabled> 能解释为什么保存最佳模型时需要 <code>copy.deepcopy(model.state_dict())</code>。</li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-1"> <span id="pytorch-task-description-1" class="task-description">能解释迁移学习为什么可能有效，以及它不保证对所有目标域都有效。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-2"> <span id="pytorch-task-description-2" class="task-description">能解释 backbone 是“图片 -&gt; 特征”的主体，<code>fc</code> 是“特征 -&gt; 类别”的分类头。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-3"> <span id="pytorch-task-description-3" class="task-description">能推导 <code>[B, 3, 224, 224] -&gt; [B, 512] -&gt; [B, 10]</code>。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-4"> <span id="pytorch-task-description-4" class="task-description">能说明 <code>requires_grad=False</code>、<code>model.eval()</code>、<code>torch.no_grad()</code> 的区别。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-5"> <span id="pytorch-task-description-5" class="task-description">能完成冻结、替换分类头、仅优化 <code>model.fc.parameters()</code> 的代码翻译。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-6"> <span id="pytorch-task-description-6" class="task-description">能说明 validation 用于模型选择，test 仅用于最终一次评估。</span></li>
+<li class="task-list-item"><input type="checkbox" checked disabled aria-labelledby="pytorch-task-description-7"> <span id="pytorch-task-description-7" class="task-description">能解释为什么保存最佳模型时需要 <code>copy.deepcopy(model.state_dict())</code>。</span></li>
 </ul>
 <hr>
 <h2 id="十-选做-后置">十、选做 / 后置</h2>
