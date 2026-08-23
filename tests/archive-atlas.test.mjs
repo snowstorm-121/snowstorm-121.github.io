@@ -24,18 +24,204 @@ const cssDeclarations = (source) => source.split(";").flatMap((declaration) => {
   const value = declaration.slice(separator + 1).trim();
   return property && value ? [{ property, value }] : [];
 });
+const cssDeclarationValue = (source, property) => cssDeclarations(
+  source.includes("{") ? source.slice(source.indexOf("{") + 1, source.lastIndexOf("}")) : source,
+)
+  .filter((declaration) => declaration.property === property.toLowerCase())
+  .at(-1)?.value;
+const cssColor = (value) => {
+  const variable = value?.trim().match(/^var\((--[\w-]+)\)$/);
+  if (variable) return cssColor(cssDeclarationValue(rule(styles, ":root"), variable[1]));
+  const hex = value?.trim().match(/^#([\da-f]{3}|[\da-f]{6})$/i)?.[1];
+  if (hex) {
+    const normalized = hex.length === 3 ? [...hex].map((digit) => `${digit}${digit}`).join("") : hex;
+    return [0, 2, 4].map((offset) => Number.parseInt(normalized.slice(offset, offset + 2), 16)).concat(1);
+  }
+  const functional = value?.trim().match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/i);
+  if (functional) return functional.slice(1, 4).map(Number).concat(functional[4] === undefined ? 1 : Number(functional[4]));
+  throw new Error(`unparseable CSS color: ${value}`);
+};
+const cssColors = (value) => [...value.matchAll(/#[\da-f]{3,6}\b|rgba?\([^)]*\)/gi)].map(([color]) => cssColor(color));
+const compositeColor = (foreground, background) => [
+  ...foreground.slice(0, 3).map((channel, index) => channel * foreground[3] + background[index] * (1 - foreground[3])),
+  1,
+];
+const relativeLuminance = (color) => {
+  const [red, green, blue] = color.slice(0, 3).map((channel) => {
+    const normalized = channel / 255;
+    return normalized <= .04045 ? normalized / 12.92 : ((normalized + .055) / 1.055) ** 2.4;
+  });
+  return .2126 * red + .7152 * green + .0722 * blue;
+};
+const contrastRatio = (left, right) => {
+  const luminances = [relativeLuminance(left), relativeLuminance(right)].sort((a, b) => b - a);
+  return (luminances[0] + .05) / (luminances[1] + .05);
+};
+const saturateColor = (color, amount) => {
+  const matrix = [
+    [.213 + .787 * amount, .715 - .715 * amount, .072 - .072 * amount],
+    [.213 - .213 * amount, .715 + .285 * amount, .072 - .072 * amount],
+    [.213 - .213 * amount, .715 - .715 * amount, .072 + .928 * amount],
+  ];
+  return matrix.map((row) => Math.min(255, Math.max(0, row.reduce(
+    (sum, factor, index) => sum + factor * color[index],
+    0,
+  )))).concat(1);
+};
+const positionalGeometryProperties = new Set([
+  "position",
+  "top",
+  "right",
+  "bottom",
+  "left",
+  "inset",
+  "inset-block",
+  "inset-block-start",
+  "inset-block-end",
+  "inset-inline",
+  "inset-inline-start",
+  "inset-inline-end",
+  "margin",
+  "margin-top",
+  "margin-right",
+  "margin-bottom",
+  "margin-left",
+  "margin-block",
+  "margin-block-start",
+  "margin-block-end",
+  "margin-inline",
+  "margin-inline-start",
+  "margin-inline-end",
+  "transform",
+  "transform-origin",
+  "translate",
+  "rotate",
+  "scale",
+  "offset",
+  "offset-path",
+  "offset-distance",
+  "offset-position",
+  "offset-anchor",
+  "offset-rotate",
+  "width",
+  "height",
+  "min-width",
+  "min-height",
+  "max-width",
+  "max-height",
+  "padding",
+  "padding-top",
+  "padding-right",
+  "padding-bottom",
+  "padding-left",
+  "padding-block",
+  "padding-block-start",
+  "padding-block-end",
+  "padding-inline",
+  "padding-inline-start",
+  "padding-inline-end",
+  "box-sizing",
+  "border",
+  "border-width",
+  "border-top",
+  "border-right",
+  "border-bottom",
+  "border-left",
+  "border-top-width",
+  "border-right-width",
+  "border-bottom-width",
+  "border-left-width",
+  "display",
+  "grid",
+  "grid-template",
+  "grid-template-columns",
+  "grid-template-rows",
+  "grid-template-areas",
+  "grid-auto-flow",
+  "grid-auto-columns",
+  "grid-auto-rows",
+  "grid-column",
+  "grid-row",
+  "grid-area",
+  "gap",
+  "row-gap",
+  "column-gap",
+  "justify-items",
+  "justify-content",
+  "justify-self",
+  "align-items",
+  "align-content",
+  "align-self",
+  "place-items",
+  "place-content",
+  "place-self",
+  "--node-x",
+  "--node-y",
+  "--atlas-marker-offset-y",
+  "--atlas-marker-origin-y",
+]);
+const isProtectedGeometryProperty = (selector, property) => (
+  positionalGeometryProperties.has(property)
+  && !(selector === ".atlas-map-node" && property === "width")
+);
+const cssBlockContains = (source, prefix, index) => {
+  const start = source.indexOf(prefix);
+  if (start < 0) return false;
+  const open = source.indexOf("{", start + prefix.length);
+  let depth = 0;
+  for (let cursor = open; cursor < source.length; cursor += 1) {
+    if (source[cursor] === "{") depth += 1;
+    if (source[cursor] === "}" && --depth === 0) return index > open && index < cursor;
+  }
+  return false;
+};
+const isSafeSharedGeometryOverride = (source, index, selectors, selector, { property, value }) => {
+  const normalized = value.toLowerCase().replace(/\s+/g, " ").trim();
+  if (
+    property !== "transform"
+    || !cssBlockContains(source, "@media (prefers-reduced-motion: reduce)", index)
+  ) return false;
+  const signature = selectors.join(", ");
+  if (selector === ".atlas-routes") {
+    return signature === ".atlas-chart::before, .atlas-routes, .atlas-index-button.is-active"
+      && normalized === "none !important";
+  }
+  if (selector === ".atlas-map-node" || selector === ".atlas-map-node.is-active") {
+    return signature === ".atlas-map-node, .atlas-map-node.is-active"
+      && normalized === "translate(-50%, var(--atlas-marker-offset-y)) !important";
+  }
+  return false;
+};
 const protectedRule = (source, selector, properties) => {
-  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const protectedProperties = new Set(properties);
   const uncommented = source.replace(/\/\*[\s\S]*?\*\//g, "");
-  const candidates = [...uncommented.matchAll(
-    new RegExp(`${escapedSelector}\\s*\\{([^{}]*)\\}`, "g"),
-  )].filter((match) => {
-    const preceding = uncommented.slice(0, match.index).trimEnd();
-    return !preceding || /[{}]$/.test(preceding);
-  }).map((match) => ({ body: match[1], declarations: cssDeclarations(match[1]) }))
-    .filter(({ declarations }) => declarations.some(({ property }) => protectedProperties.has(property)));
+  const candidates = [...uncommented.matchAll(/([^{}]+)\{([^{}]*)\}/g)].flatMap((match) => {
+    const selectors = match[1].split(",").map((branch) => branch.trim());
+    if (!selectors.includes(selector)) return [];
+    const declarations = cssDeclarations(match[2]);
+    const geometry = declarations.filter(({ property }) => (
+      protectedProperties.has(property) || isProtectedGeometryProperty(selector, property)
+    ));
+    if (!geometry.length) return [];
+    if (selectors.length > 1) {
+      for (const declaration of geometry) {
+        if (
+          !protectedProperties.has(declaration.property)
+          || !isSafeSharedGeometryOverride(uncommented, match.index, selectors, selector, declaration)
+        ) {
+          assert.fail(`${selector} must not declare unprotected geometry property ${declaration.property} in a selector list`);
+        }
+      }
+      return [];
+    }
+    return [{ body: match[2], declarations }];
+  });
   assert.equal(candidates.length, 1, `${selector} must have one canonical protected rule`);
+  for (const { property } of candidates[0].declarations) {
+    if (isProtectedGeometryProperty(selector, property) && !protectedProperties.has(property)) {
+      assert.fail(`${selector} must not declare unprotected geometry property ${property}`);
+    }
+  }
   for (const property of properties) {
     assert.equal(
       candidates[0].declarations.filter((declaration) => declaration.property === property).length,
@@ -106,8 +292,23 @@ const atlasParallaxFactors = (source) => {
   const nodePattern = new RegExp(`^translate\\(calc\\(-50% \\+ var\\(--atlas-parallax-x\\) \\* (${number})\\), calc\\(var\\(--atlas-marker-offset-y\\) \\+ var\\(--atlas-parallax-y\\) \\* (${number})\\)\\)$`);
   const activePattern = new RegExp(`^${nodePattern.source.slice(1, -1)} scale\\((${number})\\)$`);
   const layers = [
-    ["routes", protectedRule(source, ".atlas-routes", ["transform"]), routePattern],
-    ["base nodes", protectedRule(source, ".atlas-map-node", ["transform"]), nodePattern],
+    ["routes", protectedRule(source, ".atlas-routes", ["position", "inset", "width", "height", "transform"]), routePattern],
+    ["base nodes", protectedRule(source, ".atlas-map-node", [
+      "--atlas-marker-offset-y",
+      "--atlas-marker-origin-y",
+      "--node-x",
+      "--node-y",
+      "position",
+      "top",
+      "left",
+      "display",
+      "justify-items",
+      "gap",
+      "padding",
+      "border",
+      "transform",
+      "transform-origin",
+    ]), nodePattern],
     ["active nodes", protectedRule(source, ".atlas-map-node.is-active", ["transform"]), activePattern],
   ];
   const factors = {};
@@ -131,9 +332,16 @@ const atlasMarkerRules = (source) => ({
   baseNode: protectedRule(source, ".atlas-map-node", [
     "--atlas-marker-offset-y",
     "--atlas-marker-origin-y",
+    "--node-x",
+    "--node-y",
     "position",
     "top",
     "left",
+    "display",
+    "justify-items",
+    "gap",
+    "padding",
+    "border",
     "transform",
     "transform-origin",
   ]),
@@ -283,6 +491,49 @@ test("dimmed atlas controls preserve readable text while dimming only star decor
   assert.match(styles, /\.atlas-control:hover,\s*\.atlas-control:focus-visible\s*\{[^}]*opacity:\s*1/);
 });
 
+test("active atlas index metadata meets normal-text contrast in the lightest layered background", () => {
+  const body = rule(styles, "body\\.archive-atlas-page");
+  const stars = rule(styles, "body\\.archive-atlas-page::before");
+  const index = rule(styles, "\\.atlas-index");
+  const active = rule(styles, "\\.atlas-index-button\\.is-active");
+  const defaultSmall = rule(styles, "\\.atlas-index-button small");
+  const activeSmall = rule(styles, "\\.atlas-index-button\\.is-active small");
+  const bodyColors = cssColors(cssDeclarationValue(body, "background"));
+  const bodyBases = bodyColors.filter((color) => color[3] === 1);
+  const bodyOverlays = bodyColors.filter((color) => color[3] < 1);
+  const starOpacity = Number(cssDeclarationValue(stars, "opacity"));
+  const starLayers = cssColors(cssDeclarationValue(stars, "background-image"))
+    .map((color) => [...color.slice(0, 3), color[3] * starOpacity]);
+  const indexLayers = cssColors(cssDeclarationValue(index, "background"));
+  const backdropFilter = cssDeclarationValue(index, "backdrop-filter");
+  const blurRadius = Number(backdropFilter?.match(/\bblur\(([\d.]+)px\)/)?.[1]);
+  const saturation = Number(backdropFilter?.match(/\bsaturate\(([\d.]+)%\)/)?.[1]) / 100;
+  const activeBackground = cssColor(cssDeclarationValue(active, "background"));
+  const activeText = cssColor(
+    cssDeclarationValue(activeSmall, "color") ?? cssDeclarationValue(defaultSmall, "color"),
+  );
+
+  assert.ok(bodyBases.length > 0, "body background must expose an opaque base color");
+  assert.ok(bodyOverlays.length > 0, "body background must expose its translucent atmospheric layers");
+  assert.ok(starLayers.length > 0 && Number.isFinite(starOpacity), "body star backdrop must expose colors and opacity");
+  assert.ok(indexLayers.length > 0, "index glass must expose parseable background layers");
+  assert.ok(blurRadius > 0 && Number.isFinite(saturation), "index backdrop filter must expose blur and saturation");
+
+  const ratios = bodyBases.map((base) => {
+    let background = base;
+    for (const layer of [...bodyOverlays].reverse()) background = compositeColor(layer, background);
+    for (const layer of [...starLayers].reverse()) background = compositeColor(layer, background);
+    background = saturateColor(background, saturation);
+    for (const layer of [...indexLayers].reverse()) background = compositeColor(layer, background);
+    background = compositeColor(activeBackground, background);
+    return contrastRatio(compositeColor(activeText, background), background);
+  });
+  const worstContrast = Math.min(...ratios);
+
+  assert.ok(worstContrast >= 4.5, `active 9px metadata contrast ${worstContrast.toFixed(2)} must be at least 4.5:1`);
+  assert.match(activeSmall, /\bcolor\s*:/, "active metadata must keep an explicit selected-state color");
+});
+
 test("normal marker keyframes evaluate cascade winners with a center-safe allowlist", () => {
   const fixture = `
     from { transform: translateX(8px); transform: none; opacity: .68; }
@@ -395,6 +646,28 @@ test("atlas parallax contract rejects an immediately adjacent active transform o
     /.atlas-map-node.is-active must have one canonical protected rule/,
   );
 });
+
+test("atlas protected geometry contract rejects an unlisted active positional override", () => {
+  const positionalOverride = `${styles}\n.atlas-map-node.is-active { top: calc(var(--node-y) + 12px); }`;
+
+  assert.throws(
+    () => atlasParallaxFactors(positionalOverride),
+    /.atlas-map-node.is-active must have one canonical protected rule/,
+  );
+});
+
+for (const [name, override] of [
+  ["active sizing", ".atlas-map-node.is-active { width: 300px; }"],
+  ["selector-list positioning", ".fixture, .atlas-map-node.is-active { top: calc(var(--node-y) + 12px); }"],
+  ["active marker alignment", ".atlas-map-node.is-active { justify-items: start; }"],
+]) {
+  test(`atlas protected geometry contract rejects ${name} overrides`, () => {
+    assert.throws(
+      () => atlasParallaxFactors(`${styles}\n${override}`),
+      /atlas-map-node.is-active.*(?:canonical protected rule|unprotected geometry property)/,
+    );
+  });
+}
 
 test("atlas parallax contract rejects a responsive base transform override", () => {
   const responsiveOverride = `${styles}\n@media (max-width: 720px) { .atlas-map-node { transform: translateX(12px); } }`;

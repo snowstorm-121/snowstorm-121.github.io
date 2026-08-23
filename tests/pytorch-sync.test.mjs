@@ -338,6 +338,121 @@ async function runAttachmentPreReadSymlinkRace({ source, output, assetPath, outs
   return { ...exit, stderr };
 }
 
+async function runMarkdownDiscoverySymlinkRace({ source, output, notePath, outsidePath }) {
+  const childSource = `
+    import path from 'node:path';
+    import * as fs from 'node:fs/promises';
+    import { mock } from 'node:test';
+    const [moduleUrl, sourceRoot, outputRoot, notePath, outsidePath] = process.argv.slice(1);
+    const target = path.resolve(notePath);
+    const parent = path.dirname(target);
+    const readdir = fs.readdir;
+    const rm = fs.rm;
+    const symlink = fs.symlink;
+    let raced = false;
+    mock.module('node:fs/promises', {
+      namedExports: {
+        ...fs,
+        readdir: async (...args) => {
+          const entries = await readdir(...args);
+          const candidate = typeof args[0] === 'string' ? path.resolve(args[0]) : '';
+          if (!raced && candidate === parent) {
+            raced = true;
+            await rm(target);
+            await symlink(path.resolve(outsidePath), target);
+          }
+          return entries;
+        },
+      },
+    });
+    const { synchronize } = await import(moduleUrl + '?markdown-discovery-race=' + Date.now());
+    try {
+      await synchronize({ sourceRoot, outputRoot });
+    } finally {
+      process.stdout.write(String(raced));
+    }
+  `;
+  const child = spawn(process.execPath, [
+    '--experimental-test-module-mocks',
+    '--input-type=module',
+    '--eval',
+    childSource,
+    scriptUrl,
+    source,
+    output,
+    notePath,
+    outsidePath,
+  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let stdout = '';
+  let stderr = '';
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => { stdout += chunk; });
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const exit = await new Promise((resolve) => child.once('exit', (code, signal) => resolve({ code, signal })));
+  return { ...exit, stdout, stderr };
+}
+
+async function runMarkdownDirectoryPreReadSymlinkRace({ source, stagePath, shadowPath, notePath }) {
+  const childSource = `
+    import path from 'node:path';
+    import * as fs from 'node:fs/promises';
+    import { mock } from 'node:test';
+    const [moduleUrl, sourceRoot, stagePath, shadowPath, notePath] = process.argv.slice(1);
+    const stage = path.resolve(stagePath);
+    const shadow = path.resolve(shadowPath);
+    const target = path.resolve(notePath);
+    const parked = path.join(path.dirname(sourceRoot), 'parked-stage1');
+    const realpath = fs.realpath;
+    const rename = fs.rename;
+    const symlink = fs.symlink;
+    let targetRealpaths = 0;
+    let raced = false;
+    let content;
+    mock.module('node:fs/promises', {
+      namedExports: {
+        ...fs,
+        realpath: async (...args) => {
+          const resolved = await realpath(...args);
+          const candidate = typeof args[0] === 'string' ? path.resolve(args[0]) : '';
+          if (!raced && candidate === target && ++targetRealpaths === 2) {
+            raced = true;
+            await rename(stage, parked);
+            await symlink(shadow, stage);
+          }
+          return resolved;
+        },
+      },
+    });
+    const { collectSourceNotes } = await import(moduleUrl + '?markdown-directory-race=' + Date.now());
+    try {
+      const notes = await collectSourceNotes(sourceRoot);
+      content = notes.find((note) => note.sourcePath === 'Stage1/Main.md')?.content;
+    } finally {
+      process.stdout.write(JSON.stringify({ raced, content }));
+    }
+  `;
+  const child = spawn(process.execPath, [
+    '--experimental-test-module-mocks',
+    '--input-type=module',
+    '--eval',
+    childSource,
+    scriptUrl,
+    source,
+    stagePath,
+    shadowPath,
+    notePath,
+  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let stdout = '';
+  let stderr = '';
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => { stdout += chunk; });
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const exit = await new Promise((resolve) => child.once('exit', (code, signal) => resolve({ code, signal })));
+  return { ...exit, stdout, stderr };
+}
+
 test('discovers the real 32-note, seven-stage archive and preserves all 24 legacy slugs', async () => {
   const { collectSourceNotes, findRemoteImageUrls } = await loadSyncModule();
   const manifest = JSON.parse(await readFile(path.join(repoRoot, 'learning/pytorch/manifest.json'), 'utf8'));
@@ -749,6 +864,50 @@ test('source attachment validation cannot be swapped to a symlink before snapsho
   assert.notEqual(result.code, 0, 'a pre-read symlink replacement must stop synchronization');
   assert.match(result.stderr, /symlink|symbolic link|ELOOP|unsafe|changed/i);
   await assert.rejects(readFile(path.join(output, 'manifest.json')), { code: 'ENOENT' });
+});
+
+test('stale Markdown discovery cannot be swapped to an outside symlink before snapshot read', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const note = path.join(source, 'Stage1', 'Main.md');
+  const outside = path.join(root, 'outside.md');
+  await writeFile(note, '# Inside note\n');
+  await writeFile(outside, '# Outside sentinel must never publish\n');
+
+  const result = await runMarkdownDiscoverySymlinkRace({
+    source,
+    output,
+    notePath: note,
+    outsidePath: outside,
+  });
+
+  assert.equal(result.stdout, 'true', 'the fixture must replace the note after readdir returns its stale Dirent');
+  assert.notEqual(result.code, 0, 'a discovered Markdown symlink replacement must stop synchronization');
+  assert.match(result.stderr, /symlink|symbolic link|ELOOP|unsafe|changed/i);
+  await assert.rejects(readFile(path.join(output, 'manifest.json')), { code: 'ENOENT' });
+});
+
+test('validated Markdown parent directory cannot be swapped to a same-root symlink before open', async (t) => {
+  const { root, source } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const stage = path.join(source, 'Stage1');
+  const note = path.join(stage, 'Main.md');
+  const shadow = path.join(source, '.shadow-stage1');
+  await rm(path.join(stage, 'Other Note.md'));
+  await mkdir(shadow);
+  await writeFile(path.join(shadow, 'Main.md'), '# Same-root sentinel must never publish\n');
+
+  const result = await runMarkdownDirectoryPreReadSymlinkRace({
+    source,
+    stagePath: stage,
+    shadowPath: shadow,
+    notePath: note,
+  });
+
+  const observed = JSON.parse(result.stdout);
+  assert.equal(observed.raced, true, 'the fixture must replace the validated parent immediately before open');
+  assert.notEqual(result.code, 0, `a parent-directory symlink replacement must stop collection, got: ${observed.content}`);
+  assert.match(result.stderr, /symlink|symbolic link|unsafe|changed/i);
 });
 
 test('scans every published text attachment or rejects it before writing output', async (t) => {

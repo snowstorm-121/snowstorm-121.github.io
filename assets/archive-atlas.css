@@ -323,6 +323,7 @@ body.archive-atlas-page [data-atlas-directory] li { margin: 0; padding: 0; borde
 .atlas-index-button p { display: none; margin: 0; }
 .atlas-index-button small { color: rgba(215, 228, 238, .48); font-size: 9px; }
 .atlas-index-button.is-active { background: rgba(255, 255, 255, .075); transform: translateX(3px); }
+.atlas-index-button.is-active small { color: var(--atlas-gold); }
 .atlas-index-button.is-active::before { border-color: var(--atlas-gold); background: var(--atlas-gold); box-shadow: 0 0 12px rgba(222, 196, 159, .5); }
 .atlas-index-button:focus-visible { outline: 1px solid var(--atlas-gold); outline-offset: 2px; }
 

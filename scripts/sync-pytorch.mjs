@@ -82,10 +82,32 @@ export function slugify(value) {
     .replace(/^-|-$/g, '') || 'note';
 }
 
-async function walkFiles(root) {
+function isInsideSourceRoot(candidate, sourceRootRealPath) {
+  return candidate === sourceRootRealPath || candidate.startsWith(`${sourceRootRealPath}${path.sep}`);
+}
+
+async function walkFiles(root, sourceRootRealPath) {
   const files = [];
   async function walk(directory) {
+    const relativeDirectory = normalizePath(path.relative(root, directory)) || '.';
+    const before = await lstat(directory);
+    if (before.isSymbolicLink()) throw new Error(`Unsafe symlink in source path: ${relativeDirectory}`);
+    if (!before.isDirectory()) throw new Error(`Unsafe source directory: ${relativeDirectory}`);
+    const beforeRealPath = await realpath(directory);
+    if (!isInsideSourceRoot(beforeRealPath, sourceRootRealPath)) {
+      throw new Error(`Unsafe source path: ${relativeDirectory}`);
+    }
     const entries = await readdir(directory, { withFileTypes: true });
+    const after = await lstat(directory);
+    if (after.isSymbolicLink()) throw new Error(`Unsafe symlink in source path: ${relativeDirectory}`);
+    if (!after.isDirectory()) throw new Error(`Unsafe source directory: ${relativeDirectory}`);
+    const afterRealPath = await realpath(directory);
+    if (!isInsideSourceRoot(afterRealPath, sourceRootRealPath)) {
+      throw new Error(`Unsafe source path: ${relativeDirectory}`);
+    }
+    if (before.dev !== after.dev || before.ino !== after.ino) {
+      throw new Error(`Source directory changed during discovery: ${relativeDirectory}`);
+    }
     entries.sort((a, b) => {
       const collated = COLLATOR.compare(a.name, b.name);
       if (collated) return collated;
@@ -96,8 +118,16 @@ async function walkFiles(root) {
     for (const entry of entries) {
       if (entry.name.startsWith('.')) continue;
       const absolute = path.join(directory, entry.name);
-      if (entry.isDirectory()) await walk(absolute);
-      else if (entry.isFile()) files.push(absolute);
+      const info = await lstat(absolute);
+      const relative = normalizePath(path.relative(root, absolute));
+      if (info.isSymbolicLink()) throw new Error(`Unsafe symlink in source path: ${relative}`);
+      if (!info.isDirectory() && !info.isFile()) continue;
+      const currentRealPath = await realpath(absolute);
+      if (!isInsideSourceRoot(currentRealPath, sourceRootRealPath)) {
+        throw new Error(`Unsafe source path: ${relative}`);
+      }
+      if (info.isDirectory()) await walk(absolute);
+      else files.push(absolute);
     }
   }
   await walk(root);
@@ -130,9 +160,11 @@ function classifyNote(relativePath) {
   return { stageKey: stage.key, stageLabel: stage.label, isOverview: false };
 }
 
-export async function collectSourceNotes(sourceRoot, previousManifest = {}) {
+export async function collectSourceNotes(sourceRoot, previousManifest = {}, validatedSourceRootRealPath) {
   const root = path.resolve(sourceRoot);
-  const files = (await walkFiles(root)).filter((file) => path.extname(file).toLowerCase() === '.md');
+  const sourceRootRealPath = validatedSourceRootRealPath || await validateSourceRoot(root);
+  const files = (await walkFiles(root, sourceRootRealPath))
+    .filter((file) => path.extname(file).toLowerCase() === '.md');
   const previous = previousSlugIndexes(previousManifest);
   const drafts = files.map((absolutePath) => {
     const sourcePath = normalizePath(path.relative(root, absolutePath));
@@ -176,10 +208,11 @@ export async function collectSourceNotes(sourceRoot, previousManifest = {}) {
       || reservedLegacyRoutes.has(caseFoldPath(`${draft.stageKey}/${slug}`))
     ) slug = `${baseSlug}-${suffix++}`;
     usedRoutes.add(caseFoldPath(`${draft.stageKey}/${slug}`));
+    const snapshot = await snapshotSourceFile(root, sourceRootRealPath, draft.absolutePath, 'Markdown document');
     notes.push({
       ...draft,
       slug,
-      content: await readFile(draft.absolutePath, 'utf8'),
+      content: snapshot.buffer.toString('utf8'),
     });
   }
   notes.sort((a, b) => {
@@ -403,75 +436,94 @@ async function validateSourceRoot(sourceRoot) {
   return realpath(root);
 }
 
-async function snapshotLocalAssets(sourceRoot, sourceRootRealPath, localAssets) {
+async function inspectSourceFilePath(sourceRoot, sourceRootRealPath, source, kind) {
   const root = path.resolve(sourceRoot);
+  const absolute = path.resolve(source);
+  const relative = path.relative(root, absolute);
+  const normalizedRelative = normalizePath(relative);
+  if (!relative || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+    throw new Error(`Unsafe source ${kind} path: ${source}`);
+  }
+  const observations = [];
+  const rootInfo = await lstat(root);
+  if (rootInfo.isSymbolicLink()) throw new Error(`Unsafe symlink in source path: ${root}`);
+  if (!rootInfo.isDirectory()) throw new Error(`Source is not a directory: ${root}`);
+  if (await realpath(root) !== sourceRootRealPath) {
+    throw new Error(`Unsafe source ${kind} path: ${normalizedRelative}`);
+  }
+  observations.push({ absolute: root, info: rootInfo });
+  let current = root;
+  const parts = relative.split(path.sep);
+  for (const [index, part] of parts.entries()) {
+    current = path.join(current, part);
+    const info = await lstat(current);
+    if (info.isSymbolicLink()) {
+      throw new Error(`Unsafe symlink in source path: ${normalizePath(path.relative(root, current))}`);
+    }
+    if (index < parts.length - 1 && !info.isDirectory()) {
+      throw new Error(`Unsafe source ${kind} path: ${normalizedRelative}`);
+    }
+    if (index === parts.length - 1 && !info.isFile()) {
+      throw new Error(`Source ${kind} is not a regular file: ${normalizedRelative}`);
+    }
+    const currentRealPath = await realpath(current);
+    if (!isInsideSourceRoot(currentRealPath, sourceRootRealPath)) {
+      throw new Error(`Unsafe source ${kind} path: ${normalizedRelative}`);
+    }
+    observations.push({ absolute: current, info });
+  }
+  return { absolute, normalizedRelative, observations };
+}
+
+async function snapshotSourceFile(sourceRoot, sourceRootRealPath, source, kind) {
+  const before = await inspectSourceFilePath(sourceRoot, sourceRootRealPath, source, kind);
+  const { absolute, normalizedRelative } = before;
+  let handle;
+  try {
+    try {
+      handle = await open(absolute, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    } catch (error) {
+      if (error.code === 'ELOOP') {
+        throw new Error(`Unsafe symlink in source path: ${normalizedRelative}`, { cause: error });
+      }
+      throw error;
+    }
+    const openedInfo = await handle.stat();
+    if (!openedInfo.isFile()) {
+      throw new Error(`Source ${kind} is not a regular file: ${normalizedRelative}`);
+    }
+    const after = await inspectSourceFilePath(sourceRoot, sourceRootRealPath, source, kind);
+    for (const [index, previous] of before.observations.entries()) {
+      const current = after.observations[index];
+      if (
+        previous.absolute !== current?.absolute
+        || previous.info.dev !== current.info.dev
+        || previous.info.ino !== current.info.ino
+      ) {
+        throw new Error(`Source ${kind} changed during snapshot: ${normalizedRelative}`);
+      }
+    }
+    const pathInfo = after.observations.at(-1).info;
+    if (openedInfo.dev !== pathInfo.dev || openedInfo.ino !== pathInfo.ino) {
+      throw new Error(`Source ${kind} changed during snapshot: ${normalizedRelative}`);
+    }
+    return {
+      sourcePath: normalizedRelative,
+      buffer: await handle.readFile(),
+    };
+  } finally {
+    await handle?.close();
+  }
+}
+
+async function snapshotLocalAssets(sourceRoot, sourceRootRealPath, localAssets) {
   const bySource = new Map();
   const snapshots = new Map();
   for (const [destination, source] of localAssets) {
     const absolute = path.resolve(source);
-    const relative = path.relative(root, absolute);
-    if (!relative || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
-      throw new Error(`Unsafe source attachment path: ${source}`);
-    }
     let snapshot = bySource.get(absolute);
     if (!snapshot) {
-      let current = root;
-      const parts = relative.split(path.sep);
-      for (const [index, part] of parts.entries()) {
-        current = path.join(current, part);
-        const info = await lstat(current);
-        if (info.isSymbolicLink()) {
-          throw new Error(`Unsafe symlink in source path: ${normalizePath(path.relative(root, current))}`);
-        }
-        if (index < parts.length - 1 && !info.isDirectory()) {
-          throw new Error(`Unsafe source attachment path: ${normalizePath(relative)}`);
-        }
-        if (index === parts.length - 1 && !info.isFile()) {
-          throw new Error(`Source attachment is not a regular file: ${normalizePath(relative)}`);
-        }
-        const currentRealPath = await realpath(current);
-        if (
-          currentRealPath !== sourceRootRealPath
-          && !currentRealPath.startsWith(`${sourceRootRealPath}${path.sep}`)
-        ) {
-          throw new Error(`Unsafe source attachment path: ${normalizePath(relative)}`);
-        }
-      }
-      let handle;
-      try {
-        try {
-          handle = await open(absolute, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
-        } catch (error) {
-          if (error.code === 'ELOOP') {
-            throw new Error(`Unsafe symlink in source path: ${normalizePath(relative)}`, { cause: error });
-          }
-          throw error;
-        }
-        const openedInfo = await handle.stat();
-        if (!openedInfo.isFile()) {
-          throw new Error(`Source attachment is not a regular file: ${normalizePath(relative)}`);
-        }
-        const pathInfo = await lstat(absolute);
-        if (pathInfo.isSymbolicLink()) {
-          throw new Error(`Unsafe symlink in source path: ${normalizePath(relative)}`);
-        }
-        const currentRealPath = await realpath(absolute);
-        if (
-          currentRealPath !== sourceRootRealPath
-          && !currentRealPath.startsWith(`${sourceRootRealPath}${path.sep}`)
-        ) {
-          throw new Error(`Unsafe source attachment path: ${normalizePath(relative)}`);
-        }
-        if (openedInfo.dev !== pathInfo.dev || openedInfo.ino !== pathInfo.ino) {
-          throw new Error(`Source attachment changed during snapshot: ${normalizePath(relative)}`);
-        }
-        snapshot = {
-          sourcePath: normalizePath(relative),
-          buffer: await handle.readFile(),
-        };
-      } finally {
-        await handle?.close();
-      }
+      snapshot = await snapshotSourceFile(sourceRoot, sourceRootRealPath, absolute, 'attachment');
       bySource.set(absolute, snapshot);
     }
     snapshots.set(destination, snapshot);
@@ -1839,8 +1891,8 @@ export async function synchronize({
     for (const generatedPath of previousManifest.generatedFiles || []) {
       await safeManagedPath(resolvedOutput, generatedPath);
     }
-    const notes = await collectSourceNotes(resolvedSource, previousManifest);
-    const allFiles = await walkFiles(resolvedSource);
+    const notes = await collectSourceNotes(resolvedSource, previousManifest, resolvedSourceRealPath);
+    const allFiles = await walkFiles(resolvedSource, resolvedSourceRealPath);
     const assetFiles = allFiles.filter((file) => path.extname(file).toLowerCase() !== '.md');
     const noteIndex = buildNoteIndex(notes);
     const warnings = [];
