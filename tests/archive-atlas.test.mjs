@@ -127,6 +127,8 @@ test("dimmed atlas controls preserve readable text while dimming only star decor
 
 test("atlas route endpoints and node anchors share one responsive coordinate plane", () => {
   const body = styles.match(/body\.archive-atlas-page\s*\{[^}]*\}/)?.[0] ?? "";
+  const shell = styles.match(/\.archive-atlas-page \.library-shell\s*\{[^}]*\}/)?.[0] ?? "";
+  const layout = styles.match(/\.atlas-layout\s*\{[^}]*\}/)?.[0] ?? "";
   const chart = styles.match(/\.atlas-chart\s*\{[^}]*\}/)?.[0] ?? "";
   const baseNode = styles.match(/\.atlas-map-node\s*\{[^}]*\}/)?.[0] ?? "";
   const mobileSection = styles.slice(
@@ -149,13 +151,40 @@ test("atlas route endpoints and node anchors share one responsive coordinate pla
   const mobileLabel = mobileSection.match(/\.atlas-map-node span\s*\{[^}]*\}/)?.[0] ?? "";
   const compactLabel = compactSection.match(/\.atlas-map-node span\s*\{[^}]*\}/)?.[0] ?? "";
   const compactCoreLabel = compactSection.match(/\.atlas-map-node\.is-core span\s*\{[^}]*\}/)?.[0] ?? "";
+  const keyframes = (name) => {
+    const start = styles.indexOf(`@keyframes ${name}`);
+    const open = styles.indexOf("{", start);
+    let depth = 0;
+    for (let index = open; index < styles.length; index += 1) {
+      if (styles[index] === "{") depth += 1;
+      if (styles[index] === "}") depth -= 1;
+      if (depth === 0) return styles.slice(open + 1, index);
+    }
+    return "";
+  };
+  const driftKeyframes = keyframes("atlas-drift");
   const cssNumber = (rule, property) => Number(rule.match(new RegExp(`${property}:\\s*(\\d+(?:\\.\\d+)?)px`))?.[1]);
   const cssSignedNumber = (rule, property) => Number(rule.match(new RegExp(`${property}:\\s*(-?\\d+(?:\\.\\d+)?)px`))?.[1]);
   const cssUnitless = (rule, property) => Number(rule.match(new RegExp(`${property}:\\s*(\\d+(?:\\.\\d+)?)`))?.[1]);
+  const cssMotionOffset = (declarations) => {
+    const number = "(-?\\d+(?:\\.\\d+)?)(?:px)?";
+    const translate = declarations.match(new RegExp(`\\btranslate:\\s*${number}(?:\\s+${number})?`));
+    if (translate) return { x: Number(translate[1]), y: Number(translate[2] ?? 0) };
+    const transform = declarations.match(new RegExp(`\\btransform:\\s*translate(?:3d)?\\(\\s*${number}(?:\\s*,?\\s*${number})?`));
+    return transform ? { x: Number(transform[1]), y: Number(transform[2] ?? 0) } : { x: 0, y: 0 };
+  };
 
   assert.doesNotMatch(body, /overflow(?:-x)?:\s*hidden/);
   assert.match(styles, /\.atlas-chart\s*\{[^}]*overflow:\s*hidden/);
   assert.doesNotMatch(styles, /\.atlas-map-node\[data-atlas-key=/);
+  assert.match(shell, /width:\s*min\(1360px,\s*calc\(100% - 48px\)\)/);
+  assert.match(layout, /min-height:\s*min\(660px,\s*calc\(100vh - 190px\)\)/);
+  assert.match(mobileSection, /\.archive-atlas-page \.library-shell\s*\{[^}]*width:\s*min\(100% - 28px,\s*1360px\)/);
+  assert.match(mobileSection, /\.atlas-layout\s*\{[^}]*gap:\s*12px/);
+
+  const animatedMarkerOffsets = [...driftKeyframes.matchAll(/(?:from|to)\s*\{([^}]*)\}/g)]
+    .map(([, declarations]) => cssMotionOffset(declarations));
+  assert.equal(animatedMarkerOffsets.length, 2, "atlas-drift must expose both animation endpoints");
 
   const focusInset = 8;
   const activeScale = 1.08;
@@ -166,12 +195,32 @@ test("atlas route endpoints and node anchors share one responsive coordinate pla
   const lineHeight = cssUnitless(baseLabel, "line-height");
   const baseUsesMarkerOffset = /transform:[^;}]*var\(--atlas-marker-offset-y\)/.test(baseNode);
   const baseUsesMarkerOrigin = /transform-origin:[^;}]*var\(--atlas-marker-origin-y\)/.test(baseNode);
+  const chartForViewport = (width, height) => {
+    const mobile = width <= 720;
+    const compact = width <= 420;
+    const shellWidth = Math.min(1360, width - (mobile ? 28 : 48));
+    const gap = mobile ? 12 : width <= 1024 ? 18 : Math.min(44, Math.max(20, width * .03));
+    const chartWidth = mobile ? shellWidth : shellWidth - (width <= 1024 ? 260 : 300) - gap;
+    const chartMinHeight = compact ? cssNumber(compactChart, "min-height")
+      : mobile ? cssNumber(mobileChart, "min-height")
+      : width <= 1024 ? cssNumber(styles.match(/@media \(max-width: 1024px\)\s*\{[\s\S]*?\.atlas-chart\s*\{[^}]*\}/)?.[0] ?? "", "min-height")
+      : cssNumber(chart, "min-height");
+    const layoutMinHeight = Math.min(660, height - 190);
+    return {
+      chartWidth,
+      chartHeight: mobile ? chartMinHeight : Math.max(chartMinHeight, layoutMinHeight),
+      nodeWidth: cssNumber(compact ? compactNode : mobile ? mobileNode : baseNode, "width"),
+      safeX: cssNumber(compact ? compactChart : mobile ? mobileChart : chart, "--atlas-node-safe-x"),
+      fontSize: cssNumber(compact ? compactLabel : mobile ? mobileLabel : baseLabel, "font-size"),
+      coreFontSize: cssNumber(compact ? compactCoreLabel : coreLabel, "font-size"),
+    };
+  };
   const responsiveCases = [
-    { viewport: "1440x900", chartWidth: 1016.8, chartHeight: 660, nodeWidth: cssNumber(baseNode, "width"), safeX: cssNumber(chart, "--atlas-node-safe-x") || cssNumber(baseNode, "--atlas-node-safe-x"), fontSize: cssNumber(baseLabel, "font-size"), coreFontSize: cssNumber(coreLabel, "font-size") },
-    { viewport: "1024x768", chartWidth: 698, chartHeight: 578, nodeWidth: cssNumber(baseNode, "width"), safeX: cssNumber(chart, "--atlas-node-safe-x") || cssNumber(baseNode, "--atlas-node-safe-x"), fontSize: cssNumber(baseLabel, "font-size"), coreFontSize: cssNumber(coreLabel, "font-size") },
-    { viewport: "720x900", chartWidth: 692, chartHeight: 460, nodeWidth: cssNumber(mobileNode, "width"), safeX: cssNumber(mobileChart, "--atlas-node-safe-x") || cssNumber(mobileNode, "--atlas-node-safe-x"), fontSize: cssNumber(mobileLabel, "font-size"), coreFontSize: cssNumber(coreLabel, "font-size") },
-    { viewport: "320x568", chartWidth: 292, chartHeight: 410, nodeWidth: cssNumber(compactNode, "width"), safeX: cssNumber(compactChart, "--atlas-node-safe-x") || cssNumber(compactNode, "--atlas-node-safe-x"), fontSize: cssNumber(compactLabel, "font-size"), coreFontSize: cssNumber(compactCoreLabel, "font-size") },
-  ];
+    { viewport: "1440x900", width: 1440, height: 900 },
+    { viewport: "1024x768", width: 1024, height: 768 },
+    { viewport: "720x900", width: 720, height: 900 },
+    { viewport: "320x568", width: 320, height: 568 },
+  ].map(({ viewport, width, height }) => ({ viewport, ...chartForViewport(width, height) }));
 
   assert.match(styles, /\.atlas-map-node\.is-active\s*\{[^}]*scale\(1\.08\)/);
   assert.match(styles, /\.atlas-control:focus-visible::after\s*\{[^}]*inset:\s*-8px/);
@@ -231,9 +280,11 @@ test("atlas route endpoints and node anchors share one responsive coordinate pla
           + transformOriginY
           + scale * (currentMarkerHeight / 2 - transformOriginY)
           + translateY;
-        const distance = Math.hypot(routeX - nodeX, routeY - markerCenterY);
-        if (distance > worstMiss.distance) {
-          worstMiss = { distance, label: `${viewport} ${pageName}:${key}` };
+        for (const { x: animationX, y: animationY } of animatedMarkerOffsets) {
+          const distance = Math.hypot(routeX - nodeX - animationX, routeY - markerCenterY - animationY);
+          if (distance > worstMiss.distance) {
+            worstMiss = { distance, label: `${viewport} ${pageName}:${key} animated by ${animationX},${animationY}` };
+          }
         }
 
         const focusLeft = nodeX - ((nodeWidth + focusInset * 2) * activeScale) / 2 - maxNodeParallax;
@@ -244,6 +295,7 @@ test("atlas route endpoints and node anchors share one responsive coordinate pla
     }
   }
   assert.ok(worstMiss.distance <= 1, `${worstMiss.label} route misses its node by ${worstMiss.distance.toFixed(1)}px`);
+  assert.match(driftKeyframes, /(?:opacity|box-shadow|background|scale)\s*:/, "atlas-drift must retain a center-safe visual pulse");
 });
 
 class FakeElement {

@@ -325,7 +325,7 @@ body.archive-atlas-page [data-atlas-directory] li { margin: 0; padding: 0; borde
 .atlas-index-button.is-active::before { border-color: var(--atlas-gold); background: var(--atlas-gold); box-shadow: 0 0 12px rgba(222, 196, 159, .5); }
 .atlas-index-button:focus-visible { outline: 1px solid var(--atlas-gold); outline-offset: 2px; }
 
-@keyframes atlas-drift { from { translate: 0 -2px; } to { translate: 0 3px; } }
+@keyframes atlas-drift { from { opacity: .68; } to { opacity: 1; } }
 @keyframes atlas-route-draw { to { stroke-dashoffset: -8; } }
 
 @media (max-width: 1024px) {
