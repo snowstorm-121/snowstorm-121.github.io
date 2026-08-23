@@ -106,7 +106,7 @@ test("atlas styling keeps an open chart, narrow glass index, mobile stack, and c
   assert.match(reduced, /animation:\s*none !important/);
   assert.match(reduced, /transition:\s*none !important/);
   assert.match(reduced, /transform:\s*none !important/);
-  assert.match(reduced, /\.atlas-map-node, \.atlas-map-node\.is-active\s*\{[^}]*transform:\s*translate\(-50%,\s*-50%\) !important/);
+  assert.match(reduced, /\.atlas-map-node, \.atlas-map-node\.is-active\s*\{[^}]*transform:\s*translate\(-50%,\s*var\(--atlas-marker-offset-y\)\) !important/);
   assert.match(reduced, /stroke-dashoffset:\s*0/);
   assert.match(styles, /\.atlas-index \.atlas-index-button h3\s*\{[^}]*font-size:\s*13px/);
 });
@@ -125,55 +125,125 @@ test("dimmed atlas controls preserve readable text while dimming only star decor
   assert.match(styles, /\.atlas-control:hover,\s*\.atlas-control:focus-visible\s*\{[^}]*opacity:\s*1/);
 });
 
-test("every right-edge atlas node uses one responsive clamp that keeps its active focus ring inside the chart", () => {
+test("atlas route endpoints and node anchors share one responsive coordinate plane", () => {
   const body = styles.match(/body\.archive-atlas-page\s*\{[^}]*\}/)?.[0] ?? "";
+  const chart = styles.match(/\.atlas-chart\s*\{[^}]*\}/)?.[0] ?? "";
   const baseNode = styles.match(/\.atlas-map-node\s*\{[^}]*\}/)?.[0] ?? "";
-  const mobileNode = styles.match(/@media \(max-width: 720px\)[\s\S]*?\.atlas-map-node\s*\{[^}]*\}/)?.[0]
-    .match(/\.atlas-map-node\s*\{[^}]*\}$/)?.[0] ?? "";
-  const compactNode = styles.match(/@media \(max-width: 420px\)[\s\S]*?\.atlas-map-node\s*\{[^}]*\}/)?.[0]
-    .match(/\.atlas-map-node\s*\{[^}]*\}$/)?.[0] ?? "";
-  const cssNumber = (rule, property) => Number(rule.match(new RegExp(`${property}:\\s*(\\d+(?:\\.\\d+)?)px`))?.[1]);
-  const rightEdgeNodes = Object.entries(pages).flatMap(([pageName, html]) =>
-    [...html.matchAll(/class="atlas-map-node[^"]*"[^>]*style="[^"]*--node-x:\s*(\d+(?:\.\d+)?)%[^"]*"[^>]*data-atlas-key="([^"]+)"/g)]
-      .map((match) => ({ pageName, xPercent: Number(match[1]), key: match[2] }))
-      .filter(({ xPercent }) => xPercent >= 80),
+  const mobileSection = styles.slice(
+    styles.indexOf("@media (max-width: 720px)"),
+    styles.indexOf("@media (max-width: 420px)"),
   );
+  const compactSection = styles.slice(
+    styles.indexOf("@media (max-width: 420px)"),
+    styles.indexOf("@media (prefers-reduced-motion: reduce)"),
+  );
+  const mobileChart = mobileSection.match(/\.atlas-chart\s*\{[^}]*\}/)?.[0] ?? "";
+  const compactChart = compactSection.match(/\.atlas-chart\s*\{[^}]*\}/)?.[0] ?? "";
+  const mobileNode = mobileSection.match(/\.atlas-map-node\s*\{[^}]*\}/)?.[0] ?? "";
+  const compactNode = compactSection.match(/\.atlas-map-node\s*\{[^}]*\}/)?.[0] ?? "";
+  const marker = styles.match(/\.atlas-map-node::before\s*\{[^}]*\}/)?.[0] ?? "";
+  const coreNode = styles.match(/\.atlas-map-node\.is-core\s*\{[^}]*\}/)?.[0] ?? "";
+  const coreMarker = styles.match(/\.atlas-map-node\.is-core::before\s*\{[^}]*\}/)?.[0] ?? "";
+  const baseLabel = styles.match(/\.atlas-map-node span\s*\{[^}]*\}/)?.[0] ?? "";
+  const coreLabel = styles.match(/\.atlas-map-node\.is-core span\s*\{[^}]*\}/)?.[0] ?? "";
+  const mobileLabel = mobileSection.match(/\.atlas-map-node span\s*\{[^}]*\}/)?.[0] ?? "";
+  const compactLabel = compactSection.match(/\.atlas-map-node span\s*\{[^}]*\}/)?.[0] ?? "";
+  const compactCoreLabel = compactSection.match(/\.atlas-map-node\.is-core span\s*\{[^}]*\}/)?.[0] ?? "";
+  const cssNumber = (rule, property) => Number(rule.match(new RegExp(`${property}:\\s*(\\d+(?:\\.\\d+)?)px`))?.[1]);
+  const cssSignedNumber = (rule, property) => Number(rule.match(new RegExp(`${property}:\\s*(-?\\d+(?:\\.\\d+)?)px`))?.[1]);
+  const cssUnitless = (rule, property) => Number(rule.match(new RegExp(`${property}:\\s*(\\d+(?:\\.\\d+)?)`))?.[1]);
 
   assert.doesNotMatch(body, /overflow(?:-x)?:\s*hidden/);
   assert.match(styles, /\.atlas-chart\s*\{[^}]*overflow:\s*hidden/);
-  assert.match(baseNode, /left:\s*clamp\(var\(--atlas-node-safe-x\),\s*var\(--node-x\),\s*calc\(100% - var\(--atlas-node-safe-x\)\)\)/);
   assert.doesNotMatch(styles, /\.atlas-map-node\[data-atlas-key=/);
-  assert.deepEqual(rightEdgeNodes.map(({ pageName, key }) => `${pageName}:${key}`), [
-    "learning:stage-2",
-    "learning:stage-3",
-    "learning:stage-4",
-    "living:paper-stars",
-    "living:mountain-letter",
-    "research:experiment-tide",
-    "research:engineering-map",
-  ]);
 
   const focusInset = 8;
   const activeScale = 1.08;
   const maxNodeParallax = 5 * .22;
+  const gap = cssNumber(baseNode, "gap");
+  const markerHeight = cssNumber(marker, "height");
+  const coreMarkerHeight = cssNumber(coreMarker, "height");
+  const lineHeight = cssUnitless(baseLabel, "line-height");
+  const baseUsesMarkerOffset = /transform:[^;}]*var\(--atlas-marker-offset-y\)/.test(baseNode);
+  const baseUsesMarkerOrigin = /transform-origin:[^;}]*var\(--atlas-marker-origin-y\)/.test(baseNode);
   const responsiveCases = [
-    { chartWidth: 1016, nodeWidth: cssNumber(baseNode, "width"), safeX: cssNumber(baseNode, "--atlas-node-safe-x") },
-    { chartWidth: 698, nodeWidth: cssNumber(baseNode, "width"), safeX: cssNumber(baseNode, "--atlas-node-safe-x") },
-    { chartWidth: 692, nodeWidth: cssNumber(mobileNode, "width"), safeX: cssNumber(mobileNode, "--atlas-node-safe-x") },
-    { chartWidth: 292, nodeWidth: cssNumber(compactNode, "width"), safeX: cssNumber(compactNode, "--atlas-node-safe-x") },
+    { viewport: "1440x900", chartWidth: 1016.8, chartHeight: 660, nodeWidth: cssNumber(baseNode, "width"), safeX: cssNumber(chart, "--atlas-node-safe-x") || cssNumber(baseNode, "--atlas-node-safe-x"), fontSize: cssNumber(baseLabel, "font-size"), coreFontSize: cssNumber(coreLabel, "font-size") },
+    { viewport: "1024x768", chartWidth: 698, chartHeight: 578, nodeWidth: cssNumber(baseNode, "width"), safeX: cssNumber(chart, "--atlas-node-safe-x") || cssNumber(baseNode, "--atlas-node-safe-x"), fontSize: cssNumber(baseLabel, "font-size"), coreFontSize: cssNumber(coreLabel, "font-size") },
+    { viewport: "720x900", chartWidth: 692, chartHeight: 460, nodeWidth: cssNumber(mobileNode, "width"), safeX: cssNumber(mobileChart, "--atlas-node-safe-x") || cssNumber(mobileNode, "--atlas-node-safe-x"), fontSize: cssNumber(mobileLabel, "font-size"), coreFontSize: cssNumber(coreLabel, "font-size") },
+    { viewport: "320x568", chartWidth: 292, chartHeight: 410, nodeWidth: cssNumber(compactNode, "width"), safeX: cssNumber(compactChart, "--atlas-node-safe-x") || cssNumber(compactNode, "--atlas-node-safe-x"), fontSize: cssNumber(compactLabel, "font-size"), coreFontSize: cssNumber(compactCoreLabel, "font-size") },
   ];
 
   assert.match(styles, /\.atlas-map-node\.is-active\s*\{[^}]*scale\(1\.08\)/);
   assert.match(styles, /\.atlas-control:focus-visible::after\s*\{[^}]*inset:\s*-8px/);
-  for (const { chartWidth, nodeWidth, safeX } of responsiveCases) {
+  let worstMiss = { distance: 0, label: "" };
+  for (const { viewport, chartWidth, chartHeight, nodeWidth, safeX, fontSize, coreFontSize } of responsiveCases) {
     assert.ok(Number.isFinite(nodeWidth));
     assert.ok(Number.isFinite(safeX));
-    for (const { pageName, key, xPercent } of rightEdgeNodes) {
-      const centerX = Math.min(chartWidth - safeX, chartWidth * xPercent / 100);
-      const focusRight = centerX + ((nodeWidth + focusInset * 2) * activeScale) / 2 + maxNodeParallax;
-      assert.ok(focusRight <= chartWidth, `${pageName}:${key} focus right edge ${focusRight}px exceeds ${chartWidth}px chart width`);
+    for (const [pageName, html] of Object.entries(pages)) {
+      const viewBox = html.match(/<svg class="atlas-routes"[^>]*viewBox="0 0 (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)"[^>]*>/);
+      assert.ok(viewBox, `${pageName} has no parseable atlas viewBox`);
+      const viewWidth = Number(viewBox[1]);
+      const viewHeight = Number(viewBox[2]);
+      const preserveNone = /preserveAspectRatio="none"/.test(viewBox[0]);
+      const coordinatePlane = /<div class="atlas-coordinate-plane">[\s\S]*?<svg class="atlas-routes"[\s\S]*?<button class="atlas-map-node[\s\S]*?<\/div>/.test(html);
+      const nodes = new Map([...html.matchAll(/<button class="(atlas-map-node[^"]*)" style="[^"]*--node-x:\s*(\d+(?:\.\d+)?)%;\s*--node-y:\s*(\d+(?:\.\d+)?)%"[^>]*data-atlas-key="([^"]+)"/g)]
+        .map((match) => [match[4], {
+          x: Number(match[2]) / 100,
+          y: Number(match[3]) / 100,
+          active: match[1].split(/\s+/).includes("is-active"),
+          core: match[1].split(/\s+/).includes("is-core"),
+        }]));
+      const routes = [...html.matchAll(/<path class="atlas-route[^"]*" data-atlas-route="([^"]+)" d="([^"]+)"/g)];
+
+      for (const [, key, data] of routes) {
+        const node = nodes.get(key);
+        assert.ok(node, `${pageName}:${key} has no matching node`);
+        const numbers = [...data.matchAll(/-?\d+(?:\.\d+)?/g)].map((match) => Number(match[0]));
+        const endpoint = { x: numbers.at(-2), y: numbers.at(-1) };
+        let routeX;
+        let routeY;
+        let nodeX;
+        if (coordinatePlane && preserveNone) {
+          const planeWidth = chartWidth - 2 * safeX;
+          routeX = safeX + endpoint.x / viewWidth * planeWidth;
+          routeY = endpoint.y / viewHeight * chartHeight;
+          nodeX = safeX + node.x * planeWidth;
+        } else {
+          const svg = { x: chartWidth * .01, y: chartHeight * .02, width: chartWidth * .98, height: chartHeight * .97 };
+          const scale = Math.min(svg.width / viewWidth, svg.height / viewHeight);
+          routeX = svg.x + (svg.width - viewWidth * scale) / 2 + endpoint.x * scale;
+          routeY = svg.y + (svg.height - viewHeight * scale) / 2 + endpoint.y * scale;
+          nodeX = Math.max(safeX, Math.min(chartWidth - safeX, node.x * chartWidth));
+        }
+        const currentMarkerHeight = node.core ? coreMarkerHeight : markerHeight;
+        const currentFontSize = node.core ? coreFontSize : fontSize;
+        const minimumButtonHeight = currentMarkerHeight + gap + currentFontSize * lineHeight;
+        const configuredOffset = cssSignedNumber(node.core ? coreNode : baseNode, "--atlas-marker-offset-y");
+        const configuredOrigin = cssNumber(node.core ? coreNode : baseNode, "--atlas-marker-origin-y");
+        const translateY = baseUsesMarkerOffset && Number.isFinite(configuredOffset)
+          ? configuredOffset
+          : -minimumButtonHeight / 2;
+        const transformOriginY = baseUsesMarkerOrigin && Number.isFinite(configuredOrigin)
+          ? configuredOrigin
+          : minimumButtonHeight / 2;
+        const scale = node.active ? activeScale : 1;
+        const markerCenterY = node.y * chartHeight
+          + transformOriginY
+          + scale * (currentMarkerHeight / 2 - transformOriginY)
+          + translateY;
+        const distance = Math.hypot(routeX - nodeX, routeY - markerCenterY);
+        if (distance > worstMiss.distance) {
+          worstMiss = { distance, label: `${viewport} ${pageName}:${key}` };
+        }
+
+        const focusLeft = nodeX - ((nodeWidth + focusInset * 2) * activeScale) / 2 - maxNodeParallax;
+        const focusRight = nodeX + ((nodeWidth + focusInset * 2) * activeScale) / 2 + maxNodeParallax;
+        assert.ok(focusLeft >= 0, `${viewport} ${pageName}:${key} focus left edge ${focusLeft}px escapes the chart`);
+        assert.ok(focusRight <= chartWidth, `${viewport} ${pageName}:${key} focus right edge ${focusRight}px exceeds the chart`);
+      }
     }
   }
+  assert.ok(worstMiss.distance <= 1, `${worstMiss.label} route misses its node by ${worstMiss.distance.toFixed(1)}px`);
 });
 
 class FakeElement {

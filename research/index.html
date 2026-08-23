@@ -34,18 +34,20 @@
 
     <section class="atlas-layout" aria-label="研究档案星图">
       <div class="atlas-chart" data-atlas-map role="group" aria-label="研究四分类星图">
-        <svg class="atlas-routes" viewBox="0 0 760 620" aria-hidden="true">
+        <div class="atlas-coordinate-plane">
+        <svg class="atlas-routes" viewBox="0 0 760 620" preserveAspectRatio="none" aria-hidden="true">
           <path class="atlas-coastline" d="M18 533 C111 470 202 547 288 505 S455 462 548 510 S666 487 744 542"/>
-          <path class="atlas-route is-active" data-atlas-route="question-beacon" d="M378 320 Q248 238 130 150"/>
-          <path class="atlas-route" data-atlas-route="experiment-tide" d="M378 320 Q505 220 628 138"/>
-          <path class="atlas-route" data-atlas-route="engineering-map" d="M378 320 Q515 400 640 488"/>
-          <path class="atlas-route" data-atlas-route="conclusion-islet" d="M378 320 Q246 416 124 490"/>
+          <path class="atlas-route is-active" data-atlas-route="question-beacon" d="M378 320 Q248 238 129.2 148.8"/>
+          <path class="atlas-route" data-atlas-route="experiment-tide" d="M378 320 Q505 220 623.2 136.4"/>
+          <path class="atlas-route" data-atlas-route="engineering-map" d="M378 320 Q515 400 630.8 477.4"/>
+          <path class="atlas-route" data-atlas-route="conclusion-islet" d="M378 320 Q246 416 121.6 483.6"/>
         </svg>
 
         <button class="atlas-map-node atlas-control is-active" style="--node-x: 17%; --node-y: 24%" type="button" data-atlas-control data-atlas-key="question-beacon" data-atlas-count="0 项" data-atlas-meta="研究起点" data-atlas-title="问题航标" data-atlas-description="先把真正要回答的问题和判断边界钉在航图上。" aria-pressed="true"><span>问题航标</span></button>
         <button class="atlas-map-node atlas-control is-dimmed" style="--node-x: 82%; --node-y: 22%" type="button" data-atlas-control data-atlas-key="experiment-tide" data-atlas-count="0 项" data-atlas-meta="实验记录" data-atlas-title="实验潮汐" data-atlas-description="保存对照条件、运行结果与失败证据，不让结论脱离实验。" aria-pressed="false"><span>实验潮汐</span></button>
         <button class="atlas-map-node atlas-control is-dimmed" style="--node-x: 83%; --node-y: 77%" type="button" data-atlas-control data-atlas-key="engineering-map" data-atlas-count="0 项" data-atlas-meta="工程实现" data-atlas-title="工程舱图" data-atlas-description="沉淀实现结构、数据流与可以复现的工程边界。" aria-pressed="false"><span>工程舱图</span></button>
         <button class="atlas-map-node atlas-control is-dimmed" style="--node-x: 16%; --node-y: 78%" type="button" data-atlas-control data-atlas-key="conclusion-islet" data-atlas-count="0 项" data-atlas-meta="结论与限制" data-atlas-title="结论星屿" data-atlas-description="把回答、限制和下一步放在同一个可回望的落点。" aria-pressed="false"><span>结论星屿</span></button>
+        </div>
       </div>
 
       <aside class="atlas-index" aria-labelledby="research-atlas-index">

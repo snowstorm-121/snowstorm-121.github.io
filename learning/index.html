@@ -34,16 +34,17 @@
 
     <section class="atlas-layout" aria-label="学习档案星图">
       <div class="atlas-chart" data-atlas-map role="group" aria-label="PyTorch 七阶段星图">
-        <svg class="atlas-routes" viewBox="0 0 760 620" aria-hidden="true">
+        <div class="atlas-coordinate-plane">
+        <svg class="atlas-routes" viewBox="0 0 760 620" preserveAspectRatio="none" aria-hidden="true">
           <path class="atlas-coastline" d="M24 530 C125 472 199 552 293 510 S476 458 554 512 S673 489 742 540"/>
           <path class="atlas-route is-active" data-atlas-route="pytorch" d="M380 310 C336 268 339 228 380 198 C422 228 424 270 380 310"/>
-          <path class="atlas-route" data-atlas-route="foundation" d="M380 310 Q246 259 116 184"/>
-          <path class="atlas-route" data-atlas-route="stage-1" d="M380 310 Q372 202 346 88"/>
-          <path class="atlas-route" data-atlas-route="stage-2" d="M380 310 Q514 218 628 145"/>
-          <path class="atlas-route" data-atlas-route="stage-3" d="M380 310 Q524 315 684 298"/>
-          <path class="atlas-route" data-atlas-route="stage-4" d="M380 310 Q510 402 610 474"/>
-          <path class="atlas-route" data-atlas-route="stage-5" d="M380 310 Q366 437 342 548"/>
-          <path class="atlas-route" data-atlas-route="stage-6" d="M380 310 Q242 397 128 438"/>
+          <path class="atlas-route" data-atlas-route="foundation" d="M380 310 Q246 259 114 179.8"/>
+          <path class="atlas-route" data-atlas-route="stage-1" d="M380 310 Q372 202 345.8 80.6"/>
+          <path class="atlas-route" data-atlas-route="stage-2" d="M380 310 Q514 218 630.8 142.6"/>
+          <path class="atlas-route" data-atlas-route="stage-3" d="M380 310 Q524 315 684 297.6"/>
+          <path class="atlas-route" data-atlas-route="stage-4" d="M380 310 Q510 402 608 471.2"/>
+          <path class="atlas-route" data-atlas-route="stage-5" d="M380 310 Q366 437 342 545.6"/>
+          <path class="atlas-route" data-atlas-route="stage-6" d="M380 310 Q242 397 129.2 434"/>
         </svg>
 
         <button class="atlas-map-node atlas-control is-core is-active" style="--node-x: 50%; --node-y: 50%" type="button" data-atlas-control data-atlas-key="pytorch" data-atlas-count="32 篇" data-atlas-meta="7 阶段" data-atlas-title="PyTorch" data-atlas-description="七个阶段与一份总览，共同构成仍在生长的学习主航线。" data-atlas-href="./pytorch/" aria-pressed="true"><span>PyTorch</span></button>
@@ -54,6 +55,7 @@
         <button class="atlas-map-node atlas-control is-dimmed" style="--node-x: 80%; --node-y: 76%" type="button" data-atlas-control data-atlas-key="stage-4" data-atlas-count="5 篇" data-atlas-meta="阶段 4" data-atlas-title="Transformer 与 BERT" data-atlas-description="从 Attention 机制抵达 BERT 最小微调闭环。" data-atlas-href="./pytorch/stage-4/" aria-pressed="false"><span>Transformer 与 BERT</span></button>
         <button class="atlas-map-node atlas-control is-dimmed" style="--node-x: 45%; --node-y: 88%" type="button" data-atlas-control data-atlas-key="stage-5" data-atlas-count="1 篇" data-atlas-meta="阶段 5" data-atlas-title="全量微调与 LoRA" data-atlas-description="在同一实验边界内比较全量微调与参数高效微调。" data-atlas-href="./pytorch/stage-5/" aria-pressed="false"><span>全量微调与 LoRA</span></button>
         <button class="atlas-map-node atlas-control is-dimmed" style="--node-x: 17%; --node-y: 70%" type="button" data-atlas-control data-atlas-key="stage-6" data-atlas-count="1 篇" data-atlas-meta="阶段 6" data-atlas-title="RAG" data-atlas-description="把检索、向量表示与生成连接成透明的最小闭环。" data-atlas-href="./pytorch/stage-6/" aria-pressed="false"><span>RAG</span></button>
+        </div>
       </div>
 
       <aside class="atlas-index" aria-labelledby="learning-atlas-index">

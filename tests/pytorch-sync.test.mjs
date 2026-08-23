@@ -226,6 +226,118 @@ async function runRemoteAssetReadRace({ source, output, assetPath, mode, replace
   return { ...exit, stderr };
 }
 
+async function runAttachmentSnapshotRace({ source, output, assetPath, replacement }) {
+  const childSource = `
+    import path from 'node:path';
+    import * as fs from 'node:fs/promises';
+    import { mock } from 'node:test';
+    const [moduleUrl, sourceRoot, outputRoot, assetPath, replacementHex] = process.argv.slice(1);
+    const target = path.resolve(assetPath);
+    const open = fs.open;
+    const readFile = fs.readFile;
+    const rename = fs.rename;
+    const writeFile = fs.writeFile;
+    let attachmentReads = 0;
+    const recordSnapshotRead = async (data) => {
+      attachmentReads += 1;
+      if (attachmentReads === 1) {
+        const pending = target + '.replacement';
+        await writeFile(pending, Buffer.from(replacementHex, 'hex'));
+        await rename(pending, target);
+      }
+      return data;
+    };
+    mock.module('node:fs/promises', {
+      namedExports: {
+        ...fs,
+        open: async (...args) => {
+          const handle = await open(...args);
+          const candidate = typeof args[0] === 'string' ? path.resolve(args[0]) : '';
+          if (candidate === target) {
+            const handleReadFile = handle.readFile.bind(handle);
+            handle.readFile = async (...readArgs) => recordSnapshotRead(await handleReadFile(...readArgs));
+          }
+          return handle;
+        },
+        readFile: async (...args) => {
+          const candidate = typeof args[0] === 'string' ? path.resolve(args[0]) : '';
+          if (candidate !== target) return readFile(...args);
+          return recordSnapshotRead(await readFile(...args));
+        },
+      },
+    });
+    const { synchronize } = await import(moduleUrl + '?attachment-snapshot-race=' + Date.now());
+    await synchronize({ sourceRoot, outputRoot });
+    process.stdout.write(String(attachmentReads));
+  `;
+  const child = spawn(process.execPath, [
+    '--experimental-test-module-mocks',
+    '--input-type=module',
+    '--eval',
+    childSource,
+    scriptUrl,
+    source,
+    output,
+    assetPath,
+    replacement.toString('hex'),
+  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let stdout = '';
+  let stderr = '';
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => { stdout += chunk; });
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const exit = await new Promise((resolve) => child.once('exit', (code, signal) => resolve({ code, signal })));
+  return { ...exit, stdout, stderr };
+}
+
+async function runAttachmentPreReadSymlinkRace({ source, output, assetPath, outsidePath }) {
+  const childSource = `
+    import path from 'node:path';
+    import * as fs from 'node:fs/promises';
+    import { mock } from 'node:test';
+    const [moduleUrl, sourceRoot, outputRoot, assetPath, outsidePath] = process.argv.slice(1);
+    const target = path.resolve(assetPath);
+    const realpath = fs.realpath;
+    const rm = fs.rm;
+    const symlink = fs.symlink;
+    let raced = false;
+    mock.module('node:fs/promises', {
+      namedExports: {
+        ...fs,
+        realpath: async (...args) => {
+          const resolved = await realpath(...args);
+          const candidate = typeof args[0] === 'string' ? path.resolve(args[0]) : '';
+          if (!raced && candidate === target) {
+            raced = true;
+            await rm(target);
+            await symlink(path.resolve(outsidePath), target);
+          }
+          return resolved;
+        },
+      },
+    });
+    const { synchronize } = await import(moduleUrl + '?attachment-pre-read-race=' + Date.now());
+    await synchronize({ sourceRoot, outputRoot });
+  `;
+  const child = spawn(process.execPath, [
+    '--experimental-test-module-mocks',
+    '--input-type=module',
+    '--eval',
+    childSource,
+    scriptUrl,
+    source,
+    output,
+    assetPath,
+    outsidePath,
+  ], { stdio: ['ignore', 'ignore', 'pipe'] });
+  let stderr = '';
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const exit = await new Promise((resolve) => child.once('exit', (code, signal) => resolve({ code, signal })));
+  return { ...exit, stderr };
+}
+
 test('discovers the real 32-note, seven-stage archive and preserves all 24 legacy slugs', async () => {
   const { collectSourceNotes, findRemoteImageUrls } = await loadSyncModule();
   const manifest = JSON.parse(await readFile(path.join(repoRoot, 'learning/pytorch/manifest.json'), 'utf8'));
@@ -238,6 +350,29 @@ test('discovers the real 32-note, seven-stage archive and preserves all 24 legac
   assert.equal(urls.size, 29);
   const routes = new Set(notes.map((note) => `notes/${note.stageKey}/${note.slug}.html`));
   for (const legacyRoute of legacyRoutes) assert.ok(routes.has(legacyRoute), `legacy URL changed: ${legacyRoute}`);
+});
+
+test('same-stage duplicate basenames keep source-path routes stable across unchanged syncs and --check', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await mkdir(path.join(source, 'Stage1', 'alpha'));
+  await mkdir(path.join(source, 'Stage1', 'beta'));
+  await writeFile(path.join(source, 'Stage1', 'alpha', 'Twin.md'), '# Alpha twin\n');
+  await writeFile(path.join(source, 'Stage1', 'beta', 'Twin.md'), '# Beta twin\n');
+
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const firstManifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8'));
+  const firstRoutes = new Map(firstManifest.notes.map(({ sourcePath, slug }) => [sourcePath, slug]));
+
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const secondManifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8'));
+  const secondRoutes = new Map(secondManifest.notes.map(({ sourcePath, slug }) => [sourcePath, slug]));
+
+  assert.equal(firstRoutes.get('Stage1/alpha/Twin.md'), 'twin');
+  assert.equal(firstRoutes.get('Stage1/beta/Twin.md'), 'twin-2');
+  assert.deepEqual(secondRoutes, firstRoutes, 'an unchanged sourcePath must keep ownership of its prior route');
+  await synchronize({ sourceRoot: source, outputRoot: output, check: true });
 });
 
 test('remote image discovery follows markdown-it image tokens and rejects protocol-relative sources', async (t) => {
@@ -564,6 +699,56 @@ test('scans private-key and arbitrary small UTF-8 referenced attachments before 
     /Stage1\/publish\.js:1.*credential/i,
   );
   await assert.rejects(readFile(path.join(output, 'manifest.json')), /ENOENT/);
+});
+
+test('one immutable attachment snapshot feeds secret scan, inline HTML, and download bytes', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const attachment = path.join(source, 'Stage1', 'Day5.py');
+  const original = Buffer.from('print("snapshot-v1")\n');
+  const replacement = Buffer.from('const credential = "AKIAIOSFODNN7EXAMPLE";\n');
+  await writeFile(path.join(source, 'Stage1', 'Main.md'), '# Main\n\n![[Day5.py]]\n');
+  await writeFile(attachment, original);
+
+  const result = await runAttachmentSnapshotRace({
+    source,
+    output,
+    assetPath: attachment,
+    replacement,
+  });
+
+  assert.equal(result.code, 0, result.stderr);
+  assert.deepEqual(
+    await readFile(path.join(output, 'assets', 'stage-1', 'Day5.py')),
+    original,
+    'a source replacement after snapshot must not change published download bytes',
+  );
+  const html = await readFile(path.join(output, 'notes', 'stage-1', 'main.html'), 'utf8');
+  assert.match(html, /snapshot-v1/);
+  assert.doesNotMatch(html, /AKIAIOSFODNN7EXAMPLE/);
+  assert.deepEqual(await readFile(attachment), replacement, 'the race fixture must replace the source path');
+  assert.equal(Number(result.stdout), 1, 'each referenced attachment path is read exactly once');
+});
+
+test('source attachment validation cannot be swapped to a symlink before snapshot read', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const attachment = path.join(source, 'Stage1', 'Day5.py');
+  const outside = path.join(root, 'outside.py');
+  await writeFile(path.join(source, 'Stage1', 'Main.md'), '# Main\n\n![[Day5.py]]\n');
+  await writeFile(attachment, 'print("inside")\n');
+  await writeFile(outside, 'print("outside")\n');
+
+  const result = await runAttachmentPreReadSymlinkRace({
+    source,
+    output,
+    assetPath: attachment,
+    outsidePath: outside,
+  });
+
+  assert.notEqual(result.code, 0, 'a pre-read symlink replacement must stop synchronization');
+  assert.match(result.stderr, /symlink|symbolic link|ELOOP|unsafe|changed/i);
+  await assert.rejects(readFile(path.join(output, 'manifest.json')), { code: 'ENOENT' });
 });
 
 test('scans every published text attachment or rejects it before writing output', async (t) => {

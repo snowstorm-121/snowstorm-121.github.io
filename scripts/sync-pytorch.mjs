@@ -1,19 +1,20 @@
 #!/usr/bin/env node
 
 import { createHash, randomUUID } from 'node:crypto';
+import { constants as fsConstants } from 'node:fs';
 import {
   access,
   cp,
   link,
   lstat,
   mkdir,
+  open,
   readFile,
   readdir,
   realpath,
   rename,
   rm,
   rmdir,
-  stat,
   writeFile,
 } from 'node:fs/promises';
 import path from 'node:path';
@@ -103,10 +104,22 @@ async function walkFiles(root) {
   return files;
 }
 
-function legacySlugMap(manifest) {
-  return new Map(
-    (manifest?.notes || []).map((note) => [`${note.stageKey}\0${note.title}`, note.slug]),
-  );
+function previousSlugIndexes(manifest) {
+  const bySourcePath = new Map();
+  const byStageTitle = new Map();
+  for (const note of manifest?.notes || []) {
+    if (typeof note.sourcePath === 'string' && note.sourcePath) {
+      const sourceKey = normalizePath(note.sourcePath).normalize('NFC');
+      const matches = bySourcePath.get(sourceKey) || [];
+      matches.push(note);
+      bySourcePath.set(sourceKey, matches);
+    }
+    const legacyKey = `${note.stageKey}\0${note.title}`;
+    const matches = byStageTitle.get(legacyKey) || [];
+    matches.push(note);
+    byStageTitle.set(legacyKey, matches);
+  }
+  return { bySourcePath, byStageTitle };
 }
 
 function classifyNote(relativePath) {
@@ -120,38 +133,53 @@ function classifyNote(relativePath) {
 export async function collectSourceNotes(sourceRoot, previousManifest = {}) {
   const root = path.resolve(sourceRoot);
   const files = (await walkFiles(root)).filter((file) => path.extname(file).toLowerCase() === '.md');
-  const legacy = legacySlugMap(previousManifest);
+  const previous = previousSlugIndexes(previousManifest);
+  const drafts = files.map((absolutePath) => {
+    const sourcePath = normalizePath(path.relative(root, absolutePath));
+    const title = sourceTitle(sourcePath);
+    return { ...classifyNote(sourcePath), title, sourcePath, absolutePath };
+  });
+  const currentLegacyCounts = new Map();
+  for (const draft of drafts) {
+    const key = `${draft.stageKey}\0${draft.title}`;
+    currentLegacyCounts.set(key, (currentLegacyCounts.get(key) || 0) + 1);
+  }
+  const assignments = drafts.map((draft) => {
+    const sourceMatches = previous.bySourcePath.get(draft.sourcePath.normalize('NFC')) || [];
+    let prior = sourceMatches.length === 1 ? sourceMatches[0] : null;
+    if (!prior) {
+      const legacyKey = `${draft.stageKey}\0${draft.title}`;
+      const legacyMatches = previous.byStageTitle.get(legacyKey) || [];
+      if (currentLegacyCounts.get(legacyKey) === 1 && legacyMatches.length === 1) {
+        [prior] = legacyMatches;
+      }
+    }
+    return { ...draft, previousSlug: prior?.slug };
+  });
   const notes = [];
   const reservedLegacyRoutes = new Set();
-  for (const absolutePath of files) {
-    const sourcePath = normalizePath(path.relative(root, absolutePath));
-    const title = sourceTitle(sourcePath);
-    const stage = classifyNote(sourcePath);
-    const legacySlug = legacy.get(`${stage.stageKey}\0${title}`);
-    if (legacySlug) reservedLegacyRoutes.add(caseFoldPath(`${stage.stageKey}/${legacySlug}`));
+  for (const draft of assignments) {
+    if (draft.previousSlug) {
+      reservedLegacyRoutes.add(caseFoldPath(`${draft.stageKey}/${draft.previousSlug}`));
+    }
   }
   const usedRoutes = new Set();
-  for (const absolutePath of files) {
-    const sourcePath = normalizePath(path.relative(root, absolutePath));
-    const title = sourceTitle(sourcePath);
-    const stage = classifyNote(sourcePath);
-    const legacySlug = legacy.get(`${stage.stageKey}\0${title}`);
-    const baseSlug = legacySlug || slugify(title);
+  for (const draft of assignments) {
+    const baseSlug = draft.previousSlug || slugify(draft.title);
     let slug = baseSlug;
     let suffix = 2;
-    if (legacySlug) reservedLegacyRoutes.delete(caseFoldPath(`${stage.stageKey}/${legacySlug}`));
+    if (draft.previousSlug) {
+      reservedLegacyRoutes.delete(caseFoldPath(`${draft.stageKey}/${draft.previousSlug}`));
+    }
     while (
-      usedRoutes.has(caseFoldPath(`${stage.stageKey}/${slug}`))
-      || reservedLegacyRoutes.has(caseFoldPath(`${stage.stageKey}/${slug}`))
+      usedRoutes.has(caseFoldPath(`${draft.stageKey}/${slug}`))
+      || reservedLegacyRoutes.has(caseFoldPath(`${draft.stageKey}/${slug}`))
     ) slug = `${baseSlug}-${suffix++}`;
-    usedRoutes.add(caseFoldPath(`${stage.stageKey}/${slug}`));
+    usedRoutes.add(caseFoldPath(`${draft.stageKey}/${slug}`));
     notes.push({
-      ...stage,
-      title,
+      ...draft,
       slug,
-      sourcePath,
-      absolutePath,
-      content: await readFile(absolutePath, 'utf8'),
+      content: await readFile(draft.absolutePath, 'utf8'),
     });
   }
   notes.sort((a, b) => {
@@ -232,7 +260,7 @@ export function findRemoteImageUrls(markdown) {
   return [...urls].sort();
 }
 
-async function scanSecrets(notes, sourceRoot, publishedAttachments) {
+async function scanSecrets(notes, attachmentSnapshots) {
   const rules = [
     ['private key', /-----BEGIN (?:(?:RSA|EC|OPENSSH|DSA|ENCRYPTED|PGP) )?PRIVATE KEY(?: BLOCK)?-----/],
     ['AWS credential', /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/],
@@ -242,11 +270,10 @@ async function scanSecrets(notes, sourceRoot, publishedAttachments) {
   ];
   const findings = [];
   const sources = notes.map((note) => ({ sourcePath: note.sourcePath, content: note.content }));
-  for (const absolutePath of publishedAttachments) {
-    const buffer = await readFile(absolutePath);
+  for (const snapshot of new Set(attachmentSnapshots.values())) {
     sources.push({
-      sourcePath: normalizePath(path.relative(sourceRoot, absolutePath)),
-      content: buffer.toString('latin1'),
+      sourcePath: snapshot.sourcePath,
+      content: snapshot.buffer.toString('latin1'),
     });
   }
   for (const source of sources) {
@@ -366,6 +393,90 @@ function registerLocalAsset(localAssets, destination, source) {
     throw new Error(`Attachment destination collision at ${destination}: ${existing[1]} and ${source}`);
   }
   if (!existing) localAssets.set(destination, source);
+}
+
+async function validateSourceRoot(sourceRoot) {
+  const root = path.resolve(sourceRoot);
+  const info = await lstat(root);
+  if (info.isSymbolicLink()) throw new Error(`Unsafe symlink in source path: ${root}`);
+  if (!info.isDirectory()) throw new Error(`Source is not a directory: ${root}`);
+  return realpath(root);
+}
+
+async function snapshotLocalAssets(sourceRoot, sourceRootRealPath, localAssets) {
+  const root = path.resolve(sourceRoot);
+  const bySource = new Map();
+  const snapshots = new Map();
+  for (const [destination, source] of localAssets) {
+    const absolute = path.resolve(source);
+    const relative = path.relative(root, absolute);
+    if (!relative || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+      throw new Error(`Unsafe source attachment path: ${source}`);
+    }
+    let snapshot = bySource.get(absolute);
+    if (!snapshot) {
+      let current = root;
+      const parts = relative.split(path.sep);
+      for (const [index, part] of parts.entries()) {
+        current = path.join(current, part);
+        const info = await lstat(current);
+        if (info.isSymbolicLink()) {
+          throw new Error(`Unsafe symlink in source path: ${normalizePath(path.relative(root, current))}`);
+        }
+        if (index < parts.length - 1 && !info.isDirectory()) {
+          throw new Error(`Unsafe source attachment path: ${normalizePath(relative)}`);
+        }
+        if (index === parts.length - 1 && !info.isFile()) {
+          throw new Error(`Source attachment is not a regular file: ${normalizePath(relative)}`);
+        }
+        const currentRealPath = await realpath(current);
+        if (
+          currentRealPath !== sourceRootRealPath
+          && !currentRealPath.startsWith(`${sourceRootRealPath}${path.sep}`)
+        ) {
+          throw new Error(`Unsafe source attachment path: ${normalizePath(relative)}`);
+        }
+      }
+      let handle;
+      try {
+        try {
+          handle = await open(absolute, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+        } catch (error) {
+          if (error.code === 'ELOOP') {
+            throw new Error(`Unsafe symlink in source path: ${normalizePath(relative)}`, { cause: error });
+          }
+          throw error;
+        }
+        const openedInfo = await handle.stat();
+        if (!openedInfo.isFile()) {
+          throw new Error(`Source attachment is not a regular file: ${normalizePath(relative)}`);
+        }
+        const pathInfo = await lstat(absolute);
+        if (pathInfo.isSymbolicLink()) {
+          throw new Error(`Unsafe symlink in source path: ${normalizePath(relative)}`);
+        }
+        const currentRealPath = await realpath(absolute);
+        if (
+          currentRealPath !== sourceRootRealPath
+          && !currentRealPath.startsWith(`${sourceRootRealPath}${path.sep}`)
+        ) {
+          throw new Error(`Unsafe source attachment path: ${normalizePath(relative)}`);
+        }
+        if (openedInfo.dev !== pathInfo.dev || openedInfo.ino !== pathInfo.ino) {
+          throw new Error(`Source attachment changed during snapshot: ${normalizePath(relative)}`);
+        }
+        snapshot = {
+          sourcePath: normalizePath(relative),
+          buffer: await handle.readFile(),
+        };
+      } finally {
+        await handle?.close();
+      }
+      bySource.set(absolute, snapshot);
+    }
+    snapshots.set(destination, snapshot);
+  }
+  return snapshots;
 }
 
 function remoteHttpUrl(value) {
@@ -683,7 +794,7 @@ function preprocessMarkdown(markdown, context, md) {
             const url = `${SITE_ROOT}/${destination.split('/').map(encodeURIComponent).join('/')}`;
             if (extension === '.py' && embed) {
               const token = `PYTORCH_SOURCE_ATTACHMENT_${placeholders.length}`;
-              placeholders.push({ token, asset, url, label });
+              placeholders.push({ token, destination, url, label });
               return token;
             }
             if (embed) return `![${escapeMarkdownLabel(label)}](${url})`;
@@ -819,7 +930,9 @@ async function renderNote(note, context) {
   };
   let html = md.render(markdown, {}).replaceAll('<p></p>\n', '');
   for (const placeholder of placeholders) {
-    const source = await readFile(placeholder.asset, 'utf8');
+    const snapshot = context.attachmentSnapshots.get(placeholder.destination);
+    if (!snapshot) throw new Error(`Missing attachment snapshot: ${placeholder.destination}`);
+    const source = snapshot.buffer.toString('utf8');
     const details = `<details class="source-attachment"><summary>${escapeHtml(placeholder.label)}</summary><a href="${placeholder.url}" download>Download source</a><pre><code class="language-python">${escapeHtml(source)}</code></pre></details>`;
     html = html.replace(`<p>${placeholder.token}</p>`, details).replaceAll(placeholder.token, details);
   }
@@ -1717,7 +1830,7 @@ export async function synchronize({
   if (!sourceRoot) throw new Error('Missing required --source directory');
   const resolvedSource = path.resolve(sourceRoot);
   const resolvedOutput = path.resolve(outputRoot);
-  if (!(await stat(resolvedSource)).isDirectory()) throw new Error(`Source is not a directory: ${resolvedSource}`);
+  const resolvedSourceRealPath = await validateSourceRoot(resolvedSource);
   await mkdir(path.dirname(resolvedOutput), { recursive: true });
   await recoverPublishTransaction(resolvedOutput);
   const { owner, transactionRoot } = await createOwnedPublishTransaction(resolvedOutput);
@@ -1738,7 +1851,12 @@ export async function synchronize({
       assetFiles,
       localAssets,
     });
-    await scanSecrets(notes, resolvedSource, [...new Set(localAssets.values())]);
+    const attachmentSnapshots = await snapshotLocalAssets(
+      resolvedSource,
+      resolvedSourceRealPath,
+      localAssets,
+    );
+    await scanSecrets(notes, attachmentSnapshots);
     const remote = await buildRemoteAssets(remoteUrls, previousManifest, {
       outputRoot: resolvedOutput,
       fetchRemoteAssets,
@@ -1751,6 +1869,7 @@ export async function synchronize({
         noteIndex,
         assetFiles,
         localAssets,
+        attachmentSnapshots,
         remoteAssets: remote.remoteAssets,
         warnings,
       });
@@ -1758,7 +1877,7 @@ export async function synchronize({
       outputs.set(`notes/${note.stageKey}/${note.slug}.html`, renderArticle(note, html, readingSequence));
       outputs.set(`markdown/${note.stageKey}/${note.slug}.md`, note.content);
     }
-    for (const [destination, source] of localAssets) outputs.set(destination, await readFile(source));
+    for (const [destination, snapshot] of attachmentSnapshots) outputs.set(destination, snapshot.buffer);
     const stages = [...STAGES.values()];
     outputs.set('index.html', renderArchiveIndex(notes, stages));
     for (const stage of stages) {
@@ -1768,8 +1887,8 @@ export async function synchronize({
       version: MANIFEST_VERSION,
       stages,
       notes: notes.map(notePublicData),
-      attachments: [...localAssets.entries()].map(([destination, source]) => ({
-        sourcePath: normalizePath(path.relative(resolvedSource, source)),
+      attachments: [...attachmentSnapshots.entries()].map(([destination, snapshot]) => ({
+        sourcePath: snapshot.sourcePath,
         path: destination,
       })).sort((a, b) => COLLATOR.compare(a.path, b.path)),
       remoteAssets: remote.manifestEntries,

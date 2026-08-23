@@ -103,6 +103,7 @@ button { color: inherit; font: inherit; }
   min-height: min(660px, calc(100vh - 190px));
 }
 .atlas-chart {
+  --atlas-node-safe-x: 73px;
   --atlas-parallax-x: 0px;
   --atlas-parallax-y: 0px;
   position: relative;
@@ -113,6 +114,10 @@ button { color: inherit; font: inherit; }
   background: transparent;
   box-shadow: none;
   isolation: isolate;
+}
+.atlas-coordinate-plane {
+  position: absolute;
+  inset: 0 var(--atlas-node-safe-x);
 }
 .atlas-chart::before {
   position: absolute;
@@ -140,12 +145,12 @@ button { color: inherit; font: inherit; }
 }
 .atlas-routes {
   position: absolute;
-  inset: 2% 1% 1%;
-  width: 98%;
-  height: 97%;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   overflow: visible;
   pointer-events: none;
-  transform: translate(calc(var(--atlas-parallax-x) * .5), calc(var(--atlas-parallax-y) * .5));
+  transform: translate(calc(var(--atlas-parallax-x) * .22), calc(var(--atlas-parallax-y) * .22));
   transition: transform .7s cubic-bezier(.2, .8, .2, 1);
 }
 .atlas-route {
@@ -168,12 +173,13 @@ button { color: inherit; font: inherit; }
 .atlas-coastline { fill: none; stroke: rgba(132, 181, 211, .12); stroke-width: 1; }
 
 .atlas-map-node {
-  --atlas-node-safe-x: 73px;
+  --atlas-marker-offset-y: -4.5px;
+  --atlas-marker-origin-y: 4.5px;
   --node-x: 50%;
   --node-y: 50%;
   position: absolute;
   top: var(--node-y);
-  left: clamp(var(--atlas-node-safe-x), var(--node-x), calc(100% - var(--atlas-node-safe-x)));
+  left: var(--node-x);
   display: grid;
   justify-items: center;
   gap: 8px;
@@ -182,7 +188,8 @@ button { color: inherit; font: inherit; }
   border: 0;
   background: transparent;
   cursor: pointer;
-  transform: translate(calc(-50% + var(--atlas-parallax-x) * .22), calc(-50% + var(--atlas-parallax-y) * .22));
+  transform: translate(calc(-50% + var(--atlas-parallax-x) * .22), calc(var(--atlas-marker-offset-y) + var(--atlas-parallax-y) * .22));
+  transform-origin: 50% var(--atlas-marker-origin-y);
   transition: opacity .45s ease, filter .45s ease, transform .65s cubic-bezier(.2, 1.35, .32, 1);
 }
 .atlas-map-node::before {
@@ -205,9 +212,10 @@ button { color: inherit; font: inherit; }
   text-align: center;
   text-shadow: 0 2px 8px #040b14;
 }
+.atlas-map-node.is-core { --atlas-marker-offset-y: -7.5px; --atlas-marker-origin-y: 7.5px; }
 .atlas-map-node.is-core::before { width: 15px; height: 15px; border-color: var(--atlas-gold); background: #f0d7b1; }
 .atlas-map-node.is-core span { color: var(--atlas-ink); font-size: 16px; }
-.atlas-map-node.is-active { z-index: 2; filter: drop-shadow(0 0 10px rgba(222, 196, 159, .5)); transform: translate(calc(-50% + var(--atlas-parallax-x) * .22), calc(-50% + var(--atlas-parallax-y) * .22)) scale(1.08); }
+.atlas-map-node.is-active { z-index: 2; filter: drop-shadow(0 0 10px rgba(222, 196, 159, .5)); transform: translate(calc(-50% + var(--atlas-parallax-x) * .22), calc(var(--atlas-marker-offset-y) + var(--atlas-parallax-y) * .22)) scale(1.08); }
 .atlas-map-node.is-active::before { border-color: #f4ddba; background: #f1d7af; box-shadow: 0 0 0 8px rgba(222, 196, 159, .1), 0 0 28px rgba(222, 196, 159, .7); }
 .atlas-map-node.is-dimmed::before {
   border-color: rgba(140, 181, 208, .48);
@@ -340,19 +348,19 @@ body.archive-atlas-page [data-atlas-directory] li { margin: 0; padding: 0; borde
   .atlas-intro { margin-top: 10px; text-align: left; }
   .atlas-layout { grid-template-columns: 1fr; gap: 12px; }
   .atlas-layout > * { min-width: 0; }
-  .atlas-chart { order: 1; min-height: 460px; }
+  .atlas-chart { --atlas-node-safe-x: 61px; order: 1; min-height: 460px; }
   .atlas-index { order: 2; width: 100%; max-width: 100%; padding: 22px 18px; }
   .atlas-directory { grid-template-columns: repeat(4, minmax(118px, 1fr)); overflow-x: auto; padding-bottom: 7px; scroll-snap-type: x proximity; }
   .atlas-directory li { scroll-snap-align: start; }
   body.archive-atlas-page [data-atlas-directory] { grid-template-columns: repeat(4, minmax(118px, 1fr)); overflow-x: auto; padding-bottom: 7px; scroll-snap-type: x proximity; }
   body.archive-atlas-page [data-atlas-directory] li { scroll-snap-align: start; }
-  .atlas-map-node { --atlas-node-safe-x: 61px; width: 94px; }
+  .atlas-map-node { width: 94px; }
   .atlas-map-node span { max-width: 94px; font-size: 10px; }
 }
 
 @media (max-width: 420px) {
-  .atlas-chart { min-height: 410px; }
-  .atlas-map-node { --atlas-node-safe-x: 55px; width: 82px; }
+  .atlas-chart { --atlas-node-safe-x: 55px; min-height: 410px; }
+  .atlas-map-node { width: 82px; }
   .atlas-map-node span { max-width: 82px; font-size: 9px; }
   .atlas-map-node.is-core span { font-size: 14px; }
 }
@@ -361,6 +369,6 @@ body.archive-atlas-page [data-atlas-directory] li { margin: 0; padding: 0; borde
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .atlas-chart::before, .atlas-routes, .atlas-index-button.is-active { transform: none !important; }
-  .atlas-map-node, .atlas-map-node.is-active { transform: translate(-50%, -50%) !important; }
+  .atlas-map-node, .atlas-map-node.is-active { transform: translate(-50%, var(--atlas-marker-offset-y)) !important; }
   .atlas-route, .atlas-route.is-active { stroke-dashoffset: 0; }
 }

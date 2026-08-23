@@ -34,18 +34,20 @@
 
     <section class="atlas-layout" aria-label="生活档案星图" data-atlas-root data-atlas-selected="night-ripple">
       <div class="atlas-chart" data-atlas-map role="group" aria-label="生活四分类星图">
-        <svg class="atlas-routes" viewBox="0 0 760 620" aria-hidden="true">
+        <div class="atlas-coordinate-plane">
+        <svg class="atlas-routes" viewBox="0 0 760 620" preserveAspectRatio="none" aria-hidden="true">
           <path class="atlas-coastline" d="M18 533 C111 470 202 547 288 505 S455 462 548 510 S666 487 744 542"/>
-          <path class="atlas-route is-active" data-atlas-route="night-ripple" d="M378 320 Q248 238 130 150"/>
-          <path class="atlas-route" data-atlas-route="paper-stars" d="M378 320 Q505 220 628 138"/>
-          <path class="atlas-route" data-atlas-route="mountain-letter" d="M378 320 Q515 400 640 488"/>
-          <path class="atlas-route" data-atlas-route="year-trace" d="M378 320 Q246 416 124 490"/>
+          <path class="atlas-route is-active" data-atlas-route="night-ripple" d="M378 320 Q248 238 129.2 148.8"/>
+          <path class="atlas-route" data-atlas-route="paper-stars" d="M378 320 Q505 220 623.2 136.4"/>
+          <path class="atlas-route" data-atlas-route="mountain-letter" d="M378 320 Q515 400 630.8 477.4"/>
+          <path class="atlas-route" data-atlas-route="year-trace" d="M378 320 Q246 416 121.6 483.6"/>
         </svg>
 
         <button class="atlas-map-node atlas-control is-active" style="--node-x: 17%; --node-y: 24%" type="button" data-atlas-control data-atlas-key="night-ripple" data-atlas-count="0 篇" data-atlas-meta="个人思考与随笔" data-atlas-title="长夜微澜" data-atlas-description="留给独处、迟疑与未必需要结论的个人思考。" aria-pressed="true"><span>长夜微澜</span></button>
         <button class="atlas-map-node atlas-control is-dimmed" style="--node-x: 82%; --node-y: 22%" type="button" data-atlas-control data-atlas-key="paper-stars" data-atlas-count="0 篇" data-atlas-meta="读书笔记" data-atlas-title="纸上星河" data-atlas-description="让读过的句子与自己的追问在纸上重新相遇。" aria-pressed="false"><span>纸上星河</span></button>
         <button class="atlas-map-node atlas-control is-dimmed" style="--node-x: 83%; --node-y: 77%" type="button" data-atlas-control data-atlas-key="mountain-letter" data-atlas-count="0 篇" data-atlas-meta="旅行日记" data-atlas-title="山河来信" data-atlas-description="记录行走时遇见的风景，以及离开以后才懂得的回声。" aria-pressed="false"><span>山河来信</span></button>
         <button class="atlas-map-node atlas-control is-dimmed" style="--node-x: 16%; --node-y: 78%" type="button" data-atlas-control data-atlas-key="year-trace" data-atlas-count="0 篇" data-atlas-meta="年度与阶段记录" data-atlas-title="岁序留痕" data-atlas-description="为一年与一个阶段留下可以回望的刻度。" aria-pressed="false"><span>岁序留痕</span></button>
+        </div>
       </div>
 
       <aside class="atlas-index" aria-labelledby="living-atlas-index">
