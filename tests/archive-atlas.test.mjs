@@ -29,9 +29,9 @@ const cssDeclarationValue = (source, property) => cssDeclarations(
 )
   .filter((declaration) => declaration.property === property.toLowerCase())
   .at(-1)?.value;
-const cssColor = (value) => {
+const cssColor = (value, source = styles) => {
   const variable = value?.trim().match(/^var\((--[\w-]+)\)$/);
-  if (variable) return cssColor(cssDeclarationValue(rule(styles, ":root"), variable[1]));
+  if (variable) return cssColor(cssDeclarationValue(lastRuleInContext(source, ":root"), variable[1]), source);
   const hex = value?.trim().match(/^#([\da-f]{3}|[\da-f]{6})$/i)?.[1];
   if (hex) {
     const normalized = hex.length === 3 ? [...hex].map((digit) => `${digit}${digit}`).join("") : hex;
@@ -68,160 +68,285 @@ const saturateColor = (color, amount) => {
     0,
   )))).concat(1);
 };
-const positionalGeometryProperties = new Set([
-  "position",
-  "top",
-  "right",
-  "bottom",
-  "left",
-  "inset",
-  "inset-block",
-  "inset-block-start",
-  "inset-block-end",
-  "inset-inline",
-  "inset-inline-start",
-  "inset-inline-end",
-  "margin",
-  "margin-top",
-  "margin-right",
-  "margin-bottom",
-  "margin-left",
-  "margin-block",
-  "margin-block-start",
-  "margin-block-end",
-  "margin-inline",
-  "margin-inline-start",
-  "margin-inline-end",
-  "transform",
-  "transform-origin",
-  "translate",
-  "rotate",
-  "scale",
-  "offset",
-  "offset-path",
-  "offset-distance",
-  "offset-position",
-  "offset-anchor",
-  "offset-rotate",
-  "width",
-  "height",
-  "min-width",
-  "min-height",
-  "max-width",
-  "max-height",
-  "padding",
-  "padding-top",
-  "padding-right",
-  "padding-bottom",
-  "padding-left",
-  "padding-block",
-  "padding-block-start",
-  "padding-block-end",
-  "padding-inline",
-  "padding-inline-start",
-  "padding-inline-end",
-  "box-sizing",
-  "border",
-  "border-width",
-  "border-top",
-  "border-right",
-  "border-bottom",
-  "border-left",
-  "border-top-width",
-  "border-right-width",
-  "border-bottom-width",
-  "border-left-width",
-  "display",
-  "grid",
-  "grid-template",
-  "grid-template-columns",
-  "grid-template-rows",
-  "grid-template-areas",
-  "grid-auto-flow",
-  "grid-auto-columns",
-  "grid-auto-rows",
-  "grid-column",
-  "grid-row",
-  "grid-area",
-  "gap",
-  "row-gap",
-  "column-gap",
-  "justify-items",
-  "justify-content",
-  "justify-self",
-  "align-items",
-  "align-content",
-  "align-self",
-  "place-items",
-  "place-content",
-  "place-self",
-  "--node-x",
-  "--node-y",
-  "--atlas-marker-offset-y",
-  "--atlas-marker-origin-y",
-]);
-const isProtectedGeometryProperty = (selector, property) => (
-  positionalGeometryProperties.has(property)
-  && !(selector === ".atlas-map-node" && property === "width")
-);
-const cssBlockContains = (source, prefix, index) => {
-  const start = source.indexOf(prefix);
-  if (start < 0) return false;
-  const open = source.indexOf("{", start + prefix.length);
-  let depth = 0;
-  for (let cursor = open; cursor < source.length; cursor += 1) {
-    if (source[cursor] === "{") depth += 1;
-    if (source[cursor] === "}" && --depth === 0) return index > open && index < cursor;
-  }
-  return false;
+const activeMetadataContrast = (source) => {
+  const body = lastRuleInContext(source, "body.archive-atlas-page");
+  const stars = lastRuleInContext(source, "body.archive-atlas-page::before");
+  const index = lastRuleInContext(source, ".atlas-index");
+  const active = lastRuleInContext(source, ".atlas-index-button.is-active");
+  const defaultSmall = lastRuleInContext(source, ".atlas-index-button small");
+  const activeSmall = lastRuleInContext(source, ".atlas-index-button.is-active small");
+  const bodyColors = cssColors(cssDeclarationValue(body, "background"));
+  const bodyBases = bodyColors.filter((color) => color[3] === 1);
+  const bodyOverlays = bodyColors.filter((color) => color[3] < 1);
+  const starOpacity = Number(cssDeclarationValue(stars, "opacity"));
+  const starLayers = cssColors(cssDeclarationValue(stars, "background-image"))
+    .map((color) => [...color.slice(0, 3), color[3] * starOpacity]);
+  const indexLayers = cssColors(cssDeclarationValue(index, "background"));
+  const backdropFilter = cssDeclarationValue(index, "backdrop-filter");
+  const blurRadius = Number(backdropFilter?.match(/\bblur\(([\d.]+)px\)/)?.[1]);
+  const saturation = Number(backdropFilter?.match(/\bsaturate\(([\d.]+)%\)/)?.[1]) / 100;
+  const activeBackground = cssColor(cssDeclarationValue(active, "background"), source);
+  const activeText = cssColor(
+    cssDeclarationValue(activeSmall, "color") ?? cssDeclarationValue(defaultSmall, "color"),
+    source,
+  );
+
+  assert.ok(bodyBases.length > 0, "body background must expose an opaque base color");
+  assert.ok(bodyOverlays.length > 0, "body background must expose its translucent atmospheric layers");
+  assert.ok(starLayers.length > 0 && Number.isFinite(starOpacity), "body star backdrop must expose colors and opacity");
+  assert.ok(indexLayers.length > 0, "index glass must expose parseable background layers");
+  assert.ok(blurRadius > 0 && Number.isFinite(saturation), "index backdrop filter must expose blur and saturation");
+
+  const ratios = bodyBases.map((base) => {
+    let background = base;
+    for (const layer of [...bodyOverlays].reverse()) background = compositeColor(layer, background);
+    for (const layer of [...starLayers].reverse()) background = compositeColor(layer, background);
+    background = saturateColor(background, saturation);
+    for (const layer of [...indexLayers].reverse()) background = compositeColor(layer, background);
+    background = compositeColor(activeBackground, background);
+    return contrastRatio(compositeColor(activeText, background), background);
+  });
+  return { activeSmall, worstContrast: Math.min(...ratios) };
 };
-const isSafeSharedGeometryOverride = (source, index, selectors, selector, { property, value }) => {
-  const normalized = value.toLowerCase().replace(/\s+/g, " ").trim();
-  if (
-    property !== "transform"
-    || !cssBlockContains(source, "@media (prefers-reduced-motion: reduce)", index)
-  ) return false;
-  const signature = selectors.join(", ");
-  if (selector === ".atlas-routes") {
-    return signature === ".atlas-chart::before, .atlas-routes, .atlas-index-button.is-active"
-      && normalized === "none !important";
+const normalizeCss = (source) => source.replace(/\s+/g, " ").trim();
+const closingBrace = (source, open) => {
+  let depth = 0;
+  for (let index = open; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    if (source[index] === "}" && --depth === 0) return index;
   }
-  if (selector === ".atlas-map-node" || selector === ".atlas-map-node.is-active") {
-    return signature === ".atlas-map-node, .atlas-map-node.is-active"
-      && normalized === "translate(-50%, var(--atlas-marker-offset-y)) !important";
-  }
-  return false;
+  throw new Error("unclosed CSS block");
+};
+const cssRuleRecords = (source) => {
+  const records = [];
+  const parse = (scope, context = "base") => {
+    let cursor = 0;
+    while (cursor < scope.length) {
+      const open = scope.indexOf("{", cursor);
+      if (open < 0) break;
+      const header = normalizeCss(scope.slice(cursor, open));
+      const close = closingBrace(scope, open);
+      const body = scope.slice(open + 1, close);
+      if (/^@(?:-[\w]+-)?keyframes\b/i.test(header)) {
+        records.push({ kind: "keyframes", context, selector: header, body: normalizeCss(body) });
+      } else if (/^@(?:media|supports|container|layer|scope|starting-style)\b/i.test(header)) {
+        const nestedContext = context === "base" ? header : `${context} > ${header}`;
+        parse(body, nestedContext);
+      } else if (header.startsWith("@")) {
+        records.push({ kind: "at-rule", context, selector: header, body: normalizeCss(body) });
+      } else if (header) {
+        records.push({ kind: "rule", context, selector: header, body: normalizeCss(body) });
+      }
+      cursor = close + 1;
+    }
+    const tail = normalizeCss(scope.slice(cursor));
+    if (tail) records.push({ kind: "statement", context, selector: tail, body: "" });
+  };
+  parse(source.replace(/\/\*[\s\S]*?\*\//g, ""));
+  return records;
+};
+const lastRuleInContext = (source, selector, context = "base") => {
+  const winner = cssRuleRecords(source)
+    .filter((record) => record.kind === "rule" && record.context === context && record.selector === selector)
+    .at(-1);
+  return winner ? `${selector} {${winner.body}}` : "";
+};
+const isAtlasGeometrySelector = (selector) => (
+  /\.atlas-(?:chart|coordinate-plane|routes?|coastline|map-node|control)(?![\w-])/.test(selector)
+  || /\[data-atlas-(?:map|control)(?:\]|[~|^$*]?=)/.test(selector)
+  || /(?:^|[\s>+~,(])button(?=[\s.#[:>+~),]|$)/.test(selector)
+  || [
+    ":root",
+    "*",
+    "html",
+    "body.archive-atlas-page",
+    "body.archive-atlas-page::before",
+    "[hidden]",
+    ".archive-atlas-page .library-shell",
+    ".atlas-layout",
+    ".atlas-layout > *",
+  ].includes(selector)
+);
+const atlasStylesheetShape = `rule\tbase\t:root
+rule\tbase\t*
+rule\tbase\thtml
+rule\tbase\tbody.archive-atlas-page
+rule\tbase\tbody.archive-atlas-page::before
+rule\tbase\ta
+rule\tbase\tbutton
+rule\tbase\t[hidden]
+rule\tbase\t.atlas-header
+rule\tbase\t.atlas-home, .atlas-current, .atlas-switcher a
+rule\tbase\t.atlas-home
+rule\tbase\t.atlas-home:hover, .atlas-home:focus-visible
+rule\tbase\t.atlas-current
+rule\tbase\t.atlas-switcher
+rule\tbase\t.atlas-switcher a
+rule\tbase\t.atlas-switcher a:hover, .atlas-switcher a:focus-visible, .atlas-switcher a[aria-current="page"]
+rule\tbase\t.archive-atlas-page .library-shell
+rule\tbase\t.atlas-prologue
+rule\tbase\t.atlas-kicker
+rule\tbase\t.atlas-prologue h1
+rule\tbase\t.atlas-intro
+rule\tbase\t.atlas-layout
+rule\tbase\t.atlas-chart
+rule\tbase\t.atlas-coordinate-plane
+rule\tbase\t.atlas-chart::before
+rule\tbase\t.atlas-chart::after
+rule\tbase\t.atlas-routes
+rule\tbase\t.atlas-route
+rule\tbase\t.atlas-route.is-active
+rule\tbase\t.atlas-coastline
+rule\tbase\t.atlas-map-node
+rule\tbase\t.atlas-map-node::before
+rule\tbase\t.atlas-map-node:nth-of-type(2n)::before
+rule\tbase\t.atlas-map-node span
+rule\tbase\t.atlas-map-node.is-core
+rule\tbase\t.atlas-map-node.is-core::before
+rule\tbase\t.atlas-map-node.is-core span
+rule\tbase\t.atlas-map-node.is-active
+rule\tbase\t.atlas-map-node.is-active::before
+rule\tbase\t.atlas-map-node.is-dimmed::before
+rule\tbase\t.atlas-map-node.is-dimmed span
+rule\tbase\t.atlas-index-button.is-dimmed
+rule\tbase\t.atlas-index-button.is-dimmed::before
+rule\tbase\t.atlas-index-button.is-dimmed h3
+rule\tbase\t.atlas-index-button.is-dimmed small
+rule\tbase\t.atlas-map-node.is-dimmed:hover::before, .atlas-map-node.is-dimmed:focus-visible::before
+rule\tbase\t.atlas-index-button.is-dimmed:hover, .atlas-index-button.is-dimmed:focus-visible
+rule\tbase\t.atlas-control:hover, .atlas-control:focus-visible
+rule\tbase\t.atlas-control:focus-visible::after
+rule\tbase\t.atlas-index
+rule\tbase\t.atlas-index-label
+rule\tbase\t.atlas-index h2
+rule\tbase\t.atlas-tally
+rule\tbase\t.atlas-tally strong
+rule\tbase\t.atlas-tally span
+rule\tbase\t.atlas-description
+rule\tbase\t.atlas-destination, .atlas-empty
+rule\tbase\t.atlas-destination
+rule\tbase\t.atlas-destination:hover, .atlas-destination:focus-visible
+rule\tbase\t.atlas-empty
+rule\tbase\t.atlas-directory
+rule\tbase\t.atlas-directory li
+rule\tbase\tbody.archive-atlas-page [data-atlas-directory]
+rule\tbase\tbody.archive-atlas-page [data-atlas-directory]::before, body.archive-atlas-page [data-atlas-directory] li::before, body.archive-atlas-page [data-atlas-directory] li::after
+rule\tbase\tbody.archive-atlas-page [data-atlas-directory] li
+rule\tbase\t.atlas-index-button
+rule\tbase\t.atlas-index-button::before
+rule\tbase\t.atlas-index .atlas-index-button h3
+rule\tbase\t.atlas-index-button p
+rule\tbase\t.atlas-index-button small
+rule\tbase\t.atlas-index-button.is-active
+rule\tbase\t.atlas-index-button.is-active small
+rule\tbase\t.atlas-index-button.is-active::before
+rule\tbase\t.atlas-index-button:focus-visible
+keyframes\tbase\t@keyframes atlas-drift
+keyframes\tbase\t@keyframes atlas-route-draw
+rule\t@media (max-width: 1024px)\t.atlas-header
+rule\t@media (max-width: 1024px)\t.atlas-current
+rule\t@media (max-width: 1024px)\t.atlas-switcher
+rule\t@media (max-width: 1024px)\t.atlas-layout
+rule\t@media (max-width: 1024px)\t.atlas-chart
+rule\t@media (max-width: 720px)\t.atlas-header
+rule\t@media (max-width: 720px)\t.atlas-home
+rule\t@media (max-width: 720px)\t.atlas-current
+rule\t@media (max-width: 720px)\t.atlas-switcher
+rule\t@media (max-width: 720px)\t.atlas-switcher::-webkit-scrollbar
+rule\t@media (max-width: 720px)\t.atlas-switcher a
+rule\t@media (max-width: 720px)\t.archive-atlas-page .library-shell
+rule\t@media (max-width: 720px)\t.atlas-prologue
+rule\t@media (max-width: 720px)\t.atlas-intro
+rule\t@media (max-width: 720px)\t.atlas-layout
+rule\t@media (max-width: 720px)\t.atlas-layout > *
+rule\t@media (max-width: 720px)\t.atlas-chart
+rule\t@media (max-width: 720px)\t.atlas-index
+rule\t@media (max-width: 720px)\t.atlas-directory
+rule\t@media (max-width: 720px)\t.atlas-directory li
+rule\t@media (max-width: 720px)\tbody.archive-atlas-page [data-atlas-directory]
+rule\t@media (max-width: 720px)\tbody.archive-atlas-page [data-atlas-directory] li
+rule\t@media (max-width: 720px)\t.atlas-map-node
+rule\t@media (max-width: 720px)\t.atlas-map-node span
+rule\t@media (max-width: 420px)\t.atlas-chart
+rule\t@media (max-width: 420px)\t.atlas-map-node
+rule\t@media (max-width: 420px)\t.atlas-map-node span
+rule\t@media (max-width: 420px)\t.atlas-map-node.is-core span
+rule\t@media (prefers-reduced-motion: reduce)\thtml
+rule\t@media (prefers-reduced-motion: reduce)\t*, *::before, *::after
+rule\t@media (prefers-reduced-motion: reduce)\t.atlas-chart::before, .atlas-routes, .atlas-index-button.is-active
+rule\t@media (prefers-reduced-motion: reduce)\t.atlas-map-node, .atlas-map-node.is-active
+rule\t@media (prefers-reduced-motion: reduce)\t.atlas-route, .atlas-route.is-active`.split("\n");
+const atlasGeometryRuleContract = [
+  ["rule", "base", ":root", "color-scheme: dark; --atlas-ink: rgba(246, 249, 252, .96); --atlas-muted: rgba(210, 224, 238, .66); --atlas-gold: #dec49f; --atlas-deep: #050b14;"],
+  ["rule", "base", "*", "box-sizing: border-box;"],
+  ["rule", "base", "html", "min-width: 0; background: var(--atlas-deep); scroll-behavior: smooth;"],
+  ["rule", "base", "body.archive-atlas-page", "min-width: 0; min-height: 100vh; margin: 0; color: var(--atlas-ink); background: radial-gradient(circle at 26% 18%, rgba(49, 104, 143, .19), transparent 31rem), radial-gradient(circle at 82% 78%, rgba(121, 99, 74, .11), transparent 26rem), linear-gradient(152deg, #040a12 0%, #071421 49%, #07101b 100%); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"PingFang SC\", sans-serif;"],
+  ["rule", "base", "body.archive-atlas-page::before", "position: fixed; inset: 0; pointer-events: none; background-image: radial-gradient(circle, rgba(235, 245, 255, .46) 0 1px, transparent 1.4px), radial-gradient(circle, rgba(235, 245, 255, .25) 0 1px, transparent 1.3px); background-position: 17px 29px, 83px 61px; background-size: 109px 101px, 157px 143px; opacity: .28; content: \"\";"],
+  ["rule", "base", "button", "color: inherit; font: inherit;"],
+  ["rule", "base", "[hidden]", "display: none !important;"],
+  ["rule", "base", ".archive-atlas-page .library-shell", "position: relative; z-index: 1; width: min(1360px, calc(100% - 48px)); margin: 0 auto; padding: clamp(28px, 4vh, 48px) 0 52px;"],
+  ["rule", "base", ".atlas-layout", "display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 300px); gap: clamp(20px, 3vw, 44px); min-height: min(660px, calc(100vh - 190px));"],
+  ["rule", "base", ".atlas-chart", "--atlas-node-safe-x: 73px; --atlas-parallax-x: 0px; --atlas-parallax-y: 0px; position: relative; min-height: 580px; overflow: hidden; border: 0; border-radius: 0; background: transparent; box-shadow: none; isolation: isolate;"],
+  ["rule", "base", ".atlas-coordinate-plane", "position: absolute; inset: 0 var(--atlas-node-safe-x);"],
+  ["rule", "base", ".atlas-chart::before", "position: absolute; inset: 8% 7%; z-index: -2; background: radial-gradient(ellipse at 45% 48%, rgba(25, 81, 119, .2), transparent 48%), conic-gradient(from 220deg at 48% 50%, transparent, rgba(169, 207, 231, .07), transparent 35%); filter: blur(2px); transform: translate(var(--atlas-parallax-x), var(--atlas-parallax-y)); transition: transform .7s cubic-bezier(.2, .8, .2, 1); content: \"\";"],
+  ["rule", "base", ".atlas-chart::after", "position: absolute; inset: auto 4% 3% 1%; z-index: -1; height: 34%; background: radial-gradient(ellipse at 22% 100%, rgba(11, 29, 42, .98) 0 37%, transparent 38%), radial-gradient(ellipse at 64% 112%, rgba(14, 37, 51, .94) 0 45%, transparent 46%), radial-gradient(ellipse at 98% 112%, rgba(10, 25, 37, .9) 0 38%, transparent 39%); filter: drop-shadow(0 -1px rgba(137, 188, 220, .14)); content: \"\";"],
+  ["rule", "base", ".atlas-routes", "position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; transform: translate(calc(var(--atlas-parallax-x) * .22), calc(var(--atlas-parallax-y) * .22)); transition: transform .7s cubic-bezier(.2, .8, .2, 1);"],
+  ["rule", "base", ".atlas-route", "fill: none; stroke: rgba(139, 190, 224, .16); stroke-dasharray: 8 12; stroke-dashoffset: 32; stroke-linecap: round; stroke-width: 1.2; opacity: .28; transition: opacity .5s ease, stroke .5s ease, stroke-width .5s ease;"],
+  ["rule", "base", ".atlas-route.is-active", "stroke: rgba(222, 196, 159, .88); stroke-width: 2; opacity: 1; animation: atlas-route-draw 2.8s linear infinite; filter: drop-shadow(0 0 7px rgba(222, 196, 159, .38));"],
+  ["rule", "base", ".atlas-coastline", "fill: none; stroke: rgba(132, 181, 211, .12); stroke-width: 1;"],
+  ["rule", "base", ".atlas-map-node", "--atlas-marker-offset-y: -4.5px; --atlas-marker-origin-y: 4.5px; --node-x: 50%; --node-y: 50%; position: absolute; top: var(--node-y); left: var(--node-x); display: grid; justify-items: center; gap: 8px; width: 116px; padding: 0; border: 0; background: transparent; cursor: pointer; transform: translate(calc(-50% + var(--atlas-parallax-x) * .22), calc(var(--atlas-marker-offset-y) + var(--atlas-parallax-y) * .22)); transform-origin: 50% var(--atlas-marker-origin-y); transition: opacity .45s ease, filter .45s ease, transform .65s cubic-bezier(.2, 1.35, .32, 1);"],
+  ["rule", "base", ".atlas-map-node::before", "box-sizing: border-box; width: 9px; height: 9px; border: 1px solid rgba(190, 221, 241, .8); border-radius: 50%; background: #b9d8ed; box-shadow: 0 0 0 5px rgba(147, 201, 236, .08), 0 0 18px rgba(147, 201, 236, .46); animation: atlas-drift 5.8s ease-in-out infinite alternate; content: \"\";"],
+  ["rule", "base", ".atlas-map-node:nth-of-type(2n)::before", "animation-duration: 7.1s; animation-delay: -2s;"],
+  ["rule", "base", ".atlas-map-node span", "max-width: 116px; color: rgba(228, 238, 246, .72); font-family: Georgia, \"Songti SC\", \"STSong\", serif; font-size: 12px; line-height: 1.3; text-align: center; text-shadow: 0 2px 8px #040b14;"],
+  ["rule", "base", ".atlas-map-node.is-core", "--atlas-marker-offset-y: -7.5px; --atlas-marker-origin-y: 7.5px;"],
+  ["rule", "base", ".atlas-map-node.is-core::before", "width: 15px; height: 15px; border-color: var(--atlas-gold); background: #f0d7b1;"],
+  ["rule", "base", ".atlas-map-node.is-core span", "color: var(--atlas-ink); font-size: 16px;"],
+  ["rule", "base", ".atlas-map-node.is-active", "z-index: 2; filter: drop-shadow(0 0 10px rgba(222, 196, 159, .5)); transform: translate(calc(-50% + var(--atlas-parallax-x) * .22), calc(var(--atlas-marker-offset-y) + var(--atlas-parallax-y) * .22)) scale(1.08);"],
+  ["rule", "base", ".atlas-map-node.is-active::before", "border-color: #f4ddba; background: #f1d7af; box-shadow: 0 0 0 8px rgba(222, 196, 159, .1), 0 0 28px rgba(222, 196, 159, .7);"],
+  ["rule", "base", ".atlas-map-node.is-dimmed::before", "border-color: rgba(140, 181, 208, .48); background: #5c7d94; box-shadow: 0 0 0 3px rgba(147, 201, 236, .05), 0 0 10px rgba(147, 201, 236, .2);"],
+  ["rule", "base", ".atlas-map-node.is-dimmed span", "color: var(--atlas-ink);"],
+  ["rule", "base", ".atlas-map-node.is-dimmed:hover::before, .atlas-map-node.is-dimmed:focus-visible::before", "border-color: rgba(222, 196, 159, .82); background: #b9d8ed; box-shadow: 0 0 0 5px rgba(147, 201, 236, .08), 0 0 18px rgba(147, 201, 236, .46);"],
+  ["rule", "base", ".atlas-control:hover, .atlas-control:focus-visible", "opacity: 1; outline: none;"],
+  ["rule", "base", ".atlas-control:focus-visible::after", "position: absolute; inset: -8px; border: 1px solid rgba(222, 196, 159, .78); border-radius: 14px; content: \"\";"],
+  ["keyframes", "base", "@keyframes atlas-drift", "from { opacity: .68; } to { opacity: 1; }"],
+  ["keyframes", "base", "@keyframes atlas-route-draw", "to { stroke-dashoffset: -8; }"],
+  ["rule", "@media (max-width: 1024px)", ".atlas-layout", "grid-template-columns: minmax(0, 1fr) 260px; gap: 18px;"],
+  ["rule", "@media (max-width: 1024px)", ".atlas-chart", "min-height: 540px;"],
+  ["rule", "@media (max-width: 720px)", ".archive-atlas-page .library-shell", "width: min(100% - 28px, 1360px); padding-top: 24px;"],
+  ["rule", "@media (max-width: 720px)", ".atlas-layout", "grid-template-columns: 1fr; gap: 12px;"],
+  ["rule", "@media (max-width: 720px)", ".atlas-layout > *", "min-width: 0;"],
+  ["rule", "@media (max-width: 720px)", ".atlas-chart", "--atlas-node-safe-x: 61px; order: 1; min-height: 460px;"],
+  ["rule", "@media (max-width: 720px)", ".atlas-map-node", "width: 94px;"],
+  ["rule", "@media (max-width: 720px)", ".atlas-map-node span", "max-width: 94px; font-size: 10px;"],
+  ["rule", "@media (max-width: 420px)", ".atlas-chart", "--atlas-node-safe-x: 55px; min-height: 410px;"],
+  ["rule", "@media (max-width: 420px)", ".atlas-map-node", "width: 82px;"],
+  ["rule", "@media (max-width: 420px)", ".atlas-map-node span", "max-width: 82px; font-size: 9px;"],
+  ["rule", "@media (max-width: 420px)", ".atlas-map-node.is-core span", "font-size: 14px;"],
+  ["rule", "@media (prefers-reduced-motion: reduce)", "html", "scroll-behavior: auto;"],
+  ["rule", "@media (prefers-reduced-motion: reduce)", "*, *::before, *::after", "animation: none !important; transition: none !important;"],
+  ["rule", "@media (prefers-reduced-motion: reduce)", ".atlas-chart::before, .atlas-routes, .atlas-index-button.is-active", "transform: none !important;"],
+  ["rule", "@media (prefers-reduced-motion: reduce)", ".atlas-map-node, .atlas-map-node.is-active", "transform: translate(-50%, var(--atlas-marker-offset-y)) !important;"],
+  ["rule", "@media (prefers-reduced-motion: reduce)", ".atlas-route, .atlas-route.is-active", "stroke-dashoffset: 0;"],
+];
+const assertAtlasClosedWorld = (source) => {
+  const records = cssRuleRecords(source);
+  const shape = records.map(({ kind, context, selector }) => `${kind}\t${context}\t${selector}`);
+  assert.deepEqual(shape, atlasStylesheetShape, "atlas closed-world selector and at-rule shape must stay explicit");
+  const actual = records
+    .filter((record) => (
+      record.kind === "keyframes"
+      || record.context.includes("prefers-reduced-motion")
+      || isAtlasGeometrySelector(record.selector)
+    ))
+    .map(({ kind, context, selector, body }) => [kind, context, selector, body]);
+  assert.deepEqual(actual, atlasGeometryRuleContract, "atlas closed-world rules and declarations must stay explicit");
 };
 const protectedRule = (source, selector, properties) => {
-  const protectedProperties = new Set(properties);
-  const uncommented = source.replace(/\/\*[\s\S]*?\*\//g, "");
-  const candidates = [...uncommented.matchAll(/([^{}]+)\{([^{}]*)\}/g)].flatMap((match) => {
-    const selectors = match[1].split(",").map((branch) => branch.trim());
-    if (!selectors.includes(selector)) return [];
-    const declarations = cssDeclarations(match[2]);
-    const geometry = declarations.filter(({ property }) => (
-      protectedProperties.has(property) || isProtectedGeometryProperty(selector, property)
-    ));
-    if (!geometry.length) return [];
-    if (selectors.length > 1) {
-      for (const declaration of geometry) {
-        if (
-          !protectedProperties.has(declaration.property)
-          || !isSafeSharedGeometryOverride(uncommented, match.index, selectors, selector, declaration)
-        ) {
-          assert.fail(`${selector} must not declare unprotected geometry property ${declaration.property} in a selector list`);
-        }
-      }
-      return [];
-    }
-    return [{ body: match[2], declarations }];
-  });
+  const candidates = cssRuleRecords(source)
+    .filter((record) => record.kind === "rule" && record.context === "base" && record.selector === selector)
+    .map((record) => ({ body: record.body, declarations: cssDeclarations(record.body) }))
+    .filter(({ declarations }) => declarations.some(({ property }) => properties.includes(property)));
   assert.equal(candidates.length, 1, `${selector} must have one canonical protected rule`);
-  for (const { property } of candidates[0].declarations) {
-    if (isProtectedGeometryProperty(selector, property) && !protectedProperties.has(property)) {
-      assert.fail(`${selector} must not declare unprotected geometry property ${property}`);
-    }
-  }
   for (const property of properties) {
     assert.equal(
       candidates[0].declarations.filter((declaration) => declaration.property === property).length,
@@ -326,29 +451,34 @@ const atlasParallaxFactors = (source) => {
     }
   }
   assert.ok(Number.isFinite(factors["active nodes"].scale), "active node scale must be finite");
+  assertAtlasClosedWorld(source);
   return factors;
 };
-const atlasMarkerRules = (source) => ({
-  baseNode: protectedRule(source, ".atlas-map-node", [
-    "--atlas-marker-offset-y",
-    "--atlas-marker-origin-y",
-    "--node-x",
-    "--node-y",
-    "position",
-    "top",
-    "left",
-    "display",
-    "justify-items",
-    "gap",
-    "padding",
-    "border",
-    "transform",
-    "transform-origin",
-  ]),
-  coreMarker: protectedRule(source, ".atlas-map-node.is-core::before", ["width", "height"]),
-  coreNode: protectedRule(source, ".atlas-map-node.is-core", ["--atlas-marker-offset-y", "--atlas-marker-origin-y"]),
-  marker: protectedRule(source, ".atlas-map-node::before", ["box-sizing", "width", "height", "border", "animation"]),
-});
+const atlasMarkerRules = (source) => {
+  const rules = {
+    baseNode: protectedRule(source, ".atlas-map-node", [
+      "--atlas-marker-offset-y",
+      "--atlas-marker-origin-y",
+      "--node-x",
+      "--node-y",
+      "position",
+      "top",
+      "left",
+      "display",
+      "justify-items",
+      "gap",
+      "padding",
+      "border",
+      "transform",
+      "transform-origin",
+    ]),
+    coreMarker: protectedRule(source, ".atlas-map-node.is-core::before", ["width", "height"]),
+    coreNode: protectedRule(source, ".atlas-map-node.is-core", ["--atlas-marker-offset-y", "--atlas-marker-origin-y"]),
+    marker: protectedRule(source, ".atlas-map-node::before", ["box-sizing", "width", "height", "border", "animation"]),
+  };
+  assertAtlasClosedWorld(source);
+  return rules;
+};
 
 const htmlAttribute = (tag, name) => tag.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i"))?.slice(1).find((value) => value !== undefined);
 const atlasCoordinateGeometry = (html, pageName) => {
@@ -492,46 +622,17 @@ test("dimmed atlas controls preserve readable text while dimming only star decor
 });
 
 test("active atlas index metadata meets normal-text contrast in the lightest layered background", () => {
-  const body = rule(styles, "body\\.archive-atlas-page");
-  const stars = rule(styles, "body\\.archive-atlas-page::before");
-  const index = rule(styles, "\\.atlas-index");
-  const active = rule(styles, "\\.atlas-index-button\\.is-active");
-  const defaultSmall = rule(styles, "\\.atlas-index-button small");
-  const activeSmall = rule(styles, "\\.atlas-index-button\\.is-active small");
-  const bodyColors = cssColors(cssDeclarationValue(body, "background"));
-  const bodyBases = bodyColors.filter((color) => color[3] === 1);
-  const bodyOverlays = bodyColors.filter((color) => color[3] < 1);
-  const starOpacity = Number(cssDeclarationValue(stars, "opacity"));
-  const starLayers = cssColors(cssDeclarationValue(stars, "background-image"))
-    .map((color) => [...color.slice(0, 3), color[3] * starOpacity]);
-  const indexLayers = cssColors(cssDeclarationValue(index, "background"));
-  const backdropFilter = cssDeclarationValue(index, "backdrop-filter");
-  const blurRadius = Number(backdropFilter?.match(/\bblur\(([\d.]+)px\)/)?.[1]);
-  const saturation = Number(backdropFilter?.match(/\bsaturate\(([\d.]+)%\)/)?.[1]) / 100;
-  const activeBackground = cssColor(cssDeclarationValue(active, "background"));
-  const activeText = cssColor(
-    cssDeclarationValue(activeSmall, "color") ?? cssDeclarationValue(defaultSmall, "color"),
-  );
-
-  assert.ok(bodyBases.length > 0, "body background must expose an opaque base color");
-  assert.ok(bodyOverlays.length > 0, "body background must expose its translucent atmospheric layers");
-  assert.ok(starLayers.length > 0 && Number.isFinite(starOpacity), "body star backdrop must expose colors and opacity");
-  assert.ok(indexLayers.length > 0, "index glass must expose parseable background layers");
-  assert.ok(blurRadius > 0 && Number.isFinite(saturation), "index backdrop filter must expose blur and saturation");
-
-  const ratios = bodyBases.map((base) => {
-    let background = base;
-    for (const layer of [...bodyOverlays].reverse()) background = compositeColor(layer, background);
-    for (const layer of [...starLayers].reverse()) background = compositeColor(layer, background);
-    background = saturateColor(background, saturation);
-    for (const layer of [...indexLayers].reverse()) background = compositeColor(layer, background);
-    background = compositeColor(activeBackground, background);
-    return contrastRatio(compositeColor(activeText, background), background);
-  });
-  const worstContrast = Math.min(...ratios);
+  const { activeSmall, worstContrast } = activeMetadataContrast(styles);
 
   assert.ok(worstContrast >= 4.5, `active 9px metadata contrast ${worstContrast.toFixed(2)} must be at least 4.5:1`);
   assert.match(activeSmall, /\bcolor\s*:/, "active metadata must keep an explicit selected-state color");
+});
+
+test("active metadata contrast lookup uses the later equal-specificity rule", () => {
+  const lowContrastOverride = `${styles}\n.atlas-index-button.is-active small { color: #071421; }`;
+  const { worstContrast } = activeMetadataContrast(lowContrastOverride);
+
+  assert.ok(worstContrast < 4.5, "the later low-contrast override must win the full layered contrast calculation");
 });
 
 test("normal marker keyframes evaluate cascade winners with a center-safe allowlist", () => {
@@ -652,7 +753,7 @@ test("atlas protected geometry contract rejects an unlisted active positional ov
 
   assert.throws(
     () => atlasParallaxFactors(positionalOverride),
-    /.atlas-map-node.is-active must have one canonical protected rule/,
+    /atlas closed-world/,
   );
 });
 
@@ -664,7 +765,33 @@ for (const [name, override] of [
   test(`atlas protected geometry contract rejects ${name} overrides`, () => {
     assert.throws(
       () => atlasParallaxFactors(`${styles}\n${override}`),
-      /atlas-map-node.is-active.*(?:canonical protected rule|unprotected geometry property)/,
+      /atlas closed-world/,
+    );
+  });
+}
+
+const assertAtlasGeometryContract = (source) => {
+  atlasParallaxFactors(source);
+  atlasMarkerRules(source);
+};
+
+for (const [name, override] of [
+  ["active custom-property parallax", ".atlas-map-node.is-active { --atlas-parallax-x: 120px; }"],
+  ["active all reset", ".atlas-map-node.is-active { all: initial; }"],
+  ["active logical sizing", ".atlas-map-node.is-active { inline-size: 300px; block-size: 300px; }"],
+  ["active logical border", ".atlas-map-node.is-active { border-block-start: 40px solid transparent; }"],
+  ["compound pseudo selector positioning", ".atlas-map-node.is-active:is(button) { top: calc(var(--node-y) + 12px); }"],
+  ["appended base width", ".atlas-map-node { width: 600px; }"],
+  ["active marker transform", ".atlas-map-node.is-active::before { transform: translateX(40px); }"],
+  [
+    "indirect keyframe motion",
+    ".atlas-map-node.is-active { animation: atlas-probe-shift 1s infinite; } @keyframes atlas-probe-shift { to { transform: translateX(40px); } }",
+  ],
+]) {
+  test(`atlas closed geometry contract rejects ${name}`, () => {
+    assert.throws(
+      () => assertAtlasGeometryContract(`${styles}\n${override}`),
+      /atlas.*(?:closed|canonical|unprotected|unexpected)/i,
     );
   });
 }
@@ -674,7 +801,7 @@ test("atlas parallax contract rejects a responsive base transform override", () 
 
   assert.throws(
     () => atlasParallaxFactors(responsiveOverride),
-    /.atlas-map-node must have one canonical protected rule/,
+    /atlas closed-world/,
   );
 });
 
@@ -683,7 +810,7 @@ test("atlas marker contract rejects a tablet marker-offset override", () => {
 
   assert.throws(
     () => atlasMarkerRules(tabletOffset),
-    /.atlas-map-node must have one canonical protected rule/,
+    /atlas closed-world/,
   );
 });
 

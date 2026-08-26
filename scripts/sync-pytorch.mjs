@@ -212,6 +212,7 @@ export async function collectSourceNotes(sourceRoot, previousManifest = {}, vali
     notes.push({
       ...draft,
       slug,
+      sourceBuffer: snapshot.buffer,
       content: snapshot.buffer.toString('utf8'),
     });
   }
@@ -1927,7 +1928,7 @@ export async function synchronize({
       });
       const readingSequence = note.isOverview ? [note] : notes.filter((candidate) => !candidate.isOverview);
       outputs.set(`notes/${note.stageKey}/${note.slug}.html`, renderArticle(note, html, readingSequence));
-      outputs.set(`markdown/${note.stageKey}/${note.slug}.md`, note.content);
+      outputs.set(`markdown/${note.stageKey}/${note.slug}.md`, note.sourceBuffer);
     }
     for (const [destination, snapshot] of attachmentSnapshots) outputs.set(destination, snapshot.buffer);
     const stages = [...STAGES.values()];

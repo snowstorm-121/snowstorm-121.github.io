@@ -338,38 +338,58 @@ async function runAttachmentPreReadSymlinkRace({ source, output, assetPath, outs
   return { ...exit, stderr };
 }
 
-async function runMarkdownDiscoverySymlinkRace({ source, output, notePath, outsidePath }) {
+async function runMarkdownOpenBoundaryRace({ source, output, notePath, outsidePath }) {
   const childSource = `
     import path from 'node:path';
+    import { constants as fsConstants } from 'node:fs';
     import * as fs from 'node:fs/promises';
     import { mock } from 'node:test';
     const [moduleUrl, sourceRoot, outputRoot, notePath, outsidePath] = process.argv.slice(1);
     const target = path.resolve(notePath);
-    const parent = path.dirname(target);
-    const readdir = fs.readdir;
+    const parked = target + '.original';
+    const open = fs.open;
+    const realpath = fs.realpath;
+    const rename = fs.rename;
     const rm = fs.rm;
     const symlink = fs.symlink;
     let raced = false;
+    let requestedNoFollow = false;
+    let realpathsBeforeOpen = 0;
+    let targetRealpaths = 0;
+    let restored = false;
     mock.module('node:fs/promises', {
       namedExports: {
         ...fs,
-        readdir: async (...args) => {
-          const entries = await readdir(...args);
+        realpath: async (...args) => {
           const candidate = typeof args[0] === 'string' ? path.resolve(args[0]) : '';
-          if (!raced && candidate === parent) {
-            raced = true;
+          if (candidate === target) targetRealpaths += 1;
+          return realpath(...args);
+        },
+        open: async (...args) => {
+          const candidate = typeof args[0] === 'string' ? path.resolve(args[0]) : '';
+          if (raced || candidate !== target) return open(...args);
+          raced = true;
+          realpathsBeforeOpen = targetRealpaths;
+          requestedNoFollow = (args[1] & fsConstants.O_NOFOLLOW) === fsConstants.O_NOFOLLOW;
+          await rename(target, parked);
+          await symlink(path.resolve(outsidePath), target);
+          const forwarded = [...args];
+          forwarded[1] &= ~fsConstants.O_NOFOLLOW;
+          try {
+            return await open(...forwarded);
+          } finally {
             await rm(target);
-            await symlink(path.resolve(outsidePath), target);
+            await rename(parked, target);
+            restored = true;
           }
-          return entries;
         },
       },
     });
-    const { synchronize } = await import(moduleUrl + '?markdown-discovery-race=' + Date.now());
+    const { synchronize } = await import(moduleUrl + '?markdown-open-boundary-race=' + Date.now());
     try {
       await synchronize({ sourceRoot, outputRoot });
     } finally {
-      process.stdout.write(String(raced));
+      process.stdout.write(JSON.stringify({ raced, requestedNoFollow, realpathsBeforeOpen, restored }));
     }
   `;
   const child = spawn(process.execPath, [
@@ -382,6 +402,75 @@ async function runMarkdownDiscoverySymlinkRace({ source, output, notePath, outsi
     output,
     notePath,
     outsidePath,
+  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let stdout = '';
+  let stderr = '';
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => { stdout += chunk; });
+  child.stderr.on('data', (chunk) => { stderr += chunk; });
+  const exit = await new Promise((resolve) => child.once('exit', (code, signal) => resolve({ code, signal })));
+  return { ...exit, stdout, stderr };
+}
+
+async function runMarkdownSnapshotRace({ source, output, notePath, replacement }) {
+  const childSource = `
+    import path from 'node:path';
+    import * as fs from 'node:fs/promises';
+    import { mock } from 'node:test';
+    const [moduleUrl, sourceRoot, outputRoot, notePath, replacementHex] = process.argv.slice(1);
+    const target = path.resolve(notePath);
+    const open = fs.open;
+    const readFile = fs.readFile;
+    const rename = fs.rename;
+    const writeFile = fs.writeFile;
+    let snapshotReads = 0;
+    let pathnameReads = 0;
+    mock.module('node:fs/promises', {
+      namedExports: {
+        ...fs,
+        open: async (...args) => {
+          const handle = await open(...args);
+          const candidate = typeof args[0] === 'string' ? path.resolve(args[0]) : '';
+          if (candidate === target) {
+            const handleReadFile = handle.readFile.bind(handle);
+            handle.readFile = async (...readArgs) => {
+              const data = await handleReadFile(...readArgs);
+              snapshotReads += 1;
+              if (snapshotReads === 1) {
+                const pending = target + '.replacement';
+                await writeFile(pending, Buffer.from(replacementHex, 'hex'));
+                await rename(pending, target);
+              }
+              return data;
+            };
+          }
+          return handle;
+        },
+        readFile: async (...args) => {
+          const candidate = typeof args[0] === 'string' ? path.resolve(args[0]) : '';
+          if (candidate === target) pathnameReads += 1;
+          return readFile(...args);
+        },
+      },
+    });
+    const { synchronize } = await import(moduleUrl + '?markdown-snapshot-race=' + Date.now());
+    try {
+      await synchronize({ sourceRoot, outputRoot });
+    } finally {
+      process.stdout.write(JSON.stringify({ snapshotReads, pathnameReads }));
+    }
+  `;
+  const child = spawn(process.execPath, [
+    '--experimental-test-module-mocks',
+    '--input-type=module',
+    '--eval',
+    childSource,
+    scriptUrl,
+    source,
+    output,
+    notePath,
+    replacement.toString('hex'),
   ], { stdio: ['ignore', 'pipe', 'pipe'] });
   let stdout = '';
   let stderr = '';
@@ -584,6 +673,38 @@ test('matching source H1 stays verbatim without a duplicate wrapper title', asyn
   assert.match(matching, /<div class="note-content"><h1>Main<\/h1>/);
   assert.match(wrapped, /<article class="note-article"><h1>No Heading<\/h1><div class="note-content">/);
   assert.deepEqual(publishedMarkdown, sourceMarkdown, 'source Markdown bytes stay unchanged');
+});
+
+test('one immutable Markdown snapshot preserves invalid UTF-8 publication bytes without a pathname reread', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const note = path.join(source, 'Stage1', 'Main.md');
+  const original = Buffer.concat([
+    Buffer.from('# Main\n\nSnapshot byte: '),
+    Buffer.from([0xff]),
+    Buffer.from('\n'),
+  ]);
+  const replacement = Buffer.from('# Replacement path content\n');
+  await writeFile(note, original);
+
+  const result = await runMarkdownSnapshotRace({
+    source,
+    output,
+    notePath: note,
+    replacement,
+  });
+
+  assert.equal(result.code, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), { snapshotReads: 1, pathnameReads: 0 });
+  assert.deepEqual(await readFile(note), replacement, 'the fixture must replace the source pathname after snapshot');
+  assert.deepEqual(
+    await readFile(path.join(output, 'markdown', 'stage-1', 'main.md')),
+    original,
+    'managed Markdown must publish the exact bytes read from the immutable source handle',
+  );
+  const html = await readFile(path.join(output, 'notes', 'stage-1', 'main.html'), 'utf8');
+  assert.match(html, /Snapshot byte: �/, 'decoded snapshot text must still feed Markdown rendering');
+  assert.doesNotMatch(html, /Replacement path content/, 'rendering must not reread the replaced pathname');
 });
 
 test('leading source H1 suppresses the filename wrapper for all five Stage 4 titles', async (t) => {
@@ -866,7 +987,7 @@ test('source attachment validation cannot be swapped to a symlink before snapsho
   await assert.rejects(readFile(path.join(output, 'manifest.json')), { code: 'ENOENT' });
 });
 
-test('stale Markdown discovery cannot be swapped to an outside symlink before snapshot read', async (t) => {
+test('source Markdown final component is bound across the open boundary', async (t) => {
   const { root, source, output } = await makeFixture();
   t.after(() => rm(root, { recursive: true, force: true }));
   const note = path.join(source, 'Stage1', 'Main.md');
@@ -874,16 +995,20 @@ test('stale Markdown discovery cannot be swapped to an outside symlink before sn
   await writeFile(note, '# Inside note\n');
   await writeFile(outside, '# Outside sentinel must never publish\n');
 
-  const result = await runMarkdownDiscoverySymlinkRace({
+  const result = await runMarkdownOpenBoundaryRace({
     source,
     output,
     notePath: note,
     outsidePath: outside,
   });
 
-  assert.equal(result.stdout, 'true', 'the fixture must replace the note after readdir returns its stale Dirent');
-  assert.notEqual(result.code, 0, 'a discovered Markdown symlink replacement must stop synchronization');
-  assert.match(result.stderr, /symlink|symbolic link|ELOOP|unsafe|changed/i);
+  const observed = JSON.parse(result.stdout);
+  assert.equal(observed.raced, true, 'the fixture must cross the final-component open boundary');
+  assert.ok(observed.realpathsBeforeOpen >= 2, 'discovery and pre-open validation must finish before the race');
+  assert.equal(observed.requestedNoFollow, true, 'source Markdown must be opened with O_NOFOLLOW');
+  assert.equal(observed.restored, true, 'the fixture must restore the validated source inode after open');
+  assert.notEqual(result.code, 0, 'an opened Markdown inode that differs from the restored path must stop synchronization');
+  assert.match(result.stderr, /changed during snapshot/i);
   await assert.rejects(readFile(path.join(output, 'manifest.json')), { code: 'ENOENT' });
 });
 
