@@ -77,7 +77,6 @@ const activeMetadataContrast = (source) => {
   const stars = lastRuleInContext(source, "body.archive-atlas-page::before");
   const index = lastRuleInContext(source, ".atlas-index");
   const active = lastRuleInContext(source, ".atlas-index-button.is-active");
-  const defaultSmall = lastRuleInContext(source, ".atlas-index-button small");
   const activeSmall = lastRuleInContext(source, ".atlas-index-button.is-active small");
   const bodyColors = cssColors(cssDeclarationValue(body, "background"));
   const bodyBases = bodyColors.filter((color) => color[3] === 1);
@@ -91,7 +90,8 @@ const activeMetadataContrast = (source) => {
   const saturation = Number(backdropFilter?.match(/\bsaturate\(([\d.]+)%\)/)?.[1]) / 100;
   const activeBackground = cssColor(cssDeclarationValue(active, "background"), source);
   const activeText = cssColor(
-    cssDeclarationValue(activeSmall, "color") ?? cssDeclarationValue(defaultSmall, "color"),
+    cssCascadeDeclarationValue(source, ".atlas-index-button.is-active small", "color")
+      ?? cssCascadeDeclarationValue(source, ".atlas-index-button small", "color"),
     source,
   );
 
@@ -157,6 +157,14 @@ const lastRuleInContext = (source, selector, context = "base") => {
     .filter((record) => record.kind === "rule" && record.context === context && record.selector === selector)
     .at(-1);
   return winner ? `${selector} {${winner.body}}` : "";
+};
+const cssCascadeDeclarationValue = (source, selector, property, context = "base") => {
+  const candidates = cssRuleRecords(source)
+    .filter((record) => record.kind === "rule" && record.context === context && record.selector === selector)
+    .flatMap((record) => cssDeclarations(record.body))
+    .filter((declaration) => declaration.property === property.toLowerCase());
+  const important = candidates.filter((declaration) => declaration.important);
+  return (important.length ? important : candidates).at(-1)?.value;
 };
 const isAtlasGeometrySelector = (selector) => (
   /\.atlas-(?:chart|coordinate-plane|routes?|coastline|map-node|control)(?![\w-])/.test(selector)
@@ -663,6 +671,13 @@ test("active metadata contrast lookup honors important declarations before later
   const { worstContrast } = activeMetadataContrast(lowContrastOverride);
 
   assert.ok(worstContrast < 4.5, "the important low-contrast declaration must win the full layered contrast calculation");
+});
+
+test("active metadata contrast lookup honors earlier important equal-specificity rules", () => {
+  const lowContrastOverride = `${styles}\n.atlas-index-button.is-active small { color: #071421 !important; }\n.atlas-index-button.is-active small { color: var(--atlas-gold); }`;
+  const { worstContrast } = activeMetadataContrast(lowContrastOverride);
+
+  assert.ok(worstContrast < 4.5, "the earlier important low-contrast rule must beat the later normal rule");
 });
 
 test("atlas closed-world contract protects active metadata declarations", () => {
