@@ -413,7 +413,7 @@ function findAsset(rawTarget, currentNote, assetFiles, sourceRoot) {
   const noteDirectory = path.dirname(currentNote.absolutePath);
   const nearbyMatches = matches.filter((file) => {
     const relative = path.relative(noteDirectory, path.dirname(file));
-    return !relative || (!relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
+    return !relative || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
   });
   return nearbyMatches.length === 1 ? nearbyMatches[0] : null;
 }

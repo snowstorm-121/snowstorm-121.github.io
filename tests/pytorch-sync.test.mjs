@@ -926,6 +926,28 @@ test('basename fallback does not confuse Stage1 with the Stage10 path prefix', a
   await assert.rejects(readFile(path.join(output, 'manifest.json')), /ENOENT/);
 });
 
+test('basename fallback rejects an asset found only in the note parent directory', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await rm(path.join(source, 'Stage1', 'attachments', 'plot.png'));
+  await writeFile(path.join(source, 'plot.png'), 'source-root');
+  await writeFile(path.join(source, 'Stage1', 'Main.md'), '# Main\n\n![plot](stale/plot.png)\n');
+  const { synchronize } = await loadSyncModule();
+
+  let rejection;
+  try {
+    await synchronize({ sourceRoot: source, outputRoot: output });
+  } catch (error) {
+    rejection = error;
+  }
+  if (!rejection) {
+    const published = await readFile(path.join(output, 'assets', 'stage-1', 'plot.png'), 'utf8');
+    assert.fail(`missing image incorrectly published parent-directory fallback bytes: ${published}`);
+  }
+  assert.match(rejection.message, /missing image.*stale\/plot\.png/i);
+  await assert.rejects(readFile(path.join(output, 'manifest.json')), /ENOENT/);
+});
+
 test('scans private-key and arbitrary small UTF-8 referenced attachments before writing output', async (t) => {
   const { root, source, output } = await makeFixture();
   t.after(() => rm(root, { recursive: true, force: true }));
