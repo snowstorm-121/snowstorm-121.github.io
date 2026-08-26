@@ -34,9 +34,9 @@ test("living journal presents one non-navigable semantic four-entry directory", 
   assert.equal((directory.match(/<li\b/g) ?? []).length, 4);
   assert.doesNotMatch(directory, /<a\b/);
   for (const [title, description] of entries) {
-    assert.match(directory, new RegExp(`<h3>${title}<\/h3>[\\s\\S]*?<p>${description}<\/p>`));
+    assert.match(directory, new RegExp(`<span class="atlas-index-title">${title}<\/span>[\\s\\S]*?<span class="atlas-index-description">${description}<\/span>`));
   }
-  assert.match(libraryStyles, /\.living-journal \.living-directory h3\s*\{/);
+  assert.match(libraryStyles, /\.living-journal \.living-directory \.atlas-index-title\s*\{/);
   assert.doesNotMatch(libraryStyles, /\.living-journal \.living-directory h2\s*\{/);
 });
 

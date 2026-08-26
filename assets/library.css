@@ -82,8 +82,8 @@ h3 { margin-top: 2.2rem; font-size: 1.45rem; }
 .living-journal .living-directory li { position: relative; padding: 16px 20px 16px 34px; border: 1px solid rgba(255,255,255,.1); border-radius: 14px; background: rgba(10, 24, 40, .45); }
 .living-journal .living-directory li::before { position: absolute; top: 29px; left: 10px; width: 13px; height: 1px; background: rgba(216,186,147,.7); content: ""; }
 .living-journal .living-directory li::after { position: absolute; top: 25px; left: 6px; width: 8px; height: 8px; border: 1px solid var(--accent); border-radius: 50%; background: #0b1a2b; content: ""; }
-.living-journal .living-directory h3 { margin: 0; font-size: clamp(1.35rem, 3vw, 1.75rem); }
-.living-journal .living-directory p { margin: 7px 0 0; color: var(--muted); }
+.living-journal .living-directory .atlas-index-title { margin: 0; font-size: clamp(1.35rem, 3vw, 1.75rem); }
+.living-journal .living-directory .atlas-index-description { margin: 7px 0 0; color: var(--muted); }
 @media (max-width: 640px) {
   .library-shell { width: min(100% - 28px, 1040px); padding-top: 27px; }
   .library-eyebrow { margin-top: 56px; }

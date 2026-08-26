@@ -226,7 +226,7 @@ button { color: inherit; font: inherit; }
 .atlas-map-node.is-dimmed span { color: var(--atlas-ink); }
 .atlas-index-button.is-dimmed { background: rgba(255, 255, 255, .025); }
 .atlas-index-button.is-dimmed::before { border-color: rgba(177, 211, 233, .38); background: rgba(177, 211, 233, .3); }
-.atlas-index-button.is-dimmed h3 { color: var(--atlas-ink); }
+.atlas-index-button.is-dimmed .atlas-index-title { color: var(--atlas-ink); }
 .atlas-index-button.is-dimmed small { color: #dcebf5; }
 .atlas-map-node.is-dimmed:hover::before,
 .atlas-map-node.is-dimmed:focus-visible::before {
@@ -319,8 +319,8 @@ body.archive-atlas-page [data-atlas-directory] li { margin: 0; padding: 0; borde
   transition: opacity .35s ease, background .35s ease, transform .35s cubic-bezier(.2, 1.25, .35, 1);
 }
 .atlas-index-button::before { width: 5px; height: 5px; border: 1px solid rgba(177, 211, 233, .55); border-radius: 50%; content: ""; }
-.atlas-index .atlas-index-button h3 { margin: 0; font-family: Georgia, "Songti SC", "STSong", serif; font-size: 13px; font-weight: 400; }
-.atlas-index-button p { display: none; margin: 0; }
+.atlas-index .atlas-index-button .atlas-index-title { margin: 0; font-family: Georgia, "Songti SC", "STSong", serif; font-size: 13px; font-weight: 400; }
+.atlas-index-button .atlas-index-description { display: none; margin: 0; }
 .atlas-index-button small { color: rgba(215, 228, 238, .48); font-size: 9px; }
 .atlas-index-button.is-active { background: rgba(255, 255, 255, .075); transform: translateX(3px); }
 .atlas-index-button.is-active small { color: var(--atlas-gold); }

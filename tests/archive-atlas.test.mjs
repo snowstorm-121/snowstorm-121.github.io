@@ -225,7 +225,7 @@ rule\tbase\t.atlas-map-node.is-dimmed::before
 rule\tbase\t.atlas-map-node.is-dimmed span
 rule\tbase\t.atlas-index-button.is-dimmed
 rule\tbase\t.atlas-index-button.is-dimmed::before
-rule\tbase\t.atlas-index-button.is-dimmed h3
+rule\tbase\t.atlas-index-button.is-dimmed .atlas-index-title
 rule\tbase\t.atlas-index-button.is-dimmed small
 rule\tbase\t.atlas-map-node.is-dimmed:hover::before, .atlas-map-node.is-dimmed:focus-visible::before
 rule\tbase\t.atlas-index-button.is-dimmed:hover, .atlas-index-button.is-dimmed:focus-visible
@@ -249,8 +249,8 @@ rule\tbase\tbody.archive-atlas-page [data-atlas-directory]::before, body.archive
 rule\tbase\tbody.archive-atlas-page [data-atlas-directory] li
 rule\tbase\t.atlas-index-button
 rule\tbase\t.atlas-index-button::before
-rule\tbase\t.atlas-index .atlas-index-button h3
-rule\tbase\t.atlas-index-button p
+rule\tbase\t.atlas-index .atlas-index-button .atlas-index-title
+rule\tbase\t.atlas-index-button .atlas-index-description
 rule\tbase\t.atlas-index-button small
 rule\tbase\t.atlas-index-button.is-active
 rule\tbase\t.atlas-index-button.is-active small
@@ -572,6 +572,23 @@ test("three archive entries share one semantic midnight atlas shell and local ru
   await access(new URL("../assets/homepage/profile-coast-backview.png", import.meta.url));
 });
 
+test("atlas index buttons keep valid phrasing content and an accessible native-button name", () => {
+  for (const [pageName, html] of Object.entries(pages)) {
+    const buttons = [...html.matchAll(/(<button class="[^"]*\batlas-index-button\b[^"]*"[^>]*>)([\s\S]*?)<\/button>/g)];
+    assert.ok(buttons.length > 0, `${pageName} must expose atlas index buttons`);
+    for (const [, openingTag, content] of buttons) {
+      const title = htmlAttribute(openingTag, "data-atlas-title");
+      assert.ok(title, `${pageName} index button must expose its title metadata`);
+      assert.match(openingTag, /\saria-pressed="(?:true|false)"/);
+      assert.doesNotMatch(content, /<(?:h[1-6]|p)\b/i, `${pageName}:${title} button descendants must be phrasing content`);
+      assert.ok(content.includes(`<span class="atlas-index-title">${title}</span>`), `${pageName}:${title} must keep its visible title`);
+      assert.match(content, /<span class="atlas-index-description">[^<]+<\/span>/, `${pageName}:${title} must keep its visible description`);
+      assert.match(content, /<small>[^<]+<\/small>/, `${pageName}:${title} must keep its visible tally`);
+      assert.ok(content.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().startsWith(title), `${pageName}:${title} native accessible name must begin with its visible title`);
+    }
+  }
+});
+
 test("learning atlas reflects the 32-note seven-stage manifest and links to real PyTorch destinations", async () => {
   assert.equal(manifest.notes.length, 32);
   assert.equal(manifest.stages.length, 7);
@@ -603,7 +620,7 @@ test("living and research keep their exact four selectable empty categories with
     assert.equal((directory.match(/<li\b/g) ?? []).length, 4);
     assert.doesNotMatch(directory, /<a\b|href=|data-atlas-href=/);
     for (const label of labels) {
-      assert.match(directory, new RegExp(`<h3>${label}<\/h3>`));
+      assert.match(directory, new RegExp(`<span class="atlas-index-title">${label}<\/span>`));
     }
     assert.match(html, /data-atlas-empty[^>]*>尚待启航<\/span>/);
   }
@@ -635,7 +652,7 @@ test("atlas styling keeps an open chart, narrow glass index, mobile stack, and c
   assert.match(reduced, /transform:\s*none !important/);
   assert.match(reduced, /\.atlas-map-node, \.atlas-map-node\.is-active\s*\{[^}]*transform:\s*translate\(-50%,\s*var\(--atlas-marker-offset-y\)\) !important/);
   assert.match(reduced, /stroke-dashoffset:\s*0/);
-  assert.match(styles, /\.atlas-index \.atlas-index-button h3\s*\{[^}]*font-size:\s*13px/);
+  assert.match(styles, /\.atlas-index \.atlas-index-button \.atlas-index-title\s*\{[^}]*font-size:\s*13px/);
 });
 
 test("dimmed atlas controls preserve readable text while dimming only star decoration", () => {
@@ -647,7 +664,7 @@ test("dimmed atlas controls preserve readable text while dimming only star decor
   assert.doesNotMatch(indexDimmed, /\bopacity\s*:/);
   assert.match(styles, /\.atlas-map-node\.is-dimmed::before\s*\{[^}]*border-color:[^}]*background:[^}]*box-shadow:/);
   assert.match(styles, /\.atlas-map-node\.is-dimmed span\s*\{[^}]*color:/);
-  assert.match(styles, /\.atlas-index-button\.is-dimmed h3\s*\{[^}]*color:/);
+  assert.match(styles, /\.atlas-index-button\.is-dimmed \.atlas-index-title\s*\{[^}]*color:/);
   assert.match(styles, /\.atlas-index-button\.is-dimmed small\s*\{[^}]*color:/);
   assert.match(styles, /\.atlas-control:hover,\s*\.atlas-control:focus-visible\s*\{[^}]*opacity:\s*1/);
 });

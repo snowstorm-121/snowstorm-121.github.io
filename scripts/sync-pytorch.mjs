@@ -410,9 +410,12 @@ function findAsset(rawTarget, currentNote, assetFiles, sourceRoot) {
   }
   const basename = path.basename(target).toLocaleLowerCase('en-US');
   const matches = assetFiles.filter((file) => path.basename(file).toLocaleLowerCase('en-US') === basename);
-  if (matches.length === 1) return matches[0];
-  const sameDirectory = matches.find((file) => path.dirname(file).startsWith(path.dirname(currentNote.absolutePath)));
-  return sameDirectory || null;
+  const noteDirectory = path.dirname(currentNote.absolutePath);
+  const nearbyMatches = matches.filter((file) => {
+    const relative = path.relative(noteDirectory, path.dirname(file));
+    return !relative || (!relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
+  });
+  return nearbyMatches.length === 1 ? nearbyMatches[0] : null;
 }
 
 function attachmentDestination(file, currentNote) {
