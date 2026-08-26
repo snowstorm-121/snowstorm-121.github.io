@@ -21,14 +21,18 @@ const cssDeclarations = (source) => source.split(";").flatMap((declaration) => {
   const separator = declaration.indexOf(":");
   if (separator < 0) return [];
   const property = declaration.slice(0, separator).trim().toLowerCase();
-  const value = declaration.slice(separator + 1).trim();
-  return property && value ? [{ property, value }] : [];
+  const rawValue = declaration.slice(separator + 1).trim();
+  const important = /!\s*important\s*$/i.test(rawValue);
+  const value = rawValue.replace(/!\s*important\s*$/i, "").trim();
+  return property && value ? [{ property, value, important }] : [];
 });
-const cssDeclarationValue = (source, property) => cssDeclarations(
-  source.includes("{") ? source.slice(source.indexOf("{") + 1, source.lastIndexOf("}")) : source,
-)
-  .filter((declaration) => declaration.property === property.toLowerCase())
-  .at(-1)?.value;
+const cssDeclarationValue = (source, property) => {
+  const candidates = cssDeclarations(
+    source.includes("{") ? source.slice(source.indexOf("{") + 1, source.lastIndexOf("}")) : source,
+  ).filter((declaration) => declaration.property === property.toLowerCase());
+  const important = candidates.filter((declaration) => declaration.important);
+  return (important.length ? important : candidates).at(-1)?.value;
+};
 const cssColor = (value, source = styles) => {
   const variable = value?.trim().match(/^var\((--[\w-]+)\)$/);
   if (variable) return cssColor(cssDeclarationValue(lastRuleInContext(source, ":root"), variable[1]), source);
@@ -135,6 +139,9 @@ const cssRuleRecords = (source) => {
       } else if (header.startsWith("@")) {
         records.push({ kind: "at-rule", context, selector: header, body: normalizeCss(body) });
       } else if (header) {
+        if (body.includes("{")) {
+          throw new Error("nested CSS rules are unsupported by the atlas closed-world parser");
+        }
         records.push({ kind: "rule", context, selector: header, body: normalizeCss(body) });
       }
       cursor = close + 1;
@@ -328,6 +335,12 @@ const atlasGeometryRuleContract = [
   ["rule", "@media (prefers-reduced-motion: reduce)", ".atlas-map-node, .atlas-map-node.is-active", "transform: translate(-50%, var(--atlas-marker-offset-y)) !important;"],
   ["rule", "@media (prefers-reduced-motion: reduce)", ".atlas-route, .atlas-route.is-active", "stroke-dashoffset: 0;"],
 ];
+const atlasIndexContrastRuleContract = [
+  ["rule", "base", ".atlas-index", "align-self: stretch; width: min(100%, 300px); padding: 24px 20px 20px; border: 1px solid rgba(205, 228, 243, .14); border-radius: 24px; background: linear-gradient(145deg, rgba(255, 255, 255, .09), transparent 26%), rgba(7, 19, 32, .52); box-shadow: inset 0 1px rgba(255, 255, 255, .1), 0 26px 70px rgba(0, 0, 0, .25); backdrop-filter: blur(22px) saturate(125%);"],
+  ["rule", "base", ".atlas-index-button small", "color: rgba(215, 228, 238, .48); font-size: 9px;"],
+  ["rule", "base", ".atlas-index-button.is-active", "background: rgba(255, 255, 255, .075); transform: translateX(3px);"],
+  ["rule", "base", ".atlas-index-button.is-active small", "color: var(--atlas-gold);"],
+];
 const assertAtlasClosedWorld = (source) => {
   const records = cssRuleRecords(source);
   const shape = records.map(({ kind, context, selector }) => `${kind}\t${context}\t${selector}`);
@@ -340,6 +353,16 @@ const assertAtlasClosedWorld = (source) => {
     ))
     .map(({ kind, context, selector, body }) => [kind, context, selector, body]);
   assert.deepEqual(actual, atlasGeometryRuleContract, "atlas closed-world rules and declarations must stay explicit");
+  const actualIndexContrast = records
+    .filter((record) => atlasIndexContrastRuleContract.some(([, context, selector]) => (
+      record.kind === "rule" && record.context === context && record.selector === selector
+    )))
+    .map(({ kind, context, selector, body }) => [kind, context, selector, body]);
+  assert.deepEqual(
+    actualIndexContrast,
+    atlasIndexContrastRuleContract,
+    "atlas index contrast rules and declarations must stay explicit",
+  );
 };
 const protectedRule = (source, selector, properties) => {
   const candidates = cssRuleRecords(source)
@@ -635,6 +658,23 @@ test("active metadata contrast lookup uses the later equal-specificity rule", ()
   assert.ok(worstContrast < 4.5, "the later low-contrast override must win the full layered contrast calculation");
 });
 
+test("active metadata contrast lookup honors important declarations before later normal declarations", () => {
+  const lowContrastOverride = `${styles}\n.atlas-index-button.is-active small { color: #071421 !important; color: var(--atlas-gold); }`;
+  const { worstContrast } = activeMetadataContrast(lowContrastOverride);
+
+  assert.ok(worstContrast < 4.5, "the important low-contrast declaration must win the full layered contrast calculation");
+});
+
+test("atlas closed-world contract protects active metadata declarations", () => {
+  const activeSmall = rule(styles, "\\.atlas-index-button\\.is-active small");
+  const lowContrastMutation = styles.replace(activeSmall, activeSmall.replace("var(--atlas-gold)", "#071421"));
+
+  assert.throws(
+    () => assertAtlasClosedWorld(lowContrastMutation),
+    /atlas index contrast rules and declarations must stay explicit/,
+  );
+});
+
 test("normal marker keyframes evaluate cascade winners with a center-safe allowlist", () => {
   const fixture = `
     from { transform: translateX(8px); transform: none; opacity: .68; }
@@ -795,6 +835,18 @@ for (const [name, override] of [
     );
   });
 }
+
+test("atlas closed geometry contract rejects nested geometry selectors inside non-geometry rules", () => {
+  const nestedOverride = styles.replace(
+    ".atlas-prologue { display: flex; align-items: end; justify-content: space-between; gap: 32px; margin-bottom: 22px; }",
+    ".atlas-prologue { display: flex; align-items: end; justify-content: space-between; gap: 32px; margin-bottom: 22px; & ~ .atlas-layout .atlas-map-node { transform: translateX(40px); } }",
+  );
+
+  assert.throws(
+    () => assertAtlasGeometryContract(nestedOverride),
+    /nested CSS rules are unsupported by the atlas closed-world parser/,
+  );
+});
 
 test("atlas parallax contract rejects a responsive base transform override", () => {
   const responsiveOverride = `${styles}\n@media (max-width: 720px) { .atlas-map-node { transform: translateX(12px); } }`;
