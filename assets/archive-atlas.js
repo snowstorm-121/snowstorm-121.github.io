@@ -3,7 +3,6 @@
   if (!root) return;
 
   const controls = [...document.querySelectorAll("[data-atlas-control]")];
-  const routes = [...document.querySelectorAll("[data-atlas-route]")];
   const map = document.querySelector("[data-atlas-map]");
   const title = document.querySelector("[data-atlas-title]:not([data-atlas-control])");
   const count = document.querySelector("[data-atlas-count]:not([data-atlas-control])");
@@ -12,12 +11,34 @@
   const destination = document.querySelector("[data-atlas-destination]");
   const empty = document.querySelector("[data-atlas-empty]");
   const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const scheduleDiffusion = typeof setTimeout === "function" ? setTimeout : null;
+  const cancelDiffusion = typeof clearTimeout === "function" ? clearTimeout : null;
+  let diffusionTimer = null;
 
-  function selectNode(control) {
+  function stopDiffusion() {
+    if (diffusionTimer !== null) {
+      cancelDiffusion?.(diffusionTimer);
+      diffusionTimer = null;
+    }
+    controls.forEach((control) => control.classList.remove("is-selecting"));
+  }
+
+  function diffuseMoonlight(control) {
+    if (reduceMotionQuery.matches || !scheduleDiffusion) return;
+    stopDiffusion();
+    control.classList.add("is-selecting");
+    diffusionTimer = scheduleDiffusion(() => {
+      control.classList.remove("is-selecting");
+      diffusionTimer = null;
+    }, 240);
+  }
+
+  function selectNode(control, animate = true) {
     const key = control?.dataset.atlasKey;
     if (!key) return "";
 
     const source = controls.find((candidate) => candidate.dataset.atlasKey === key) ?? control;
+    const changed = root.dataset.atlasSelected !== key;
     root.dataset.atlasSelected = key;
     controls.forEach((candidate) => {
       const selected = candidate.dataset.atlasKey === key;
@@ -25,7 +46,6 @@
       candidate.classList.toggle("is-dimmed", !selected);
       candidate.setAttribute("aria-pressed", String(selected));
     });
-    routes.forEach((route) => route.classList.toggle("is-active", route.dataset.atlasRoute === key));
 
     if (title) title.textContent = source.dataset.atlasTitle ?? source.textContent.trim();
     if (count) count.textContent = source.dataset.atlasCount ?? "0 篇";
@@ -42,6 +62,7 @@
       empty.hidden = Boolean(href);
       empty.textContent = "尚待启航";
     }
+    if (changed && animate) diffuseMoonlight(source);
     return href ?? "";
   }
 
@@ -59,40 +80,17 @@
     });
   });
 
-  let parallaxEnabled = false;
-  function resetParallax() {
-    map?.style.setProperty("--atlas-parallax-x", "0px");
-    map?.style.setProperty("--atlas-parallax-y", "0px");
-  }
-  function moveParallax(event) {
-    const rect = map?.getBoundingClientRect?.() ?? { left: 0, top: 0, width: 100, height: 100 };
-    const x = ((event.clientX - rect.left) / Math.max(rect.width, 1) - 0.5) * 10;
-    const y = ((event.clientY - rect.top) / Math.max(rect.height, 1) - 0.5) * 8;
-    map.style.setProperty("--atlas-parallax-x", `${x.toFixed(2)}px`);
-    map.style.setProperty("--atlas-parallax-y", `${y.toFixed(2)}px`);
-  }
   function syncMotion() {
     document.documentElement.dataset.atlasReducedMotion = String(reduceMotionQuery.matches);
-    if (!map) return;
-    if (reduceMotionQuery.matches) {
-      if (parallaxEnabled) {
-        map.removeEventListener?.("pointermove", moveParallax);
-        map.removeEventListener?.("pointerleave", resetParallax);
-        parallaxEnabled = false;
-      }
-      resetParallax();
-      return;
-    }
-    if (!parallaxEnabled) {
-      map.addEventListener("pointermove", moveParallax);
-      map.addEventListener("pointerleave", resetParallax);
-      parallaxEnabled = true;
-    }
+    if (reduceMotionQuery.matches) stopDiffusion();
   }
 
   reduceMotionQuery.addEventListener?.("change", syncMotion);
   syncMotion();
-  selectNode(controls.find((control) => control.getAttribute("aria-pressed") === "true") ?? controls[0]);
+  selectNode(
+    controls.find((control) => control.getAttribute("aria-pressed") === "true") ?? controls[0],
+    false,
+  );
 
   window.ArchiveAtlas = { selectNode };
 })();

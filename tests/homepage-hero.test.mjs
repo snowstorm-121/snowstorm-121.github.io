@@ -28,7 +28,7 @@ test("living journal presents one non-navigable semantic four-entry directory", 
     ["岁序留痕", "年度与阶段记录"],
   ];
 
-  assert.match(living, /<main class="library-shell living-journal">/);
+  assert.match(living, /<main class="library-shell living-journal"[^>]*>/);
   assert.ok(directory, "living journal exposes one semantic directory list");
   assert.equal((living.match(/<ul class="living-directory"/g) ?? []).length, 1);
   assert.equal((directory.match(/<li\b/g) ?? []).length, 4);
