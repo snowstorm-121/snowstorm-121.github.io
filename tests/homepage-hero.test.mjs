@@ -199,6 +199,8 @@ function createMusicRuntime({
   const animationFrames = new Map();
   const cancelledAnimationFrames = [];
   const mediaQueries = new Map();
+  let selectedText = "";
+  let layoutReads = 0;
   let nextAnimationFrame = 0;
 
   class FakeElement {
@@ -232,6 +234,8 @@ function createMusicRuntime({
       this.value = "";
       this.queryElements = new Map();
     }
+
+    get offsetWidth() { layoutReads += 1; return 0; }
 
     append(...children) {
       children.forEach((child) => { child.parent = this; });
@@ -311,6 +315,7 @@ function createMusicRuntime({
       if (selector === ".archive-card[data-preview]") return archiveCards;
       return [];
     },
+    getSelection() { return { toString() { return selectedText; } }; },
     createElement() { return new FakeElement(); },
     addEventListener(type, listener) {
       const listeners = documentListeners.get(type) ?? [];
@@ -324,6 +329,7 @@ function createMusicRuntime({
     dispatch(type, event = {}) { this.dispatchEvent({ type, bubbles: false, ...event }); },
     dispatchEvent(event) {
       if (!event.target) event.target = this;
+      if (!event.composedPath) event.composedPath = () => [event.target];
       event.currentTarget = this;
       documentListeners.get(event.type)?.forEach((listener) => listener(event));
     },
@@ -438,6 +444,7 @@ function createMusicRuntime({
       media.matches = matches;
       media.dispatchChange();
     },
+    setSelection(value) { selectedText = String(value); },
     moonRipple: elements.get("#moon-ripple"),
     sessionStorage,
     wechatPopover: elements.get("#wechat-popover"),
@@ -446,6 +453,7 @@ function createMusicRuntime({
     visitorToday: elements.get("#visitor-today"),
     visitorTotal: elements.get("#visitor-total"),
     getCookie() { return cookie; },
+    getLayoutReads() { return layoutReads; },
     window,
   };
 }
@@ -960,9 +968,141 @@ test("motion is capability-gated and has a complete reduced-motion fallback", ()
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation:\s*none/);
 });
 
-test("moon-scale shoal is shared by the homepage and three archive entries", async () => {
+
+test("moon-scale cursor uses native 24px cold-silver and warm-gold SVG cursors", async () => {
+  const [coldSilver, warmGold] = await Promise.all([
+    readFile(new URL("../assets/cursors/moon-scale-cold-silver.svg", import.meta.url), "utf8"),
+    readFile(new URL("../assets/cursors/moon-scale-warm-gold.svg", import.meta.url), "utf8"),
+  ]);
+
+  for (const cursor of [coldSilver, warmGold]) {
+    assert.match(cursor, /<svg[^>]*viewBox="0 0 24 24"/);
+    assert.match(cursor, /width="24"/);
+    assert.match(cursor, /height="24"/);
+  }
+  assert.match(styles, /url\("\.\/cursors\/moon-scale-cold-silver\.svg"\) 4 4, auto/);
+  assert.match(styles, /url\("\.\/cursors\/moon-scale-warm-gold\.svg"\) 4 4, pointer/);
+  assert.match(styles, /:is\(a, button, summary, select, \[role="button"\]\):not\(\[disabled\]\)[\s\S]*?moon-scale-warm-gold/);
+  assert.doesNotMatch(styles, /cursor:\s*none/);
+});
+
+test("moon-scale cursor keeps native click coordinates while control hover changes only the CSS cursor", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
+  const control = {
+    closest(selector) { return selector.includes("a, button") ? this : null; },
+    getBoundingClientRect() { throw new Error("control geometry must never be read"); },
+  };
+
+  vm.runInNewContext(sharedScript, context);
+  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 160, clientY: 100 });
+  runtime.document.dispatch("pointerover", { pointerType: "mouse", target: control, clientX: 160, clientY: 100 });
+
+  assert.deepEqual([controller.pointer.x, controller.pointer.y], [160, 100]);
+  assert.doesNotMatch(sharedScript, /\btarget\b|hoveredTarget|getBoundingClientRect\(|PARTICLE_COUNT|FORMATION/);
+  assert.match(styles, /#moon-scale-cursor\s*\{[^}]*pointer-events:\s*none/);
+});
+
+test("moon-scale ripple centers on client coordinates and both waterlight trails return to the pointer", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  let now = 0;
+  const context = { ...runtime, performance: { now: () => now }, fetch: async () => ({ ok: false }), navigator: {} };
+
+  vm.runInNewContext(sharedScript, context);
+  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 160, clientY: 100 });
+  runtime.document.dispatch("pointerdown", { pointerType: "mouse", clientX: 70, clientY: 50 });
+
+  assert.equal(controller.ripple.style.getPropertyValue("--moon-ripple-x"), "70px");
+  assert.equal(controller.ripple.style.getPropertyValue("--moon-ripple-y"), "50px");
+  for (let frame = 0; frame < 24; frame += 1) {
+    now += 16;
+    runtime.runAnimationFrame(now);
+  }
+  for (const trail of controller.trails) {
+    assert.equal(trail.style.getPropertyValue("--moon-trail-x"), "160px");
+    assert.equal(trail.style.getPropertyValue("--moon-trail-y"), "100px");
+  }
+  assert.match(sharedScript, /const TRAIL_COUNT = 2;/);
+  assert.match(styles, /\.moon-scale-trail\s*\{[^}]*opacity:\s*\.\d+/);
+});
+
+test("moon-scale restarts a ripple for rapid consecutive clicks", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
+  vm.runInNewContext(sharedScript, context);
+
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 160, clientY: 100 });
+  runtime.document.dispatch("pointerdown", { pointerType: "mouse", clientX: 70, clientY: 50 });
+  runtime.document.dispatch("pointerdown", { pointerType: "mouse", clientX: 90, clientY: 60 });
+  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
+
+  assert.equal(runtime.getLayoutReads(), 2);
+  assert.equal(controller.ripple.style.getPropertyValue("--moon-ripple-x"), "90px");
+  assert.equal(controller.ripple.style.getPropertyValue("--moon-ripple-y"), "60px");
+});
+
+test("moon-scale cursor restores the system cursor for text, selection, touch, pen, coarse pointers, and reduced motion", () => {
+  assert.match(styles, /:is\(input, textarea, \[contenteditable\]\)[\s\S]*?cursor:\s*text/);
+  assert.match(styles, /html\[data-moon-scale-selecting="true"\][\s\S]*?cursor:\s*auto/);
+  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?cursor:\s*auto/);
+
+  const runtime = createMusicRuntime({ finePointer: true });
+  const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
+  const textInput = { closest(selector) { return selector.includes("input") ? this : null; } };
+  vm.runInNewContext(sharedScript, context);
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 10, clientY: 10 });
+  assert.equal(runtime.document.documentElement.dataset.moonScaleCursor, "true");
+  runtime.document.dispatch("pointerover", { pointerType: "mouse", target: textInput, clientX: 10, clientY: 10 });
+  assert.equal(runtime.document.documentElement.dataset.moonScaleCursor, "false");
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 20, clientY: 20 });
+  runtime.setSelection("selected");
+  runtime.document.dispatch("selectionchange");
+  assert.equal(runtime.document.documentElement.dataset.moonScaleCursor, "false");
+  runtime.setSelection("");
+  runtime.document.dispatch("selectionchange");
+  runtime.document.dispatch("pointermove", { pointerType: "touch", clientX: 30, clientY: 30 });
+  runtime.document.dispatch("pointerdown", { pointerType: "pen", clientX: 30, clientY: 30 });
+  assert.equal(runtime.document.documentElement.dataset.moonScaleCursor, "false");
+
+  for (const options of [{ reducedMotion: true, finePointer: true }, { finePointer: false }]) {
+    const fallback = createMusicRuntime(options);
+    vm.runInNewContext(sharedScript, { ...fallback, fetch: async () => ({ ok: false }), navigator: {} });
+    assert.equal(fallback.document.documentElement.dataset.moonScaleCursor, "false");
+    assert.equal(fallback.document.body.children.filter((element) => element.id === "moon-scale-cursor").length, 0);
+  }
+});
+
+test("moon-scale lifecycle maintains one decorative layer and one RAF across lifecycle and media changes", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
+  vm.runInNewContext(sharedScript, context);
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 10, clientY: 10 });
+  vm.runInNewContext("window.MoonScaleShoal.sync(); window.MoonScaleShoal.sync()", context);
+  assert.equal(runtime.document.body.children.filter((element) => element.id === "moon-scale-cursor").length, 1);
+  assert.equal(runtime.animationFrameCount(), 1);
+
+  runtime.document.visibilityState = "hidden";
+  runtime.document.dispatch("visibilitychange");
+  assert.equal(runtime.animationFrameCount(), 0);
+  runtime.document.visibilityState = "visible";
+  runtime.document.dispatch("visibilitychange");
+  assert.equal(runtime.animationFrameCount(), 1);
+  runtime.window.dispatch("pagehide");
+  assert.equal(runtime.animationFrameCount(), 0);
+  runtime.window.dispatch("pageshow");
+  assert.equal(runtime.animationFrameCount(), 1);
+  runtime.setMediaMatches("(hover: hover) and (pointer: fine)", false);
+  assert.equal(runtime.document.body.children.filter((element) => element.id === "moon-scale-cursor").length, 0);
+  runtime.setMediaMatches("(hover: hover) and (pointer: fine)", true);
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 20, clientY: 20 });
+  assert.equal(runtime.document.body.children.filter((element) => element.id === "moon-scale-cursor").length, 1);
+  assert.equal(runtime.animationFrameCount(), 1);
+});
+
+test("moon-scale cursor remains scoped to the homepage and three archive entries", async () => {
   const entries = await Promise.all(["learning", "living", "research"].map((entry) => readFile(new URL(`../${entry}/index.html`, import.meta.url), "utf8")));
-  assert.doesNotMatch(html, /id="bioluminescent-shoal"/);
   assert.match(html, /<html[^>]*data-moon-scale-shoal="true"/);
   assert.match(html, /href="\.\/assets\/cursor-shoal\.css"/);
   assert.match(html, /src="\.\/assets\/cursor-shoal\.js" defer/);
@@ -971,352 +1111,9 @@ test("moon-scale shoal is shared by the homepage and three archive entries", asy
     assert.match(entry, /href="\.\.\/assets\/cursor-shoal\.css"/);
     assert.match(entry, /src="\.\.\/assets\/cursor-shoal\.js" defer/);
   });
-  assert.match(sharedScript, /const PARTICLE_COUNT = 6;/);
-  assert.match(sharedScript, /function setup\(\)/);
   assert.match(sharedScript, /function sync\(\)/);
   assert.match(sharedScript, /function destroy\(\)/);
-  assert.match(sharedScript, /window\.matchMedia\("\(hover: hover\) and \(pointer: fine\)"\)/);
-  assert.match(sharedScript, /reduceMotionQuery\.addEventListener\("change", sync\)/);
-  assert.match(sharedScript, /pointerQuery\.addEventListener\("change", sync\)/);
-  assert.match(sharedScript, /document\.createElement\("div"\)/);
-  assert.match(sharedScript, /layer\.id = "bioluminescent-shoal";/);
-  assert.match(sharedScript, /layer\.setAttribute\("aria-hidden", "true"\)/);
-  assert.match(sharedScript, /Array\.from\(\{ length: PARTICLE_COUNT \}/);
-  assert.match(styles, /#bioluminescent-shoal\s*\{[^}]*pointer-events:\s*none/);
-  assert.match(styles, /#bioluminescent-shoal\s*\{[^}]*position:\s*fixed/);
-  assert.match(styles, /\.shoal-core\s*\{[^}]*width:\s*14px[^}]*height:\s*8px/);
-  assert.match(styles, /\.shoal-core::before\s*\{[^}]*clip-path:/);
-  assert.match(styles, /html\[data-bioluminescent-shoal="true"\][\s\S]*?cursor:\s*none !important/);
-  assert.match(styles, /:is\(input, textarea, \[contenteditable\]\)[\s\S]*?cursor:\s*text !important/);
-  assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?#bioluminescent-shoal\s*\{[^}]*display:\s*none/);
-
-  const archiveRuntime = createMusicRuntime({ finePointer: true });
-  archiveRuntime.document.documentElement.dataset.moonScaleShoal = "true";
-  vm.runInNewContext(sharedScript, { ...archiveRuntime, fetch: async () => ({ ok: false }), navigator: {} });
-  assert.equal(archiveRuntime.document.body.children.filter((element) => element.id === "bioluminescent-shoal").length, 1);
-  assert.equal(archiveRuntime.animationFrameCount(), 0, "an unseen shoal stays idle");
-});
-
-test("moon-scale shoal uses one RAF for vector steering, V formation, orbiting controls, and click return", () => {
-  assert.doesNotMatch(sharedScript, /INTERACTIVE_SELECTOR[^;]*\[data-preview\]/);
-  assert.match(sharedScript, /if \(state\.frame \|\| !isVisible\(state\)\) return;/);
-  assert.match(sharedScript, /state\.frame = window\.requestAnimationFrame\(render\);/);
-  assert.match(sharedScript, /window\.cancelAnimationFrame\(controller\.frame\);/);
-  assert.match(sharedScript, /const TRAIL_DURATION = 180;/);
-  assert.match(sharedScript, /Math\.atan2\(deltaY, deltaX\)/);
-  assert.match(sharedScript, /speed > 12 \? \.38 : \.1/);
-  assert.match(sharedScript, /distance: 41, lateral: 12, damping: \.09/);
-  assert.match(sharedScript, /Math\.cos\(angle\) \* 18/);
-  assert.match(sharedScript, /32 \+ \(index \* 2\.8\)/);
-  assert.match(sharedScript, /controller\.goldUntil = now\(\) \+ 140;/);
-  assert.match(styles, /#bioluminescent-shoal\.is-clustered \.shoal-particle\s*\{[^}]*opacity:/);
-  assert.match(styles, /html\[data-night-navigation="on"\] #bioluminescent-shoal \.shoal-core/);
-  assert.match(styles, /html\[data-night-navigation="on"\] #bioluminescent-shoal\.is-clicking \.shoal-core/);
-  assert.doesNotMatch(sharedScript, /document\.createElement\([^)]*\)[\s\S]{0,300}pointermove/);
-  assert.doesNotMatch(sharedScript, /MoonScaleShoal\s*=\s*\{[^}]*\brender\b/);
-  assert.doesNotMatch(homepageScript, /MoonScaleShoal|syncBioluminescentShoal|renderShoalFrame/);
-});
-
-test("archive card surfaces remain free-following while real controls become shoal targets", () => {
-  const runtime = createMusicRuntime({ finePointer: true });
-  const context = {
-    ...runtime,
-    performance: { now: () => 16 },
-    fetch: async () => ({ ok: false }),
-    navigator: {},
-  };
-  const archiveCard = { closest(selector) { return selector.includes("[data-preview]") ? this : null; } };
-  const control = { closest(selector) { return selector.includes("a, button") ? this : null; } };
-
-  vm.runInNewContext(script, context);
-  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
-
-  runtime.document.dispatch("pointerover", { target: archiveCard, clientX: 120, clientY: 80 });
-  assert.equal(controller.target, null);
-  runtime.document.dispatch("pointerover", { target: control, clientX: 160, clientY: 100 });
-  assert.equal(controller.target, control);
-});
-
-test("control clicks scatter the shoal and target mode orbits instead of pinning the core", () => {
-  const runtime = createMusicRuntime({ finePointer: true });
-  let now = 0;
-  const context = {
-    ...runtime,
-    performance: { now: () => now },
-    fetch: async () => ({ ok: false }),
-    navigator: {},
-  };
-  const control = {
-    closest(selector) { return selector.includes("a, button") ? this : null; },
-    getBoundingClientRect() { return { left: 100, top: 50, width: 40, height: 20 }; },
-  };
-
-  vm.runInNewContext(script, context);
-  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
-
-  runtime.document.dispatch("pointerover", { target: control, clientX: 120, clientY: 60 });
-  now = 110;
-  runtime.runAnimationFrame(now);
-  assert.doesNotMatch(controller.core.style.transform, /translate3d\(120px, 60px/);
-  assert.doesNotMatch(controller.core.style.transform, /rotate\(0deg\)/);
-  runtime.document.dispatch("pointerdown", { target: control, clientX: 120, clientY: 60 });
-  assert.ok(controller.scatterUntil > now);
-});
-
-test("a stationary control pointer resumes its orbit when click scatter ends", () => {
-  const runtime = createMusicRuntime({ finePointer: true });
-  let now = 0;
-  const context = {
-    ...runtime,
-    performance: { now: () => now },
-    fetch: async () => ({ ok: false }),
-    navigator: {},
-  };
-  const control = {
-    closest(selector) { return selector.includes("a, button") ? this : null; },
-    getBoundingClientRect() { return { left: 100, top: 50, width: 40, height: 20 }; },
-  };
-
-  vm.runInNewContext(script, context);
-  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
-
-  runtime.document.dispatch("pointerover", { target: control, clientX: 120, clientY: 60 });
-  runtime.document.dispatch("pointerdown", { target: control, clientX: 120, clientY: 60 });
-  assert.equal(controller.target, null, "scatter temporarily releases the active orbit target");
-  now = 521;
-  runtime.runAnimationFrame(now);
-
-  assert.equal(controller.target, control, "the still-hovered control regains its orbit target after scatter");
-  assert.equal(controller.layer.classList.contains("is-clustered"), true);
-});
-
-test("first in-page pointer movement reveals the shoal without a boundary entry", () => {
-  const runtime = createMusicRuntime({ finePointer: true });
-  const context = {
-    ...runtime,
-    performance: { now: () => 16 },
-    fetch: async () => ({ ok: false }),
-    navigator: {},
-  };
-
-  vm.runInNewContext(script, context);
-  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
-
-  assert.equal(controller.layer.classList.contains("is-visible"), false);
-  runtime.document.dispatch("pointermove", { clientX: 120, clientY: 80 });
-  assert.equal(controller.layer.classList.contains("is-visible"), true);
-});
-
-test("document boundary events hide the shoal and reenter at the new pointer position", () => {
-  const runtime = createMusicRuntime({ finePointer: true });
-  const context = {
-    ...runtime,
-    performance: { now: () => 16 },
-    fetch: async () => ({ ok: false }),
-    navigator: {},
-  };
-  const boundaryTarget = { closest() { return null; } };
-
-  vm.runInNewContext(script, context);
-  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
-
-  runtime.document.dispatch("pointermove", { target: boundaryTarget, clientX: 120, clientY: 80 });
-  assert.equal(controller.layer.classList.contains("is-visible"), true);
-  runtime.document.dispatch("pointerout", { target: boundaryTarget, relatedTarget: null, clientX: 120, clientY: 80 });
-  assert.equal(controller.layer.classList.contains("is-visible"), false);
-
-  runtime.document.dispatch("pointerover", { target: boundaryTarget, relatedTarget: null, clientX: 420, clientY: 260 });
-  assert.equal(controller.layer.classList.contains("is-visible"), true);
-  assert.deepEqual([controller.pointer.x, controller.pointer.y], [420, 260]);
-  assert.ok(controller.particlePositions.every((position) => position.x === 420 && position.y === 260));
-  runtime.runAnimationFrame(32);
-  assert.match(controller.core.style.transform, /translate3d\(420px, 260px/);
-  assert.equal(runtime.document.body.children.filter((element) => element.id === "bioluminescent-shoal").length, 1);
-  assert.equal(runtime.animationFrameCount(), 1);
-});
-
-test("first pointer position initializes particles without a viewport-wide corner streak", () => {
-  const runtime = createMusicRuntime({ finePointer: true });
-  const context = {
-    ...runtime,
-    performance: { now: () => 16 },
-    fetch: async () => ({ ok: false }),
-    navigator: {},
-  };
-
-  vm.runInNewContext(script, context);
-  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
-
-  runtime.document.dispatch("pointermove", { clientX: 120, clientY: 80 });
-  runtime.runAnimationFrame(16);
-
-  for (const position of controller.particlePositions) {
-    assert.ok(Math.hypot(position.x - 120, position.y - 80) < 12, `particle starts near the pointer (${position.x}, ${position.y})`);
-  }
-});
-
-test("scatter follows a visible arc before returning to the V formation", () => {
-  const runtime = createMusicRuntime({ finePointer: true });
-  let now = 0;
-  const context = {
-    ...runtime,
-    performance: { now: () => now },
-    fetch: async () => ({ ok: false }),
-    navigator: {},
-  };
-
-  vm.runInNewContext(script, context);
-  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
-  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 120, clientY: 80 });
-  runtime.document.dispatch("pointerdown", { pointerType: "mouse", target: runtime.document, clientX: 120, clientY: 80 });
-
-  now = 260;
-  runtime.runAnimationFrame(now);
-  const halfwayDistance = Math.hypot(controller.particlePositions[0].x - 120, controller.particlePositions[0].y - 80);
-  now = 521;
-  runtime.runAnimationFrame(now);
-
-  assert.ok(halfwayDistance > 3, `scatter leaves the core along an arc (${halfwayDistance})`);
-  assert.equal(controller.layer.classList.contains("is-scattering"), false);
-  assert.equal(controller.layer.classList.contains("is-clicking"), false);
-});
-
-test("reduced motion and coarse pointers skip the shoal while resync keeps one layer and RAF", () => {
-  for (const options of [{ reducedMotion: true, finePointer: true }, { finePointer: false }]) {
-    const runtime = createMusicRuntime(options);
-    const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
-    vm.runInNewContext(script, context);
-    assert.equal(runtime.document.documentElement.dataset.bioluminescentShoal, "false");
-    assert.equal(runtime.document.body.children.filter((element) => element.id === "bioluminescent-shoal").length, 0);
-    assert.equal(runtime.animationFrameCount(), 0);
-  }
-
-  const runtime = createMusicRuntime({ finePointer: true });
-  const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
-  vm.runInNewContext(script, context);
-  vm.runInNewContext("window.MoonScaleShoal.sync()", context);
-  assert.equal(runtime.document.body.children.filter((element) => element.id === "bioluminescent-shoal").length, 1);
-  assert.equal(runtime.animationFrameCount(), 0);
-});
-
-test("mixed fine-pointer devices ignore and hide touch or pen pointer streams", () => {
-  const runtime = createMusicRuntime({ finePointer: true });
-  let now = 0;
-  const context = {
-    ...runtime,
-    performance: { now: () => now },
-    fetch: async () => ({ ok: false }),
-    navigator: { maxTouchPoints: 5 },
-  };
-
-  runtime.document.documentElement.dataset.moonScaleShoal = "true";
-  vm.runInNewContext(sharedScript, context);
-  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
-  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 10, clientY: 10 });
-  assert.equal(controller.layer.classList.contains("is-visible"), true);
-  assert.equal(runtime.animationFrameCount(), 1);
-
-  runtime.document.dispatch("pointermove", { pointerType: "touch", clientX: 90, clientY: 80 });
-  runtime.document.dispatch("pointerdown", { pointerType: "pen", clientX: 90, clientY: 80 });
-  assert.equal(controller.layer.classList.contains("is-visible"), false);
-  assert.equal(runtime.animationFrameCount(), 0);
-  assert.equal(controller.scatterUntil, 0, "non-mouse input cannot scatter the shoal");
-
-  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 40, clientY: 30 });
-  assert.equal(controller.layer.classList.contains("is-visible"), true);
-  assert.equal(runtime.animationFrameCount(), 1);
-});
-
-test("trail strength normalizes distance by sample time and decays from fast to slow motion", () => {
-  const runtime = createMusicRuntime({ finePointer: true });
-  let now = 0;
-  const context = {
-    ...runtime,
-    performance: { now: () => now },
-    fetch: async () => ({ ok: false }),
-    navigator: {},
-  };
-
-  runtime.document.documentElement.dataset.moonScaleShoal = "true";
-  vm.runInNewContext(sharedScript, context);
-
-  assert.equal(runtime.animationFrameCount(), 0, "setup does not animate an invisible layer");
-  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
-  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 10, clientY: 10 });
-  runtime.runAnimationFrame(now);
-  now = 1000;
-  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 50, clientY: 10 });
-  runtime.runAnimationFrame(now);
-  const slowTrail = controller.trailStrength;
-
-  now = 1016;
-  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 90, clientY: 10 });
-  runtime.runAnimationFrame(now);
-  const fastTrail = controller.trailStrength;
-
-  now = 1046;
-  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 91, clientY: 10 });
-  runtime.runAnimationFrame(now);
-  const slowedTrail = controller.trailStrength;
-  now = 1106;
-  runtime.runAnimationFrame(now);
-  const settlingTrail = controller.trailStrength;
-  now = 1197;
-  runtime.runAnimationFrame(now);
-
-  assert.ok(slowTrail < .1, `40px over 1s remains a low-speed trail (${slowTrail})`);
-  assert.ok(fastTrail > .9, `40px over 16ms reaches a high-speed trail (${fastTrail})`);
-  assert.ok(slowedTrail > 0 && slowedTrail < fastTrail, `a slow sample preserves the decaying fast trail (${fastTrail}, ${slowedTrail})`);
-  assert.ok(settlingTrail > 0 && settlingTrail < slowedTrail, `trail strength continues decaying (${slowedTrail}, ${settlingTrail})`);
-  assert.equal(controller.trailStrength, 0, "trail has settled after 180 ms");
-
-  const nightCore = shoalStyles.match(/html\[data-night-navigation="on"\] #bioluminescent-shoal \.shoal-core\s*\{[^}]*\}/)?.[0] ?? "";
-  assert.match(nightCore, /--shoal-trail-near:/);
-  assert.match(nightCore, /--shoal-trail-mid:/);
-  assert.match(nightCore, /--shoal-trail-far:/);
-  assert.doesNotMatch(nightCore, /box-shadow:/, "night mode changes trail color without replacing its three offsets");
-});
-
-test("shoal owns one visible-only RAF across starts, page lifecycle, and permanent destroy", () => {
-  const runtime = createMusicRuntime({ finePointer: true });
-  const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
-
-  runtime.document.documentElement.dataset.moonScaleShoal = "true";
-  vm.runInNewContext(sharedScript, context);
-  assert.equal(runtime.document.documentElement.dataset.bioluminescentShoal, "true");
-  assert.equal(runtime.animationFrameCount(), 0);
-
-  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 10, clientY: 10 });
-  vm.runInNewContext("window.MoonScaleShoal.sync(); window.MoonScaleShoal.sync()", context);
-  assert.equal(runtime.animationFrameCount(), 1, "repeated starts never create a second RAF");
-
-  runtime.document.dispatch("pointerout", { pointerType: "mouse", relatedTarget: null });
-  assert.equal(runtime.animationFrameCount(), 0, "leaving the document cancels animation");
-  runtime.document.dispatch("pointerover", { pointerType: "mouse", target: runtime.document, relatedTarget: null, clientX: 20, clientY: 20 });
-  assert.equal(runtime.animationFrameCount(), 1);
-
-  runtime.document.visibilityState = "hidden";
-  runtime.document.dispatch("visibilitychange");
-  assert.equal(runtime.animationFrameCount(), 0, "hidden pages cancel animation");
-  runtime.document.visibilityState = "visible";
-  runtime.document.dispatch("visibilitychange");
-  assert.equal(runtime.animationFrameCount(), 1, "a visible page resumes the one needed frame");
-
-  runtime.window.dispatch("pagehide");
-  assert.equal(runtime.animationFrameCount(), 0);
-  runtime.window.dispatch("pageshow");
-  assert.equal(runtime.animationFrameCount(), 1);
-
-  vm.runInNewContext("window.MoonScaleShoal.destroy()", context);
-
-  assert.equal(runtime.document.documentElement.dataset.bioluminescentShoal, "false", "public teardown restores the native cursor");
-  assert.equal(runtime.document.body.children.filter((element) => element.id === "bioluminescent-shoal").length, 0);
-  assert.equal(runtime.animationFrameCount(), 0);
-  runtime.setMediaMatches("(hover: hover) and (pointer: fine)", false);
-  runtime.setMediaMatches("(hover: hover) and (pointer: fine)", true);
-  vm.runInNewContext("window.MoonScaleShoal.sync()", context);
-  assert.equal(runtime.document.body.children.filter((element) => element.id === "bioluminescent-shoal").length, 0, "destroy is a permanent terminal state");
-  assert.equal(runtime.animationFrameCount(), 0);
+  assert.match(sharedScript, /window\.MoonScaleShoal = \{ sync, destroy/);
 });
 
 test("premium motion stages section copy, bounds glass lift and tilt, and adds two moon ripples", () => {
