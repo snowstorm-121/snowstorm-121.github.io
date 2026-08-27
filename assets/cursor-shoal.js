@@ -29,7 +29,7 @@
       layer,
       ripple,
       trails,
-      frame: 0,
+      frame: null,
       pageActive: true,
       pageVisible: document.visibilityState !== "hidden",
       selecting: false,
@@ -46,13 +46,13 @@
   }
 
   function stopFrame(state) {
-    if (!state.frame) return;
+    if (state.frame === null) return;
     window.cancelAnimationFrame(state.frame);
-    state.frame = 0;
+    state.frame = null;
   }
 
   function ensureFrame(state) {
-    if (state.frame || !shouldDecorate(state)) return;
+    if (state.frame !== null || !shouldDecorate(state)) return;
     state.frame = window.requestAnimationFrame(render);
   }
 
@@ -82,7 +82,7 @@
   function render(timestamp) {
     if (!controller) return;
     const state = controller;
-    state.frame = 0;
+    state.frame = null;
     if (!shouldDecorate(state)) return;
     state.ripple.classList.toggle("is-rippling", state.rippleUntil > timestamp);
     state.trails.forEach((trail, index) => {

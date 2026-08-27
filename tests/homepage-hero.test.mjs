@@ -191,6 +191,8 @@ function createMusicRuntime({
   visitorEndpoint = "",
   visitorCookie = "",
   cookieWritable = true,
+  moonScaleShoal = true,
+  animationFrameStart = 0,
 } = {}) {
   const documentListeners = new Map();
   const windowListeners = new Map();
@@ -201,7 +203,7 @@ function createMusicRuntime({
   const mediaQueries = new Map();
   let selectedText = "";
   let layoutReads = 0;
-  let nextAnimationFrame = 0;
+  let nextAnimationFrame = animationFrameStart;
 
   class FakeElement {
     constructor(id = "") {
@@ -336,7 +338,7 @@ function createMusicRuntime({
   };
   document.body = new FakeElement("body");
   document.body.parent = document;
-  document.documentElement.dataset.moonScaleShoal = "true";
+  document.documentElement.dataset.moonScaleShoal = String(moonScaleShoal);
   document.documentElement.dataset.visitorCounterEndpoint = visitorEndpoint;
   let cookie = visitorCookie;
   Object.defineProperty(document, "cookie", {
@@ -1099,6 +1101,83 @@ test("moon-scale lifecycle maintains one decorative layer and one RAF across lif
   runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 20, clientY: 20 });
   assert.equal(runtime.document.body.children.filter((element) => element.id === "moon-scale-cursor").length, 1);
   assert.equal(runtime.animationFrameCount(), 1);
+});
+
+test("moon-scale destroy cancels a zero-id RAF, removes its layer, and stays permanent", () => {
+  const runtime = createMusicRuntime({ finePointer: true, animationFrameStart: -1 });
+  const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
+  vm.runInNewContext(sharedScript, context);
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 10, clientY: 10 });
+
+  vm.runInNewContext("window.MoonScaleShoal.destroy()", context);
+  assert.deepEqual(runtime.cancelledAnimationFrames, [0]);
+  assert.equal(runtime.animationFrameCount(), 0);
+  assert.equal(runtime.document.body.children.filter((element) => element.id === "moon-scale-cursor").length, 0);
+
+  vm.runInNewContext("window.MoonScaleShoal.sync()", context);
+  runtime.setMediaMatches("(hover: hover) and (pointer: fine)", false);
+  runtime.setMediaMatches("(hover: hover) and (pointer: fine)", true);
+  assert.equal(runtime.document.body.children.filter((element) => element.id === "moon-scale-cursor").length, 0);
+  assert.equal(runtime.animationFrameCount(), 0);
+});
+
+test("moon-scale cursor waits for a mouse coordinate before becoming visible", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
+  vm.runInNewContext(sharedScript, context);
+
+  assert.equal(runtime.document.documentElement.dataset.moonScaleCursor, "false");
+  assert.equal(runtime.animationFrameCount(), 0);
+});
+
+test("moon-scale cursor starts both trails at the first known pointer coordinate", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
+  vm.runInNewContext(sharedScript, context);
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 73, clientY: 41 });
+  runtime.runAnimationFrame(16);
+  const controller = vm.runInNewContext("window.MoonScaleShoal.controller", context);
+
+  for (const trail of controller.trails) {
+    assert.equal(trail.style.getPropertyValue("--moon-trail-x"), "73px");
+    assert.equal(trail.style.getPropertyValue("--moon-trail-y"), "41px");
+  }
+});
+
+test("moon-scale cursor stops its RAF after the mouse leaves the page and resumes on return", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
+  vm.runInNewContext(sharedScript, context);
+  runtime.document.dispatch("pointermove", { pointerType: "mouse", clientX: 10, clientY: 10 });
+  runtime.document.dispatch("pointerout", { pointerType: "mouse", relatedTarget: null });
+
+  assert.equal(runtime.animationFrameCount(), 0);
+  assert.equal(runtime.document.documentElement.dataset.moonScaleCursor, "false");
+  runtime.document.dispatch("pointerover", { pointerType: "mouse", relatedTarget: null, clientX: 20, clientY: 20 });
+  assert.equal(runtime.animationFrameCount(), 1);
+  assert.equal(runtime.document.documentElement.dataset.moonScaleCursor, "true");
+});
+
+test("moon-scale media fallback clears the text-selection cursor state", () => {
+  const runtime = createMusicRuntime({ finePointer: true });
+  const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
+  vm.runInNewContext(sharedScript, context);
+  runtime.setSelection("moonlight");
+  runtime.document.dispatch("selectionchange");
+
+  assert.equal(runtime.document.documentElement.dataset.moonScaleSelecting, "true");
+  runtime.setMediaMatches("(prefers-reduced-motion: reduce)", true);
+  assert.equal(runtime.document.documentElement.dataset.moonScaleSelecting, undefined);
+  assert.equal(runtime.document.documentElement.dataset.moonScaleCursor, "false");
+});
+
+test("moon-scale cursor does not initialize on pages without the opt-in data attribute", () => {
+  const runtime = createMusicRuntime({ finePointer: true, moonScaleShoal: false });
+  const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
+  vm.runInNewContext(sharedScript, context);
+
+  assert.equal(runtime.document.body.children.filter((element) => element.id === "moon-scale-cursor").length, 0);
+  assert.equal(vm.runInNewContext("window.MoonScaleShoal.controller", context), undefined);
 });
 
 test("moon-scale cursor remains scoped to the homepage and three archive entries", async () => {
