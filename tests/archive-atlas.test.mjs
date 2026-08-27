@@ -230,7 +230,7 @@ test("atlas styling keeps an open scroll, borderless colophon, vertical mobile t
 
   assert.match(scroll, /overflow:\s*visible/);
   assert.match(scroll, /min-height:\s*clamp\(/);
-  assert.match(colophon, /border:\s*0/);
+  assert.doesNotMatch(colophon, /\bborder(?:-[\w-]+)?\s*:/);
   assert.match(colophon, /background:\s*transparent/);
   assert.doesNotMatch(styles, /backdrop-filter|atlas-route|atlas-drift|--atlas-parallax/);
   assert.match(styles, /\.atlas-map-node\.is-dimmed/);
@@ -375,6 +375,21 @@ test("living tide presents exactly four named moon bays in sequence", () => {
   }
 });
 
+test("living archive renders four page-specific quiet bay forms instead of generic tide marks", () => {
+  const bay = rule(styles, "\\.archive-atlas-living \\.atlas-map-node::before");
+  assert.match(bay, /radial-gradient\(/);
+  assert.match(bay, /width:\s*clamp\(/);
+  assert.match(bay, /height:\s*clamp\(/);
+  assert.doesNotMatch(bay, /width:\s*30px|height:\s*10px/);
+  for (let index = 1; index <= 4; index += 1) {
+    const placement = rule(
+      styles,
+      `\\.archive-atlas-living \\.atlas-tide-stop:nth-child\\(${index}\\) \\.atlas-map-node::before`,
+    );
+    assert.match(placement, /transform:/, `moon bay ${index} needs its own static placement`);
+  }
+});
+
 test("living moon bays stay selectable while all remain awaiting departure", () => {
   const controls = [...living.matchAll(/<button class="[^"]*\batlas-map-node\b[^"]*"[^>]*>/g)].map(([tag]) => tag);
   assert.equal(controls.length, 4);
@@ -426,9 +441,28 @@ test("desktop tide uses the declared stop count as an ordered horizontal grid", 
   for (const html of Object.values(pages)) assert.match(html, /style="--atlas-stop-count: (?:4|8)"/);
 });
 
-test("desktop node copy alternates above and below the tide", () => {
+test("desktop learning annotation groups alternate stage number title and count above and below the tide", () => {
   assert.match(styles, /\.atlas-tide-stop:nth-child\(odd\) \.atlas-node-copy\s*\{[^}]*top:/s);
   assert.match(styles, /\.atlas-tide-stop:nth-child\(even\) \.atlas-node-copy\s*\{[^}]*bottom:/s);
+  const controls = [...learning.matchAll(/<button class="[^"]*\batlas-map-node\b[^"]*"[^>]*>([\s\S]*?)<\/button>/g)];
+  assert.equal(controls.length, 8);
+  for (const [, contents] of controls) {
+    const groupStart = contents.indexOf('<span class="atlas-node-copy">');
+    const groupEnd = contents.lastIndexOf("</span>");
+    const number = contents.indexOf('<span class="atlas-node-number">');
+    const title = contents.indexOf('<span class="atlas-index-title">');
+    const count = contents.indexOf('<span class="atlas-index-description">');
+    assert.ok(groupStart >= 0 && number > groupStart && title > groupStart && count > groupStart);
+    assert.ok(number < groupEnd && title < groupEnd && count < groupEnd);
+  }
+});
+
+test("wide atlas composes the tide beside a right-side colophon and stacks at narrower desktop widths", () => {
+  const layout = rule(styles, "\\.atlas-layout");
+  assert.match(layout, /display:\s*grid/);
+  assert.match(layout, /grid-template-columns:\s*minmax\(0, 1fr\)\s+clamp\(/);
+  const narrower = styles.match(/@media \(max-width: 1024px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+  assert.match(narrower, /\.atlas-layout\s*\{[^}]*grid-template-columns:\s*1fr/s);
 });
 
 test("moon marks remain decorative while each full tide stop is clickable", () => {
@@ -450,9 +484,8 @@ test("unselected nodes dim only their moon marks and preserve title color", () =
 
 test("colophon remains borderless and transparent instead of becoming a glass card", () => {
   const colophon = rule(styles, "\\.atlas-colophon");
-  assert.match(colophon, /border:\s*0/);
   assert.match(colophon, /background:\s*transparent/);
-  assert.doesNotMatch(colophon, /border-radius|box-shadow|backdrop-filter/);
+  assert.doesNotMatch(colophon, /\bborder(?:-[\w-]+)?\s*:|border-radius|box-shadow|backdrop-filter/);
 });
 
 test("keyboard focus uses an external high-contrast outline without clipping", () => {
@@ -500,6 +533,16 @@ test("720px typography and focus remain readable at 320px", () => {
   assert.ok(sizes.length > 0 && Math.min(...sizes) >= 11);
   assert.match(mobile, /\.atlas-index-title\s*\{[^}]*font-size:\s*16px/);
   assert.match(mobile, /\.atlas-map-node:focus-visible\s*\{[^}]*outline-offset:\s*2px/);
+});
+
+test("mobile moon bays fit the vertical tide marker column", () => {
+  const bay = lastRuleInContext(
+    styles,
+    ".archive-atlas-living .atlas-map-node::before",
+    "@media (max-width: 720px)",
+  );
+  assert.match(bay, /width:\s*54px/);
+  assert.match(bay, /height:\s*28px/);
 });
 
 test("reduced motion disables diffusion and every transition immediately", () => {

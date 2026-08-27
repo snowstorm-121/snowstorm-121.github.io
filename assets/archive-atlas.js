@@ -3,7 +3,6 @@
   if (!root) return;
 
   const controls = [...document.querySelectorAll("[data-atlas-control]")];
-  const map = document.querySelector("[data-atlas-map]");
   const title = document.querySelector("[data-atlas-title]:not([data-atlas-control])");
   const count = document.querySelector("[data-atlas-count]:not([data-atlas-control])");
   const meta = document.querySelector("[data-atlas-meta]:not([data-atlas-control])");
