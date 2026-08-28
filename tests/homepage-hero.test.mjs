@@ -988,6 +988,9 @@ test("moon-scale cursor uses native 32px cold-silver and warm-gold SVG cursors",
   assert.match(styles, /moon-scale-warm-gold\.svg"\) 5 5, pointer/);
   assert.match(styles, /:is\(a, button, summary, select, \[role="button"\]\):not\(\[disabled\]\)[\s\S]*?moon-scale-warm-gold/);
   assert.doesNotMatch(styles, /cursor:\s*none/);
+
+  const withoutPaintColors = (svg) => svg.replace(/\b(fill|stroke)="[^"]*"/g, '$1="COLOR"');
+  assert.equal(withoutPaintColors(warmGold), withoutPaintColors(coldSilver));
 });
 
 test("moon-scale cursor keeps native click coordinates while control hover changes only the CSS cursor", () => {
@@ -1030,6 +1033,9 @@ test("moon-scale ripple centers on client coordinates and both waterlight trails
   }
   assert.match(sharedScript, /const TRAIL_COUNT = 2;/);
   assert.match(styles, /\.moon-scale-trail\s*\{[^}]*opacity:\s*\.\d+/);
+  const trailRules = styles.match(/\.moon-scale-trail(?:-gold)?\s*\{[^}]*\}/g).join("\n");
+  assert.doesNotMatch(trailRules, /border-radius/);
+  assert.match(trailRules, /height:\s*0/);
 });
 
 test("moon-scale restarts a ripple for rapid consecutive clicks", () => {
