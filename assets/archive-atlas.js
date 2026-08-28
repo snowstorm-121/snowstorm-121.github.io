@@ -103,6 +103,18 @@
     return typeof value === "string" && value.trim().length > 0;
   }
 
+  const canonicalStages = [
+    ["overview", "./"],
+    ["foundation", "./foundation/"],
+    ["stage-1", "./stage-1/"],
+    ["stage-2", "./stage-2/"],
+    ["stage-3", "./stage-3/"],
+    ["stage-4", "./stage-4/"],
+    ["stage-5", "./stage-5/"],
+    ["stage-6", "./stage-6/"],
+  ];
+  const noteHrefPattern = /^\/learning\/pytorch\/notes\/(?:[A-Za-z0-9][A-Za-z0-9._~!$&'()*+,;=:@%-]*\/)*[A-Za-z0-9][A-Za-z0-9._~!$&'()*+,;=:@%-]*\.html$/;
+
   function validateRelations(data) {
     if (!isRecord(data) || data.version !== 1) return false;
     if (!Array.isArray(data.stages) || !Array.isArray(data.notes)) return false;
@@ -110,8 +122,10 @@
     if (data.stages.length !== 8 || data.notes.length < 2) return false;
 
     const stageKeys = new Set();
-    for (const stage of data.stages) {
+    for (const [index, stage] of data.stages.entries()) {
       if (!isRecord(stage) || !isText(stage.key) || !isText(stage.label) || !isText(stage.href)) return false;
+      const [expectedKey, expectedHref] = canonicalStages[index];
+      if (stage.key !== expectedKey || stage.href !== expectedHref) return false;
       if (!Array.isArray(stage.noteIds) || stage.noteIds.some((id) => !isText(id))) return false;
       if (stageKeys.has(stage.key) || new Set(stage.noteIds).size !== stage.noteIds.length) return false;
       stageKeys.add(stage.key);
@@ -122,7 +136,7 @@
     const noteById = new Map();
     for (const note of data.notes) {
       if (!isRecord(note) || !isText(note.id) || !isText(note.stageKey)) return false;
-      if (!isText(note.title) || !isText(note.href) || !Number.isInteger(note.order)) return false;
+      if (!isText(note.title) || !isText(note.href) || !noteHrefPattern.test(note.href) || !Number.isInteger(note.order)) return false;
       if (!stageKeys.has(note.stageKey) || noteIds.has(note.id) || orders.has(note.order)) return false;
       noteIds.add(note.id);
       orders.add(note.order);

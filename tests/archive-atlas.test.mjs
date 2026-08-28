@@ -897,6 +897,44 @@ test("invalid or unavailable relation JSON leaves the static archive in fallback
   assert.equal(networkRuntime.noteLinks.length, 0);
 });
 
+test("untrusted stage schema or note URLs never mount dynamic atlas relations", async () => {
+  const cloneRelations = () => JSON.parse(JSON.stringify(validRelations));
+  const invalidCases = [
+    ["unknown stage key", (relations) => {
+      relations.stages[0].key = "untrusted-stage";
+      relations.notes[0].stageKey = "untrusted-stage";
+    }],
+    ["reordered stages", (relations) => {
+      [relations.stages[0], relations.stages[1]] = [relations.stages[1], relations.stages[0]];
+    }],
+    ["untrusted stage href", (relations) => {
+      relations.stages[0].href = "https://example.invalid/stage";
+    }],
+    ["external note href", (relations) => {
+      relations.notes[0].href = "https://example.invalid/note.html";
+    }],
+    ["relative note href", (relations) => {
+      relations.notes[0].href = "./notes/overview/pytorch.html";
+    }],
+    ["non-note public href", (relations) => {
+      relations.notes[0].href = "/learning/pytorch/stage-1/";
+    }],
+  ];
+
+  for (const [name, mutate] of invalidCases) {
+    const relations = cloneRelations();
+    mutate(relations);
+    const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json" });
+    vm.runInNewContext(script, runtime);
+    await runtime.flushRelations(relations);
+
+    assert.equal(runtime.root.dataset.atlasRelations, "fallback", name);
+    assert.equal(runtime.noteLinks.length, 0, `${name}: no dynamic note links`);
+    assert.equal(runtime.svgPaths.length, 0, `${name}: no dynamic paths`);
+    assert.equal(runtime.controls.length, 5, `${name}: static controls remain available`);
+  }
+});
+
 test("mobile relationship copy is rendered as native links sourced from direct references", async () => {
   const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json" });
   vm.runInNewContext(script, runtime);
