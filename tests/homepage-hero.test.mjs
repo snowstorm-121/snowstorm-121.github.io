@@ -1067,6 +1067,10 @@ test("moon-scale restarts a ripple for rapid consecutive clicks", () => {
 test("moon-scale cursor restores the system cursor for text, selection, touch, pen, coarse pointers, and reduced motion", () => {
   assert.match(styles, /:is\(input, textarea, \[contenteditable\]\)[\s\S]*?cursor:\s*text/);
   assert.match(styles, /html\[data-moon-scale-selecting="true"\][\s\S]*?cursor:\s*auto/);
+  assert.match(
+    shoalStyles,
+    /html\[data-moon-scale-shoal="true"\]\[data-moon-scale-cursor="true"\]\[data-moon-scale-selecting="true"\]\s*:is\(a, button, summary, select, \[role="button"\]\):not\(\[disabled\]\)\s*\{[^}]*cursor:\s*auto/,
+  );
   assert.match(styles, /@media \(prefers-reduced-motion: reduce\)[\s\S]*?cursor:\s*auto/);
 
   const runtime = createMusicRuntime({ finePointer: true });

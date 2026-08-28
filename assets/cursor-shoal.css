@@ -15,6 +15,10 @@ html[data-moon-scale-selecting="true"] :where(body, body *) {
   cursor: auto;
 }
 
+html[data-moon-scale-shoal="true"][data-moon-scale-cursor="true"][data-moon-scale-selecting="true"] :is(a, button, summary, select, [role="button"]):not([disabled]) {
+  cursor: auto;
+}
+
 #moon-scale-cursor {
   position: fixed;
   z-index: 20;
