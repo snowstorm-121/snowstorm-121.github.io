@@ -206,8 +206,9 @@ function createMusicRuntime({
   let nextAnimationFrame = animationFrameStart;
 
   class FakeElement {
-    constructor(id = "") {
+    constructor(id = "", tagName = "") {
       this.id = id;
+      this.tagName = tagName;
       this.attributes = new Map();
       this.children = [];
       this.parent = null;
@@ -318,7 +319,8 @@ function createMusicRuntime({
       return [];
     },
     getSelection() { return { toString() { return selectedText; } }; },
-    createElement() { return new FakeElement(); },
+    createElement(tagName) { return new FakeElement("", tagName); },
+    createElementNS(_namespace, tagName) { return new FakeElement("", tagName); },
     addEventListener(type, listener) {
       const listeners = documentListeners.get(type) ?? [];
       listeners.push(listener);
@@ -1035,7 +1037,15 @@ test("moon-scale ripple centers on client coordinates and both waterlight trails
   assert.match(styles, /\.moon-scale-trail\s*\{[^}]*opacity:\s*\.\d+/);
   const trailRules = styles.match(/\.moon-scale-trail(?:-gold)?\s*\{[^}]*\}/g).join("\n");
   assert.doesNotMatch(trailRules, /border-radius/);
-  assert.match(trailRules, /height:\s*0/);
+  assert.equal(controller.trails.length, 2);
+  for (const trail of controller.trails) {
+    assert.equal(trail.tagName, "svg");
+    assert.equal(trail.children.length, 1);
+    const path = trail.children[0];
+    assert.equal(path.tagName, "path");
+    assert.match(path.getAttribute("d"), /^M\s*[-\d.]+\s+[-\d.]+\s+C\s*[-\d.]+\s+[-\d.]+\s+[-\d.]+\s+[-\d.]+\s+[-\d.]+\s+[-\d.]+$/);
+    assert.doesNotMatch(path.getAttribute("d"), /Z/i);
+  }
 });
 
 test("moon-scale restarts a ripple for rapid consecutive clicks", () => {

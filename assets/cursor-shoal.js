@@ -1,5 +1,6 @@
 (() => {
   const TRAIL_COUNT = 2;
+  const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
   const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   const pointerQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
   let controller;
@@ -21,8 +22,17 @@
       return ripple;
     });
     const trails = Array.from({ length: TRAIL_COUNT }, (_, index) => {
-      const trail = document.createElement("span");
+      const trail = document.createElementNS(SVG_NAMESPACE, "svg");
       trail.className = `moon-scale-trail${index ? " moon-scale-trail-gold" : ""}`;
+      trail.setAttribute("viewBox", "0 0 28 12");
+      trail.setAttribute("aria-hidden", "true");
+      const path = document.createElementNS(SVG_NAMESPACE, "path");
+      path.setAttribute("d", index ? "M 3 8 C 9 2 17 3 24 6" : "M 2 7 C 8 1 18 2 26 5");
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", index ? "rgba(225, 194, 139, .46)" : "rgba(185, 225, 244, .52)");
+      path.setAttribute("stroke-width", "1");
+      path.setAttribute("stroke-linecap", "round");
+      trail.append(path);
       layer.append(trail);
       return trail;
     });
