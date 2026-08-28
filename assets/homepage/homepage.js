@@ -46,7 +46,6 @@ const pointerQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
 const heroSearchForm = document.querySelector("#hero-search-form");
 const heroSearchInput = document.querySelector("#hero-search-input");
 const searchStatus = document.querySelector("#search-status");
-const moonRipple = document.querySelector("#moon-ripple");
 const visitorCounter = document.querySelector(".visitor-counter");
 const visitorTotal = document.querySelector("#visitor-total");
 const visitorToday = document.querySelector("#visitor-today");
@@ -54,8 +53,6 @@ const visitorCounterStatus = document.querySelector("#visitor-counter-status");
 const sectionLinks = document.querySelectorAll("[data-section-link]");
 const storySections = document.querySelectorAll(".story-section");
 const pointerGlassSurfaces = document.querySelectorAll(".pointer-glass, .archive-card");
-const NIGHT_NAVIGATION_STORAGE_KEY = "homepage-night-navigation";
-const NIGHT_NAVIGATION_CEREMONY_DURATION = 1350;
 const VISITOR_COUNTER_ENDPOINT = document.documentElement.dataset.visitorCounterEndpoint ?? "";
 const VISITOR_COOKIE_NAME = "homepage_visitor_id";
 const VISITOR_COOKIE_MAX_AGE = 400 * 24 * 60 * 60;
@@ -67,7 +64,6 @@ let renderedLyricKey = "";
 let renderedLyricAccentIndex = -1;
 let pointerGlassEnabled = false;
 let idleTimer;
-let nightNavigationTimer;
 const lyricCache = new Map();
 const lyricAccents = ["#153a5b", "#8fc5d6", "#d7b28a"];
 const playerMotionCycles = new WeakMap();
@@ -153,50 +149,10 @@ async function syncVisitorCounter() {
   }
 }
 
-function readNightNavigation() {
-  try {
-    return globalThis.sessionStorage?.getItem(NIGHT_NAVIGATION_STORAGE_KEY) === "on";
-  } catch {
-    return false;
-  }
-}
-
-function saveNightNavigation(enabled) {
-  try {
-    globalThis.sessionStorage?.setItem(NIGHT_NAVIGATION_STORAGE_KEY, enabled ? "on" : "off");
-  } catch {
-    // Session storage is optional; the current page state remains usable without it.
-  }
-}
-
-function clearNightNavigationCeremony() {
-  window.clearTimeout(nightNavigationTimer);
-  document.documentElement.classList.remove("is-night-navigating", "is-moonlit");
-  moonRipple.classList.remove("is-rippling");
-}
-
-function setNightNavigation(enabled, { ceremony = false, persist = false } = {}) {
-  const root = document.documentElement;
-  clearNightNavigationCeremony();
-  root.dataset.nightNavigation = enabled ? "on" : "off";
-  moonRipple.setAttribute("aria-pressed", String(enabled));
-  moonRipple.setAttribute("aria-label", enabled ? "停用夜航模式" : "启用夜航模式");
-  if (persist) saveNightNavigation(enabled);
-  if (!enabled || reduceMotionQuery.matches || !ceremony) return;
-  root.classList.add("is-moonlit", "is-night-navigating");
-  moonRipple.classList.add("is-rippling");
-  nightNavigationTimer = window.setTimeout(clearNightNavigationCeremony, NIGHT_NAVIGATION_CEREMONY_DURATION);
-}
-
-function initializeNightNavigation() {
-  setNightNavigation(readNightNavigation());
-}
-
 function syncMotionPreferences() {
   const root = document.documentElement;
   root.dataset.motion = reduceMotionQuery.matches ? "reduced" : "full";
   root.dataset.pointerGlass = "false";
-  clearNightNavigationCeremony();
   pointerGlassEnabled = false;
   root.style?.removeProperty("--lyric-accent");
   musicPanel.classList.remove("is-track-transitioning");
@@ -555,11 +511,6 @@ heroSearchForm.addEventListener("submit", (event) => {
   searchStatus.textContent = "请输入搜索内容。";
   heroSearchInput.focus();
 });
-moonRipple.addEventListener("click", () => {
-  const enabled = document.documentElement.dataset.nightNavigation !== "on";
-  setNightNavigation(enabled, { ceremony: enabled, persist: true });
-});
-
 const phrases = [
   { tone: "NOTES ON LIFE", lines: ["人生并不总在向前，", "许多看似停滞的时刻，也在悄然校正方向。"] },
   { tone: "KEEP MOVING", lines: ["真正的勇气，不是忽略代价，", "而是在看清代价之后，仍愿意承担。"] },
@@ -683,7 +634,6 @@ setMusicQueueOpen(false);
 loadTrack(0, { autoplay: false });
 syncQuoteMotion();
 syncMotionPreferences();
-initializeNightNavigation();
 setupPointerGlass();
 setupSectionObserver();
 setupIdleTimer();

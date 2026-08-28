@@ -186,8 +186,6 @@ test("mobile music panel keeps fixed controls above independently scrolling cont
 function createMusicRuntime({
   reducedMotion = false,
   finePointer = false,
-  nightNavigationValue = null,
-  storageFailure = false,
   visitorEndpoint = "",
   visitorCookie = "",
   cookieWritable = true,
@@ -289,7 +287,7 @@ function createMusicRuntime({
     "music-previous", "music-play", "music-next", "music-progress", "previous-lyric", "current-lyric",
     "next-lyric", "music-queue-toggle", "music-elapsed", "music-duration", "wechat-trigger",
     "wechat-popover", "wechat-copy", "wechat-close", "hero-search-form",
-    "hero-search-input", "search-status", "moon-ripple", "quote-meta", "quote-progress",
+    "hero-search-input", "search-status", "quote-meta", "quote-progress",
     "visitor-total", "visitor-today", "visitor-counter-status",
   ]) elements.set(`#${id}`, new FakeElement(id));
   for (const selector of [".music-lyrics", ".music-panel-mood", ".music-track-title", ".music-track-artist"]) {
@@ -400,18 +398,6 @@ function createMusicRuntime({
       animationFrames.delete(frame);
     },
   };
-  const storage = new Map();
-  if (nightNavigationValue !== null) storage.set("homepage-night-navigation", nightNavigationValue);
-  const sessionStorage = {
-    getItem(key) {
-      if (storageFailure) throw new Error("storage unavailable");
-      return storage.get(key) ?? null;
-    },
-    setItem(key, value) {
-      if (storageFailure) throw new Error("storage unavailable");
-      storage.set(key, String(value));
-    },
-  };
   return {
     audio,
     archiveCards,
@@ -449,8 +435,6 @@ function createMusicRuntime({
       media.dispatchChange();
     },
     setSelection(value) { selectedText = String(value); },
-    moonRipple: elements.get("#moon-ripple"),
-    sessionStorage,
     wechatPopover: elements.get("#wechat-popover"),
     wechatTrigger: elements.get("#wechat-trigger"),
     visitorStatus: elements.get("#visitor-counter-status"),
@@ -601,44 +585,10 @@ test("visitor counter reuses its cookie and fails safely without a usable endpoi
   assert.equal(cookieBlocked.visitorStatus.textContent, "统计暂时不可用");
 });
 
-test("night navigation persists an accessible stable state and bounds its ceremony", () => {
-  assert.match(html, /<button id="moon-ripple"[^>]*aria-pressed="false"[^>]*aria-label="启用夜航模式"/);
-  assert.match(script, /homepage-night-navigation/);
-  assert.match(styles, /html\[data-night-navigation="on"\]/);
-  assert.match(styles, /\.is-night-navigating/);
-
-  const restored = createMusicRuntime({ nightNavigationValue: "on" });
-  vm.runInNewContext(script, { ...restored, fetch: async () => ({ ok: false }), navigator: {}, sessionStorage: restored.sessionStorage });
-  assert.equal(restored.document.documentElement.dataset.nightNavigation, "on");
-  assert.equal(restored.moonRipple.getAttribute("aria-pressed"), "true");
-  assert.equal(restored.moonRipple.getAttribute("aria-label"), "停用夜航模式");
-
-  const runtime = createMusicRuntime();
-  vm.runInNewContext(script, { ...runtime, fetch: async () => ({ ok: false }), navigator: {}, sessionStorage: runtime.sessionStorage });
-  assert.equal(runtime.document.documentElement.dataset.nightNavigation, "off");
-  runtime.moonRipple.dispatch("click");
-  assert.equal(runtime.document.documentElement.dataset.nightNavigation, "on");
-  assert.equal(runtime.moonRipple.getAttribute("aria-pressed"), "true");
-  assert.equal(runtime.sessionStorage.getItem("homepage-night-navigation"), "on");
-  assert.equal(runtime.document.documentElement.classList.contains("is-night-navigating"), true);
-  runtime.runTimers(1350);
-  assert.equal(runtime.document.documentElement.classList.contains("is-night-navigating"), false);
-  runtime.moonRipple.dispatch("click");
-  assert.equal(runtime.document.documentElement.dataset.nightNavigation, "off");
-  assert.equal(runtime.sessionStorage.getItem("homepage-night-navigation"), "off");
-});
-
-test("night navigation handles unavailable storage and bypasses ceremony with reduced motion", () => {
-  const unavailableStorage = createMusicRuntime({ storageFailure: true });
-  vm.runInNewContext(script, { ...unavailableStorage, fetch: async () => ({ ok: false }), navigator: {}, sessionStorage: unavailableStorage.sessionStorage });
-  unavailableStorage.moonRipple.dispatch("click");
-  assert.equal(unavailableStorage.document.documentElement.dataset.nightNavigation, "on");
-
-  const reduced = createMusicRuntime({ reducedMotion: true });
-  vm.runInNewContext(script, { ...reduced, fetch: async () => ({ ok: false }), navigator: {}, sessionStorage: reduced.sessionStorage });
-  reduced.moonRipple.dispatch("click");
-  assert.equal(reduced.document.documentElement.dataset.nightNavigation, "on");
-  assert.equal(reduced.document.documentElement.classList.contains("is-night-navigating"), false);
+test("homepage removes the obsolete night-navigation moon control", () => {
+  assert.doesNotMatch(html, /id="moon-ripple"|data-night-navigation/);
+  assert.doesNotMatch(script, /moonRipple|NIGHT_NAVIGATION|nightNavigation|is-night-navigating|is-moonlit/);
+  assert.doesNotMatch(styles, /#moon-ripple|night-navigation|night-navigating|is-moonlit/);
 });
 
 test("failed lyric fetch remains visible through timeupdate and outside-close restores Dock focus", async () => {
@@ -985,6 +935,9 @@ test("moon-scale cursor uses native 32px cold-silver and warm-gold SVG cursors",
     assert.match(cursor, /height="32"/);
     assert.match(cursor, /data-hotspot="5 5"/);
     assert.doesNotMatch(cursor, /<polygon\b/);
+    assert.match(cursor, /<path[^>]*data-part="body"[^>]*fill-rule="evenodd"[^>]*d="M5 5/);
+    assert.match(cursor, /<path[^>]*data-part="spine"[^>]*stroke="#[0-9a-f]{6}"[^>]*d="[^"]+"/i);
+    assert.equal((cursor.match(/<path[^>]*data-part="tail"/g) ?? []).length, 2);
   }
   assert.match(styles, /moon-scale-cold-silver\.svg"\) 5 5, auto/);
   assert.match(styles, /moon-scale-warm-gold\.svg"\) 5 5, pointer/);
@@ -993,6 +946,8 @@ test("moon-scale cursor uses native 32px cold-silver and warm-gold SVG cursors",
 
   const withoutPaintColors = (svg) => svg.replace(/\b(fill|stroke)="[^"]*"/g, '$1="COLOR"');
   assert.equal(withoutPaintColors(warmGold), withoutPaintColors(coldSilver));
+  const paths = (svg) => [...svg.matchAll(/<path\b[^>]*\bd="([^"]+)"/g)].map(([, d]) => d);
+  assert.deepEqual(paths(warmGold), paths(coldSilver));
 });
 
 test("moon-scale cursor keeps native click coordinates while control hover changes only the CSS cursor", () => {
@@ -1011,6 +966,13 @@ test("moon-scale cursor keeps native click coordinates while control hover chang
   assert.deepEqual([controller.pointer.x, controller.pointer.y], [160, 100]);
   assert.doesNotMatch(sharedScript, /\btarget\b|hoveredTarget|getBoundingClientRect\(|PARTICLE_COUNT|FORMATION/);
   assert.match(styles, /#moon-scale-cursor\s*\{[^}]*pointer-events:\s*none/);
+});
+
+test("moon-scale trail SVGs receive real class and intrinsic size attributes", () => {
+  assert.match(sharedScript, /trail\.setAttribute\("class", `moon-scale-trail/);
+  assert.doesNotMatch(sharedScript, /trail\.className\s*=/);
+  assert.match(shoalStyles, /\.moon-scale-trail\s*\{[^}]*width:\s*22px[^}]*height:\s*10px/);
+  assert.match(shoalStyles, /#moon-scale-cursor > svg\s*\{[^}]*display:\s*block[^}]*overflow:\s*visible/);
 });
 
 test("moon-scale ripple centers on client coordinates and both waterlight trails return to the pointer", () => {
@@ -1038,14 +1000,17 @@ test("moon-scale ripple centers on client coordinates and both waterlight trails
   const trailRules = styles.match(/\.moon-scale-trail(?:-gold)?\s*\{[^}]*\}/g).join("\n");
   assert.doesNotMatch(trailRules, /border-radius/);
   assert.equal(controller.trails.length, 2);
-  for (const trail of controller.trails) {
+  controller.trails.forEach((trail, index) => {
     assert.equal(trail.tagName, "svg");
+    assert.equal(trail.getAttribute("class"), `moon-scale-trail${index ? " moon-scale-trail-gold" : ""}`);
+    assert.equal(trail.getAttribute("width"), index ? "14" : "22");
+    assert.equal(trail.getAttribute("height"), index ? "8" : "10");
     assert.equal(trail.children.length, 1);
     const path = trail.children[0];
     assert.equal(path.tagName, "path");
     assert.match(path.getAttribute("d"), /^M\s*[-\d.]+\s+[-\d.]+\s+C\s*[-\d.]+\s+[-\d.]+\s+[-\d.]+\s+[-\d.]+\s+[-\d.]+\s+[-\d.]+$/);
     assert.doesNotMatch(path.getAttribute("d"), /Z/i);
-  }
+  });
 });
 
 test("moon-scale restarts a ripple for rapid consecutive clicks", () => {
@@ -1218,7 +1183,7 @@ test("moon-scale cursor remains scoped to the homepage and three archive entries
   assert.match(sharedScript, /window\.MoonScaleShoal = \{ sync, destroy/);
 });
 
-test("premium motion stages section copy, bounds glass lift and tilt, and adds two moon ripples", () => {
+test("premium motion stages section copy and bounds glass lift and tilt", () => {
   const stagedReveal = styles.match(/html\[data-motion="full"\]\[data-active-section\]\s+:where\([\s\S]*?\)\s*\{[^}]*\}/)?.[0] ?? "";
   const activeReveal = styles.match(/html\[data-motion="full"\]\[data-active-section="archive"\]\s+#archive\s+:is\([^)]*\)\s*\{[^}]*\}/)?.[0] ?? "";
   const pointerTransform = styles.match(/html\[data-pointer-glass="true"\]\s+:is\(\.pointer-glass,\s*\.archive-card\)\s*\{[^}]*\}/)?.[0] ?? "";
@@ -1242,10 +1207,6 @@ test("premium motion stages section copy, bounds glass lift and tilt, and adds t
   assert.match(styles, /html\[data-motion="full"\]\s+:is\(\.education-entry,\s*\.social-links a,\s*\.social-links button\):active\s*\{[^}]*scale\(\.985\)/);
   assert.match(script, /--tilt-x", `\$\{\(0\.5 - y\) \* 4\}deg`/);
   assert.match(script, /--tilt-y", `\$\{\(x - 0\.5\) \* 4\}deg`/);
-  assert.match(styles, /#moon-ripple\.is-rippling::after\s*\{[^}]*animation:\s*moon-ripple-primary/);
-  assert.match(styles, /#moon-ripple\.is-rippling span\s*\{[^}]*animation:\s*moon-ripple-secondary/);
-  assert.match(styles, /html\.is-moonlit\s+\.page-backdrop\s*\{[^}]*animation:\s*moonlight-brighten/);
-  assert.match(script, /root\.classList\.add\("is-moonlit", "is-night-navigating"\)/);
 });
 
 test("active section reveal rules outrank the shared inactive reveal baseline", () => {
@@ -1282,7 +1243,6 @@ test("scene-light pointer parallax is capped at twelve pixels and disabled with 
   assert.equal(reduced.document.documentElement.style.getPropertyValue("--scene-light-offset-y"), "");
   const reducedMotion = styles.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
   assert.match(reducedMotion, /filter:\s*none !important/);
-  assert.match(reducedMotion, /#moon-ripple\.is-rippling span/);
 });
 
 test("navigation, idle state, and close controls remain keyboard reachable", () => {

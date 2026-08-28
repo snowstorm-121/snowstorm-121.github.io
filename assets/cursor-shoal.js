@@ -23,7 +23,9 @@
     });
     const trails = Array.from({ length: TRAIL_COUNT }, (_, index) => {
       const trail = document.createElementNS(SVG_NAMESPACE, "svg");
-      trail.className = `moon-scale-trail${index ? " moon-scale-trail-gold" : ""}`;
+      trail.setAttribute("class", `moon-scale-trail${index ? " moon-scale-trail-gold" : ""}`);
+      trail.setAttribute("width", index ? "14" : "22");
+      trail.setAttribute("height", index ? "8" : "10");
       trail.setAttribute("viewBox", "0 0 28 12");
       trail.setAttribute("aria-hidden", "true");
       const path = document.createElementNS(SVG_NAMESPACE, "path");

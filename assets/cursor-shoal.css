@@ -30,6 +30,11 @@ html[data-moon-scale-shoal="true"][data-moon-scale-cursor="true"][data-moon-scal
 
 #moon-scale-cursor.is-visible { opacity: 1; }
 
+#moon-scale-cursor > svg {
+  display: block;
+  overflow: visible;
+}
+
 #moon-scale-cursor :is(.moon-scale-trail, .moon-scale-ripple-arc) {
   position: fixed;
   top: 0;
