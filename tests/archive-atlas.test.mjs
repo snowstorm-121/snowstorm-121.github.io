@@ -4,16 +4,31 @@ import { access, readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const readOptional = (path) => readFile(new URL(path, import.meta.url), "utf8").catch(() => "");
-const [learning, living, research, styles, script, manifestSource] = await Promise.all([
+const [learning, living, research, styles, script, manifestSource, relationsSource] = await Promise.all([
   readFile(new URL("../learning/index.html", import.meta.url), "utf8"),
   readFile(new URL("../living/index.html", import.meta.url), "utf8"),
   readFile(new URL("../research/index.html", import.meta.url), "utf8"),
   readOptional("../assets/archive-atlas.css"),
   readOptional("../assets/archive-atlas.js"),
   readFile(new URL("../learning/pytorch/manifest.json", import.meta.url), "utf8"),
+  readFile(new URL("../learning/pytorch/atlas-relations.json", import.meta.url), "utf8"),
 ]);
 const pages = { learning, living, research };
 const manifest = JSON.parse(manifestSource);
+const publishedRelations = JSON.parse(relationsSource);
+const validRelations = {
+  ...publishedRelations,
+  references: [
+    { from: publishedRelations.notes[0].id, to: publishedRelations.notes[4].id },
+    { from: publishedRelations.notes[4].id, to: publishedRelations.notes[6].id },
+    { from: publishedRelations.notes[8].id, to: publishedRelations.notes[4].id },
+  ],
+};
+const directReferences = (relations, noteId) => relations.references
+  .map((edge, index) => ({ edge, id: String(index) }))
+  .filter(({ edge }) => edge.from === noteId || edge.to === noteId)
+  .map(({ id }) => id)
+  .join(",");
 
 const rule = (source, selector) => source.match(new RegExp(String.raw`${selector}\s*\{[^}]*\}`))?.[0] ?? "";
 const cssDeclarations = (source) => source.split(";").flatMap((declaration) => {
@@ -61,7 +76,8 @@ const contrastRatio = (left, right) => {
 };
 const moonSeaMetadataContrast = (source) => {
   const value = cssCascadeDeclarationValue(source, ".atlas-index-description", "color");
-  const surface = compositeColor(cssColor("rgba(3, 7, 19, .76)"), [255, 255, 255, 1]);
+  const globalVeil = compositeColor(cssColor("rgba(3, 7, 19, .46)"), [255, 255, 255, 1]);
+  const surface = compositeColor(cssColor("rgba(3, 7, 19, .76)"), globalVeil);
   return contrastRatio(cssColor(value, source), surface);
 };
 const assertMoonSeaMetadataContrast = (source) => {
@@ -264,13 +280,14 @@ test("dimmed atlas controls preserve readable text while dimming only moon marks
 });
 
 test("archive metadata meets normal-text contrast over the brightest possible image pixel", () => {
-  const veil = cssColor("rgba(3, 7, 19, .76)");
-  const brightestSurface = compositeColor(veil, [255, 255, 255, 1]);
+  const globalVeil = compositeColor(cssColor("rgba(3, 7, 19, .46)"), [255, 255, 255, 1]);
+  const brightestSurface = compositeColor(cssColor("rgba(3, 7, 19, .76)"), globalVeil);
   const metadata = cssColor("#d7e2ed");
   const worstContrast = contrastRatio(metadata, brightestSurface);
 
   assert.ok(worstContrast >= 4.5, `metadata contrast ${worstContrast.toFixed(2)} must be at least 4.5:1 over white`);
-  assert.match(rule(styles, "body\\.archive-atlas-page"), /linear-gradient\(rgba\(3, 7, 19, \.76\), rgba\(3, 7, 19, \.76\)\)/);
+  assert.match(rule(styles, "body\\.archive-atlas-page"), /linear-gradient\(rgba\(3, 7, 19, \.46\), rgba\(3, 7, 19, \.46\)\)/);
+  assert.match(rule(styles, "\\.atlas-node-copy::before"), /rgba\(3, 7, 19, \.76\)/);
 });
 
 test("moon-sea metadata contrast lookup uses the later equal-specificity rule", () => {
@@ -304,7 +321,7 @@ test("atlas contrast contract protects moon-sea metadata declarations", () => {
   );
 });
 
-const forbiddenArchiveArtifacts = /<svg\b|atlas-(?:chart|coordinate-plane|routes?|coastline)|is-core|--node-[xy]/i;
+const forbiddenArchiveArtifacts = /atlas-(?:chart|coordinate-plane|routes?|coastline)|is-core|--node-[xy]/i;
 
 for (const [pageName, html] of Object.entries(pages)) {
   test(`${pageName} exposes one ordered tide surface rooted in the shared atlas contract`, () => {
@@ -312,7 +329,7 @@ for (const [pageName, html] of Object.entries(pages)) {
     assert.equal((html.match(/data-atlas-map\b/g) ?? []).length, 1);
     assert.equal((html.match(/class="atlas-tide"/g) ?? []).length, 1);
     assert.match(html, /<div class="atlas-tide">\s*<(?:ol|ul)\b/);
-    assert.match(html, /<\/(?:ol|ul)>\s*<\/div>/);
+    assert.match(html, /<\/(?:ol|ul)>[\s\S]*?<\/div>/);
   });
 
   test(`${pageName} tide controls keep unique complete selection metadata`, () => {
@@ -423,11 +440,13 @@ test("moon-sea stylesheet keeps a readable deep-color fallback before image pain
   assert.match(body, /min-height:\s*100vh/);
 });
 
-test("moon-sea artwork is veiled for low-contrast interface use", () => {
+test("moon-sea artwork keeps a restrained global veil with local contrast treatment", () => {
   const body = rule(styles, "body\\.archive-atlas-page");
-  assert.match(body, /linear-gradient\(rgba\(3, 7, 19, \.76\), rgba\(3, 7, 19, \.76\)\)/);
+  const alpha = Number(body.match(/linear-gradient\(rgba\(3, 7, 19, ([\d.]+)\), rgba\(3, 7, 19, [\d.]+\)\)/)?.[1]);
+  assert.ok(alpha >= .42 && alpha <= .48, `global moon-sea veil ${alpha} must stay between .42 and .48`);
   assert.match(body, /url\("\.\/archive-moon-sea\.webp"\)/);
   assert.match(body, /background-size:\s*cover/);
+  assert.match(styles, /\.atlas-(?:header|prologue|colophon)[^{]*\{[^}]*(?:text-shadow|linear-gradient)/s);
 });
 
 test("moon-sea backdrop scrolls with the document instead of creating CSS parallax", () => {
@@ -463,6 +482,14 @@ test("wide atlas composes the tide beside a right-side colophon and stacks at na
   assert.match(layout, /grid-template-columns:\s*minmax\(0, 1fr\)\s+clamp\(/);
   const narrower = styles.match(/@media \(max-width: 1024px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
   assert.match(narrower, /\.atlas-layout\s*\{[^}]*grid-template-columns:\s*1fr/s);
+});
+
+test("1024px keeps eight learning bays horizontal and bounds complete edge-note labels", () => {
+  const narrower = styles.match(/@media \(max-width: 1024px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+  assert.doesNotMatch(narrower, /\.atlas-tide\s*\{[^}]*grid-template-columns:\s*1fr/s);
+  assert.match(script, /dataset\.atlasStageEdge/);
+  assert.match(styles, /\.atlas-note-item\[data-atlas-stage-edge="start"\][^{]*\.atlas-note-scale::after\s*\{[^}]*transform:/s);
+  assert.match(styles, /\.atlas-note-item\[data-atlas-stage-edge="end"\][^{]*\.atlas-note-scale::after\s*\{[^}]*transform:/s);
 });
 
 test("moon marks remain decorative while each full tide stop is clickable", () => {
@@ -509,13 +536,14 @@ test("moon diffusion has one outward fading definition", () => {
 
 test("archive styles contain no looping animation declarations", () => {
   const animations = [...styles.matchAll(/animation:\s*([^;\n}]+)/g)].map(([, value]) => value.trim());
-  assert.deepEqual(animations, ["atlas-moon-diffusion 240ms ease-out", "none !important"]);
+  assert.deepEqual(animations, ["atlas-moon-diffusion 240ms ease-out", "atlas-thread-reveal 240ms ease-out", "none !important"]);
   assert.doesNotMatch(styles, /\binfinite\b|\balternate\b/);
 });
 
-test("archive implementation contains no radial routes central hub or parallax vocabulary", () => {
+test("archive implementation contains no radial routes central hub or pointer-driven geometry", () => {
   assert.doesNotMatch(styles, /atlas-(?:chart|coordinate-plane|routes?|coastline|drift)|--atlas-parallax/);
-  assert.doesNotMatch(script, /data-atlas-route|pointermove|getBoundingClientRect|requestAnimationFrame|--atlas-parallax/);
+  assert.doesNotMatch(script, /data-atlas-route|--atlas-parallax/);
+  assert.doesNotMatch(script, /pointermove[\s\S]*getBoundingClientRect/);
   for (const html of Object.values(pages)) assert.doesNotMatch(html, forbiddenArchiveArtifacts);
 });
 
@@ -558,16 +586,72 @@ test("atlas stylesheet parses as balanced top-level rules", () => {
   assert.equal(records.filter(({ kind }) => kind === "statement").length, 0);
 });
 
+test("learning alone opts into validated note relations while retaining eight static stage fallbacks", () => {
+  assert.equal((learning.match(/class="atlas-tide-stop"/g) ?? []).length, 8);
+  assert.match(learning, /data-atlas-map[^>]*data-atlas-relations-url="\.\/pytorch\/atlas-relations\.json"/);
+  assert.match(learning, /<div data-atlas-notes><\/div>/);
+  assert.match(learning, /<svg class="atlas-threads" aria-hidden="true"><\/svg>/);
+  const tide = learning.match(/<div class="atlas-tide">[\s\S]*?<\/div>\s*<\/div>/)?.[0] ?? "";
+  assert.doesNotMatch(tide, /class="atlas-note-scale"|\/notes\//, "article links must only come from validated JSON");
+  for (const html of [living, research]) {
+    assert.doesNotMatch(html, /data-atlas-relations-url|data-atlas-note-id|atlas-threads|atlas-note-scale/);
+  }
+});
+
+test("atlas geometry is resize-driven and creates cubic SVG paths without pointermove reads", () => {
+  assert.match(script, /new ResizeObserver\(scheduleGeometry\)/);
+  assert.match(script, /document\.createElementNS\("http:\/\/www\.w3\.org\/2000\/svg", "path"\)/);
+  assert.doesNotMatch(script, /pointermove[\s\S]*getBoundingClientRect/);
+  assert.doesNotMatch(`${script}\n${learning}`, /marker-end|stroke-dasharray/);
+});
+
+test("thread styling distinguishes one silver sequence from hidden hairline gold references", () => {
+  const sequence = rule(styles, String.raw`\.atlas-thread\[data-kind="sequence"\]`);
+  const reference = rule(styles, String.raw`\.atlas-thread\[data-kind="reference"\]`);
+  const revealed = rule(styles, String.raw`\.atlas-thread\[data-kind="reference"\]\.is-revealed`);
+  assert.match(sequence, /stroke:\s*var\(--atlas-silver\)/);
+  assert.match(reference, /stroke:\s*var\(--atlas-gold\)/);
+  assert.ok(Number(cssDeclarationValue(reference, "stroke-width")?.replace("px", "")) <= 1);
+  assert.equal(cssDeclarationValue(reference, "opacity"), "0");
+  assert.equal(cssDeclarationValue(revealed, "animation"), "atlas-thread-reveal 240ms ease-out");
+  assert.doesNotMatch(`${sequence}\n${reference}\n${revealed}`, /marker|dash|infinite|alternate/);
+});
+
+test("mobile learning atlas hides SVG geometry and exposes native relationship links", () => {
+  const mobile = styles.match(/@media \(max-width: 720px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+  assert.match(mobile, /\.atlas-threads\s*\{[^}]*display:\s*none/);
+  assert.match(mobile, /\.atlas-note-relations\s*\{[^}]*display:\s*flex/);
+  assert.match(script, /引用自/);
+  assert.match(script, /延伸至/);
+});
+
 class FakeElement {
-  constructor({ key = "", count = "", meta = "", description = "", href = "" } = {}) {
+  constructor({ tagName = "div", key = "", count = "", meta = "", description = "", href = "", rect, onClassName } = {}) {
+    this.tagName = tagName.toUpperCase();
     this.dataset = { atlasKey: key, atlasCount: count, atlasMeta: meta, atlasDescription: description };
     if (href) this.dataset.atlasHref = href;
     this.attributes = new Map();
+    this.children = [];
     this.listeners = new Map();
     this.hidden = false;
-    this.textContent = "";
+    this.href = "";
+    this.parentNode = null;
+    this.rect = rect ?? { left: 0, top: 0, width: 12, height: 8 };
+    this.ownTextContent = "";
+    Object.defineProperty(this, "textContent", {
+      get: () => this.ownTextContent + this.children.map((child) => child.textContent).join(""),
+      set: (value) => { this.ownTextContent = String(value); },
+    });
     this.style = { values: new Map(), setProperty: (name, value) => this.style.values.set(name, String(value)) };
     const classes = new Set();
+    Object.defineProperty(this, "className", {
+      get: () => [...classes].join(" "),
+      set: (value) => {
+        classes.clear();
+        String(value).split(/\s+/).filter(Boolean).forEach((token) => classes.add(token));
+        onClassName?.(this, classes);
+      },
+    });
     this.classList = {
       add: (...tokens) => tokens.forEach((token) => classes.add(token)),
       remove: (...tokens) => tokens.forEach((token) => classes.delete(token)),
@@ -589,14 +673,29 @@ class FakeElement {
     this.listeners.get(type)?.forEach((listener) => listener(payload));
     return payload;
   }
+  appendChild(child) {
+    child.parentNode = this;
+    this.children.push(child);
+    return child;
+  }
+  append(...children) { children.forEach((child) => this.appendChild(child)); }
+  replaceChildren(...children) {
+    this.children.forEach((child) => { child.parentNode = null; });
+    this.children = [];
+    this.append(...children);
+  }
+  getBoundingClientRect() { return { ...this.rect, right: this.rect.left + this.rect.width, bottom: this.rect.top + this.rect.height }; }
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   getAttribute(name) { return this.attributes.get(name) ?? null; }
   removeAttribute(name) { this.attributes.delete(name); }
 }
 
-function createAtlasRuntime({ reducedMotion = false } = {}) {
+function createAtlasRuntime({ reducedMotion = false, relationsUrl = "" } = {}) {
   const root = new FakeElement();
-  const map = new FakeElement();
+  const map = new FakeElement({ rect: { left: 100, top: 40, width: 960, height: 500 } });
+  if (relationsUrl) map.dataset.atlasRelationsUrl = relationsUrl;
+  const notes = new FakeElement();
+  const threads = new FakeElement({ tagName: "svg" });
   const pytorchMap = new FakeElement({ key: "pytorch", count: "32 篇", meta: "7 阶段", description: "完整学习航线", href: "./pytorch/" });
   const pytorchIndex = new FakeElement({ key: "pytorch", count: "32 篇", meta: "7 阶段", description: "完整学习航线", href: "./pytorch/" });
   const stageMap = new FakeElement({ key: "stage-1", count: "4 篇", meta: "阶段 1", description: "Tensor 与自动微分", href: "./pytorch/stage-1/" });
@@ -609,6 +708,23 @@ function createAtlasRuntime({ reducedMotion = false } = {}) {
   const description = new FakeElement();
   const destination = new FakeElement();
   const empty = new FakeElement();
+  const created = [];
+  let noteRectIndex = 0;
+  const onClassName = (element, classes) => {
+    if (!classes.has("atlas-note-scale")) return;
+    const index = noteRectIndex++;
+    element.rect = {
+      left: 132 + (index % 8) * 108,
+      top: 178 + (index % 5) * 31,
+      width: 14,
+      height: 8,
+    };
+  };
+  const makeElement = (tagName) => {
+    const element = new FakeElement({ tagName, onClassName });
+    created.push(element);
+    return element;
+  };
   const selectorMap = new Map([
     ["[data-atlas-root]", root],
     ["[data-atlas-map]", map],
@@ -622,6 +738,8 @@ function createAtlasRuntime({ reducedMotion = false } = {}) {
     ["[data-atlas-description]:not([data-atlas-control])", description],
     ["[data-atlas-destination]", destination],
     ["[data-atlas-empty]", empty],
+    ["[data-atlas-notes]", notes],
+    [".atlas-threads", threads],
   ]);
   const document = {
     documentElement: new FakeElement(),
@@ -633,6 +751,8 @@ function createAtlasRuntime({ reducedMotion = false } = {}) {
       if (selector === "[data-atlas-control]") return controls;
       return [];
     },
+    createElement(tagName) { return makeElement(tagName); },
+    createElementNS(_namespace, tagName) { return makeElement(tagName); },
   };
   const motionQuery = { matches: reducedMotion, addEventListener() {} };
   const navigations = [];
@@ -640,8 +760,161 @@ function createAtlasRuntime({ reducedMotion = false } = {}) {
     matchMedia: () => motionQuery,
     location: { assign(href) { navigations.push(href); } },
   };
-  return { controls, count, description, destination, document, empty, map, meta, navigations, root, title, window };
+  const animationFrames = [];
+  let nextFrame = 1;
+  let resolveFetch;
+  let rejectFetch;
+  const observers = [];
+  class ResizeObserver {
+    constructor(callback) { this.callback = callback; observers.push(this); }
+    observe(target) { this.target = target; }
+  }
+  const runtime = {
+    controls,
+    count,
+    description,
+    destination,
+    document,
+    empty,
+    map,
+    meta,
+    navigations,
+    notes,
+    observers,
+    root,
+    threads,
+    title,
+    window,
+    ResizeObserver,
+    requestAnimationFrame(callback) { animationFrames.push(callback); return nextFrame++; },
+    cancelAnimationFrame() {},
+    fetch() {
+      return new Promise((resolve, reject) => {
+        resolveFetch = resolve;
+        rejectFetch = reject;
+      });
+    },
+    get noteLinks() { return created.filter((element) => element.classList.contains("atlas-note-scale")); },
+    get svgPaths() { return created.filter((element) => element.tagName === "PATH"); },
+    visibleReferenceIds() {
+      return this.svgPaths
+        .filter((path) => path.dataset.kind === "reference" && path.classList.contains("is-revealed"))
+        .map((path) => path.dataset.referenceId)
+        .sort((left, right) => Number(left) - Number(right))
+        .join(",");
+    },
+    async flushRelations(value, { ok = true } = {}) {
+      resolveFetch?.({ ok, json: async () => value });
+      for (let turn = 0; turn < 8; turn += 1) await Promise.resolve();
+      while (animationFrames.length) animationFrames.shift()(0);
+      await Promise.resolve();
+    },
+    async failRelations(error = new Error("network failure")) {
+      rejectFetch?.(error);
+      for (let turn = 0; turn < 8; turn += 1) await Promise.resolve();
+    },
+  };
+  return runtime;
 }
+
+test("validated relations mount 32 native article links and only JSON-backed cubic paths", async () => {
+  const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json" });
+  vm.runInNewContext(script, runtime);
+  await runtime.flushRelations(validRelations);
+
+  assert.equal(runtime.root.dataset.atlasRelations, "ready");
+  assert.equal(runtime.noteLinks.length, 32);
+  assert.equal(runtime.notes.children.length, 32);
+  assert.equal(runtime.noteLinks[4].tagName, "A");
+  assert.equal(runtime.noteLinks[4].getAttribute("aria-label"), validRelations.notes[4].title);
+  assert.equal(runtime.noteLinks[4].href, validRelations.notes[4].href);
+  assert.equal(runtime.noteLinks[4].textContent, validRelations.notes[4].title);
+
+  const sequencePaths = runtime.svgPaths.filter((path) => path.dataset.kind === "sequence");
+  const referencePaths = runtime.svgPaths.filter((path) => path.dataset.kind === "reference");
+  assert.equal(sequencePaths.length, 1);
+  assert.equal(referencePaths.length, validRelations.references.length);
+  for (const path of runtime.svgPaths) {
+    assert.match(path.getAttribute("d"), /^M\s[-\d.]+\s[-\d.]+(?:\sC\s[-\d.]+\s[-\d.]+,\s[-\d.]+\s[-\d.]+,\s[-\d.]+\s[-\d.]+)+$/);
+    assert.doesNotMatch(path.getAttribute("d"), /[LHV]/);
+    assert.equal(path.getAttribute("marker-end"), null);
+    assert.equal(path.getAttribute("stroke-dasharray"), null);
+  }
+
+  runtime.noteLinks[4].dispatch("focus");
+  assert.equal(runtime.visibleReferenceIds(), directReferences(validRelations, runtime.noteLinks[4].dataset.atlasNoteId));
+  assert.equal(runtime.root.dataset.atlasSelected, runtime.noteLinks[4].dataset.atlasNoteId);
+  assert.equal(runtime.title.textContent, validRelations.notes[4].title);
+  assert.equal(runtime.meta.textContent, validRelations.stages.find((stage) => stage.key === validRelations.notes[4].stageKey).label);
+  assert.match(runtime.count.textContent, /3 条直连/);
+  assert.equal(runtime.destination.textContent, "阅读此篇 →");
+  assert.equal(runtime.destination.getAttribute("href"), validRelations.notes[4].href);
+});
+
+test("article hover and click select locally without intercepting native navigation", async () => {
+  const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json" });
+  vm.runInNewContext(script, runtime);
+  await runtime.flushRelations(validRelations);
+
+  const touchHover = runtime.noteLinks[2].dispatch("pointerenter", { pointerType: "touch" });
+  assert.equal(touchHover.defaultPrevented, undefined);
+  assert.notEqual(runtime.root.dataset.atlasSelected, runtime.noteLinks[2].dataset.atlasNoteId);
+
+  const mouseHover = runtime.noteLinks[2].dispatch("pointerenter", { pointerType: "mouse" });
+  assert.equal(mouseHover.defaultPrevented, undefined);
+  assert.equal(runtime.root.dataset.atlasSelected, runtime.noteLinks[2].dataset.atlasNoteId);
+
+  runtime.controls[2].dispatch("focus");
+  const mouseClick = runtime.noteLinks[3].dispatch("click", { pointerType: "mouse" });
+  assert.equal(mouseClick.defaultPrevented, undefined);
+  assert.equal(runtime.root.dataset.atlasSelected, "stage-1", "mouse click relies on prior hover or focus selection");
+
+  const touchClick = runtime.noteLinks[3].dispatch("click", { pointerType: "touch" });
+  assert.equal(touchClick.defaultPrevented, undefined);
+  assert.equal(runtime.root.dataset.atlasSelected, runtime.noteLinks[3].dataset.atlasNoteId);
+});
+
+test("invalid or unavailable relation JSON leaves the static archive in fallback state", async () => {
+  for (const invalid of [
+    { version: 2 },
+    { ...validRelations, notes: validRelations.notes.slice(0, -1) },
+    { ...validRelations, references: [{ from: validRelations.notes[0].id, to: "missing" }] },
+  ]) {
+    const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json" });
+    vm.runInNewContext(script, runtime);
+    await runtime.flushRelations(invalid);
+    assert.equal(runtime.noteLinks.length, 0);
+    assert.equal(runtime.notes.children.length, 0);
+    assert.equal(runtime.svgPaths.length, 0);
+    assert.equal(runtime.root.dataset.atlasRelations, "fallback");
+    assert.equal(runtime.controls.length, 5, "static stage controls remain available");
+  }
+
+  const networkRuntime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json" });
+  vm.runInNewContext(script, networkRuntime);
+  await networkRuntime.failRelations();
+  assert.equal(networkRuntime.root.dataset.atlasRelations, "fallback");
+  assert.equal(networkRuntime.noteLinks.length, 0);
+});
+
+test("mobile relationship copy is rendered as native links sourced from direct references", async () => {
+  const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json" });
+  vm.runInNewContext(script, runtime);
+  await runtime.flushRelations(validRelations);
+
+  const relationGroups = runtime.notes.children
+    .flatMap((item) => item.children)
+    .filter((child) => child.classList.contains("atlas-note-relations"));
+  assert.equal(relationGroups.length, 32);
+  const linkedGroup = relationGroups[4];
+  assert.match(linkedGroup.textContent, /引用自/);
+  assert.match(linkedGroup.textContent, /延伸至/);
+  assert.ok(linkedGroup.children.every((link) => link.tagName === "A"));
+  assert.deepEqual(
+    linkedGroup.children.map((link) => link.href),
+    [validRelations.notes[0].href, validRelations.notes[8].href, validRelations.notes[6].href],
+  );
+});
 
 test("selection remains functional when timer globals are unavailable", () => {
   const runtime = createAtlasRuntime();
@@ -731,12 +1004,12 @@ test("motion preference updates state without registering pointer-driven map eff
   assert.equal(reduced.controls[2].classList.contains("is-selecting"), false);
 });
 
-test("three archives are ordered moon-sea scrolls without radial SVG routes", () => {
+test("three archives are ordered moon-sea scrolls without radial route artifacts", () => {
   for (const [name, html] of Object.entries(pages)) {
     assert.match(html, /class="atlas-scroll"/, `${name} must expose the horizontal scroll`);
     assert.match(html, /class="atlas-tide"/, `${name} must expose the ordered moon tide`);
     assert.match(html, /class="atlas-colophon"/, `${name} must expose the borderless colophon`);
-    assert.doesNotMatch(html, /<svg\b|atlas-routes|atlas-route|atlas-coastline|is-core/, `${name} must remove radial map artifacts`);
+    assert.doesNotMatch(html, /atlas-routes|atlas-route|atlas-coastline|is-core/, `${name} must remove radial map artifacts`);
   }
 });
 
@@ -746,7 +1019,7 @@ test("archive styling uses optimized moon-sea art without glass, parallax, or lo
   assert.match(styles, /@keyframes\s+atlas-moon-diffusion/);
   assert.match(styles, /animation:\s*atlas-moon-diffusion\s+240ms/);
   assert.doesNotMatch(styles, /backdrop-filter|infinite|alternate|parallax|atlas-drift|atlas-route-draw/);
-  assert.doesNotMatch(script, /pointermove|--atlas-parallax|requestAnimationFrame/);
+  assert.doesNotMatch(script, /pointermove|--atlas-parallax/);
 });
 
 test("720px archives become one non-overflowing vertical tide with readable type", () => {
