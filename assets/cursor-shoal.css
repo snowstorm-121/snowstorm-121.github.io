@@ -1,9 +1,9 @@
 html[data-moon-scale-shoal="true"][data-moon-scale-cursor="true"] :where(body, body *) {
-  cursor: url("./cursors/moon-scale-cold-silver.svg") 4 4, auto;
+  cursor: url("./cursors/moon-scale-cold-silver.svg") 5 5, auto;
 }
 
 html[data-moon-scale-shoal="true"][data-moon-scale-cursor="true"] :is(a, button, summary, select, [role="button"]):not([disabled]) {
-  cursor: url("./cursors/moon-scale-warm-gold.svg") 4 4, pointer;
+  cursor: url("./cursors/moon-scale-warm-gold.svg") 5 5, pointer;
 }
 
 html[data-moon-scale-shoal="true"] :is(input, textarea, [contenteditable]),
@@ -26,7 +26,7 @@ html[data-moon-scale-selecting="true"] :where(body, body *) {
 
 #moon-scale-cursor.is-visible { opacity: 1; }
 
-#moon-scale-cursor :is(.moon-scale-trail, .moon-scale-ripple) {
+#moon-scale-cursor :is(.moon-scale-trail, .moon-scale-ripple-arc) {
   position: fixed;
   top: 0;
   left: 0;
@@ -35,37 +35,46 @@ html[data-moon-scale-selecting="true"] :where(body, body *) {
 }
 
 .moon-scale-trail {
-  width: 42px;
-  height: 18px;
-  border: 1px solid rgba(185, 225, 244, .42);
-  border-radius: 50%;
+  width: 36px;
+  height: 12px;
+  border-top: 1px solid rgba(185, 225, 244, .52);
+  border-radius: 100% 100% 0 0;
   opacity: .18;
-  background: radial-gradient(ellipse, rgba(183, 225, 244, .22), transparent 68%);
   transform: translate3d(var(--moon-trail-x), var(--moon-trail-y), 0) translate(-50%, -50%) rotate(-14deg);
 }
 
-.moon-scale-trail:nth-child(3) {
-  width: 27px;
-  height: 11px;
-  border-color: rgba(225, 194, 139, .34);
+.moon-scale-trail-gold {
+  width: 24px;
+  height: 8px;
+  border-top-color: rgba(225, 194, 139, .46);
   opacity: .12;
   transform: translate3d(var(--moon-trail-x), var(--moon-trail-y), 0) translate(-50%, -50%) rotate(18deg);
 }
 
-.moon-scale-ripple {
-  width: 0;
-  height: 0;
+.moon-scale-ripple-arc {
+  width: 18px;
+  height: 12px;
   border: 1px solid rgba(238, 198, 132, .76);
-  border-radius: 50%;
+  border-left-color: transparent;
+  border-bottom-color: transparent;
+  border-radius: 72% 100% 72% 100%;
   opacity: 0;
-  transform: translate3d(var(--moon-ripple-x), var(--moon-ripple-y), 0);
+  --moon-ripple-turn: -20deg;
+  transform: translate3d(var(--moon-ripple-x), var(--moon-ripple-y), 0) translate(-50%, -50%) rotate(var(--moon-ripple-turn)) scale(.35);
 }
 
-.moon-scale-ripple.is-rippling { animation: moon-scale-ripple .42s ease-out; }
+.moon-scale-ripple-arc-secondary {
+  width: 26px;
+  height: 17px;
+  border-color: rgba(185, 225, 244, .65) transparent transparent rgba(185, 225, 244, .65);
+  --moon-ripple-turn: 28deg;
+}
 
-@keyframes moon-scale-ripple {
-  from { width: 0; height: 0; margin: 0; opacity: .85; }
-  to { width: 46px; height: 46px; margin: -23px; opacity: 0; }
+.moon-scale-ripple-arc.is-rippling { animation: moon-scale-ripple-arc .42s ease-out; }
+
+@keyframes moon-scale-ripple-arc {
+  from { opacity: .85; transform: translate3d(var(--moon-ripple-x), var(--moon-ripple-y), 0) translate(-50%, -50%) rotate(var(--moon-ripple-turn)) scale(.35); }
+  to { opacity: 0; transform: translate3d(var(--moon-ripple-x), var(--moon-ripple-y), 0) translate(-50%, -50%) rotate(var(--moon-ripple-turn)) scale(2.4); }
 }
 
 @media (prefers-reduced-motion: reduce) {

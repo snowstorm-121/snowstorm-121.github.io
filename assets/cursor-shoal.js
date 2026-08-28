@@ -5,7 +5,6 @@
   let controller;
   let destroyed = false;
 
-  const now = () => globalThis.performance?.now?.() ?? Date.now();
   const canRun = () => !reduceMotionQuery.matches && pointerQuery.matches;
   const isMouse = (event) => !event.pointerType || event.pointerType === "mouse";
   const sourceFrom = (event) => event.composedPath?.()[0] ?? event.srcElement;
@@ -15,19 +14,23 @@
     const layer = document.createElement("div");
     layer.id = "moon-scale-cursor";
     layer.setAttribute("aria-hidden", "true");
-    const ripple = document.createElement("span");
-    ripple.className = "moon-scale-ripple";
-    layer.append(ripple);
-    const trails = Array.from({ length: TRAIL_COUNT }, () => {
+    const ripples = Array.from({ length: 2 }, (_, index) => {
+      const ripple = document.createElement("span");
+      ripple.className = `moon-scale-ripple-arc${index ? " moon-scale-ripple-arc-secondary" : ""}`;
+      layer.append(ripple);
+      return ripple;
+    });
+    const trails = Array.from({ length: TRAIL_COUNT }, (_, index) => {
       const trail = document.createElement("span");
-      trail.className = "moon-scale-trail";
+      trail.className = `moon-scale-trail${index ? " moon-scale-trail-gold" : ""}`;
       layer.append(trail);
       return trail;
     });
     document.body.append(layer);
     return {
       layer,
-      ripple,
+      ripple: ripples[0],
+      ripples,
       trails,
       frame: null,
       pageActive: true,
@@ -36,7 +39,6 @@
       textInput: false,
       pointer: { x: 0, y: 0, known: false },
       positions: Array.from({ length: TRAIL_COUNT }, () => ({ x: 0, y: 0 })),
-      rippleUntil: 0,
       listeners: [],
     };
   }
@@ -79,12 +81,11 @@
     syncVisibility(state);
   }
 
-  function render(timestamp) {
+  function render() {
     if (!controller) return;
     const state = controller;
     state.frame = null;
     if (!shouldDecorate(state)) return;
-    state.ripple.classList.toggle("is-rippling", state.rippleUntil > timestamp);
     state.trails.forEach((trail, index) => {
       const position = state.positions[index];
       const easing = index === 0 ? .44 : .3;
@@ -130,13 +131,17 @@
     });
     listen(document, "pointerdown", (event) => {
       if (!isMouse(event)) return hideForNativeInput(state);
-      if (isTextSource(sourceFrom(event))) return;
-      state.ripple.classList.remove("is-rippling");
+      updatePointer(state, event);
+      state.textInput = isTextSource(sourceFrom(event));
+      syncVisibility(state);
+      if (state.textInput) return;
+      state.ripples.forEach((ripple) => ripple.classList.remove("is-rippling"));
       void state.ripple.offsetWidth;
-      state.ripple.style.setProperty("--moon-ripple-x", `${event.clientX}px`);
-      state.ripple.style.setProperty("--moon-ripple-y", `${event.clientY}px`);
-      state.rippleUntil = now() + 420;
-      state.ripple.classList.add("is-rippling");
+      state.ripples.forEach((ripple) => {
+        ripple.style.setProperty("--moon-ripple-x", `${event.clientX}px`);
+        ripple.style.setProperty("--moon-ripple-y", `${event.clientY}px`);
+        ripple.classList.add("is-rippling");
+      });
       ensureFrame(state);
     });
     listen(document, "visibilitychange", () => {

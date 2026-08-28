@@ -971,19 +971,21 @@ test("motion is capability-gated and has a complete reduced-motion fallback", ()
 });
 
 
-test("moon-scale cursor uses native 24px cold-silver and warm-gold SVG cursors", async () => {
+test("moon-scale cursor uses native 32px cold-silver and warm-gold SVG cursors", async () => {
   const [coldSilver, warmGold] = await Promise.all([
     readFile(new URL("../assets/cursors/moon-scale-cold-silver.svg", import.meta.url), "utf8"),
     readFile(new URL("../assets/cursors/moon-scale-warm-gold.svg", import.meta.url), "utf8"),
   ]);
 
   for (const cursor of [coldSilver, warmGold]) {
-    assert.match(cursor, /<svg[^>]*viewBox="0 0 24 24"/);
-    assert.match(cursor, /width="24"/);
-    assert.match(cursor, /height="24"/);
+    assert.match(cursor, /viewBox="0 0 32 32"/);
+    assert.match(cursor, /width="32"/);
+    assert.match(cursor, /height="32"/);
+    assert.match(cursor, /data-hotspot="5 5"/);
+    assert.doesNotMatch(cursor, /<polygon\b/);
   }
-  assert.match(styles, /url\("\.\/cursors\/moon-scale-cold-silver\.svg"\) 4 4, auto/);
-  assert.match(styles, /url\("\.\/cursors\/moon-scale-warm-gold\.svg"\) 4 4, pointer/);
+  assert.match(styles, /moon-scale-cold-silver\.svg"\) 5 5, auto/);
+  assert.match(styles, /moon-scale-warm-gold\.svg"\) 5 5, pointer/);
   assert.match(styles, /:is\(a, button, summary, select, \[role="button"\]\):not\(\[disabled\]\)[\s\S]*?moon-scale-warm-gold/);
   assert.doesNotMatch(styles, /cursor:\s*none/);
 });
@@ -1023,8 +1025,8 @@ test("moon-scale ripple centers on client coordinates and both waterlight trails
     runtime.runAnimationFrame(now);
   }
   for (const trail of controller.trails) {
-    assert.equal(trail.style.getPropertyValue("--moon-trail-x"), "160px");
-    assert.equal(trail.style.getPropertyValue("--moon-trail-y"), "100px");
+    assert.equal(trail.style.getPropertyValue("--moon-trail-x"), "70px");
+    assert.equal(trail.style.getPropertyValue("--moon-trail-y"), "50px");
   }
   assert.match(sharedScript, /const TRAIL_COUNT = 2;/);
   assert.match(styles, /\.moon-scale-trail\s*\{[^}]*opacity:\s*\.\d+/);
@@ -1043,6 +1045,7 @@ test("moon-scale restarts a ripple for rapid consecutive clicks", () => {
   assert.equal(runtime.getLayoutReads(), 2);
   assert.equal(controller.ripple.style.getPropertyValue("--moon-ripple-x"), "90px");
   assert.equal(controller.ripple.style.getPropertyValue("--moon-ripple-y"), "60px");
+  assert.doesNotMatch(sharedScript, /getBoundingClientRect\(|closest\([^)]*button/);
 });
 
 test("moon-scale cursor restores the system cursor for text, selection, touch, pen, coarse pointers, and reduced motion", () => {
