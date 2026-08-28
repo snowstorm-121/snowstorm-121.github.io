@@ -11,6 +11,15 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'
 const scriptUrl = pathToFileURL(path.join(repoRoot, 'scripts/sync-pytorch.mjs')).href;
 const realSource = '/Users/yyy/Documents/知识库/Notes/Pytorch学习';
 const tinyPng = Buffer.from('89504e470d0a1a0a', 'hex');
+const archiveStages = [
+  { key: 'foundation', label: '基础阶段' },
+  { key: 'stage-1', label: 'Tensor 与自动微分' },
+  { key: 'stage-2', label: '模型与训练闭环' },
+  { key: 'stage-3', label: '卷积网络' },
+  { key: 'stage-4', label: 'Transformer 与 BERT' },
+  { key: 'stage-5', label: '全量微调与 LoRA' },
+  { key: 'stage-6', label: 'RAG' },
+];
 const legacyRoutes = [
   'notes/overview/pytorch-暑期详细学习计划.html',
   'notes/foundation/day-1-学习笔记-python-进阶语法.html',
@@ -66,6 +75,10 @@ async function makeFixture() {
       'const value = 1;',
       '```',
       '[Markdown](Other Note.md)',
+      '[Reference](Other%20Note.md)',
+      '[Reference again](Other%20Note.md)',
+      '[External](https://example.com/reference)',
+      '![Markdown image](attachments/plot.png)',
       '[[#Main|Wiki]]',
       '[[Missing Note|Unavailable]]',
       '![[plot.png]]',
@@ -554,6 +567,86 @@ test('discovers the real 32-note, seven-stage archive and preserves all 24 legac
   assert.equal(urls.size, 29);
   const routes = new Set(notes.map((note) => `notes/${note.stageKey}/${note.slug}.html`));
   for (const legacyRoute of legacyRoutes) assert.ok(routes.has(legacyRoute), `legacy URL changed: ${legacyRoute}`);
+});
+
+test('builds and publishes deterministic atlas relations through the managed output set', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const {
+    buildAtlasRelations,
+    buildNoteIndex,
+    collectSourceNotes,
+    synchronize,
+  } = await loadSyncModule();
+  const notes = await collectSourceNotes(source);
+  const relations = buildAtlasRelations(notes, archiveStages, buildNoteIndex(notes));
+
+  assert.deepEqual(relations.sequence, [
+    { from: 'stage-1/main', to: 'stage-1/other-note' },
+  ]);
+  assert.deepEqual(relations.references, [
+    { from: 'stage-1/main', to: 'stage-1/other-note' },
+  ]);
+  assert.ok(relations.notes.every(({ id, href }) => id.includes('/') && href.startsWith('/learning/pytorch/notes/')));
+  assert.doesNotMatch(JSON.stringify(relations), /example\.com|plot\.png|pytorch-sync-/);
+
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const manifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8'));
+  assert.ok(manifest.generatedFiles.includes('atlas-relations.json'));
+  assert.equal(
+    await readFile(path.join(output, 'atlas-relations.json'), 'utf8'),
+    `${JSON.stringify(relations, null, 2)}\n`,
+  );
+});
+
+test('identical atlas relation inputs serialize byte-for-byte identically', async (t) => {
+  const { root, source } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { buildAtlasRelations, buildNoteIndex, collectSourceNotes } = await loadSyncModule();
+  const notes = await collectSourceNotes(source);
+
+  const first = `${JSON.stringify(buildAtlasRelations(notes, archiveStages, buildNoteIndex(notes)), null, 2)}\n`;
+  const second = `${JSON.stringify(buildAtlasRelations(notes, archiveStages, buildNoteIndex(notes)), null, 2)}\n`;
+
+  assert.equal(second, first);
+});
+
+test('atlas references exclude unresolved, external, image, inline-code, and fenced-code links', async (t) => {
+  const { root, source } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFile(path.join(source, 'Stage1', 'Main.md'), [
+    '# Main',
+    '',
+    '[Unresolved](Missing.md)',
+    '[External](https://example.com/Other%20Note.md)',
+    '[Protocol relative](//example.com/Other%20Note.md)',
+    '![Image](attachments/plot.png)',
+    '`[Inline code](Other Note.md)`',
+    '```md',
+    '[Fenced code](Other Note.md)',
+    '```',
+  ].join('\n'));
+  const { buildAtlasRelations, buildNoteIndex, collectSourceNotes } = await loadSyncModule();
+  const notes = await collectSourceNotes(source);
+
+  const relations = buildAtlasRelations(notes, archiveStages, buildNoteIndex(notes));
+
+  assert.deepEqual(relations.references, []);
+  assert.doesNotMatch(JSON.stringify(relations.references), /example\.com|plot\.png|other-note/);
+});
+
+test('--check detects a tampered managed atlas relations file', async (t) => {
+  const { root, source, output } = await makeFixture();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const { synchronize } = await loadSyncModule();
+  await synchronize({ sourceRoot: source, outputRoot: output });
+  const atlasPath = path.join(output, 'atlas-relations.json');
+  await writeFile(atlasPath, '{"tampered":true}\n');
+
+  await assert.rejects(
+    synchronize({ sourceRoot: source, outputRoot: output, check: true }),
+    /out of date/i,
+  );
 });
 
 test('same-stage duplicate basenames keep source-path routes stable across unchanged syncs and --check', async (t) => {
@@ -2503,6 +2596,12 @@ test('SIGKILL during publication keeps the public root and every old URL recover
   const previousManifest = JSON.parse(await readFile(path.join(output, 'manifest.json'), 'utf8'));
   const before = await snapshotTree(output);
   await writeFile(path.join(source, 'Stage1', 'Main.md'), '# Changed after interruption\n');
+  const desiredOutput = path.join(root, 'desired-output');
+  await synchronize({ sourceRoot: source, outputRoot: desiredOutput });
+  const previousManifestBytes = before['manifest.json'];
+  const previousAtlasBytes = before['atlas-relations.json'];
+  const nextManifestBytes = (await readFile(path.join(desiredOutput, 'manifest.json'))).toString('base64');
+  const nextAtlasBytes = (await readFile(path.join(desiredOutput, 'atlas-relations.json'))).toString('base64');
   const childSource = `
     import path from 'node:path';
     import * as fs from 'node:fs/promises';
@@ -2543,6 +2642,13 @@ test('SIGKILL during publication keeps the public root and every old URL recover
   });
 
   assert.equal(exit.signal, 'SIGKILL', `child was not interrupted during publish: ${stderr}`);
+  const interruptedManifestBytes = (await readFile(path.join(output, 'manifest.json'))).toString('base64');
+  const interruptedAtlasBytes = (await readFile(path.join(output, 'atlas-relations.json'))).toString('base64');
+  assert.ok(
+    (interruptedManifestBytes === previousManifestBytes && interruptedAtlasBytes === previousAtlasBytes)
+      || (interruptedManifestBytes === nextManifestBytes && interruptedAtlasBytes === nextAtlasBytes),
+    'atlas relations and manifest must expose the same complete previous or next snapshot',
+  );
   for (const relativePath of previousManifest.generatedFiles) {
     await readFile(path.join(output, relativePath));
   }
@@ -2558,9 +2664,13 @@ test('SIGKILL during publication keeps the public root and every old URL recover
     [],
     'recovery removes the interrupted transaction',
   );
+  assert.equal((await readFile(path.join(output, 'manifest.json'))).toString('base64'), previousManifestBytes);
+  assert.equal((await readFile(path.join(output, 'atlas-relations.json'))).toString('base64'), previousAtlasBytes);
 
   await synchronize({ sourceRoot: source, outputRoot: output });
   await synchronize({ sourceRoot: source, outputRoot: output, check: true });
+  assert.equal((await readFile(path.join(output, 'manifest.json'))).toString('base64'), nextManifestBytes);
+  assert.equal((await readFile(path.join(output, 'atlas-relations.json'))).toString('base64'), nextAtlasBytes);
   assert.match(
     await readFile(path.join(output, 'notes', 'stage-1', 'main.html'), 'utf8'),
     /Changed after interruption/,

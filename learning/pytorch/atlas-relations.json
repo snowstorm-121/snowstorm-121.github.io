@@ -1,0 +1,446 @@
+{
+  "version": 1,
+  "stages": [
+    {
+      "key": "overview",
+      "label": "学习路线",
+      "href": "./",
+      "noteIds": [
+        "overview/pytorch-暑期详细学习计划"
+      ]
+    },
+    {
+      "key": "foundation",
+      "label": "基础阶段",
+      "href": "./foundation/",
+      "noteIds": [
+        "foundation/day-1-学习笔记-python-进阶语法",
+        "foundation/day-2-学习笔记-文件操作-异常处理-综合小项目",
+        "foundation/day-3-学习笔记-numpy-数组基础",
+        "foundation/day-4-学习笔记-数组运算-矩阵乘法-转置-广播",
+        "foundation/day-5-学习笔记-统计函数-random-模块-手写线性回归",
+        "foundation/day-6-学习笔记-matplotlib学习",
+        "foundation/day-7-学习笔记-dataframe学习",
+        "foundation/day-8-学习笔记-pandas进阶与numpy互转",
+        "foundation/day-9-学习笔记-titanic-综合实战-完整数据分析项目",
+        "foundation/day-10-学习笔记-查漏补缺-pytorch-预习"
+      ]
+    },
+    {
+      "key": "stage-1",
+      "label": "Tensor 与自动微分",
+      "href": "./stage-1/",
+      "noteIds": [
+        "stage-1/day-1-学习笔记-tensor基本操作",
+        "stage-1/day-2-学习笔记-pytorch-autograd-自动微分基础",
+        "stage-1/day-3-学习笔记-手写线性回归-纯-tensor-实现",
+        "stage-1/day-4-学习笔记-手写-softmax-分类-纯-tensor-实现"
+      ]
+    },
+    {
+      "key": "stage-2",
+      "label": "模型与训练闭环",
+      "href": "./stage-2/",
+      "noteIds": [
+        "stage-2/day-1-学习笔记-nn-module-与常用层入门",
+        "stage-2/day-2-学习笔记-mlp-多层感知机与正则化",
+        "stage-2/day-3-学习笔记-自定义-dataset-与-dataloader-深入",
+        "stage-2/day-4-学习笔记-模型保存加载与可视化",
+        "stage-2/day-5-学习笔记-mnist-综合复盘实验"
+      ]
+    },
+    {
+      "key": "stage-3",
+      "label": "卷积网络",
+      "href": "./stage-3/",
+      "noteIds": [
+        "stage-3/day-1-学习笔记-卷积操作基础-shape-与参数量",
+        "stage-3/day-2-学习笔记-经典-cnn-lenet",
+        "stage-3/day-3-学习笔记-残差网络-resnet-残差块核心",
+        "stage-3/day-4-学习笔记-迁移学习最小实战-预训练-resnet18",
+        "stage-3/day-5-学习笔记-阶段三结果复盘-cnn-与迁移学习"
+      ]
+    },
+    {
+      "key": "stage-4",
+      "label": "Transformer 与 BERT",
+      "href": "./stage-4/",
+      "noteIds": [
+        "stage-4/day-1-学习笔记-attention-机制原理-scaled-dot-product-attention",
+        "stage-4/day-2-学习笔记-multi-head-attention-拆分与合并",
+        "stage-4/day-3-学习笔记-huggingface-bert-tokenizer-与-dataloader",
+        "stage-4/day-4-学习笔记-bert-最小微调闭环",
+        "stage-4/day-5-学习笔记-阶段四复盘-bert-全量微调基线与-lora-对比准备"
+      ]
+    },
+    {
+      "key": "stage-5",
+      "label": "全量微调与 LoRA",
+      "href": "./stage-5/",
+      "noteIds": [
+        "stage-5/stage-5-学习笔记-bert-全量微调与-lora-参数高效微调对比实验"
+      ]
+    },
+    {
+      "key": "stage-6",
+      "label": "RAG",
+      "href": "./stage-6/",
+      "noteIds": [
+        "stage-6/stage-6-学习笔记-rag-理论学习与复盘"
+      ]
+    }
+  ],
+  "notes": [
+    {
+      "id": "overview/pytorch-暑期详细学习计划",
+      "stageKey": "overview",
+      "title": "PyTorch 暑期详细学习计划",
+      "href": "/learning/pytorch/notes/overview/pytorch-%E6%9A%91%E6%9C%9F%E8%AF%A6%E7%BB%86%E5%AD%A6%E4%B9%A0%E8%AE%A1%E5%88%92.html",
+      "order": 0
+    },
+    {
+      "id": "foundation/day-1-学习笔记-python-进阶语法",
+      "stageKey": "foundation",
+      "title": "Day 1 学习笔记：Python 进阶语法",
+      "href": "/learning/pytorch/notes/foundation/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-python-%E8%BF%9B%E9%98%B6%E8%AF%AD%E6%B3%95.html",
+      "order": 1
+    },
+    {
+      "id": "foundation/day-2-学习笔记-文件操作-异常处理-综合小项目",
+      "stageKey": "foundation",
+      "title": "Day 2 学习笔记：文件操作 + 异常处理 + 综合小项目",
+      "href": "/learning/pytorch/notes/foundation/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%96%87%E4%BB%B6%E6%93%8D%E4%BD%9C-%E5%BC%82%E5%B8%B8%E5%A4%84%E7%90%86-%E7%BB%BC%E5%90%88%E5%B0%8F%E9%A1%B9%E7%9B%AE.html",
+      "order": 2
+    },
+    {
+      "id": "foundation/day-3-学习笔记-numpy-数组基础",
+      "stageKey": "foundation",
+      "title": "Day 3 学习笔记：NumPy 数组基础",
+      "href": "/learning/pytorch/notes/foundation/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-numpy-%E6%95%B0%E7%BB%84%E5%9F%BA%E7%A1%80.html",
+      "order": 3
+    },
+    {
+      "id": "foundation/day-4-学习笔记-数组运算-矩阵乘法-转置-广播",
+      "stageKey": "foundation",
+      "title": "Day 4 学习笔记：数组运算 · 矩阵乘法 · 转置 · 广播",
+      "href": "/learning/pytorch/notes/foundation/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%95%B0%E7%BB%84%E8%BF%90%E7%AE%97-%E7%9F%A9%E9%98%B5%E4%B9%98%E6%B3%95-%E8%BD%AC%E7%BD%AE-%E5%B9%BF%E6%92%AD.html",
+      "order": 4
+    },
+    {
+      "id": "foundation/day-5-学习笔记-统计函数-random-模块-手写线性回归",
+      "stageKey": "foundation",
+      "title": "Day 5 学习笔记：统计函数 _ random 模块 _ 手写线性回归",
+      "href": "/learning/pytorch/notes/foundation/day-5-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E7%BB%9F%E8%AE%A1%E5%87%BD%E6%95%B0-random-%E6%A8%A1%E5%9D%97-%E6%89%8B%E5%86%99%E7%BA%BF%E6%80%A7%E5%9B%9E%E5%BD%92.html",
+      "order": 5
+    },
+    {
+      "id": "foundation/day-6-学习笔记-matplotlib学习",
+      "stageKey": "foundation",
+      "title": "Day 6 学习笔记：matplotlib学习",
+      "href": "/learning/pytorch/notes/foundation/day-6-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-matplotlib%E5%AD%A6%E4%B9%A0.html",
+      "order": 6
+    },
+    {
+      "id": "foundation/day-7-学习笔记-dataframe学习",
+      "stageKey": "foundation",
+      "title": "Day 7 学习笔记：DataFrame学习",
+      "href": "/learning/pytorch/notes/foundation/day-7-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-dataframe%E5%AD%A6%E4%B9%A0.html",
+      "order": 7
+    },
+    {
+      "id": "foundation/day-8-学习笔记-pandas进阶与numpy互转",
+      "stageKey": "foundation",
+      "title": "Day 8 学习笔记： pandas进阶与numpy互转",
+      "href": "/learning/pytorch/notes/foundation/day-8-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-pandas%E8%BF%9B%E9%98%B6%E4%B8%8Enumpy%E4%BA%92%E8%BD%AC.html",
+      "order": 8
+    },
+    {
+      "id": "foundation/day-9-学习笔记-titanic-综合实战-完整数据分析项目",
+      "stageKey": "foundation",
+      "title": "Day 9 学习笔记：Titanic 综合实战 —— 完整数据分析项目",
+      "href": "/learning/pytorch/notes/foundation/day-9-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-titanic-%E7%BB%BC%E5%90%88%E5%AE%9E%E6%88%98-%E5%AE%8C%E6%95%B4%E6%95%B0%E6%8D%AE%E5%88%86%E6%9E%90%E9%A1%B9%E7%9B%AE.html",
+      "order": 9
+    },
+    {
+      "id": "foundation/day-10-学习笔记-查漏补缺-pytorch-预习",
+      "stageKey": "foundation",
+      "title": "Day 10 学习笔记 ： 查漏补缺 + PyTorch 预习",
+      "href": "/learning/pytorch/notes/foundation/day-10-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%9F%A5%E6%BC%8F%E8%A1%A5%E7%BC%BA-pytorch-%E9%A2%84%E4%B9%A0.html",
+      "order": 10
+    },
+    {
+      "id": "stage-1/day-1-学习笔记-tensor基本操作",
+      "stageKey": "stage-1",
+      "title": "Day 1 学习笔记：Tensor基本操作",
+      "href": "/learning/pytorch/notes/stage-1/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-tensor%E5%9F%BA%E6%9C%AC%E6%93%8D%E4%BD%9C.html",
+      "order": 11
+    },
+    {
+      "id": "stage-1/day-2-学习笔记-pytorch-autograd-自动微分基础",
+      "stageKey": "stage-1",
+      "title": "Day 2 学习笔记：PyTorch Autograd 自动微分基础",
+      "href": "/learning/pytorch/notes/stage-1/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-pytorch-autograd-%E8%87%AA%E5%8A%A8%E5%BE%AE%E5%88%86%E5%9F%BA%E7%A1%80.html",
+      "order": 12
+    },
+    {
+      "id": "stage-1/day-3-学习笔记-手写线性回归-纯-tensor-实现",
+      "stageKey": "stage-1",
+      "title": "Day 3 学习笔记：手写线性回归（纯 Tensor 实现）",
+      "href": "/learning/pytorch/notes/stage-1/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%89%8B%E5%86%99%E7%BA%BF%E6%80%A7%E5%9B%9E%E5%BD%92-%E7%BA%AF-tensor-%E5%AE%9E%E7%8E%B0.html",
+      "order": 13
+    },
+    {
+      "id": "stage-1/day-4-学习笔记-手写-softmax-分类-纯-tensor-实现",
+      "stageKey": "stage-1",
+      "title": "Day 4 学习笔记：手写 Softmax 分类（纯 Tensor 实现）",
+      "href": "/learning/pytorch/notes/stage-1/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%89%8B%E5%86%99-softmax-%E5%88%86%E7%B1%BB-%E7%BA%AF-tensor-%E5%AE%9E%E7%8E%B0.html",
+      "order": 14
+    },
+    {
+      "id": "stage-2/day-1-学习笔记-nn-module-与常用层入门",
+      "stageKey": "stage-2",
+      "title": "Day 1 学习笔记：nn.Module 与常用层入门",
+      "href": "/learning/pytorch/notes/stage-2/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-nn-module-%E4%B8%8E%E5%B8%B8%E7%94%A8%E5%B1%82%E5%85%A5%E9%97%A8.html",
+      "order": 15
+    },
+    {
+      "id": "stage-2/day-2-学习笔记-mlp-多层感知机与正则化",
+      "stageKey": "stage-2",
+      "title": "Day 2 学习笔记：MLP 多层感知机与正则化",
+      "href": "/learning/pytorch/notes/stage-2/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-mlp-%E5%A4%9A%E5%B1%82%E6%84%9F%E7%9F%A5%E6%9C%BA%E4%B8%8E%E6%AD%A3%E5%88%99%E5%8C%96.html",
+      "order": 16
+    },
+    {
+      "id": "stage-2/day-3-学习笔记-自定义-dataset-与-dataloader-深入",
+      "stageKey": "stage-2",
+      "title": "Day 3 学习笔记：自定义 Dataset 与 DataLoader 深入",
+      "href": "/learning/pytorch/notes/stage-2/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E8%87%AA%E5%AE%9A%E4%B9%89-dataset-%E4%B8%8E-dataloader-%E6%B7%B1%E5%85%A5.html",
+      "order": 17
+    },
+    {
+      "id": "stage-2/day-4-学习笔记-模型保存加载与可视化",
+      "stageKey": "stage-2",
+      "title": "Day 4 学习笔记：模型保存加载与可视化",
+      "href": "/learning/pytorch/notes/stage-2/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%A8%A1%E5%9E%8B%E4%BF%9D%E5%AD%98%E5%8A%A0%E8%BD%BD%E4%B8%8E%E5%8F%AF%E8%A7%86%E5%8C%96.html",
+      "order": 18
+    },
+    {
+      "id": "stage-2/day-5-学习笔记-mnist-综合复盘实验",
+      "stageKey": "stage-2",
+      "title": "Day 5 学习笔记：MNIST 综合复盘实验",
+      "href": "/learning/pytorch/notes/stage-2/day-5-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-mnist-%E7%BB%BC%E5%90%88%E5%A4%8D%E7%9B%98%E5%AE%9E%E9%AA%8C.html",
+      "order": 19
+    },
+    {
+      "id": "stage-3/day-1-学习笔记-卷积操作基础-shape-与参数量",
+      "stageKey": "stage-3",
+      "title": "Day 1 学习笔记：卷积操作基础——shape 与参数量",
+      "href": "/learning/pytorch/notes/stage-3/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E5%8D%B7%E7%A7%AF%E6%93%8D%E4%BD%9C%E5%9F%BA%E7%A1%80-shape-%E4%B8%8E%E5%8F%82%E6%95%B0%E9%87%8F.html",
+      "order": 20
+    },
+    {
+      "id": "stage-3/day-2-学习笔记-经典-cnn-lenet",
+      "stageKey": "stage-3",
+      "title": "Day 2 学习笔记：经典 CNN——LeNet",
+      "href": "/learning/pytorch/notes/stage-3/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E7%BB%8F%E5%85%B8-cnn-lenet.html",
+      "order": 21
+    },
+    {
+      "id": "stage-3/day-3-学习笔记-残差网络-resnet-残差块核心",
+      "stageKey": "stage-3",
+      "title": "Day 3 学习笔记：残差网络 ResNet——残差块核心",
+      "href": "/learning/pytorch/notes/stage-3/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E6%AE%8B%E5%B7%AE%E7%BD%91%E7%BB%9C-resnet-%E6%AE%8B%E5%B7%AE%E5%9D%97%E6%A0%B8%E5%BF%83.html",
+      "order": 22
+    },
+    {
+      "id": "stage-3/day-4-学习笔记-迁移学习最小实战-预训练-resnet18",
+      "stageKey": "stage-3",
+      "title": "Day 4 学习笔记：迁移学习最小实战——预训练 ResNet18",
+      "href": "/learning/pytorch/notes/stage-3/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0%E6%9C%80%E5%B0%8F%E5%AE%9E%E6%88%98-%E9%A2%84%E8%AE%AD%E7%BB%83-resnet18.html",
+      "order": 23
+    },
+    {
+      "id": "stage-3/day-5-学习笔记-阶段三结果复盘-cnn-与迁移学习",
+      "stageKey": "stage-3",
+      "title": "Day 5 学习笔记：阶段三结果复盘——CNN 与迁移学习",
+      "href": "/learning/pytorch/notes/stage-3/day-5-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E9%98%B6%E6%AE%B5%E4%B8%89%E7%BB%93%E6%9E%9C%E5%A4%8D%E7%9B%98-cnn-%E4%B8%8E%E8%BF%81%E7%A7%BB%E5%AD%A6%E4%B9%A0.html",
+      "order": 24
+    },
+    {
+      "id": "stage-4/day-1-学习笔记-attention-机制原理-scaled-dot-product-attention",
+      "stageKey": "stage-4",
+      "title": "Day 1 学习笔记：Attention 机制原理——Scaled Dot-Product Attention",
+      "href": "/learning/pytorch/notes/stage-4/day-1-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-attention-%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86-scaled-dot-product-attention.html",
+      "order": 25
+    },
+    {
+      "id": "stage-4/day-2-学习笔记-multi-head-attention-拆分与合并",
+      "stageKey": "stage-4",
+      "title": "Day 2 学习笔记：Multi-Head Attention——拆分与合并",
+      "href": "/learning/pytorch/notes/stage-4/day-2-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-multi-head-attention-%E6%8B%86%E5%88%86%E4%B8%8E%E5%90%88%E5%B9%B6.html",
+      "order": 26
+    },
+    {
+      "id": "stage-4/day-3-学习笔记-huggingface-bert-tokenizer-与-dataloader",
+      "stageKey": "stage-4",
+      "title": "Day 3 学习笔记：HuggingFace BERT tokenizer 与 DataLoader",
+      "href": "/learning/pytorch/notes/stage-4/day-3-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-huggingface-bert-tokenizer-%E4%B8%8E-dataloader.html",
+      "order": 27
+    },
+    {
+      "id": "stage-4/day-4-学习笔记-bert-最小微调闭环",
+      "stageKey": "stage-4",
+      "title": "Day 4 学习笔记：BERT 最小微调闭环",
+      "href": "/learning/pytorch/notes/stage-4/day-4-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-bert-%E6%9C%80%E5%B0%8F%E5%BE%AE%E8%B0%83%E9%97%AD%E7%8E%AF.html",
+      "order": 28
+    },
+    {
+      "id": "stage-4/day-5-学习笔记-阶段四复盘-bert-全量微调基线与-lora-对比准备",
+      "stageKey": "stage-4",
+      "title": "Day 5 学习笔记：阶段四复盘——BERT 全量微调基线与 LoRA 对比准备",
+      "href": "/learning/pytorch/notes/stage-4/day-5-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E9%98%B6%E6%AE%B5%E5%9B%9B%E5%A4%8D%E7%9B%98-bert-%E5%85%A8%E9%87%8F%E5%BE%AE%E8%B0%83%E5%9F%BA%E7%BA%BF%E4%B8%8E-lora-%E5%AF%B9%E6%AF%94%E5%87%86%E5%A4%87.html",
+      "order": 29
+    },
+    {
+      "id": "stage-5/stage-5-学习笔记-bert-全量微调与-lora-参数高效微调对比实验",
+      "stageKey": "stage-5",
+      "title": "Stage 5 学习笔记：BERT 全量微调与 LoRA 参数高效微调对比实验",
+      "href": "/learning/pytorch/notes/stage-5/stage-5-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-bert-%E5%85%A8%E9%87%8F%E5%BE%AE%E8%B0%83%E4%B8%8E-lora-%E5%8F%82%E6%95%B0%E9%AB%98%E6%95%88%E5%BE%AE%E8%B0%83%E5%AF%B9%E6%AF%94%E5%AE%9E%E9%AA%8C.html",
+      "order": 30
+    },
+    {
+      "id": "stage-6/stage-6-学习笔记-rag-理论学习与复盘",
+      "stageKey": "stage-6",
+      "title": "Stage 6 学习笔记：RAG 理论学习与复盘",
+      "href": "/learning/pytorch/notes/stage-6/stage-6-%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-rag-%E7%90%86%E8%AE%BA%E5%AD%A6%E4%B9%A0%E4%B8%8E%E5%A4%8D%E7%9B%98.html",
+      "order": 31
+    }
+  ],
+  "sequence": [
+    {
+      "from": "overview/pytorch-暑期详细学习计划",
+      "to": "foundation/day-1-学习笔记-python-进阶语法"
+    },
+    {
+      "from": "foundation/day-1-学习笔记-python-进阶语法",
+      "to": "foundation/day-2-学习笔记-文件操作-异常处理-综合小项目"
+    },
+    {
+      "from": "foundation/day-2-学习笔记-文件操作-异常处理-综合小项目",
+      "to": "foundation/day-3-学习笔记-numpy-数组基础"
+    },
+    {
+      "from": "foundation/day-3-学习笔记-numpy-数组基础",
+      "to": "foundation/day-4-学习笔记-数组运算-矩阵乘法-转置-广播"
+    },
+    {
+      "from": "foundation/day-4-学习笔记-数组运算-矩阵乘法-转置-广播",
+      "to": "foundation/day-5-学习笔记-统计函数-random-模块-手写线性回归"
+    },
+    {
+      "from": "foundation/day-5-学习笔记-统计函数-random-模块-手写线性回归",
+      "to": "foundation/day-6-学习笔记-matplotlib学习"
+    },
+    {
+      "from": "foundation/day-6-学习笔记-matplotlib学习",
+      "to": "foundation/day-7-学习笔记-dataframe学习"
+    },
+    {
+      "from": "foundation/day-7-学习笔记-dataframe学习",
+      "to": "foundation/day-8-学习笔记-pandas进阶与numpy互转"
+    },
+    {
+      "from": "foundation/day-8-学习笔记-pandas进阶与numpy互转",
+      "to": "foundation/day-9-学习笔记-titanic-综合实战-完整数据分析项目"
+    },
+    {
+      "from": "foundation/day-9-学习笔记-titanic-综合实战-完整数据分析项目",
+      "to": "foundation/day-10-学习笔记-查漏补缺-pytorch-预习"
+    },
+    {
+      "from": "foundation/day-10-学习笔记-查漏补缺-pytorch-预习",
+      "to": "stage-1/day-1-学习笔记-tensor基本操作"
+    },
+    {
+      "from": "stage-1/day-1-学习笔记-tensor基本操作",
+      "to": "stage-1/day-2-学习笔记-pytorch-autograd-自动微分基础"
+    },
+    {
+      "from": "stage-1/day-2-学习笔记-pytorch-autograd-自动微分基础",
+      "to": "stage-1/day-3-学习笔记-手写线性回归-纯-tensor-实现"
+    },
+    {
+      "from": "stage-1/day-3-学习笔记-手写线性回归-纯-tensor-实现",
+      "to": "stage-1/day-4-学习笔记-手写-softmax-分类-纯-tensor-实现"
+    },
+    {
+      "from": "stage-1/day-4-学习笔记-手写-softmax-分类-纯-tensor-实现",
+      "to": "stage-2/day-1-学习笔记-nn-module-与常用层入门"
+    },
+    {
+      "from": "stage-2/day-1-学习笔记-nn-module-与常用层入门",
+      "to": "stage-2/day-2-学习笔记-mlp-多层感知机与正则化"
+    },
+    {
+      "from": "stage-2/day-2-学习笔记-mlp-多层感知机与正则化",
+      "to": "stage-2/day-3-学习笔记-自定义-dataset-与-dataloader-深入"
+    },
+    {
+      "from": "stage-2/day-3-学习笔记-自定义-dataset-与-dataloader-深入",
+      "to": "stage-2/day-4-学习笔记-模型保存加载与可视化"
+    },
+    {
+      "from": "stage-2/day-4-学习笔记-模型保存加载与可视化",
+      "to": "stage-2/day-5-学习笔记-mnist-综合复盘实验"
+    },
+    {
+      "from": "stage-2/day-5-学习笔记-mnist-综合复盘实验",
+      "to": "stage-3/day-1-学习笔记-卷积操作基础-shape-与参数量"
+    },
+    {
+      "from": "stage-3/day-1-学习笔记-卷积操作基础-shape-与参数量",
+      "to": "stage-3/day-2-学习笔记-经典-cnn-lenet"
+    },
+    {
+      "from": "stage-3/day-2-学习笔记-经典-cnn-lenet",
+      "to": "stage-3/day-3-学习笔记-残差网络-resnet-残差块核心"
+    },
+    {
+      "from": "stage-3/day-3-学习笔记-残差网络-resnet-残差块核心",
+      "to": "stage-3/day-4-学习笔记-迁移学习最小实战-预训练-resnet18"
+    },
+    {
+      "from": "stage-3/day-4-学习笔记-迁移学习最小实战-预训练-resnet18",
+      "to": "stage-3/day-5-学习笔记-阶段三结果复盘-cnn-与迁移学习"
+    },
+    {
+      "from": "stage-3/day-5-学习笔记-阶段三结果复盘-cnn-与迁移学习",
+      "to": "stage-4/day-1-学习笔记-attention-机制原理-scaled-dot-product-attention"
+    },
+    {
+      "from": "stage-4/day-1-学习笔记-attention-机制原理-scaled-dot-product-attention",
+      "to": "stage-4/day-2-学习笔记-multi-head-attention-拆分与合并"
+    },
+    {
+      "from": "stage-4/day-2-学习笔记-multi-head-attention-拆分与合并",
+      "to": "stage-4/day-3-学习笔记-huggingface-bert-tokenizer-与-dataloader"
+    },
+    {
+      "from": "stage-4/day-3-学习笔记-huggingface-bert-tokenizer-与-dataloader",
+      "to": "stage-4/day-4-学习笔记-bert-最小微调闭环"
+    },
+    {
+      "from": "stage-4/day-4-学习笔记-bert-最小微调闭环",
+      "to": "stage-4/day-5-学习笔记-阶段四复盘-bert-全量微调基线与-lora-对比准备"
+    },
+    {
+      "from": "stage-4/day-5-学习笔记-阶段四复盘-bert-全量微调基线与-lora-对比准备",
+      "to": "stage-5/stage-5-学习笔记-bert-全量微调与-lora-参数高效微调对比实验"
+    },
+    {
+      "from": "stage-5/stage-5-学习笔记-bert-全量微调与-lora-参数高效微调对比实验",
+      "to": "stage-6/stage-6-学习笔记-rag-理论学习与复盘"
+    }
+  ],
+  "references": []
+}

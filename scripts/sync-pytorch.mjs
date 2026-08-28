@@ -321,7 +321,7 @@ async function scanSecrets(notes, attachmentSnapshots) {
   if (findings.length) throw new Error(`Credential scan stopped synchronization:\n${findings.join('\n')}`);
 }
 
-function buildNoteIndex(notes) {
+export function buildNoteIndex(notes) {
   const byPath = new Map();
   const byBase = new Map();
   for (const note of notes) {
@@ -334,6 +334,58 @@ function buildNoteIndex(notes) {
     byBase.set(base, matches);
   }
   return { byPath, byBase };
+}
+
+export function buildAtlasRelations(notes, stages, noteIndex) {
+  const publicNotes = notes.map((note, order) => ({
+    id: `${note.stageKey}/${note.slug}`,
+    stageKey: note.stageKey,
+    title: note.title,
+    href: noteUrl(note),
+    order,
+  }));
+  const idByNote = new Map(notes.map((note) => [note, `${note.stageKey}/${note.slug}`]));
+  const references = new Map();
+  for (const note of notes) {
+    for (const token of createMarkdownParser().parse(note.content, {})) {
+      const children = token.children || [];
+      for (const child of children) {
+        if (child.type !== 'link_open') continue;
+        const href = child.attrGet('href') || '';
+        if (!isLocalNoteReference(href) || href.startsWith('#')) continue;
+        const resolved = resolveNoteTarget(href, note, noteIndex);
+        if (resolved?.note && resolved.note !== note) {
+          references.set(`${idByNote.get(note)}\0${idByNote.get(resolved.note)}`, {
+            from: idByNote.get(note),
+            to: idByNote.get(resolved.note),
+          });
+        }
+      }
+    }
+  }
+  const noteOrder = new Map(publicNotes.map(({ id, order }) => [id, order]));
+  return {
+    version: 1,
+    stages: [
+      {
+        key: 'overview',
+        label: '学习路线',
+        href: './',
+        noteIds: publicNotes.filter((note) => note.stageKey === 'overview').map(({ id }) => id),
+      },
+      ...stages.map((stage) => ({
+        ...stage,
+        href: `./${stage.key}/`,
+        noteIds: publicNotes.filter((note) => note.stageKey === stage.key).map(({ id }) => id),
+      })),
+    ],
+    notes: publicNotes,
+    sequence: publicNotes.slice(1).map((note, index) => ({ from: publicNotes[index].id, to: note.id })),
+    references: [...references.values()].sort((left, right) => (
+      noteOrder.get(left.from) - noteOrder.get(right.from)
+      || noteOrder.get(left.to) - noteOrder.get(right.to)
+    )),
+  };
 }
 
 function splitTarget(rawTarget) {
@@ -1939,6 +1991,8 @@ export async function synchronize({
     for (const stage of stages) {
       outputs.set(`${stage.key}/index.html`, renderStageIndex(stage, notes.filter((note) => note.stageKey === stage.key), stages));
     }
+    const atlasRelations = buildAtlasRelations(notes, stages, noteIndex);
+    outputs.set('atlas-relations.json', `${JSON.stringify(atlasRelations, null, 2)}\n`);
     const manifest = {
       version: MANIFEST_VERSION,
       stages,
