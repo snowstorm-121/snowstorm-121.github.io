@@ -20,8 +20,12 @@
   let relationData = null;
   let relationObserver = null;
   let noteLinks = [];
-  let sequencePath = null;
+  let sequencePaths = [];
   let referencePaths = [];
+
+  function stageControlKey(stageKey) {
+    return stageKey === "overview" ? "pytorch" : stageKey;
+  }
 
   function stopDiffusion() {
     if (diffusionTimer !== null) {
@@ -232,12 +236,19 @@
     if (empty) empty.hidden = true;
   }
 
-  function cubicTide({ start, end, index, total }) {
+  function cubicTide({ start, end, index, total, kind = "sequence" }) {
     const dx = end.x - start.x;
-    const span = Math.max(28, Math.abs(dx) * .28);
-    const side = ((index + total) % 2 ? 1 : -1);
-    const lift = side * Math.min(132, 22 + Math.abs(dx) * .18);
-    return `M ${start.x} ${start.y} C ${start.x + span} ${start.y + lift}, ${end.x - span} ${end.y + lift}, ${end.x} ${end.y}`;
+    const dy = end.y - start.y;
+    if (kind === "sequence") {
+      const controlDx = Math.max(20, Math.abs(dx) * .34);
+      const swell = ((index + total) % 2 ? -1 : 1) * Math.min(18, 7 + Math.abs(dy) * .22);
+      return `M ${start.x} ${start.y} C ${start.x + controlDx} ${start.y + swell}, ${end.x - controlDx} ${end.y + swell}, ${end.x} ${end.y}`;
+    }
+
+    const controlDx = dx * .36;
+    const side = (index + total) % 2 ? 1 : -1;
+    const lift = side * Math.min(118, 18 + Math.hypot(dx, dy) * .16);
+    return `M ${start.x} ${start.y} C ${start.x + controlDx} ${start.y + lift}, ${end.x - controlDx} ${end.y + lift}, ${end.x} ${end.y}`;
   }
 
   function edgePoint(fromRect, toRect, mapRect) {
@@ -254,24 +265,38 @@
     };
   }
 
+  function baySurfaceRect(controlRect) {
+    const width = Math.min(96, Math.max(72, controlRect.width * .8));
+    const height = Math.min(32, Math.max(24, controlRect.height * .08));
+    return {
+      left: controlRect.left + (controlRect.width - width) / 2,
+      top: controlRect.top + (controlRect.height - height) / 2,
+      width,
+      height,
+    };
+  }
+
   function drawGeometry() {
     geometryFrame = null;
-    if (!relationData || !map || !sequencePath) return;
+    if (!relationData || !map || sequencePaths.length !== relationData.stages.length - 1) return;
     const mapRect = map.getBoundingClientRect();
     const linksById = new Map(noteLinks.map((link) => [link.dataset.atlasNoteId, link]));
+    const stageControls = relationData.stages.map((stage) => controls.find((control) => control.dataset.atlasKey === stageControlKey(stage.key)));
+    if (stageControls.some((control) => !control)) return;
     threads.setAttribute("viewBox", `0 0 ${mapRect.width} ${mapRect.height}`);
 
-    const sequenceSegments = relationData.sequence.map((edge, index) => {
-      const fromRect = linksById.get(edge.from).getBoundingClientRect();
-      const toRect = linksById.get(edge.to).getBoundingClientRect();
+    relationData.stages.slice(1).forEach((stage, index) => {
+      const fromRect = baySurfaceRect(stageControls[index].getBoundingClientRect());
+      const toRect = baySurfaceRect(stageControls[index + 1].getBoundingClientRect());
       const start = edgePoint(fromRect, toRect, mapRect);
       const end = edgePoint(toRect, fromRect, mapRect);
-      return cubicTide({ start, end, index, total: relationData.sequence.length });
+      sequencePaths[index].setAttribute("d", cubicTide({
+        start,
+        end,
+        index,
+        total: relationData.stages.length - 1,
+      }));
     });
-    sequencePath.setAttribute(
-      "d",
-      sequenceSegments.map((segment, index) => index === 0 ? segment : segment.replace(/^M [^C]+/, "")).join(" "),
-    );
 
     relationData.references.forEach((edge, index) => {
       const fromRect = linksById.get(edge.from).getBoundingClientRect();
@@ -285,6 +310,7 @@
         end,
         index: fromOrder > toOrder ? index + 1 : index,
         total: relationData.references.length,
+        kind: "reference",
       }));
     });
   }
@@ -292,6 +318,40 @@
   function scheduleGeometry() {
     if (geometryFrame !== null) return;
     geometryFrame = requestAnimationFrame(drawGeometry);
+  }
+
+  function rowsForStage(count) {
+    if (count <= 1) return [count];
+    if (count <= 10) {
+      const upper = Math.ceil(count / 2);
+      return [upper, count - upper];
+    }
+    const rows = [];
+    let remaining = count;
+    while (remaining > 0) {
+      const row = Math.min(5, Math.ceil(remaining / Math.min(3 - rows.length, remaining)));
+      rows.push(row);
+      remaining -= row;
+    }
+    return rows;
+  }
+
+  function noteOffsets(count, index) {
+    const rows = rowsForStage(count);
+    let seen = 0;
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
+      const rowSize = rows[rowIndex];
+      if (index < seen + rowSize) {
+        const columnIndex = index - seen;
+        const stepX = 12;
+        const stepY = 11;
+        const offsetX = rowSize === 1 ? 0 : columnIndex * stepX - ((rowSize - 1) * stepX) / 2;
+        const offsetY = rowIndex * stepY - ((rows.length - 1) * stepY) / 2;
+        return { x: offsetX, y: offsetY };
+      }
+      seen += rowSize;
+    }
+    return { x: 0, y: 0 };
   }
 
   function mountRelations(data) {
@@ -302,13 +362,15 @@
       const currentStageIndex = stageIndex.get(note.stageKey);
       const stage = data.stages[currentStageIndex];
       const indexWithinStage = stage.noteIds.indexOf(note.id);
-      const baseY = currentStageIndex % 2 === 0 ? 43 : 57;
-      const spread = stage.noteIds.length === 1 ? 0 : (indexWithinStage / (stage.noteIds.length - 1) - .5) * 30;
+      const centerX = ((currentStageIndex + .5) / data.stages.length) * 100;
+      const offset = noteOffsets(stage.noteIds.length, indexWithinStage);
       const item = document.createElement("span");
       item.className = "atlas-note-item";
       item.dataset.atlasStageEdge = currentStageIndex === 0 ? "start" : currentStageIndex === data.stages.length - 1 ? "end" : "middle";
-      item.style.setProperty("--atlas-note-x", `${((currentStageIndex + .5) / data.stages.length) * 100}%`);
-      item.style.setProperty("--atlas-note-y", `${baseY + spread}%`);
+      item.style.setProperty("--atlas-note-offset-x", `${offset.x.toFixed(2)}px`);
+      item.style.setProperty("--atlas-note-offset-y", `${offset.y.toFixed(2)}px`);
+      item.style.setProperty("--atlas-note-x", `calc(${centerX}% + ${offset.x.toFixed(2)}px)`);
+      item.style.setProperty("--atlas-note-y", `calc(50% + ${offset.y.toFixed(2)}px)`);
 
       const link = document.createElement("a");
       link.className = "atlas-note-scale";
@@ -329,7 +391,7 @@
     });
 
     noteLinks = items.map((item) => item.children[0]);
-    sequencePath = makePath("sequence");
+    sequencePaths = relationData.stages.slice(1).map(() => makePath("sequence"));
     referencePaths = data.references.map((edge, index) => {
       const path = makePath("reference");
       path.dataset.referenceId = String(index);
@@ -338,7 +400,7 @@
       return path;
     });
     notesLayer.replaceChildren(...items);
-    threads.replaceChildren(sequencePath, ...referencePaths);
+    threads.replaceChildren(...sequencePaths, ...referencePaths);
     root.dataset.atlasRelations = "ready";
     scheduleGeometry();
     relationObserver = new ResizeObserver(scheduleGeometry);
@@ -348,7 +410,7 @@
   function fallbackRelations() {
     relationData = null;
     noteLinks = [];
-    sequencePath = null;
+    sequencePaths = [];
     referencePaths = [];
     notesLayer?.replaceChildren();
     threads?.replaceChildren();

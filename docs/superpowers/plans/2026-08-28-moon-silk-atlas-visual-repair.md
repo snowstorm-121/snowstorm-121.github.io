@@ -4,7 +4,7 @@
 
 **Goal:** 删除首页误留的夜航白球并修复失控的光标余迹，以真正的八处月湾、疏朗主潮和更清晰的背景替换当前拥挤回钩的学习谱面。
 
-**Architecture:** 关系 JSON 与同步安全实现保持不变；返工只修正消费端结构和视觉。光标继续使用原生 32×32 SVG cursor，DOM 层只负责两段有明确 SVG class/尺寸的短余迹与真实坐标点击弧；学习页把阶段月湾和文章鳞点置于同一八列布局，每个相邻文章边独立生成三次贝塞尔 path，避免把不连续边强行拼成一条路径。
+**Architecture:** 关系 JSON 与同步安全实现保持不变；返工只修正消费端结构和视觉。光标继续使用原生 32×32 SVG cursor，DOM 层只负责两段有明确 SVG class/尺寸的短余迹与真实坐标点击弧；学习页把阶段月湾和文章鳞点置于同一八列布局。银白主潮只连接八处按 manifest 排列的阶段湾，文章阅读顺序由湾内鳞点的布局顺序表达；真实 Markdown 引用仍逐篇绘制金色 path，且只在聚焦该篇时显影。
 
 **Tech Stack:** 静态 HTML、CSS、浏览器原生 JavaScript、SVG、Node.js built-in test runner。
 
@@ -14,7 +14,7 @@
 - 保留未暂存的 `.superpowers/sdd/task-4-report.md`，不得 reset、checkout 覆盖、删除或改写该文件。
 - 不修改 `learning/pytorch/markdown/**`、`learning/pytorch/notes/**`、背景图片、旧公开 URL 或 PyTorch 阅读页的系统光标策略。
 - `learning/pytorch/atlas-relations.json` 仍是唯一文章关系来源；不新增或猜测引用。当前真实数据是 32 篇、31 条相邻阅读顺序、0 条可验证跨文引用。
-- 连接线只允许无箭头、无折线、无直角、无虚线的三次贝塞尔潮丝；默认不显示金色引用线，无引用时不得造线。
+- 连接线只允许无箭头、无折线、无直角、无虚线的三次贝塞尔潮丝；银白主潮只连接八处阶段湾；默认不显示金色引用线，无引用时不得造线。
 - 最终测试数不得低于 234；每个任务必须 RED → GREEN → commit → 独立 review，最终再做全分支 review。
 
 ---
@@ -103,7 +103,7 @@
 
 **Interfaces:**
 - Consumes: 已校验的 `{ stages, notes, sequence, references }`；保留 `window.ArchiveAtlas.selectNode`。
-- Produces: 八个 `.atlas-moon-bay` 阶段湾；32 个原生 `.atlas-note-scale` link；31 个独立 `path[data-kind="sequence"]`；仅由 `references` 生成的独立金色 path。
+- Produces: 八个 `.atlas-moon-bay` 阶段湾；32 个原生 `.atlas-note-scale` link；7 个 `path[data-kind="sequence"]` 表示相邻阶段的 manifest 顺序；仅由 `references` 生成的逐篇金色 path。
 
 - [ ] **Step 1: 写入失败测试**
 
@@ -113,30 +113,30 @@
   assert.match(learning, /class="atlas-map-node atlas-moon-bay/);
   assert.match(styles, /\.archive-atlas-learning \.atlas-moon-bay::before\s*\{[^}]*width:\s*clamp\(/);
   assert.doesNotMatch(script, /sequenceSegments\.map\([^)]*replace\(\/\^M/);
-  assert.match(script, /sequencePaths\s*=\s*data\.sequence\.map/);
-  assert.equal(runtime.threads.children.filter((node) => node.dataset.kind === "sequence").length, validRelations.sequence.length);
+  assert.match(script, /sequencePaths\s*=\s*relationData\.stages\.slice\(1\)\.map/);
+  assert.equal(runtime.threads.children.filter((node) => node.dataset.kind === "sequence").length, validRelations.stages.length - 1);
   ```
 
-  几何测试对同阶段相邻文章断言每条 path 都以自己的 `M` 开始且只含一个 `C`；不得把一个节点的入边终点直接当成出边起点。背景测试把全局均匀遮罩限制在 `.28`–`.34`，`body::before` 底部遮罩不得超过 `.40`，并继续用局部 `.atlas-node-copy::before` 维持普通文字 4.5:1。
+  几何测试断言银白 path 只有七条、每条都以自己的 `M` 开始且只含一个 `C`，端点落在相邻阶段湾边缘；不得出现任何 article-to-article 银线。文章点测试断言 Foundation 的十点分成至少两行、中心间距至少 `10px`、不重叠，且每一点的 DOM 顺序仍与 manifest 一致。背景测试把全局均匀遮罩限制在 `.28`–`.34`，`body::before` 底部遮罩不得超过 `.40`，并继续用局部 `.atlas-node-copy::before` 维持普通文字 4.5:1。
 
 - [ ] **Step 2: 运行 RED**
 
   Run: `/Users/yyy/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --test tests/archive-atlas.test.mjs`
 
-  Expected: FAIL；捕获没有真实月湾、31 条边被拼成一个回钩路径、全局叠色过深。
+  Expected: FAIL；捕获没有真实月湾、错误地绘制 31 条文章顺序线、鳞点重叠或全局叠色过深。
 
 - [ ] **Step 3: 最小重构八湾与文章布局**
 
-  在 `learning/index.html` 的八个阶段 button 上增加 `atlas-moon-bay`，不改变键、链接、文字或顺序。桌面端每湾使用宽而低的月白椭圆/新月水纹（宽度 `clamp(72px, 8vw, 116px)`），阶段文字落在湾外上下交替；文章鳞点在该湾内部沿一条短弧均匀展开，不再把同阶段文章堆成竖直串。
+  在 `learning/index.html` 的八个阶段 button 上增加 `atlas-moon-bay`，不改变键、链接、文字或顺序。桌面端每湾的水纹不超过所在八列宽度：宽度 `clamp(72px, 7vw, 96px)`；阶段文字落在湾外上下交替。文章鳞点在该湾内按 manifest 顺序排入两到三行的稀疏短弧：最多五点一行，点为 `8×5px`，相邻中心至少 `12px`，不绘制湾内连接线。
 
-  `mountRelations()` 将 sequence 改成每条 edge 一个 path：
+  `mountRelations()` 只为八处阶段湾创建七条主潮 path：
 
   ```js
-  sequencePaths = data.sequence.map(() => makePath("sequence"));
+  sequencePaths = data.stages.slice(1).map(() => makePath("sequence"));
   threads.replaceChildren(...sequencePaths, ...referencePaths);
   ```
 
-  `drawGeometry()` 为每条边分别计算起终点和一个疏朗三次贝塞尔。湾内相邻点使用小弧高，跨湾相邻点沿共同主潮切线平滑连接；每条 path 始终保持自己的 `M ... C ...`。不得拼接 path、不得画箭头或在 pointermove 重算。
+  `drawGeometry()` 读取相邻 `.atlas-moon-bay` 的 `getBoundingClientRect()`，为每对相邻阶段湾各画一条疏朗三次贝塞尔。端点落在两湾面向彼此的边缘，控制点沿同一水平潮线轻微起伏；每条 path 始终保持自己的 `M ... C ...`。不得从 article 点生成银白线、不得拼接 path、不得画箭头或在 pointermove 重算。
 
   将 `body.archive-atlas-page` 的均匀遮罩降到 `.30`，横向辅助渐变只在文字一侧保留；`body::before` 改为顶部透明、底部不高于 `.38`。标题、阶段 copy、题跋各自保留局部墨色渐隐和文字阴影。背景资源失败时仍有 `#030713` 底色和可读前景。
 
@@ -150,7 +150,7 @@
 
   Run: `git diff --check`
 
-  Expected: 测试全绿；提交信息 `fix: rebuild moon silk atlas geometry`。
+  Expected: 测试全绿；提交信息 `fix: simplify moon silk atlas tide`。
 
 ---
 
