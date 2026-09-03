@@ -3,7 +3,8 @@
     cursor: url("./cursors/moon-scale-cold-silver.svg") 14 14, auto;
   }
 
-  html[data-moon-scale-shoal="true"]:not([data-orbit-selecting="true"]) :is(a, button, summary, select, [role="button"]):not([disabled]) {
+  html[data-moon-scale-shoal="true"]:not([data-orbit-selecting="true"]) :is(a, button, summary, select, [role="button"]):not([disabled]),
+  html[data-moon-scale-shoal="true"]:not([data-orbit-selecting="true"]) :is(a, button, summary, select, [role="button"]):not([disabled]) :where(*) {
     cursor: url("./cursors/moon-scale-warm-gold.svg") 14 14, pointer;
   }
 }

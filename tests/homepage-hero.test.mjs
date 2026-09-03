@@ -943,6 +943,10 @@ test("orbit cursor is a centered 28px native crosshair with no follower layer", 
   assert.equal(stripPaint(cold), stripPaint(warm));
   assert.match(shoalStyles, /moon-scale-cold-silver\.svg"\) 14 14, auto/);
   assert.match(shoalStyles, /moon-scale-warm-gold\.svg"\) 14 14, pointer/);
+  assert.match(
+    shoalStyles,
+    /:is\(a, button, summary, select, \[role="button"\]\):not\(\[disabled\]\),\s*html\[data-moon-scale-shoal="true"\]:not\(\[data-orbit-selecting="true"\]\) :is\(a, button, summary, select, \[role="button"\]\):not\(\[disabled\]\) :where\(\*\)/
+  );
   assert.doesNotMatch(sharedScript, /requestAnimationFrame|pointermove|pointerdown|moon-scale-cursor|moon-scale-trail|moon-scale-ripple/);
 });
 
