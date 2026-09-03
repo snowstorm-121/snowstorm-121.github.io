@@ -1010,6 +1010,21 @@ test("invalid or unavailable relation JSON leaves the static archive in fallback
   assert.equal(networkRuntime.noteLinks.length, 0);
 });
 
+test("reordered note arrays that violate manifest order contract fall back to static atlas controls", async () => {
+  const relations = JSON.parse(JSON.stringify(validRelations));
+  [relations.notes[3], relations.notes[4]] = [relations.notes[4], relations.notes[3]];
+
+  const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json" });
+  vm.runInNewContext(script, runtime);
+  await runtime.flushRelations(relations);
+
+  assert.equal(runtime.root.dataset.atlasRelations, "fallback");
+  assert.equal(runtime.noteLinks.length, 0);
+  assert.equal(runtime.notes.children.length, 0);
+  assert.equal(runtime.svgPaths.length, 0);
+  assert.ok(runtime.controls.length >= 8, "static stage controls remain available");
+});
+
 test("untrusted stage schema or note URLs never mount dynamic atlas relations", async () => {
   const cloneRelations = () => JSON.parse(JSON.stringify(validRelations));
   const invalidCases = [

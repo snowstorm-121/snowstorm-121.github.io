@@ -138,9 +138,10 @@
     const noteIds = new Set();
     const orders = new Set();
     const noteById = new Map();
-    for (const note of data.notes) {
+    for (const [index, note] of data.notes.entries()) {
       if (!isRecord(note) || !isText(note.id) || !isText(note.stageKey)) return false;
       if (!isText(note.title) || !isText(note.href) || !noteHrefPattern.test(note.href) || !Number.isInteger(note.order)) return false;
+      if (note.order !== index) return false;
       if (!stageKeys.has(note.stageKey) || noteIds.has(note.id) || orders.has(note.order)) return false;
       noteIds.add(note.id);
       orders.add(note.order);
