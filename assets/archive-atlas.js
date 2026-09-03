@@ -152,6 +152,11 @@
     if (listedIds.length !== data.notes.length || new Set(listedIds).size !== data.notes.length) return false;
     for (const stage of data.stages) {
       if (stage.noteIds.some((id) => !noteById.has(id) || noteById.get(id).stageKey !== stage.key)) return false;
+      for (let index = 1; index < stage.noteIds.length; index += 1) {
+        const previous = noteById.get(stage.noteIds[index - 1]).order;
+        const current = noteById.get(stage.noteIds[index]).order;
+        if (previous >= current) return false;
+      }
     }
 
     const orderedNotes = [...data.notes].sort((left, right) => left.order - right.order);
