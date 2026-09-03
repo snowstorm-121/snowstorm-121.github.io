@@ -1,6 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" data-hotspot="5 5">
-  <path data-part="body" fill-rule="evenodd" fill="#e8f5fb" fill-opacity=".78" stroke="#91c5da" stroke-linejoin="round" d="M5 5C11.4 5.1 20 9.3 24.4 15.1C21.8 20.3 17.3 23.7 10.9 24.7C13.6 21.1 15.3 17.7 15 14.1C14.7 10.5 11.3 7.4 5 5ZM9.2 7.9C14.2 9.7 18 12.3 20.2 15.1C18.5 18 16.6 19.9 13.6 21.6C15.6 18.2 16.3 15.2 15.1 12.5C14.1 10.4 12.1 8.9 9.2 7.9Z"/>
-  <path data-part="spine" fill="none" stroke="#e4bb83" stroke-width="1.35" stroke-linecap="round" d="M7.1 7C12.6 7.8 18 11.3 20.5 15.1C18.8 18.2 16.4 20.4 13.1 22"/>
-  <path data-part="tail" fill="none" stroke="#d8eef6" stroke-width="1.1" stroke-linecap="round" d="M11.3 23.3C9.3 25.3 7.5 26.4 5.7 26.8"/>
-  <path data-part="tail" fill="none" stroke="#d8eef6" stroke-width="1.1" stroke-linecap="round" d="M12.9 22.8C11.9 25.4 10.7 27.1 9.1 28.3"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" data-hotspot="14 14">
+  <circle data-part="ring" cx="14" cy="14" r="6" fill="none" stroke="#dcecf4" stroke-width="1.4"/>
+  <path data-part="tick" d="M14 3.5V7" fill="none" stroke="#9fc2d0" stroke-width="1.4" stroke-linecap="round"/>
+  <path data-part="tick" d="M24.5 14H21" fill="none" stroke="#9fc2d0" stroke-width="1.4" stroke-linecap="round"/>
+  <path data-part="tick" d="M14 24.5V21" fill="none" stroke="#9fc2d0" stroke-width="1.4" stroke-linecap="round"/>
+  <path data-part="tick" d="M3.5 14H7" fill="none" stroke="#9fc2d0" stroke-width="1.4" stroke-linecap="round"/>
+  <circle data-part="core" cx="14" cy="14" r="2" fill="#d7c08e" stroke="#d7c08e"/>
 </svg>

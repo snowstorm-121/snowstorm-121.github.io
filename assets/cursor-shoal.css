@@ -1,9 +1,11 @@
-html[data-moon-scale-shoal="true"][data-moon-scale-cursor="true"] :where(body, body *) {
-  cursor: url("./cursors/moon-scale-cold-silver.svg") 5 5, auto;
-}
+@media (hover: hover) and (pointer: fine) {
+  html[data-moon-scale-shoal="true"]:not([data-orbit-selecting="true"]) :where(body, body *) {
+    cursor: url("./cursors/moon-scale-cold-silver.svg") 14 14, auto;
+  }
 
-html[data-moon-scale-shoal="true"][data-moon-scale-cursor="true"] :is(a, button, summary, select, [role="button"]):not([disabled]) {
-  cursor: url("./cursors/moon-scale-warm-gold.svg") 5 5, pointer;
+  html[data-moon-scale-shoal="true"]:not([data-orbit-selecting="true"]) :is(a, button, summary, select, [role="button"]):not([disabled]) {
+    cursor: url("./cursors/moon-scale-warm-gold.svg") 14 14, pointer;
+  }
 }
 
 html[data-moon-scale-shoal="true"] :is(input, textarea, [contenteditable]),
@@ -11,79 +13,11 @@ html[data-moon-scale-shoal="true"] [contenteditable] * {
   cursor: text;
 }
 
-html[data-moon-scale-selecting="true"] :where(body, body *) {
+html[data-moon-scale-shoal="true"][data-orbit-selecting="true"] :where(body, body *),
+html[data-moon-scale-shoal="true"][data-orbit-selecting="true"] :is(a, button, summary, select, [role="button"]):not([disabled]) {
   cursor: auto;
-}
-
-html[data-moon-scale-shoal="true"][data-moon-scale-cursor="true"][data-moon-scale-selecting="true"] :is(a, button, summary, select, [role="button"]):not([disabled]) {
-  cursor: auto;
-}
-
-#moon-scale-cursor {
-  position: fixed;
-  z-index: 20;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity .16s ease;
-}
-
-#moon-scale-cursor.is-visible { opacity: 1; }
-
-#moon-scale-cursor > svg {
-  display: block;
-  overflow: visible;
-}
-
-#moon-scale-cursor :is(.moon-scale-trail, .moon-scale-ripple-arc) {
-  position: fixed;
-  top: 0;
-  left: 0;
-  pointer-events: none;
-  will-change: transform, opacity;
-}
-
-.moon-scale-trail {
-  width: 22px;
-  height: 10px;
-  opacity: .18;
-  transform: translate3d(var(--moon-trail-x), var(--moon-trail-y), 0) translate(-50%, -50%) rotate(-14deg);
-}
-
-.moon-scale-trail-gold {
-  width: 14px;
-  height: 8px;
-  opacity: .12;
-  transform: translate3d(var(--moon-trail-x), var(--moon-trail-y), 0) translate(-50%, -50%) rotate(18deg);
-}
-
-.moon-scale-ripple-arc {
-  width: 18px;
-  height: 12px;
-  border: 1px solid rgba(238, 198, 132, .76);
-  border-left-color: transparent;
-  border-bottom-color: transparent;
-  border-radius: 72% 100% 72% 100%;
-  opacity: 0;
-  --moon-ripple-turn: -20deg;
-  transform: translate3d(var(--moon-ripple-x), var(--moon-ripple-y), 0) translate(-50%, -50%) rotate(var(--moon-ripple-turn)) scale(.35);
-}
-
-.moon-scale-ripple-arc-secondary {
-  width: 26px;
-  height: 17px;
-  border-color: rgba(185, 225, 244, .65) transparent transparent rgba(185, 225, 244, .65);
-  --moon-ripple-turn: 28deg;
-}
-
-.moon-scale-ripple-arc.is-rippling { animation: moon-scale-ripple-arc .42s ease-out; }
-
-@keyframes moon-scale-ripple-arc {
-  from { opacity: .85; transform: translate3d(var(--moon-ripple-x), var(--moon-ripple-y), 0) translate(-50%, -50%) rotate(var(--moon-ripple-turn)) scale(.35); }
-  to { opacity: 0; transform: translate3d(var(--moon-ripple-x), var(--moon-ripple-y), 0) translate(-50%, -50%) rotate(var(--moon-ripple-turn)) scale(2.4); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   html[data-moon-scale-shoal="true"] :where(body, body *) { cursor: auto; }
-  #moon-scale-cursor { display: none; }
 }
