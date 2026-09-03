@@ -15,16 +15,46 @@
   const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   const scheduleDiffusion = typeof setTimeout === "function" ? setTimeout : null;
   const cancelDiffusion = typeof clearTimeout === "function" ? clearTimeout : null;
+  const ORBIT_SLOTS = {
+    foundation: { x: .50, y: .16, vx: -1, vy: 0 },
+    "stage-1": { x: .72, y: .26, vx: .78, vy: -.62 },
+    "stage-2": { x: .80, y: .53, vx: 1, vy: .12 },
+    "stage-3": { x: .64, y: .79, vx: .58, vy: .82 },
+    "stage-4": { x: .37, y: .79, vx: -.58, vy: .82 },
+    "stage-5": { x: .20, y: .53, vx: -1, vy: .12 },
+    "stage-6": { x: .29, y: .24, vx: -.78, vy: -.62 },
+  };
   let diffusionTimer = null;
   let geometryFrame = null;
   let relationData = null;
   let relationObserver = null;
   let noteLinks = [];
+  let hierarchyPaths = [];
   let sequencePaths = [];
   let referencePaths = [];
+  let noteItems = [];
+  let notePoints = new Map();
 
   function stageControlKey(stageKey) {
     return stageKey === "overview" ? "pytorch" : stageKey;
+  }
+
+  function controlForKey(key) {
+    return controls.find((control) => control.dataset.atlasKey === key) ?? null;
+  }
+
+  function applyOrbitSlots() {
+    const center = controlForKey("pytorch");
+    if (center) {
+      center.style.setProperty("--orbit-x", "50%");
+      center.style.setProperty("--orbit-y", "50%");
+    }
+    Object.entries(ORBIT_SLOTS).forEach(([key, slot]) => {
+      const control = controlForKey(key);
+      if (!control) return;
+      control.style.setProperty("--orbit-x", `${slot.x * 100}%`);
+      control.style.setProperty("--orbit-y", `${slot.y * 100}%`);
+    });
   }
 
   function stopDiffusion() {
@@ -50,11 +80,17 @@
     referencePaths.forEach((path) => path.classList.remove("is-revealed"));
   }
 
-  function selectNode(control, animate = true) {
-    const key = control?.dataset.atlasKey;
+  function resolveControl(target) {
+    if (typeof target === "string") return controlForKey(target);
+    if (!target?.dataset?.atlasKey) return null;
+    return controlForKey(target.dataset.atlasKey) ?? target;
+  }
+
+  function selectNode(target, animate = true) {
+    const source = resolveControl(target);
+    const key = source?.dataset.atlasKey;
     if (!key) return "";
 
-    const source = controls.find((candidate) => candidate.dataset.atlasKey === key) ?? control;
     const changed = root.dataset.atlasSelected !== key;
     root.dataset.atlasSelected = key;
     clearNoteSelection();
@@ -201,6 +237,13 @@
     return group;
   }
 
+  function makeLine(kind) {
+    const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    line.setAttribute("class", "atlas-thread");
+    line.dataset.kind = kind;
+    return line;
+  }
+
   function makePath(kind) {
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.setAttribute("class", "atlas-thread");
@@ -258,141 +301,146 @@
     if (empty) empty.hidden = true;
   }
 
-  function cubicTide({ start, end, index, total, kind = "sequence" }) {
+  function roundPoint(point) {
+    return {
+      x: Number(point.x.toFixed(2)),
+      y: Number(point.y.toFixed(2)),
+    };
+  }
+
+  function pointFromRect(rect, mapRect) {
+    return roundPoint({
+      x: rect.left + rect.width / 2 - mapRect.left,
+      y: rect.top + rect.height / 2 - mapRect.top,
+    });
+  }
+
+  function normalizeVector(vx, vy) {
+    const length = Math.hypot(vx, vy) || 1;
+    return { x: vx / length, y: vy / length };
+  }
+
+  function offsetPoint(point, dx, dy) {
+    return roundPoint({ x: point.x + dx, y: point.y + dy });
+  }
+
+  function setNotePosition(item, point) {
+    item.style.setProperty("--atlas-note-x", `${point.x}px`);
+    item.style.setProperty("--atlas-note-y", `${point.y}px`);
+  }
+
+  function branchPath(points, vector) {
+    if (points.length < 2) return "";
+    const unit = normalizeVector(vector.x, vector.y);
+    const normal = { x: -unit.y, y: unit.x };
+    let d = `M ${points[0].x} ${points[0].y}`;
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index];
+      const end = points[index + 1];
+      const distance = Math.hypot(end.x - start.x, end.y - start.y);
+      const handle = Math.max(14, Math.min(32, distance * .42));
+      const bend = (index % 2 === 0 ? 1 : -1) * Math.min(10, 3 + distance * .08);
+      const c1 = offsetPoint(start, unit.x * handle + normal.x * bend, unit.y * handle + normal.y * bend);
+      const c2 = offsetPoint(end, -unit.x * handle + normal.x * bend, -unit.y * handle + normal.y * bend);
+      d += ` C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${end.x} ${end.y}`;
+    }
+    return d;
+  }
+
+  function referencePath(start, end, index, total) {
     const dx = end.x - start.x;
     const dy = end.y - start.y;
-    if (kind === "sequence") {
-      const controlDx = Math.max(20, Math.abs(dx) * .34);
-      const swell = ((index + total) % 2 ? -1 : 1) * Math.min(18, 7 + Math.abs(dy) * .22);
-      return `M ${start.x} ${start.y} C ${start.x + controlDx} ${start.y + swell}, ${end.x - controlDx} ${end.y + swell}, ${end.x} ${end.y}`;
-    }
-
-    const controlDx = dx * .36;
-    const side = (index + total) % 2 ? 1 : -1;
-    const lift = side * Math.min(118, 18 + Math.hypot(dx, dy) * .16);
-    return `M ${start.x} ${start.y} C ${start.x + controlDx} ${start.y + lift}, ${end.x - controlDx} ${end.y + lift}, ${end.x} ${end.y}`;
+    const distance = Math.hypot(dx, dy) || 1;
+    const normal = { x: -dy / distance, y: dx / distance };
+    const bend = Math.min(44, 16 + distance * .14) * ((index + total) % 2 ? 1 : -1);
+    const c1 = roundPoint({ x: start.x + dx * .28 + normal.x * bend, y: start.y + dy * .28 + normal.y * bend });
+    const c2 = roundPoint({ x: start.x + dx * .72 + normal.x * bend, y: start.y + dy * .72 + normal.y * bend });
+    return `M ${start.x} ${start.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${end.x} ${end.y}`;
   }
 
-  function edgePoint(fromRect, toRect, mapRect) {
-    const from = { x: fromRect.left + fromRect.width / 2, y: fromRect.top + fromRect.height / 2 };
-    const to = { x: toRect.left + toRect.width / 2, y: toRect.top + toRect.height / 2 };
-    const dx = to.x - from.x;
-    const dy = to.y - from.y;
-    const radiusX = Math.max(1, fromRect.width / 2);
-    const radiusY = Math.max(1, fromRect.height / 2);
-    const projection = 1 / Math.sqrt((dx * dx) / (radiusX * radiusX) + (dy * dy) / (radiusY * radiusY));
-    return {
-      x: Number((from.x - mapRect.left + dx * projection).toFixed(2)),
-      y: Number((from.y - mapRect.top + dy * projection).toFixed(2)),
-    };
-  }
-
-  function baySurfaceRect(controlRect) {
-    const width = Math.min(96, Math.max(72, controlRect.width * .8));
-    const height = Math.min(32, Math.max(24, controlRect.height * .08));
-    return {
-      left: controlRect.left + (controlRect.width - width) / 2,
-      top: controlRect.top + (controlRect.height - height) / 2,
-      width,
-      height,
-    };
+  function stageNotePoint(stage, stagePoint, controlRect, index, total) {
+    const slot = ORBIT_SLOTS[stage.key];
+    const unit = normalizeVector(slot.vx, slot.vy);
+    const normal = { x: -unit.y, y: unit.x };
+    const distanceStart = Math.max(controlRect.width, controlRect.height) * .5 + (stage.key === "foundation" ? 34 : 30);
+    const step = total <= 1 ? 0 : Math.min(32, (stage.key === "foundation" ? 248 : 172) / Math.max(1, total - 1));
+    const drift = total <= 2 ? 0 : (((index % 2) * 2) - 1) * Math.min(10, 3 + Math.floor(index / 2) * 2);
+    return roundPoint({
+      x: stagePoint.x + unit.x * (distanceStart + step * index) + normal.x * drift,
+      y: stagePoint.y + unit.y * (distanceStart + step * index) + normal.y * drift,
+    });
   }
 
   function drawGeometry() {
     geometryFrame = null;
-    if (!relationData || !map || sequencePaths.length !== relationData.stages.length - 1) return;
+    if (!relationData || !map || !threads) return;
     const mapRect = map.getBoundingClientRect();
-    const linksById = new Map(noteLinks.map((link) => [link.dataset.atlasNoteId, link]));
-    const stageControls = relationData.stages.map((stage) => controls.find((control) => control.dataset.atlasKey === stageControlKey(stage.key)));
-    if (stageControls.some((control) => !control)) return;
+    const centerControl = controlForKey("pytorch");
+    if (!centerControl) return;
+    const centerPoint = pointFromRect(centerControl.getBoundingClientRect(), mapRect);
     threads.setAttribute("viewBox", `0 0 ${mapRect.width} ${mapRect.height}`);
+    notePoints = new Map();
+
+    const overviewId = relationData.stages[0]?.noteIds[0];
+    if (overviewId) {
+      const overviewItem = noteItems.find((item) => item.dataset.atlasNoteId === overviewId);
+      if (overviewItem) {
+        const point = roundPoint({ x: centerPoint.x, y: centerPoint.y + 28 });
+        notePoints.set(overviewId, point);
+        setNotePosition(overviewItem, point);
+      }
+    }
 
     relationData.stages.slice(1).forEach((stage, index) => {
-      const fromRect = baySurfaceRect(stageControls[index].getBoundingClientRect());
-      const toRect = baySurfaceRect(stageControls[index + 1].getBoundingClientRect());
-      const start = edgePoint(fromRect, toRect, mapRect);
-      const end = edgePoint(toRect, fromRect, mapRect);
-      sequencePaths[index].setAttribute("d", cubicTide({
-        start,
-        end,
-        index,
-        total: relationData.stages.length - 1,
-      }));
+      const control = controlForKey(stage.key);
+      if (!control) return;
+      const rect = control.getBoundingClientRect();
+      const stagePoint = pointFromRect(rect, mapRect);
+      const hierarchy = hierarchyPaths[index];
+      hierarchy?.setAttribute("x1", String(centerPoint.x));
+      hierarchy?.setAttribute("y1", String(centerPoint.y));
+      hierarchy?.setAttribute("x2", String(stagePoint.x));
+      hierarchy?.setAttribute("y2", String(stagePoint.y));
+
+      const points = stage.noteIds.map((noteId, noteIndex) => {
+        const point = stageNotePoint(stage, stagePoint, rect, noteIndex, stage.noteIds.length);
+        const item = noteItems.find((candidate) => candidate.dataset.atlasNoteId === noteId);
+        if (item) setNotePosition(item, point);
+        notePoints.set(noteId, point);
+        return point;
+      });
+      const path = sequencePaths[index];
+      if (path) {
+        path.dataset.nodeIds = stage.noteIds.join(",");
+        path.dataset.stageKey = stage.key;
+        path.setAttribute("d", branchPath([stagePoint, ...points], { x: ORBIT_SLOTS[stage.key].vx, y: ORBIT_SLOTS[stage.key].vy }));
+      }
     });
 
-    relationData.references.forEach((edge, index) => {
-      const fromRect = linksById.get(edge.from).getBoundingClientRect();
-      const toRect = linksById.get(edge.to).getBoundingClientRect();
-      const start = edgePoint(fromRect, toRect, mapRect);
-      const end = edgePoint(toRect, fromRect, mapRect);
-      const fromOrder = relationData.notes.find((note) => note.id === edge.from).order;
-      const toOrder = relationData.notes.find((note) => note.id === edge.to).order;
-      referencePaths[index].setAttribute("d", cubicTide({
-        start,
-        end,
-        index: fromOrder > toOrder ? index + 1 : index,
-        total: relationData.references.length,
-        kind: "reference",
-      }));
+    referencePaths.forEach((path, index) => {
+      const start = notePoints.get(path.dataset.from);
+      const end = notePoints.get(path.dataset.to);
+      if (!start || !end) return;
+      path.setAttribute("d", referencePath(start, end, index, referencePaths.length));
     });
   }
 
   function scheduleGeometry() {
     if (geometryFrame !== null) return;
-    geometryFrame = requestAnimationFrame(drawGeometry);
-  }
-
-  function rowsForStage(count) {
-    if (count <= 1) return [count];
-    if (count <= 10) {
-      const upper = Math.ceil(count / 2);
-      return [upper, count - upper];
+    if (typeof requestAnimationFrame === "function") {
+      geometryFrame = requestAnimationFrame(drawGeometry);
+      return;
     }
-    const rows = [];
-    let remaining = count;
-    while (remaining > 0) {
-      const row = Math.min(5, Math.ceil(remaining / Math.min(3 - rows.length, remaining)));
-      rows.push(row);
-      remaining -= row;
-    }
-    return rows;
-  }
-
-  function noteOffsets(count, index) {
-    const rows = rowsForStage(count);
-    let seen = 0;
-    for (let rowIndex = 0; rowIndex < rows.length; rowIndex += 1) {
-      const rowSize = rows[rowIndex];
-      if (index < seen + rowSize) {
-        const columnIndex = index - seen;
-        const stepX = 12;
-        const stepY = 11;
-        const offsetX = rowSize === 1 ? 0 : columnIndex * stepX - ((rowSize - 1) * stepX) / 2;
-        const offsetY = rowIndex * stepY - ((rows.length - 1) * stepY) / 2;
-        return { x: offsetX, y: offsetY };
-      }
-      seen += rowSize;
-    }
-    return { x: 0, y: 0 };
+    drawGeometry();
   }
 
   function mountRelations(data) {
     relationData = data;
     const noteById = new Map(data.notes.map((note) => [note.id, note]));
-    const stageIndex = new Map(data.stages.map((stage, index) => [stage.key, index]));
     const items = data.notes.map((note) => {
-      const currentStageIndex = stageIndex.get(note.stageKey);
-      const stage = data.stages[currentStageIndex];
-      const indexWithinStage = stage.noteIds.indexOf(note.id);
-      const centerX = ((currentStageIndex + .5) / data.stages.length) * 100;
-      const offset = noteOffsets(stage.noteIds.length, indexWithinStage);
       const item = document.createElement("span");
       item.className = "atlas-note-item";
-      item.dataset.atlasStageEdge = currentStageIndex === 0 ? "start" : currentStageIndex === data.stages.length - 1 ? "end" : "middle";
-      item.style.setProperty("--atlas-note-offset-x", `${offset.x.toFixed(2)}px`);
-      item.style.setProperty("--atlas-note-offset-y", `${offset.y.toFixed(2)}px`);
-      item.style.setProperty("--atlas-note-x", `calc(${centerX}% + ${offset.x.toFixed(2)}px)`);
-      item.style.setProperty("--atlas-note-y", `calc(50% + ${offset.y.toFixed(2)}px)`);
+      item.dataset.atlasNoteId = note.id;
 
       const link = document.createElement("a");
       link.className = "atlas-note-scale";
@@ -413,27 +461,35 @@
     });
 
     noteLinks = items.map((item) => item.children[0]);
+    noteItems = items;
+    hierarchyPaths = relationData.stages.slice(1).map(() => makeLine("hierarchy"));
     sequencePaths = relationData.stages.slice(1).map(() => makePath("sequence"));
-    referencePaths = data.references.map((edge, index) => {
+    referencePaths = data.references.length ? data.references.map((edge, index) => {
       const path = makePath("reference");
       path.dataset.referenceId = String(index);
       path.dataset.from = edge.from;
       path.dataset.to = edge.to;
       return path;
-    });
+    }) : [];
     notesLayer.replaceChildren(...items);
-    threads.replaceChildren(...sequencePaths, ...referencePaths);
+    threads.replaceChildren(...hierarchyPaths, ...sequencePaths, ...referencePaths);
     root.dataset.atlasRelations = "ready";
     scheduleGeometry();
-    relationObserver = new ResizeObserver(scheduleGeometry);
-    relationObserver.observe(map);
+    if (typeof ResizeObserver === "function") {
+      relationObserver?.disconnect?.();
+      relationObserver = new ResizeObserver(scheduleGeometry);
+      relationObserver.observe(map);
+    }
   }
 
   function fallbackRelations() {
     relationData = null;
     noteLinks = [];
+    hierarchyPaths = [];
     sequencePaths = [];
     referencePaths = [];
+    noteItems = [];
+    notePoints = new Map();
     notesLayer?.replaceChildren();
     threads?.replaceChildren();
     root.dataset.atlasRelations = "fallback";
@@ -460,6 +516,7 @@
 
   reduceMotionQuery.addEventListener?.("change", syncMotion);
   syncMotion();
+  applyOrbitSlots();
   selectNode(
     controls.find((control) => control.getAttribute("aria-pressed") === "true") ?? controls[0],
     false,

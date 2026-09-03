@@ -24,6 +24,15 @@ body.archive-atlas-page {
   background-attachment: scroll;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
 }
+body.archive-atlas-page.archive-atlas-learning {
+  background-image:
+    linear-gradient(rgba(3, 7, 19, .31), rgba(3, 7, 19, .31)),
+    linear-gradient(90deg, rgba(3, 7, 19, .48), transparent 46%),
+    linear-gradient(180deg, rgba(6, 18, 36, .08), rgba(6, 18, 36, .34)),
+    url("./homepage/coast-background.png");
+  background-position: center top;
+  background-size: cover;
+}
 body.archive-atlas-page::before {
   position: fixed;
   inset: 0;
@@ -241,17 +250,6 @@ button { color: inherit; font: inherit; }
   transform: translate(-50%, -50%) scale(.5);
   content: "";
 }
-.archive-atlas-learning .atlas-moon-bay::before {
-  width: clamp(72px, 7vw, 96px);
-  height: clamp(24px, 2.6vw, 32px);
-  border: 1px solid rgba(215, 226, 237, .24);
-  border-radius: 64% 36% 61% 39% / 46% 56% 44% 54%;
-  background:
-    radial-gradient(ellipse at 48% 66%, rgba(215, 226, 237, .2), rgba(147, 174, 196, .07) 46%, transparent 72%),
-    linear-gradient(173deg, transparent 40%, rgba(215, 226, 237, .2) 51%, transparent 62%);
-  box-shadow: 0 6px 20px rgba(104, 147, 177, .09), inset 0 -1px rgba(215, 226, 237, .12);
-  transform: translate(-50%, -50%) rotate(-3deg);
-}
 .atlas-map-node.is-selecting::after {
   animation: atlas-moon-diffusion 240ms ease-out;
 }
@@ -315,13 +313,6 @@ button { color: inherit; font: inherit; }
   background: rgba(199, 170, 120, .28);
   box-shadow: 0 0 22px rgba(199, 170, 120, .28);
   opacity: 1;
-}
-.archive-atlas-learning .atlas-moon-bay.is-active::before {
-  border-color: rgba(199, 170, 120, .5);
-  background:
-    radial-gradient(ellipse at 48% 66%, rgba(232, 224, 205, .24), rgba(163, 182, 196, .08) 46%, transparent 72%),
-    linear-gradient(173deg, transparent 40%, rgba(199, 170, 120, .23) 51%, transparent 62%);
-  box-shadow: 0 8px 28px rgba(199, 170, 120, .14), inset 0 -1px rgba(234, 217, 185, .2);
 }
 .atlas-map-node.is-active .atlas-node-number { color: #ead9b9; }
 .atlas-map-node.is-dimmed::before { opacity: .3; }
@@ -388,10 +379,15 @@ button { color: inherit; font: inherit; }
   fill: none;
   vector-effect: non-scaling-stroke;
 }
+.atlas-thread[data-kind="hierarchy"] {
+  stroke: var(--atlas-gold);
+  stroke-width: 1px;
+  opacity: .5;
+}
 .atlas-thread[data-kind="sequence"] {
   stroke: var(--atlas-silver);
-  stroke-width: 1px;
-  opacity: .4;
+  stroke-width: 1.1px;
+  opacity: .48;
 }
 .atlas-thread[data-kind="reference"] {
   stroke: var(--atlas-gold);
@@ -449,14 +445,6 @@ button { color: inherit; font: inherit; }
 .atlas-note-scale:hover::after,
 .atlas-note-scale:focus-visible::after,
 .atlas-note-scale.is-active::after { opacity: 1; }
-.atlas-note-item[data-atlas-stage-edge="start"] .atlas-note-scale::after {
-  left: 0;
-  transform: translateX(-8%);
-}
-.atlas-note-item[data-atlas-stage-edge="end"] .atlas-note-scale::after {
-  left: 100%;
-  transform: translateX(-92%);
-}
 .atlas-note-scale:hover,
 .atlas-note-scale.is-active {
   border-color: rgba(199, 170, 120, .9);
@@ -528,6 +516,120 @@ button { color: inherit; font: inherit; }
 .atlas-destination:hover,
 .atlas-destination:focus-visible { color: #f1e4ca; }
 .atlas-empty { white-space: nowrap; }
+
+@media (min-width: 721px) {
+  .archive-atlas-learning .atlas-scroll {
+    min-height: clamp(560px, 70vh, 760px);
+  }
+  .archive-atlas-learning .atlas-scroll::before {
+    inset: 2% 4%;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(215, 226, 237, .06), transparent 18%),
+      radial-gradient(circle at 50% 50%, transparent 0 30%, rgba(215, 226, 237, .08) 30.4%, transparent 30.9%),
+      radial-gradient(circle at 50% 50%, transparent 0 48%, rgba(215, 226, 237, .06) 48.4%, transparent 48.9%),
+      radial-gradient(circle at 50% 50%, transparent 0 66%, rgba(215, 226, 237, .05) 66.4%, transparent 66.9%);
+    filter: none;
+    opacity: .85;
+  }
+  .archive-atlas-learning .atlas-tide {
+    display: block;
+    min-height: clamp(560px, 70vh, 760px);
+  }
+  .archive-atlas-learning .atlas-tide::before {
+    top: 10%;
+    right: 8%;
+    bottom: 10%;
+    left: 8%;
+    height: auto;
+    background:
+      radial-gradient(circle at 50% 50%, transparent 0 19%, rgba(215, 226, 237, .08) 19.4%, transparent 19.9%),
+      radial-gradient(circle at 50% 50%, transparent 0 38%, rgba(215, 226, 237, .06) 38.4%, transparent 38.9%),
+      radial-gradient(circle at 50% 50%, transparent 0 57%, rgba(215, 226, 237, .05) 57.4%, transparent 57.9%);
+    filter: none;
+    opacity: .5;
+  }
+  .archive-atlas-learning .atlas-tide-list {
+    display: block !important;
+  }
+  .archive-atlas-learning .atlas-tide-stop {
+    position: static;
+    min-height: 0;
+  }
+  .archive-atlas-learning .atlas-map-node {
+    position: absolute;
+    top: var(--orbit-y);
+    left: var(--orbit-x);
+    width: clamp(138px, 15vw, 196px);
+    height: auto;
+    min-height: 0;
+    padding: 0;
+    transform: translate(-50%, -50%);
+  }
+  .archive-atlas-learning .atlas-map-node::before {
+    width: 22px;
+    height: 22px;
+    border: 1px solid rgba(215, 226, 237, .52);
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(215, 226, 237, .28) 0 16%, transparent 16.5%),
+      linear-gradient(90deg, transparent 47%, rgba(215, 226, 237, .38) 47.5%, rgba(215, 226, 237, .38) 52.5%, transparent 53%),
+      linear-gradient(0deg, transparent 47%, rgba(215, 226, 237, .38) 47.5%, rgba(215, 226, 237, .38) 52.5%, transparent 53%);
+    box-shadow: 0 0 18px rgba(215, 226, 237, .12);
+    transform: translate(-50%, -50%);
+  }
+  .archive-atlas-learning [data-orbit-role="center"] {
+    width: clamp(176px, 18vw, 230px);
+  }
+  .archive-atlas-learning [data-orbit-role="stage"]::before {
+    opacity: .72;
+  }
+  .archive-atlas-learning [data-orbit-role="center"]::before {
+    width: 40px;
+    height: 40px;
+    border-color: rgba(199, 170, 120, .72);
+    background:
+      radial-gradient(circle at 50% 50%, rgba(199, 170, 120, .38) 0 18%, transparent 18.5%),
+      linear-gradient(90deg, transparent 47%, rgba(234, 217, 185, .56) 47.5%, rgba(234, 217, 185, .56) 52.5%, transparent 53%),
+      linear-gradient(0deg, transparent 47%, rgba(234, 217, 185, .56) 47.5%, rgba(234, 217, 185, .56) 52.5%, transparent 53%);
+    box-shadow: 0 0 26px rgba(199, 170, 120, .24);
+  }
+  .archive-atlas-learning .atlas-map-node.is-active::before {
+    border-color: rgba(234, 217, 185, .76);
+    background:
+      radial-gradient(circle at 50% 50%, rgba(234, 217, 185, .42) 0 18%, transparent 18.5%),
+      linear-gradient(90deg, transparent 47%, rgba(234, 217, 185, .6) 47.5%, rgba(234, 217, 185, .6) 52.5%, transparent 53%),
+      linear-gradient(0deg, transparent 47%, rgba(234, 217, 185, .6) 47.5%, rgba(234, 217, 185, .6) 52.5%, transparent 53%);
+    box-shadow: 0 0 26px rgba(199, 170, 120, .22);
+  }
+  .archive-atlas-learning .atlas-map-node.is-dimmed::before {
+    opacity: .24;
+  }
+  .archive-atlas-learning .atlas-node-copy,
+  .archive-atlas-learning .atlas-tide-stop:nth-child(odd) .atlas-node-copy,
+  .archive-atlas-learning .atlas-tide-stop:nth-child(even) .atlas-node-copy {
+    position: absolute;
+    top: calc(100% + 18px);
+    right: auto;
+    bottom: auto;
+    left: 50%;
+    width: clamp(148px, 15vw, 220px);
+    gap: 6px;
+    transform: translateX(-50%);
+  }
+  .archive-atlas-learning [data-orbit-role="center"] .atlas-node-copy {
+    top: auto;
+    bottom: calc(100% + 20px);
+  }
+  .archive-atlas-learning .atlas-node-copy::before {
+    inset: -12px -10px;
+    background: radial-gradient(ellipse at 50% 50%, rgba(3, 7, 19, .82), transparent 76%);
+  }
+  .archive-atlas-learning .atlas-node-number {
+    color: var(--atlas-gold);
+    font-size: 11px;
+    letter-spacing: .18em;
+  }
+}
 
 @keyframes atlas-moon-diffusion {
   from { opacity: .36; transform: translate(-50%, -50%) scale(.55); }
@@ -652,9 +754,9 @@ button { color: inherit; font: inherit; }
     width: 54px;
     height: 28px;
   }
-  .archive-atlas-learning .atlas-moon-bay::before {
-    width: 54px;
-    height: 28px;
+  .archive-atlas-learning .atlas-map-node::before {
+    width: 24px;
+    height: 24px;
   }
   .atlas-node-number {
     position: static;
