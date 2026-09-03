@@ -25,6 +25,7 @@ body.archive-atlas-page {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
 }
 body.archive-atlas-page.archive-atlas-learning {
+  background-color: #07101c;
   background-image:
     linear-gradient(rgba(3, 7, 19, .31), rgba(3, 7, 19, .31)),
     linear-gradient(90deg, rgba(3, 7, 19, .48), transparent 46%),
@@ -576,6 +577,14 @@ button { color: inherit; font: inherit; }
       linear-gradient(0deg, transparent 47%, rgba(215, 226, 237, .38) 47.5%, rgba(215, 226, 237, .38) 52.5%, transparent 53%);
     box-shadow: 0 0 18px rgba(215, 226, 237, .12);
     transform: translate(-50%, -50%);
+  }
+  .archive-atlas-learning [data-orbit-role="center"] {
+    top: var(--orbit-y);
+    left: var(--orbit-x);
+  }
+  .archive-atlas-learning [data-orbit-role="stage"] {
+    top: var(--orbit-y);
+    left: var(--orbit-x);
   }
   .archive-atlas-learning [data-orbit-role="center"] {
     width: clamp(176px, 18vw, 230px);

@@ -15,6 +15,7 @@
   const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   const scheduleDiffusion = typeof setTimeout === "function" ? setTimeout : null;
   const cancelDiffusion = typeof clearTimeout === "function" ? clearTimeout : null;
+  const MOBILE_BREAKPOINT = 720;
   const ORBIT_SLOTS = {
     foundation: { x: .50, y: .16, vx: -1, vy: 0 },
     "stage-1": { x: .72, y: .26, vx: .78, vy: -.62 },
@@ -43,17 +44,25 @@
     return controls.find((control) => control.dataset.atlasKey === key) ?? null;
   }
 
+  function isMobileLayout() {
+    return typeof window.innerWidth === "number" && window.innerWidth <= MOBILE_BREAKPOINT;
+  }
+
+  function orbitPercent(value) {
+    return `${Number((value * 100).toFixed(2))}%`;
+  }
+
   function applyOrbitSlots() {
     const center = controlForKey("pytorch");
     if (center) {
-      center.style.setProperty("--orbit-x", "50%");
-      center.style.setProperty("--orbit-y", "50%");
+      center.style.setProperty("--orbit-x", orbitPercent(.5));
+      center.style.setProperty("--orbit-y", orbitPercent(.5));
     }
     Object.entries(ORBIT_SLOTS).forEach(([key, slot]) => {
       const control = controlForKey(key);
       if (!control) return;
-      control.style.setProperty("--orbit-x", `${slot.x * 100}%`);
-      control.style.setProperty("--orbit-y", `${slot.y * 100}%`);
+      control.style.setProperty("--orbit-x", orbitPercent(slot.x));
+      control.style.setProperty("--orbit-y", orbitPercent(slot.y));
     });
   }
 
@@ -374,6 +383,11 @@
   function drawGeometry() {
     geometryFrame = null;
     if (!relationData || !map || !threads) return;
+    if (isMobileLayout()) {
+      threads.hidden = true;
+      threads.removeAttribute("viewBox");
+      return;
+    }
     const mapRect = map.getBoundingClientRect();
     const centerControl = controlForKey("pytorch");
     if (!centerControl) return;
@@ -426,6 +440,7 @@
   }
 
   function scheduleGeometry() {
+    if (isMobileLayout()) return;
     if (geometryFrame !== null) return;
     if (typeof requestAnimationFrame === "function") {
       geometryFrame = requestAnimationFrame(drawGeometry);
@@ -473,7 +488,12 @@
     }) : [];
     notesLayer.replaceChildren(...items);
     threads.replaceChildren(...hierarchyPaths, ...sequencePaths, ...referencePaths);
+    threads.hidden = isMobileLayout();
     root.dataset.atlasRelations = "ready";
+    if (threads.hidden) {
+      threads.removeAttribute("viewBox");
+      return;
+    }
     scheduleGeometry();
     if (typeof ResizeObserver === "function") {
       relationObserver?.disconnect?.();
@@ -492,6 +512,7 @@
     notePoints = new Map();
     notesLayer?.replaceChildren();
     threads?.replaceChildren();
+    if (threads) threads.hidden = isMobileLayout();
     root.dataset.atlasRelations = "fallback";
   }
 
@@ -517,6 +538,7 @@
   reduceMotionQuery.addEventListener?.("change", syncMotion);
   syncMotion();
   applyOrbitSlots();
+  if (threads) threads.hidden = isMobileLayout();
   selectNode(
     controls.find((control) => control.getAttribute("aria-pressed") === "true") ?? controls[0],
     false,
