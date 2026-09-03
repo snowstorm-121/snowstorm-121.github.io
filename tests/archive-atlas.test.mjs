@@ -894,8 +894,15 @@ test("validated relations mount 32 native article links and only JSON-backed cub
   assert.equal(runtime.title.textContent, validRelations.notes[4].title);
   assert.equal(runtime.meta.textContent, validRelations.stages.find((stage) => stage.key === validRelations.notes[4].stageKey).label);
   assert.match(runtime.count.textContent, /3 条直连/);
+  assert.match(
+    runtime.description.textContent,
+    new RegExp(`引用自：${validRelations.notes[0].title}.*引用自：${validRelations.notes[8].title}.*延伸至：${validRelations.notes[6].title}`),
+  );
   assert.equal(runtime.destination.textContent, "阅读此篇 →");
   assert.equal(runtime.destination.getAttribute("href"), validRelations.notes[4].href);
+
+  runtime.noteLinks[1].dispatch("focus");
+  assert.equal(runtime.description.textContent, "此篇暂无直接引文潮丝。");
 });
 
 test("articles stay inside each stage bay as sparse ordered scale rows", async () => {

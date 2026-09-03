@@ -208,6 +208,15 @@
     if (!note) return;
     const stage = relationData.stages.find((candidate) => candidate.key === note.stageKey);
     const direct = relationData.references.filter((edge) => edge.from === noteId || edge.to === noteId);
+    const noteById = new Map(relationData.notes.map((candidate) => [candidate.id, candidate]));
+    const incoming = relationData.references
+      .filter((edge) => edge.to === noteId)
+      .map((edge) => noteById.get(edge.from))
+      .filter(Boolean);
+    const outgoing = relationData.references
+      .filter((edge) => edge.from === noteId)
+      .map((edge) => noteById.get(edge.to))
+      .filter(Boolean);
 
     root.dataset.atlasSelected = noteId;
     controls.forEach((control) => {
@@ -227,7 +236,14 @@
     if (title) title.textContent = note.title;
     if (count) count.textContent = `${direct.length} 条直连`;
     if (meta) meta.textContent = stage.label;
-    if (description) description.textContent = direct.length ? "仅显影与此篇直接相连的引文潮丝。" : "此篇暂无直接引文潮丝。";
+    if (description) {
+      description.textContent = direct.length
+        ? [
+          ...incoming.map((source) => `引用自：${source.title}`),
+          ...outgoing.map((target) => `延伸至：${target.title}`),
+        ].join("；")
+        : "此篇暂无直接引文潮丝。";
+    }
     if (destination) {
       destination.hidden = false;
       destination.textContent = "阅读此篇 →";
