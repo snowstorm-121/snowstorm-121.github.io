@@ -446,6 +446,12 @@ test("moon-sea stylesheet keeps a readable deep-color fallback before image pain
   assert.match(body, /min-height:\s*100vh/);
 });
 
+test("learning artwork declares a dedicated deep-coast fallback color before the image layers", () => {
+  const learningBody = rule(styles, "body\\.archive-atlas-page\\.archive-atlas-learning");
+  assert.match(learningBody, /background-color:\s*#07101c/);
+  assert.match(learningBody, /url\("\.\/homepage\/coast-background\.png"\)/);
+});
+
 test("learning artwork switches to the coast background with restrained deep-blue veils", () => {
   const body = rule(styles, "body\\.archive-atlas-page");
   const learningBody = rule(styles, "body\\.archive-atlas-page\\.archive-atlas-learning");
@@ -505,6 +511,40 @@ test("desktop learning orbit uses role-based placement instead of moon-bay shape
   assert.match(styles, /\.atlas-note-scale\s*\{[^}]*width:\s*(?:8|9|10)px/s);
   assert.doesNotMatch(styles, /\.archive-atlas-learning \.atlas-moon-bay::before/);
   assert.doesNotMatch(script, /dataset\.atlasStageEdge/);
+});
+
+test("orbit uses the fixed seven-stage slot map", async () => {
+  const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json" });
+  vm.runInNewContext(script, runtime);
+  await runtime.flushRelations(validRelations);
+
+  assert.equal(typeof runtime.orbitSlotWrites, "function");
+  assert.deepEqual(runtime.orbitSlotWrites(), {
+    pytorch: { x: 50, y: 50 },
+    foundation: { x: 50, y: 16 },
+    "stage-1": { x: 72, y: 26 },
+    "stage-2": { x: 80, y: 53 },
+    "stage-3": { x: 64, y: 79 },
+    "stage-4": { x: 37, y: 79 },
+    "stage-5": { x: 20, y: 53 },
+    "stage-6": { x: 29, y: 24 },
+  });
+  assert.equal(
+    cssCascadeDeclarationValue(styles, '.archive-atlas-learning [data-orbit-role="center"]', "top", "@media (min-width: 721px)"),
+    "var(--orbit-y)",
+  );
+  assert.equal(
+    cssCascadeDeclarationValue(styles, '.archive-atlas-learning [data-orbit-role="center"]', "left", "@media (min-width: 721px)"),
+    "var(--orbit-x)",
+  );
+  assert.equal(
+    cssCascadeDeclarationValue(styles, '.archive-atlas-learning [data-orbit-role="stage"]', "top", "@media (min-width: 721px)"),
+    "var(--orbit-y)",
+  );
+  assert.equal(
+    cssCascadeDeclarationValue(styles, '.archive-atlas-learning [data-orbit-role="stage"]', "left", "@media (min-width: 721px)"),
+    "var(--orbit-x)",
+  );
 });
 
 test("moon marks remain decorative while each full tide stop is clickable", () => {
@@ -647,6 +687,20 @@ test("mobile learning atlas hides SVG geometry and exposes native relationship l
   assert.match(script, /延伸至/);
 });
 
+test("mobile fallback keeps native note links but skips desktop SVG geometry work", async () => {
+  const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json", viewportWidth: 320 });
+  vm.runInNewContext(script, runtime);
+  await runtime.flushRelations(validRelations);
+
+  assert.equal(runtime.noteLinks.length, 32);
+  assert.equal(runtime.noteLinks.every((link) => link.tagName === "A"), true);
+  assert.equal(runtime.threads.hidden, true);
+  assert.equal(runtime.observers.length, 0);
+  assert.equal(runtime.requestedFrames, 0);
+  assert.equal(runtime.threads.getAttribute("viewBox"), null);
+  assert.equal(runtime.notes.children.every((item) => item.style.values.size === 0), true);
+});
+
 class FakeElement {
   constructor({ tagName = "div", key = "", count = "", meta = "", description = "", href = "", rect, onClassName } = {}) {
     this.tagName = tagName.toUpperCase();
@@ -712,7 +766,7 @@ class FakeElement {
   removeAttribute(name) { this.attributes.delete(name); }
 }
 
-function createAtlasRuntime({ reducedMotion = false, relationsUrl = "" } = {}) {
+function createAtlasRuntime({ reducedMotion = false, relationsUrl = "", viewportWidth = 1440 } = {}) {
   const root = new FakeElement();
   const map = new FakeElement({ rect: { left: 100, top: 40, width: 960, height: 500 } });
   if (relationsUrl) map.dataset.atlasRelationsUrl = relationsUrl;
@@ -805,11 +859,13 @@ function createAtlasRuntime({ reducedMotion = false, relationsUrl = "" } = {}) {
   const motionQuery = { matches: reducedMotion, addEventListener() {} };
   const navigations = [];
   const window = {
+    innerWidth: viewportWidth,
     matchMedia: () => motionQuery,
     location: { assign(href) { navigations.push(href); } },
   };
   const animationFrames = [];
   let nextFrame = 1;
+  let requestedFrames = 0;
   let resolveFetch;
   let rejectFetch;
   const observers = [];
@@ -837,7 +893,7 @@ function createAtlasRuntime({ reducedMotion = false, relationsUrl = "" } = {}) {
     controlByKey(key) {
       return this.controls.find((control) => control.dataset.atlasKey === key) ?? null;
     },
-    requestAnimationFrame(callback) { animationFrames.push(callback); return nextFrame++; },
+    requestAnimationFrame(callback) { requestedFrames += 1; animationFrames.push(callback); return nextFrame++; },
     cancelAnimationFrame() {},
     fetch() {
       return new Promise((resolve, reject) => {
@@ -847,6 +903,25 @@ function createAtlasRuntime({ reducedMotion = false, relationsUrl = "" } = {}) {
     },
     get noteLinks() { return created.filter((element) => element.classList.contains("atlas-note-scale")); },
     get svgPaths() { return created.filter((element) => element.tagName === "PATH"); },
+    get requestedFrames() { return requestedFrames; },
+    orbitPositionByKey(key) {
+      const control = this.controlByKey(key);
+      if (!control) return null;
+      return {
+        x: control.style.values.get("--orbit-x") ?? "",
+        y: control.style.values.get("--orbit-y") ?? "",
+      };
+    },
+    orbitSlotWrites() {
+      return Object.fromEntries(
+        controls
+          .filter((control) => ["pytorch", "foundation", "stage-1", "stage-2", "stage-3", "stage-4", "stage-5", "stage-6"].includes(control.dataset.atlasKey))
+          .map((control) => [control.dataset.atlasKey, {
+            x: Math.round(Number.parseFloat(control.style.values.get("--orbit-x"))),
+            y: Math.round(Number.parseFloat(control.style.values.get("--orbit-y"))),
+          }]),
+      );
+    },
     visibleReferenceIds() {
       return this.svgPaths
         .filter((path) => path.dataset.kind === "reference" && path.classList.contains("is-revealed"))
