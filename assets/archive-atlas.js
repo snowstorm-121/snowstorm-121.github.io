@@ -367,11 +367,12 @@
     return `M ${start.x} ${start.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${end.x} ${end.y}`;
   }
 
-  function stageNotePoint(stage, stagePoint, controlRect, index, total, mapWidth) {
+  function stageNotePoint(stage, stagePoint, index, total, mapWidth) {
     const slot = ORBIT_SLOTS[stage.key];
     const unit = normalizeVector(slot.vx, slot.vy);
     const normal = { x: -unit.y, y: unit.x };
-    const distanceStart = Math.max(controlRect.width, controlRect.height) * .5 + (stage.key === "foundation" ? 34 : 30);
+    const labelWidth = Math.min(196, Math.max(138, window.innerWidth * .15));
+    const distanceStart = labelWidth * .5 + (stage.key === "foundation" ? 34 : 30);
     const horizontalRoom = unit.x > 0
       ? (mapWidth - 24 - stagePoint.x) / unit.x
       : unit.x < 0 ? (stagePoint.x - 24) / -unit.x : Infinity;
@@ -428,7 +429,7 @@
       hierarchy?.setAttribute("y2", String(stagePoint.y));
 
       const points = stage.noteIds.map((noteId, noteIndex) => {
-        const point = stageNotePoint(stage, stagePoint, rect, noteIndex, stage.noteIds.length, mapRect.width);
+        const point = stageNotePoint(stage, stagePoint, noteIndex, stage.noteIds.length, mapRect.width);
         const item = noteItems.find((candidate) => candidate.dataset.atlasNoteId === noteId);
         if (item) setNotePosition(item, point);
         notePoints.set(noteId, point);

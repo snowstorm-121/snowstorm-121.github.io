@@ -558,10 +558,11 @@ button { color: inherit; font: inherit; }
     position: absolute;
     top: var(--orbit-y);
     left: var(--orbit-x);
-    width: clamp(138px, 15vw, 196px);
-    height: auto;
+    width: 22px;
+    height: 22px;
     min-height: 0;
     padding: 0;
+    border-radius: 50%;
     transform: translate(-50%, -50%);
   }
   .archive-atlas-learning .atlas-map-node::before {
@@ -585,7 +586,8 @@ button { color: inherit; font: inherit; }
     left: var(--orbit-x);
   }
   .archive-atlas-learning [data-orbit-role="center"] {
-    width: clamp(176px, 18vw, 230px);
+    width: 40px;
+    height: 40px;
   }
   .archive-atlas-learning [data-orbit-role="stage"]::before {
     opacity: .72;
@@ -615,7 +617,7 @@ button { color: inherit; font: inherit; }
   .archive-atlas-learning .atlas-tide-stop:nth-child(odd) .atlas-node-copy,
   .archive-atlas-learning .atlas-tide-stop:nth-child(even) .atlas-node-copy {
     position: absolute;
-    top: calc(100% + 18px);
+    top: calc(50% + 19px);
     right: auto;
     bottom: auto;
     left: 50%;
@@ -625,7 +627,7 @@ button { color: inherit; font: inherit; }
   }
   .archive-atlas-learning [data-orbit-role="center"] .atlas-node-copy {
     top: auto;
-    bottom: calc(100% + 20px);
+    bottom: calc(50% + 28px);
   }
   .archive-atlas-learning .atlas-node-copy::before {
     inset: -12px -10px;

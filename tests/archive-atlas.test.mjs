@@ -525,6 +525,24 @@ test("desktop learning orbit uses role-based placement instead of moon-bay shape
   assert.doesNotMatch(script, /dataset\.atlasStageEdge/);
 });
 
+test("desktop orbit buttons have visible marker-sized focus targets outside their labels", () => {
+  const context = "@media (min-width: 721px)";
+  const control = lastRuleInContext(styles, ".archive-atlas-learning .atlas-map-node", context);
+  const center = lastRuleInContext(styles, '.archive-atlas-learning [data-orbit-role="center"]', context);
+  const label = cssRuleRecords(styles).find((record) => record.context === context
+    && record.selector.includes(".archive-atlas-learning .atlas-node-copy,")
+    && record.selector.includes(".atlas-tide-stop:nth-child(odd)"));
+  const centerLabel = lastRuleInContext(styles, '.archive-atlas-learning [data-orbit-role="center"] .atlas-node-copy', context);
+  assert.equal(cssDeclarationValue(control, "width"), "22px");
+  assert.equal(cssDeclarationValue(control, "height"), "22px");
+  assert.equal(cssDeclarationValue(center, "width"), "40px");
+  assert.equal(cssDeclarationValue(center, "height"), "40px");
+  assert.ok(Number.parseFloat(cssDeclarationValue(label?.body ?? "", "top")?.match(/50% \+ (\d+)px/)?.[1]) > 18,
+    "stage labels start beyond the 2px outline and 5px offset");
+  assert.ok(Number.parseFloat(cssDeclarationValue(centerLabel, "bottom")?.match(/50% \+ (\d+)px/)?.[1]) > 27,
+    "the center label ends beyond its larger focus outline");
+});
+
 test("orbit uses the fixed seven-stage slot map", async () => {
   const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json" });
   vm.runInNewContext(script, runtime);
@@ -1239,6 +1257,45 @@ test("hierarchy rays leave the center control and arrive at the seven stage cont
     assert.equal(Number(line.getAttribute("y1")), Number(centerPoint.y.toFixed(2)));
     assert.equal(Number(line.getAttribute("x2")), Number(stagePoint.x.toFixed(2)));
     assert.equal(Number(line.getAttribute("y2")), Number(stagePoint.y.toFixed(2)));
+  }
+});
+
+test("marker-sized desktop controls preserve rays and article routes at 1024, 1025, and 1440", async () => {
+  for (const { viewportWidth, mapWidth, mapHeight } of [
+    { viewportWidth: 1024, mapWidth: 976, mapHeight: 560 },
+    { viewportWidth: 1025, mapWidth: 648, mapHeight: 560 },
+    { viewportWidth: 1440, mapWidth: 950, mapHeight: 630 },
+  ]) {
+    const stageWidth = Math.min(196, Math.max(138, viewportWidth * .15));
+    const centerWidth = Math.min(230, Math.max(176, viewportWidth * .18));
+    const geometry = async (markerSized) => {
+      const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json", viewportWidth });
+      vm.runInNewContext(script, runtime);
+      runtime.map.rect = { left: 40, top: 40, width: mapWidth, height: mapHeight };
+      for (const [key, slot] of Object.entries(runtime.orbitSlotWrites())) {
+        const width = markerSized ? (key === "pytorch" ? 40 : 22) : (key === "pytorch" ? centerWidth : stageWidth);
+        const height = markerSized ? width : 0;
+        runtime.controlByKey(key).rect = {
+          left: 40 + mapWidth * slot.x / 100 - width / 2,
+          top: 40 + mapHeight * slot.y / 100 - height / 2,
+          width,
+          height,
+        };
+      }
+      await runtime.flushRelations(publishedRelations);
+      return {
+        rays: runtime.threads.children.filter((path) => path.dataset.kind === "hierarchy")
+          .map((path) => ["x1", "y1", "x2", "y2"].map((name) => path.getAttribute(name)).join(",")),
+        routes: runtime.svgPaths.filter((path) => path.dataset.kind === "sequence").map((path) => path.getAttribute("d")),
+        notes: runtime.notes.children.map((item) => ["--atlas-note-x", "--atlas-note-y"]
+          .map((name) => item.style.values.get(name)).join(",")),
+      };
+    };
+    const previous = await geometry(false);
+    const markerSized = await geometry(true);
+    assert.deepEqual(markerSized.rays, previous.rays, `${viewportWidth}px hierarchy rays remain centered`);
+    assert.deepEqual(markerSized.routes, previous.routes, `${viewportWidth}px stage routes do not drift`);
+    assert.deepEqual(markerSized.notes, previous.notes, `${viewportWidth}px article points do not drift`);
   }
 });
 
