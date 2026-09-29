@@ -380,10 +380,13 @@
       (stage.key === "foundation" ? 248 : 172) / (total - 1),
       (horizontalRoom - distanceStart) / (total - 1),
     ));
-    const drift = total <= 2 ? 0 : (((index % 2) * 2) - 1) * Math.min(10, 3 + Math.floor(index / 2) * 2);
+    const stacked = stage.key === "stage-2" && total > 1 && step < 22;
+    const drift = stacked || total <= 2 ? 0 : (((index % 2) * 2) - 1) * Math.min(10, 3 + Math.floor(index / 2) * 2);
     return roundPoint({
       x: stagePoint.x + unit.x * (distanceStart + step * index) + normal.x * drift,
-      y: stagePoint.y + unit.y * (distanceStart + step * index) + normal.y * drift,
+      y: stacked
+        ? stagePoint.y + unit.y * distanceStart + index * 24
+        : stagePoint.y + unit.y * (distanceStart + step * index) + normal.y * drift,
     });
   }
 

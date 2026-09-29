@@ -765,6 +765,40 @@ test("stage-2 article points stay inside a 1024px map after a resize observation
   assert.equal(xPositions.every((x, index) => x <= runtime.map.rect.width - 16 && (index === 0 || x > xPositions[index - 1])), true);
 });
 
+test("1025px two-column stage-2 keeps five ordered focus rings separate inside a 648px map", async () => {
+  const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json", viewportWidth: 1025 });
+  runtime.map.rect.width = 648;
+  const stage = runtime.controlByKey("stage-2");
+  stage.rect = {
+    left: runtime.map.rect.left + 648 * .8 - 77,
+    top: runtime.map.rect.top + runtime.map.rect.height * .53 - 24,
+    width: 154,
+    height: 48,
+  };
+  vm.runInNewContext(script, runtime);
+  await runtime.flushRelations(publishedRelations);
+
+  const items = runtime.stageStops[3].children[1].children;
+  assert.deepEqual(items.map((item) => item.dataset.atlasNoteId), publishedRelations.stages[3].noteIds);
+  const points = items.map((item) => ({
+    x: Number.parseFloat(item.style.values.get("--atlas-note-x")),
+    y: Number.parseFloat(item.style.values.get("--atlas-note-y")),
+  }));
+  assert.equal(points.length, 5);
+  for (const [index, point] of points.entries()) {
+    assert.ok(point.x >= 10 && point.x <= 638, `note ${index} and its focus ring fit horizontally`);
+    assert.ok(point.y >= 9 && point.y <= runtime.map.rect.height - 9, `note ${index} and its focus ring fit vertically`);
+    for (const earlier of points.slice(0, index)) {
+      assert.ok(Math.abs(point.x - earlier.x) >= 22 || Math.abs(point.y - earlier.y) >= 21,
+        `note ${index} has a distinct focus ring`);
+    }
+  }
+  const route = runtime.svgPaths.find((path) => path.dataset.kind === "sequence" && path.dataset.stageKey === "stage-2");
+  const coordinates = (route.getAttribute("d").match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+  assert.equal(coordinates.filter((_, index) => index % 2 === 0).every((x) => x >= 0 && x <= 648), true,
+    "the branch path also stays inside the narrow map");
+});
+
 test("right-edge desktop article labels open toward the map interior", () => {
   const desktop = styles.match(/@media \(min-width: 721px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
   assert.match(desktop, /\.atlas-note-item\[data-atlas-stage-key="stage-2"\] \.atlas-note-scale::after\s*\{[^}]*right:\s*0/);
