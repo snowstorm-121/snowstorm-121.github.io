@@ -636,7 +636,21 @@ button { color: inherit; font: inherit; }
     font-size: 11px;
     letter-spacing: .18em;
   }
-  .atlas-note-item[data-atlas-stage-key="stage-2"] .atlas-note-scale::after {
+  .atlas-note-item:is(
+    [data-atlas-stage-key="foundation"],
+    [data-atlas-stage-key="stage-4"],
+    [data-atlas-stage-key="stage-5"],
+    [data-atlas-stage-key="stage-6"]
+  ) .atlas-note-scale::after {
+    right: auto;
+    left: 0;
+    transform: none;
+  }
+  .atlas-note-item:is(
+    [data-atlas-stage-key="stage-1"],
+    [data-atlas-stage-key="stage-2"],
+    [data-atlas-stage-key="stage-3"]
+  ) .atlas-note-scale::after {
     right: 0;
     left: auto;
     transform: none;

@@ -800,9 +800,67 @@ test("1025px two-column stage-2 keeps five ordered focus rings separate inside a
 });
 
 test("right-edge desktop article labels open toward the map interior", () => {
-  const desktop = styles.match(/@media \(min-width: 721px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
-  assert.match(desktop, /\.atlas-note-item\[data-atlas-stage-key="stage-2"\] \.atlas-note-scale::after\s*\{[^}]*right:\s*0/);
-  assert.match(desktop, /\.atlas-note-item\[data-atlas-stage-key="stage-2"\] \.atlas-note-scale::after\s*\{[^}]*transform:\s*none/);
+  const stageTwo = cssRuleRecords(styles).find((record) => record.context === "@media (min-width: 721px)"
+    && record.selector.includes('[data-atlas-stage-key="stage-2"]')
+    && record.selector.includes(".atlas-note-scale::after"));
+  assert.equal(cssDeclarationValue(stageTwo?.body ?? "", "right"), "0");
+  assert.equal(cssDeclarationValue(stageTwo?.body ?? "", "transform"), "none");
+});
+
+test("desktop title anchors cover every stage branch on both viewport edges", () => {
+  const records = cssRuleRecords(styles).filter((record) =>
+    record.kind === "rule" && record.context === "@media (min-width: 721px)" && record.selector.includes(".atlas-note-scale::after"));
+  const expected = new Map([
+    ["foundation", "left"], ["stage-1", "right"], ["stage-2", "right"],
+    ["stage-3", "right"], ["stage-4", "left"], ["stage-5", "left"], ["stage-6", "left"],
+  ]);
+  for (const [key, side] of expected) {
+    const record = records.find(({ selector }) => selector.includes(`[data-atlas-stage-key="${key}"]`));
+    assert.ok(record, `${key} has a desktop title anchor`);
+    assert.equal(cssDeclarationValue(record.body, side), "0", `${key} opens toward the map interior`);
+    assert.equal(cssDeclarationValue(record.body, side === "left" ? "right" : "left"), "auto");
+    assert.equal(cssDeclarationValue(record.body, "transform"), "none");
+  }
+});
+
+test("geometry and title anchors bound all 32 articles at 1024, 1025, and 1440", async () => {
+  const records = cssRuleRecords(styles).filter((record) =>
+    record.kind === "rule" && record.context === "@media (min-width: 721px)" && record.selector.includes(".atlas-note-scale::after"));
+  for (const { viewportWidth, mapWidth, mapLeft, mapHeight } of [
+    { viewportWidth: 1024, mapWidth: 976, mapLeft: 24, mapHeight: 560 },
+    { viewportWidth: 1025, mapWidth: 648, mapLeft: 24, mapHeight: 560 },
+    { viewportWidth: 1440, mapWidth: 950, mapLeft: 40, mapHeight: 630 },
+  ]) {
+    const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json", viewportWidth });
+    vm.runInNewContext(script, runtime);
+    runtime.map.rect = { left: mapLeft, top: 40, width: mapWidth, height: mapHeight };
+    const slots = runtime.orbitSlotWrites();
+    for (const [key, slot] of Object.entries(slots)) {
+      const width = key === "pytorch"
+        ? Math.min(230, Math.max(176, viewportWidth * .18))
+        : Math.min(196, Math.max(138, viewportWidth * .15));
+      runtime.controlByKey(key).rect = {
+        left: mapLeft + mapWidth * slot.x / 100 - width / 2,
+        top: 40 + mapHeight * slot.y / 100 - 24,
+        width,
+        height: 48,
+      };
+    }
+    await runtime.flushRelations(publishedRelations);
+    assert.equal(runtime.noteLinks.length, 32);
+    for (const link of runtime.noteLinks) {
+      const key = link.dataset.atlasStageKey;
+      const item = link.parentNode;
+      const x = Number.parseFloat(item.style.values.get("--atlas-note-x"));
+      const anchor = records.find(({ selector }) => selector.includes(`[data-atlas-stage-key="${key}"]`));
+      const side = cssDeclarationValue(anchor?.body ?? "", "right") === "0" ? "right"
+        : cssDeclarationValue(anchor?.body ?? "", "left") === "0" ? "left" : "center";
+      const tooltipLeft = side === "right" ? x + 4 - 288 : side === "left" ? x - 4 : x - 144;
+      const tooltipRight = side === "right" ? x + 4 : side === "left" ? x - 4 + 288 : x + 144;
+      assert.ok(mapLeft + tooltipLeft >= 0 && mapLeft + tooltipRight <= viewportWidth,
+        `${viewportWidth}px ${key} title at x=${x} stays inside the viewport`);
+    }
+  }
 });
 
 test("dormant article titles do not create scroll overflow before hover, focus, or touch selection", () => {
