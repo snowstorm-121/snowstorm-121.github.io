@@ -805,6 +805,16 @@ test("right-edge desktop article labels open toward the map interior", () => {
   assert.match(desktop, /\.atlas-note-item\[data-atlas-stage-key="stage-2"\] \.atlas-note-scale::after\s*\{[^}]*transform:\s*none/);
 });
 
+test("dormant article titles do not create scroll overflow before hover, focus, or touch selection", () => {
+  const tooltip = rule(styles, "\\.atlas-note-scale::after");
+  const revealed = styles.match(/\.atlas-note-scale:hover::after,\s*\.atlas-note-scale:focus-visible::after,\s*\.atlas-note-scale\.is-active::after\s*\{[^}]*\}/)?.[0] ?? "";
+  assert.equal(cssDeclarationValue(tooltip, "display"), "none");
+  assert.match(tooltip, /position:\s*absolute/);
+  assert.match(tooltip, /pointer-events:\s*none/);
+  assert.equal(cssDeclarationValue(revealed, "display"), "block");
+  assert.equal(cssDeclarationValue(revealed, "opacity"), "1");
+});
+
 test("mobile relation failure leaves only the eight keyboard-operable static controls", async () => {
   const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json", viewportWidth: 320 });
   vm.runInNewContext(script, runtime);

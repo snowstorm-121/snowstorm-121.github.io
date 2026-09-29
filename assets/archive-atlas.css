@@ -422,6 +422,7 @@ button { color: inherit; font: inherit; }
 }
 .atlas-note-scale::after {
   position: absolute;
+  display: none;
   bottom: calc(100% + 8px);
   left: 50%;
   z-index: 5;
@@ -442,7 +443,7 @@ button { color: inherit; font: inherit; }
 }
 .atlas-note-scale:hover::after,
 .atlas-note-scale:focus-visible::after,
-.atlas-note-scale.is-active::after { opacity: 1; }
+.atlas-note-scale.is-active::after { display: block; opacity: 1; }
 .atlas-note-scale:hover,
 .atlas-note-scale.is-active {
   border-color: rgba(199, 170, 120, .9);
