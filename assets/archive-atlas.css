@@ -118,11 +118,11 @@ button { color: inherit; font: inherit; }
   content: "";
 }
 .atlas-prologue::before {
-  inset: -18px -28px -12px;
+  inset: -18px 0 -12px -28px;
   background: radial-gradient(ellipse at 18% 48%, rgba(3, 7, 19, .62), transparent 68%);
 }
 .atlas-colophon::before {
-  inset: -24px -28px -24px -36px;
+  inset: -24px 0 -24px -36px;
   background: radial-gradient(ellipse at 68% 70%, rgba(3, 7, 19, .66), transparent 72%);
 }
 .atlas-kicker {

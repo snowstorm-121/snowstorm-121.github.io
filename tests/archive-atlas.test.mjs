@@ -470,6 +470,18 @@ test("learning artwork switches to the coast background with restrained deep-blu
   assert.match(styles, /\.atlas-colophon::before\s*\{[^}]*background:\s*(?:radial|linear)-gradient/);
 });
 
+test("1025px prologue and colophon glows remain within the viewport", () => {
+  const viewportWidth = 1025;
+  const shellRight = viewportWidth - 24;
+  for (const selector of [".atlas-prologue::before", ".atlas-colophon::before"]) {
+    const glow = lastRuleInContext(styles, selector);
+    const rightInset = Number.parseFloat(cssDeclarationValue(glow, "inset")?.split(/\s+/)[1]);
+    assert.ok(Number.isFinite(rightInset), `${selector} defines a right inset: ${glow}`);
+    assert.ok(shellRight - rightInset <= viewportWidth, `${selector} stays inside the 1025px viewport`);
+    assert.match(glow, /background:\s*radial-gradient/);
+  }
+});
+
 test("moon-sea backdrop scrolls with the document instead of creating CSS parallax", () => {
   assert.match(rule(styles, "body\\.archive-atlas-page"), /background-attachment:\s*scroll/);
 });
