@@ -645,7 +645,7 @@ test("atlas stylesheet parses as balanced top-level rules", () => {
 test("learning alone opts into validated note relations while retaining eight static stage fallbacks", () => {
   assert.equal((learning.match(/class="atlas-tide-stop"/g) ?? []).length, 8);
   assert.match(learning, /data-atlas-map[^>]*data-atlas-relations-url="\.\/pytorch\/atlas-relations\.json"/);
-  assert.match(learning, /<div data-atlas-notes><\/div>/);
+  assert.doesNotMatch(learning, /<div data-atlas-notes><\/div>/);
   assert.match(learning, /<svg class="atlas-threads" aria-hidden="true"><\/svg>/);
   const tide = learning.match(/<div class="atlas-tide">[\s\S]*?<\/div>\s*<\/div>/)?.[0] ?? "";
   assert.doesNotMatch(tide, /class="atlas-note-scale"|\/notes\//, "article links must only come from validated JSON");
@@ -699,6 +699,87 @@ test("mobile fallback keeps native note links but skips desktop SVG geometry wor
   assert.equal(runtime.requestedFrames, 0);
   assert.equal(runtime.threads.getAttribute("viewBox"), null);
   assert.equal(runtime.notes.children.every((item) => item.style.values.size === 0), true);
+});
+
+test("mobile first load draws geometry after expanding to desktop without a map size change", async () => {
+  const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json", viewportWidth: 320 });
+  vm.runInNewContext(script, runtime);
+  await runtime.flushRelations(validRelations);
+  assert.equal(runtime.threads.hidden, true);
+  assert.equal(runtime.observers.length, 0, "mobile mount avoids desktop geometry observation");
+
+  runtime.window.innerWidth = 1024;
+  runtime.window.dispatch("resize");
+  runtime.flushAnimationFrames();
+  assert.equal(runtime.threads.hidden, false);
+  assert.equal(runtime.observers.length, 1, "desktop map observation begins after expansion");
+  assert.match(runtime.threads.getAttribute("viewBox") ?? "", /^0 0 /);
+  assert.match(runtime.noteLinks.at(-1).parentNode.style.values.get("--atlas-note-x") ?? "", /px$/);
+});
+
+test("desktop geometry hides again when the viewport shrinks to mobile", async () => {
+  const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json", viewportWidth: 1024 });
+  vm.runInNewContext(script, runtime);
+  await runtime.flushRelations(validRelations);
+  assert.equal(runtime.threads.hidden, false);
+
+  runtime.window.innerWidth = 320;
+  runtime.window.dispatch("resize");
+  runtime.flushAnimationFrames();
+  assert.equal(runtime.threads.hidden, true);
+  assert.equal(runtime.threads.getAttribute("viewBox"), null);
+});
+
+test("mobile DOM order interleaves each stage control with its own article links", async () => {
+  const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json", viewportWidth: 320 });
+  vm.runInNewContext(script, runtime);
+  await runtime.flushRelations(validRelations);
+
+  assert.deepEqual(runtime.stageStops.map((stop) => stop.children[0].dataset.atlasKey),
+    ["pytorch", "foundation", "stage-1", "stage-2", "stage-3", "stage-4", "stage-5", "stage-6"]);
+  for (const [index, stage] of validRelations.stages.entries()) {
+    const stop = runtime.stageStops[index];
+    assert.equal(stop.children[0], runtime.controls[index]);
+    const links = stop.children.slice(1).flatMap((group) => group.children.map((item) => item.children[0]));
+    assert.deepEqual(links.map((link) => link.dataset.atlasNoteId), stage.noteIds);
+    assert.equal(links.every((link) => link.tagName === "A"), true);
+  }
+});
+
+test("stage-2 article points stay inside a 1024px map after a resize observation", async () => {
+  const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json", viewportWidth: 1024 });
+  vm.runInNewContext(script, runtime);
+  await runtime.flushRelations(validRelations);
+  runtime.controlByKey("stage-2").rect = {
+    left: runtime.map.rect.left + runtime.map.rect.width * .8 - 75,
+    top: runtime.map.rect.top + 250,
+    width: 150,
+    height: 36,
+  };
+  runtime.observers[0].callback();
+  runtime.flushAnimationFrames();
+
+  const xPositions = runtime.stageStops[3].children[1].children.map((item) =>
+    Number.parseFloat(item.style.values.get("--atlas-note-x")));
+  assert.equal(xPositions.length, 5);
+  assert.equal(xPositions.every((x, index) => x <= runtime.map.rect.width - 16 && (index === 0 || x > xPositions[index - 1])), true);
+});
+
+test("right-edge desktop article labels open toward the map interior", () => {
+  const desktop = styles.match(/@media \(min-width: 721px\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+  assert.match(desktop, /\.atlas-note-item\[data-atlas-stage-key="stage-2"\] \.atlas-note-scale::after\s*\{[^}]*right:\s*0/);
+  assert.match(desktop, /\.atlas-note-item\[data-atlas-stage-key="stage-2"\] \.atlas-note-scale::after\s*\{[^}]*transform:\s*none/);
+});
+
+test("mobile relation failure leaves only the eight keyboard-operable static controls", async () => {
+  const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json", viewportWidth: 320 });
+  vm.runInNewContext(script, runtime);
+  await runtime.flushRelations({ ...validRelations, version: 2 });
+  assert.equal(runtime.root.dataset.atlasRelations, "fallback");
+  assert.equal(runtime.stageStops.every((stop) => stop.children.length === 1), true);
+  assert.equal(runtime.noteLinks.length, 0);
+  runtime.controlByKey("stage-6").dispatch("keydown", { key: "Enter" });
+  assert.deepEqual(runtime.navigations, ["./pytorch/stage-6/"]);
 });
 
 class FakeElement {
@@ -760,6 +841,11 @@ class FakeElement {
     this.children = [];
     this.append(...children);
   }
+  remove() {
+    if (!this.parentNode) return;
+    this.parentNode.children = this.parentNode.children.filter((child) => child !== this);
+    this.parentNode = null;
+  }
   getBoundingClientRect() { return { ...this.rect, right: this.rect.left + this.rect.width, bottom: this.rect.top + this.rect.height }; }
   setAttribute(name, value) { this.attributes.set(name, String(value)); }
   getAttribute(name) { return this.attributes.get(name) ?? null; }
@@ -770,7 +856,6 @@ function createAtlasRuntime({ reducedMotion = false, relationsUrl = "", viewport
   const root = new FakeElement();
   const map = new FakeElement({ rect: { left: 100, top: 40, width: 960, height: 500 } });
   if (relationsUrl) map.dataset.atlasRelationsUrl = relationsUrl;
-  const notes = new FakeElement();
   const threads = new FakeElement({ tagName: "svg" });
   const columnWidth = map.rect.width / 8;
   const bayRect = (index) => ({
@@ -804,6 +889,12 @@ function createAtlasRuntime({ reducedMotion = false, relationsUrl = "", viewport
     else if (index < controls.length - 1) control.dataset.orbitRole = "stage";
   });
   controls.at(-1).className = "atlas-map-node atlas-control";
+  const stageStops = controls.slice(0, 8).map((control) => {
+    const stop = new FakeElement({ tagName: "li" });
+    stop.appendChild(control);
+    control.parentElement = stop;
+    return stop;
+  });
   const title = new FakeElement();
   const count = new FakeElement();
   const meta = new FakeElement();
@@ -840,7 +931,6 @@ function createAtlasRuntime({ reducedMotion = false, relationsUrl = "", viewport
     ["[data-atlas-description]:not([data-atlas-control])", description],
     ["[data-atlas-destination]", destination],
     ["[data-atlas-empty]", empty],
-    ["[data-atlas-notes]", notes],
     [".atlas-threads", threads],
   ]);
   const document = {
@@ -858,10 +948,13 @@ function createAtlasRuntime({ reducedMotion = false, relationsUrl = "", viewport
   };
   const motionQuery = { matches: reducedMotion, addEventListener() {} };
   const navigations = [];
+  const windowListeners = new Map();
   const window = {
     innerWidth: viewportWidth,
     matchMedia: () => motionQuery,
     location: { assign(href) { navigations.push(href); } },
+    addEventListener(type, listener) { windowListeners.set(type, [...(windowListeners.get(type) ?? []), listener]); },
+    dispatch(type) { windowListeners.get(type)?.forEach((listener) => listener()); },
   };
   const animationFrames = [];
   let nextFrame = 1;
@@ -883,9 +976,12 @@ function createAtlasRuntime({ reducedMotion = false, relationsUrl = "", viewport
     map,
     meta,
     navigations,
-    notes,
+    get notes() {
+      return { children: stageStops.flatMap((stop) => stop.children.slice(1).flatMap((group) => group.children)) };
+    },
     observers,
     root,
+    stageStops,
     threads,
     title,
     window,
@@ -904,6 +1000,7 @@ function createAtlasRuntime({ reducedMotion = false, relationsUrl = "", viewport
     get noteLinks() { return created.filter((element) => element.classList.contains("atlas-note-scale")); },
     get svgPaths() { return created.filter((element) => element.tagName === "PATH"); },
     get requestedFrames() { return requestedFrames; },
+    flushAnimationFrames() { while (animationFrames.length) animationFrames.shift()(0); },
     orbitPositionByKey(key) {
       const control = this.controlByKey(key);
       if (!control) return null;

@@ -360,16 +360,12 @@ button { color: inherit; font: inherit; }
 .atlas-research-tide .atlas-tide-stop:nth-child(4) .atlas-map-node::before { opacity: .9; }
 .atlas-research-tide .atlas-map-node.is-active::before { opacity: 1; }
 
-[data-atlas-notes],
 .atlas-threads {
   position: absolute;
   inset: 0;
   overflow: visible;
 }
-[data-atlas-notes] {
-  z-index: 3;
-  pointer-events: none;
-}
+.atlas-stage-notes { display: contents; }
 .atlas-threads {
   z-index: 1;
   width: 100%;
@@ -401,6 +397,7 @@ button { color: inherit; font: inherit; }
 }
 .atlas-note-item {
   position: absolute;
+  z-index: 3;
   top: var(--atlas-note-y);
   left: var(--atlas-note-x);
   display: block;
@@ -638,6 +635,11 @@ button { color: inherit; font: inherit; }
     font-size: 11px;
     letter-spacing: .18em;
   }
+  .atlas-note-item[data-atlas-stage-key="stage-2"] .atlas-note-scale::after {
+    right: 0;
+    left: auto;
+    transform: none;
+  }
 }
 
 @keyframes atlas-moon-diffusion {
@@ -790,7 +792,7 @@ button { color: inherit; font: inherit; }
   .atlas-index-description { font-size: 12px; }
   .atlas-map-node:focus-visible { outline-offset: 2px; }
   .atlas-threads { display: none; }
-  [data-atlas-notes] {
+  .atlas-stage-notes {
     position: static;
     display: grid;
     gap: 8px;

@@ -10,7 +10,6 @@
   const description = document.querySelector("[data-atlas-description]:not([data-atlas-control])");
   const destination = document.querySelector("[data-atlas-destination]");
   const empty = document.querySelector("[data-atlas-empty]");
-  const notesLayer = document.querySelector("[data-atlas-notes]");
   const threads = document.querySelector(".atlas-threads");
   const reduceMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   const scheduleDiffusion = typeof setTimeout === "function" ? setTimeout : null;
@@ -34,6 +33,7 @@
   let sequencePaths = [];
   let referencePaths = [];
   let noteItems = [];
+  let stageNoteGroups = [];
   let notePoints = new Map();
 
   function stageControlKey(stageKey) {
@@ -367,12 +367,19 @@
     return `M ${start.x} ${start.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${end.x} ${end.y}`;
   }
 
-  function stageNotePoint(stage, stagePoint, controlRect, index, total) {
+  function stageNotePoint(stage, stagePoint, controlRect, index, total, mapWidth) {
     const slot = ORBIT_SLOTS[stage.key];
     const unit = normalizeVector(slot.vx, slot.vy);
     const normal = { x: -unit.y, y: unit.x };
     const distanceStart = Math.max(controlRect.width, controlRect.height) * .5 + (stage.key === "foundation" ? 34 : 30);
-    const step = total <= 1 ? 0 : Math.min(32, (stage.key === "foundation" ? 248 : 172) / Math.max(1, total - 1));
+    const horizontalRoom = unit.x > 0
+      ? (mapWidth - 24 - stagePoint.x) / unit.x
+      : unit.x < 0 ? (stagePoint.x - 24) / -unit.x : Infinity;
+    const step = total <= 1 ? 0 : Math.max(0, Math.min(
+      32,
+      (stage.key === "foundation" ? 248 : 172) / (total - 1),
+      (horizontalRoom - distanceStart) / (total - 1),
+    ));
     const drift = total <= 2 ? 0 : (((index % 2) * 2) - 1) * Math.min(10, 3 + Math.floor(index / 2) * 2);
     return roundPoint({
       x: stagePoint.x + unit.x * (distanceStart + step * index) + normal.x * drift,
@@ -388,6 +395,7 @@
       threads.removeAttribute("viewBox");
       return;
     }
+    threads.hidden = false;
     const mapRect = map.getBoundingClientRect();
     const centerControl = controlForKey("pytorch");
     if (!centerControl) return;
@@ -417,7 +425,7 @@
       hierarchy?.setAttribute("y2", String(stagePoint.y));
 
       const points = stage.noteIds.map((noteId, noteIndex) => {
-        const point = stageNotePoint(stage, stagePoint, rect, noteIndex, stage.noteIds.length);
+        const point = stageNotePoint(stage, stagePoint, rect, noteIndex, stage.noteIds.length, mapRect.width);
         const item = noteItems.find((candidate) => candidate.dataset.atlasNoteId === noteId);
         if (item) setNotePosition(item, point);
         notePoints.set(noteId, point);
@@ -449,6 +457,23 @@
     drawGeometry();
   }
 
+  function syncGeometryLayout() {
+    if (!relationData || !threads) return;
+    if (isMobileLayout()) {
+      relationObserver?.disconnect?.();
+      relationObserver = null;
+      threads.hidden = true;
+      threads.removeAttribute("viewBox");
+      return;
+    }
+    threads.hidden = false;
+    scheduleGeometry();
+    if (!relationObserver && typeof ResizeObserver === "function") {
+      relationObserver = new ResizeObserver(scheduleGeometry);
+      relationObserver.observe(map);
+    }
+  }
+
   function mountRelations(data) {
     relationData = data;
     const noteById = new Map(data.notes.map((note) => [note.id, note]));
@@ -456,6 +481,7 @@
       const item = document.createElement("span");
       item.className = "atlas-note-item";
       item.dataset.atlasNoteId = note.id;
+      item.dataset.atlasStageKey = note.stageKey;
 
       const link = document.createElement("a");
       link.className = "atlas-note-scale";
@@ -486,20 +512,17 @@
       path.dataset.to = edge.to;
       return path;
     }) : [];
-    notesLayer.replaceChildren(...items);
+    stageNoteGroups = data.stages.map((stage) => {
+      const group = document.createElement("div");
+      group.className = "atlas-stage-notes";
+      group.dataset.atlasStageKey = stage.key;
+      group.append(...stage.noteIds.map((noteId) => items.find((item) => item.dataset.atlasNoteId === noteId)));
+      controlForKey(stageControlKey(stage.key)).parentElement.append(group);
+      return group;
+    });
     threads.replaceChildren(...hierarchyPaths, ...sequencePaths, ...referencePaths);
-    threads.hidden = isMobileLayout();
     root.dataset.atlasRelations = "ready";
-    if (threads.hidden) {
-      threads.removeAttribute("viewBox");
-      return;
-    }
-    scheduleGeometry();
-    if (typeof ResizeObserver === "function") {
-      relationObserver?.disconnect?.();
-      relationObserver = new ResizeObserver(scheduleGeometry);
-      relationObserver.observe(map);
-    }
+    syncGeometryLayout();
   }
 
   function fallbackRelations() {
@@ -510,7 +533,8 @@
     referencePaths = [];
     noteItems = [];
     notePoints = new Map();
-    notesLayer?.replaceChildren();
+    stageNoteGroups.forEach((group) => group.remove());
+    stageNoteGroups = [];
     threads?.replaceChildren();
     if (threads) threads.hidden = isMobileLayout();
     root.dataset.atlasRelations = "fallback";
@@ -518,7 +542,7 @@
 
   async function loadRelations() {
     const url = map?.dataset.atlasRelationsUrl;
-    if (!url || !notesLayer || !threads) return;
+    if (!url || !threads) return;
     try {
       const response = await fetch(url);
       if (!response.ok) throw new Error("atlas relations unavailable");
@@ -538,6 +562,7 @@
   reduceMotionQuery.addEventListener?.("change", syncMotion);
   syncMotion();
   applyOrbitSlots();
+  window.addEventListener?.("resize", syncGeometryLayout);
   if (threads) threads.hidden = isMobileLayout();
   selectNode(
     controls.find((control) => control.getAttribute("aria-pressed") === "true") ?? controls[0],

@@ -980,6 +980,28 @@ test("orbit cursor toggles only selection state and never appends DOM", () => {
   assert.equal(runtime.animationFrameCount(), 0);
 });
 
+test("reduced motion on a fine pointer removes both native crosshair variants while inputs keep text cursor", () => {
+  const finePointer = shoalStyles.match(/@media \(hover: hover\) and \(pointer: fine\)[^{]*\{[\s\S]*?\n\}/)?.[0] ?? "";
+  const reduced = shoalStyles.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
+  assert.match(finePointer, /\(prefers-reduced-motion: no-preference\)/,
+    "custom cursor rules must not match reduced-motion desktops");
+  assert.match(finePointer, /moon-scale-cold-silver\.svg/);
+  assert.match(finePointer, /moon-scale-warm-gold\.svg/);
+  assert.match(reduced, /cursor:\s*auto/);
+  assert.match(shoalStyles, /:is\(input, textarea, \[contenteditable\]\)[\s\S]*?cursor:\s*text/);
+});
+
+test("orbit cursor assets stay off timeline, stage, and published reading pages", async () => {
+  const deepPages = await Promise.all([
+    "../learning/pytorch/index.html",
+    "../learning/pytorch/stage-1/index.html",
+    "../learning/pytorch/notes/overview/pytorch-暑期详细学习计划.html",
+  ].map((path) => readFile(new URL(path, import.meta.url), "utf8")));
+  for (const deepPage of deepPages) {
+    assert.doesNotMatch(deepPage, /data-moon-scale-shoal="true"|cursor-shoal\.(?:css|js)/);
+  }
+});
+
 test("orbit cursor remains scoped to the homepage and three archive entries", async () => {
   const entries = await Promise.all(["learning", "living", "research"].map((entry) => readFile(new URL(`../${entry}/index.html`, import.meta.url), "utf8")));
   assert.match(html, /<html[^>]*data-moon-scale-shoal="true"/);
