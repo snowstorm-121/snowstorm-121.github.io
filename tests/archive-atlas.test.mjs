@@ -532,7 +532,7 @@ test("desktop orbit buttons have visible marker-sized focus targets outside thei
   const label = cssRuleRecords(styles).find((record) => record.context === context
     && record.selector.includes(".archive-atlas-learning .atlas-node-copy,")
     && record.selector.includes(".atlas-tide-stop:nth-child(odd)"));
-  const centerLabel = lastRuleInContext(styles, '.archive-atlas-learning [data-orbit-role="center"] .atlas-node-copy', context);
+  const centerLabel = lastRuleInContext(styles, '.archive-atlas-learning .atlas-tide-stop [data-orbit-role="center"] .atlas-node-copy', context);
   assert.equal(cssDeclarationValue(control, "width"), "22px");
   assert.equal(cssDeclarationValue(control, "height"), "22px");
   assert.equal(cssDeclarationValue(center, "width"), "40px");
@@ -541,6 +541,37 @@ test("desktop orbit buttons have visible marker-sized focus targets outside thei
     "stage labels start beyond the 2px outline and 5px offset");
   assert.ok(Number.parseFloat(cssDeclarationValue(centerLabel, "bottom")?.match(/50% \+ (\d+)px/)?.[1]) > 27,
     "the center label ends beyond its larger focus outline");
+});
+
+test("overview label wins the desktop CSS cascade and stays above its focus ring", () => {
+  const desktop = "@media (min-width: 721px)";
+  const winner = (property) => cssRuleRecords(styles)
+    .filter((record) => record.kind === "rule" && ["base", desktop].includes(record.context))
+    .flatMap((record) => record.selector.split(", ").filter((selector) =>
+      selector.endsWith(".atlas-node-copy")
+      && !selector.includes(":nth-child(even)")
+      && !selector.includes('data-orbit-role="stage"')
+      && !selector.includes(".archive-atlas-living")
+      && !selector.includes(".archive-atlas-research")
+    ).map((selector) => ({
+      value: cssDeclarationValue(record.body, property),
+      specificity: (selector.match(/\.[\w-]+|\[[^\]]+\]|:nth-child\([^)]*\)/g) ?? []).length,
+    })))
+    .filter(({ value }) => value !== undefined)
+    .sort((left, right) => left.specificity - right.specificity)
+    .at(-1)?.value;
+  assert.equal(winner("top"), "auto", "the center's top:auto must beat the odd-stage rule");
+  assert.equal(winner("bottom"), "calc(50% + 28px)", "the label ends above the center's focus ring");
+});
+
+test("learning desktop paints exactly three orbit rings on one pseudo-element", () => {
+  const desktop = "@media (min-width: 721px)";
+  const scroll = lastRuleInContext(styles, ".archive-atlas-learning .atlas-scroll::before", desktop);
+  const tide = lastRuleInContext(styles, ".archive-atlas-learning .atlas-tide::before", desktop);
+  assert.equal((cssDeclarationValue(scroll, "background")?.match(/transparent 0 \d+%/g) ?? []).length, 3);
+  assert.equal(cssDeclarationValue(tide, "content"), "none", "the second pseudo-element must not paint three more rings");
+  assert.match(lastRuleInContext(styles, ".atlas-tide::before"), /background:/,
+    "the shared living/research tide backdrop remains intact");
 });
 
 test("orbit uses the fixed seven-stage slot map", async () => {
@@ -1196,8 +1227,13 @@ test("validated relations mount one center, seven hierarchy rays, seven stage ro
     for (const name of ["x1", "y1", "x2", "y2"]) assert.match(line.getAttribute(name) ?? "", /^-?\d+(?:\.\d+)?$/);
     assert.equal(line.getAttribute("marker-end"), null);
   }
-  for (const path of [...sequencePaths, ...referencePaths]) {
+  for (const path of sequencePaths) {
+    assert.match(path.getAttribute("d"), /^M\s[-\d.]+\s[-\d.]+(?:\sL\s[-\d.]+\s[-\d.]+)+$/);
+  }
+  for (const path of referencePaths) {
     assert.match(path.getAttribute("d"), /^M\s[-\d.]+\s[-\d.]+(?:\sC\s[-\d.]+\s[-\d.]+,\s[-\d.]+\s[-\d.]+,\s[-\d.]+\s[-\d.]+)+$/);
+  }
+  for (const path of [...sequencePaths, ...referencePaths]) {
     assert.equal(path.getAttribute("marker-end"), null);
     assert.equal(path.getAttribute("stroke-dasharray"), null);
   }
@@ -1227,7 +1263,22 @@ test("stage routes preserve stage noteId order and empty references stay absent"
   const paths = runtime.threads.children.filter((node) => node.dataset.kind === "sequence");
   assert.equal(paths.length, 7);
   for (const [index, path] of paths.entries()) {
-    assert.equal(path.dataset.nodeIds, validRelations.stages[index + 1].noteIds.join(","));
+    const stage = validRelations.stages[index + 1];
+    assert.equal(path.dataset.nodeIds, stage.noteIds.join(","));
+    const control = runtime.controlByKey(stage.key).getBoundingClientRect();
+    const points = [{
+      x: control.left + control.width / 2 - runtime.map.rect.left,
+      y: control.top + control.height / 2 - runtime.map.rect.top,
+    }, ...stage.noteIds.map((noteId) => {
+      const item = runtime.notes.children.find((candidate) => candidate.dataset.atlasNoteId === noteId);
+      return {
+        x: Number.parseFloat(item.style.values.get("--atlas-note-x")),
+        y: Number.parseFloat(item.style.values.get("--atlas-note-y")),
+      };
+    })];
+    assert.equal(path.getAttribute("d"), `M ${points[0].x} ${points[0].y}${points.slice(1)
+      .map((point) => ` L ${point.x} ${point.y}`).join("")}`,
+    `${stage.key} connects its actual articles in published order with straight segments`);
   }
   const noReferences = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json" });
   vm.runInNewContext(script, noReferences);

@@ -329,31 +329,14 @@
     return { x: vx / length, y: vy / length };
   }
 
-  function offsetPoint(point, dx, dy) {
-    return roundPoint({ x: point.x + dx, y: point.y + dy });
-  }
-
   function setNotePosition(item, point) {
     item.style.setProperty("--atlas-note-x", `${point.x}px`);
     item.style.setProperty("--atlas-note-y", `${point.y}px`);
   }
 
-  function branchPath(points, vector) {
+  function branchPath(points) {
     if (points.length < 2) return "";
-    const unit = normalizeVector(vector.x, vector.y);
-    const normal = { x: -unit.y, y: unit.x };
-    let d = `M ${points[0].x} ${points[0].y}`;
-    for (let index = 0; index < points.length - 1; index += 1) {
-      const start = points[index];
-      const end = points[index + 1];
-      const distance = Math.hypot(end.x - start.x, end.y - start.y);
-      const handle = Math.max(14, Math.min(32, distance * .42));
-      const bend = (index % 2 === 0 ? 1 : -1) * Math.min(10, 3 + distance * .08);
-      const c1 = offsetPoint(start, unit.x * handle + normal.x * bend, unit.y * handle + normal.y * bend);
-      const c2 = offsetPoint(end, -unit.x * handle + normal.x * bend, -unit.y * handle + normal.y * bend);
-      d += ` C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${end.x} ${end.y}`;
-    }
-    return d;
+    return `M ${points[0].x} ${points[0].y}${points.slice(1).map((point) => ` L ${point.x} ${point.y}`).join("")}`;
   }
 
   function referencePath(start, end, index, total) {
@@ -439,7 +422,7 @@
       if (path) {
         path.dataset.nodeIds = stage.noteIds.join(",");
         path.dataset.stageKey = stage.key;
-        path.setAttribute("d", branchPath([stagePoint, ...points], { x: ORBIT_SLOTS[stage.key].vx, y: ORBIT_SLOTS[stage.key].vy }));
+        path.setAttribute("d", branchPath([stagePoint, ...points]));
       }
     });
 

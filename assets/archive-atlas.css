@@ -535,17 +535,7 @@ button { color: inherit; font: inherit; }
     min-height: clamp(560px, 70vh, 760px);
   }
   .archive-atlas-learning .atlas-tide::before {
-    top: 10%;
-    right: 8%;
-    bottom: 10%;
-    left: 8%;
-    height: auto;
-    background:
-      radial-gradient(circle at 50% 50%, transparent 0 19%, rgba(215, 226, 237, .08) 19.4%, transparent 19.9%),
-      radial-gradient(circle at 50% 50%, transparent 0 38%, rgba(215, 226, 237, .06) 38.4%, transparent 38.9%),
-      radial-gradient(circle at 50% 50%, transparent 0 57%, rgba(215, 226, 237, .05) 57.4%, transparent 57.9%);
-    filter: none;
-    opacity: .5;
+    content: none;
   }
   .archive-atlas-learning .atlas-tide-list {
     display: block !important;
@@ -625,7 +615,7 @@ button { color: inherit; font: inherit; }
     gap: 6px;
     transform: translateX(-50%);
   }
-  .archive-atlas-learning [data-orbit-role="center"] .atlas-node-copy {
+  .archive-atlas-learning .atlas-tide-stop [data-orbit-role="center"] .atlas-node-copy {
     top: auto;
     bottom: calc(50% + 28px);
   }

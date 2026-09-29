@@ -941,6 +941,8 @@ test("orbit cursor is a centered 28px native crosshair with no follower layer", 
     assert.doesNotMatch(svg, /<polygon|data-part="tail"|data-part="spine"/);
   }
   assert.equal(stripPaint(cold), stripPaint(warm));
+  const ringStroke = (svg) => svg.match(/<circle data-part="ring"[^>]*stroke="([^"]+)"/)?.[1];
+  assert.equal(ringStroke(warm), ringStroke(cold), "clickable state keeps the same cool outer ring");
   assert.match(shoalStyles, /moon-scale-cold-silver\.svg"\) 14 14, auto/);
   assert.match(shoalStyles, /moon-scale-warm-gold\.svg"\) 14 14, pointer/);
   assert.match(

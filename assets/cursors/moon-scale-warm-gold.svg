@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28" data-hotspot="14 14">
-  <circle data-part="ring" cx="14" cy="14" r="6" fill="none" stroke="#f4e6c9" stroke-width="1.4"/>
+  <circle data-part="ring" cx="14" cy="14" r="6" fill="none" stroke="#dcecf4" stroke-width="1.4"/>
   <path data-part="tick" d="M14 3.5V7" fill="none" stroke="#e5c992" stroke-width="1.4" stroke-linecap="round"/>
   <path data-part="tick" d="M24.5 14H21" fill="none" stroke="#e5c992" stroke-width="1.4" stroke-linecap="round"/>
   <path data-part="tick" d="M14 24.5V21" fill="none" stroke="#e5c992" stroke-width="1.4" stroke-linecap="round"/>
