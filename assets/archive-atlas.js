@@ -394,7 +394,7 @@
     if (overviewId) {
       const overviewItem = noteItems.find((item) => item.dataset.atlasNoteId === overviewId);
       if (overviewItem) {
-        const point = roundPoint({ x: centerPoint.x, y: centerPoint.y + 28 });
+        const point = roundPoint({ x: centerPoint.x, y: centerPoint.y + 44 });
         notePoints.set(overviewId, point);
         setNotePosition(overviewItem, point);
       }

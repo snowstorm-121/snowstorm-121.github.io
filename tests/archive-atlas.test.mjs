@@ -1350,6 +1350,42 @@ test("marker-sized desktop controls preserve rays and article routes at 1024, 10
   }
 });
 
+test("overview article point clears the center focus ring after rotation at desktop widths", async () => {
+  const focusOutset = 2 + 5;
+  const markerWidth = 10;
+  const markerHeight = 7;
+  const rotation = 5 * Math.PI / 180;
+  const markerHalfHeight = (markerWidth * Math.sin(rotation) + markerHeight * Math.cos(rotation)) / 2;
+  for (const { viewportWidth, mapWidth, mapHeight } of [
+    { viewportWidth: 1024, mapWidth: 976, mapHeight: 560 },
+    { viewportWidth: 1025, mapWidth: 648, mapHeight: 560 },
+    { viewportWidth: 1440, mapWidth: 950, mapHeight: 630 },
+  ]) {
+    const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json", viewportWidth });
+    vm.runInNewContext(script, runtime);
+    runtime.map.rect = { left: 40, top: 40, width: mapWidth, height: mapHeight };
+    const slots = runtime.orbitSlotWrites();
+    for (const [key, slot] of Object.entries(slots)) {
+      const size = key === "pytorch" ? 40 : 22;
+      runtime.controlByKey(key).rect = {
+        left: 40 + mapWidth * slot.x / 100 - size / 2,
+        top: 40 + mapHeight * slot.y / 100 - size / 2,
+        width: size,
+        height: size,
+      };
+    }
+    await runtime.flushRelations(publishedRelations);
+
+    const center = runtime.controlByKey("pytorch").getBoundingClientRect();
+    const overview = runtime.noteLinks.find((link) => link.dataset.atlasStageKey === "overview");
+    const pointY = Number.parseFloat(overview.parentNode.style.values.get("--atlas-note-y"));
+    const pointTop = runtime.map.rect.top + pointY - markerHalfHeight;
+    const focusBottom = center.bottom + focusOutset;
+    assert.ok(pointTop - focusBottom >= 8,
+      `${viewportWidth}px overview marker clears the center focus ring by at least 8px`);
+  }
+});
+
 test("article hover and click select locally without intercepting native navigation", async () => {
   const runtime = createAtlasRuntime({ relationsUrl: "./pytorch/atlas-relations.json" });
   vm.runInNewContext(script, runtime);
