@@ -3,17 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#07101c">
+  <meta name="theme-color" content="#f4f0e9">
+  <script src="/assets/reading-theme.js"></script>
   <title>Day 5 学习笔记：阶段四复盘——BERT 全量微调基线与 LoRA 对比准备 · SNOWSTORM</title>
+  <link rel="stylesheet" href="/assets/reading-theme.css">
   <link rel="stylesheet" href="/assets/library.css">
   <link rel="stylesheet" href="/assets/pytorch-reading.css">
 </head>
 <body class="library-page pytorch-reading-page">
 <div class="reading-progress" data-reading-progress aria-hidden="true"></div>
-  <main class="library-shell">
+  <header class="library-header">
     <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
-    <p class="library-eyebrow">Transformer 与 BERT</p>
-    <a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-4/">Transformer 与 BERT</a></nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details"><summary>本页目录</summary><ol><li class="toc-level-2"><a href="#〇-今天完成了什么">〇、今天完成了什么</a></li><li class="toc-level-2"><a href="#一-day-4-完整数据流">一、Day 4 完整数据流</a></li><li class="toc-level-2"><a href="#二-关键输入与输出-shape">二、关键输入与输出 shape</a></li><li class="toc-level-2"><a href="#三-数据边界与-checkpoint-规则">三、数据边界与 checkpoint 规则</a></li><li class="toc-level-3"><a href="#3-1-三个-split-的职责">3.1 三个 split 的职责</a></li><li class="toc-level-3"><a href="#3-2-选择最佳模型">3.2 选择最佳模型</a></li><li class="toc-level-2"><a href="#四-实验结果与过拟合分析">四、实验结果与过拟合分析</a></li><li class="toc-level-2"><a href="#五-混淆矩阵与指标">五、混淆矩阵与指标</a></li><li class="toc-level-2"><a href="#六-代码与复现检查">六、代码与复现检查</a></li><li class="toc-level-2"><a href="#七-lora-最小概念">七、LoRA 最小概念</a></li><li class="toc-level-2"><a href="#八-sst-2-作为求职项目的数据集边界">八、SST-2 作为求职项目的数据集边界</a></li><li class="toc-level-2"><a href="#九-今天的易错点">九、今天的易错点</a></li><li class="toc-level-2"><a href="#十-下一步行动">十、下一步行动</a></li><li class="toc-level-2"><a href="#参考资料">参考资料</a></li></ol></details></aside><article class="note-article"><div class="note-content"><h1>阶段四 Day 5 复盘：BERT 全量微调基线与 LoRA 对比准备</h1>
+    <button type="button" data-reading-theme-toggle aria-label="切换阅读模式"><span>昼</span><span class="reading-theme-tide" aria-hidden="true"></span><span>夜</span></button>
+  </header>
+  <main class="library-shell">
+    <div class="pytorch-banner"><p class="library-eyebrow">Transformer 与 BERT</p></div>
+    <a class="reading-return" href="/learning/">← 返回学习档案</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span><a href="../../stage-4/">Transformer 与 BERT</a></nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details"><summary>本页目录</summary><ol><li class="toc-level-2"><a href="#〇-今天完成了什么">〇、今天完成了什么</a></li><li class="toc-level-2"><a href="#一-day-4-完整数据流">一、Day 4 完整数据流</a></li><li class="toc-level-2"><a href="#二-关键输入与输出-shape">二、关键输入与输出 shape</a></li><li class="toc-level-2"><a href="#三-数据边界与-checkpoint-规则">三、数据边界与 checkpoint 规则</a></li><li class="toc-level-3"><a href="#3-1-三个-split-的职责">3.1 三个 split 的职责</a></li><li class="toc-level-3"><a href="#3-2-选择最佳模型">3.2 选择最佳模型</a></li><li class="toc-level-2"><a href="#四-实验结果与过拟合分析">四、实验结果与过拟合分析</a></li><li class="toc-level-2"><a href="#五-混淆矩阵与指标">五、混淆矩阵与指标</a></li><li class="toc-level-2"><a href="#六-代码与复现检查">六、代码与复现检查</a></li><li class="toc-level-2"><a href="#七-lora-最小概念">七、LoRA 最小概念</a></li><li class="toc-level-2"><a href="#八-sst-2-作为求职项目的数据集边界">八、SST-2 作为求职项目的数据集边界</a></li><li class="toc-level-2"><a href="#九-今天的易错点">九、今天的易错点</a></li><li class="toc-level-2"><a href="#十-下一步行动">十、下一步行动</a></li><li class="toc-level-2"><a href="#参考资料">参考资料</a></li></ol></details></aside><article class="note-article"><div class="note-content"><h1>阶段四 Day 5 复盘：BERT 全量微调基线与 LoRA 对比准备</h1>
 <h2 id="〇-今天完成了什么">〇、今天完成了什么</h2>
 <ul>
 <li>回顾了 BERT 在 SST-2 上的完整微调闭环。</li>

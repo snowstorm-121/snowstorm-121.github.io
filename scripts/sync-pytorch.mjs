@@ -849,15 +849,20 @@ function pageTemplate({ title, eyebrow, body, pageClass = 'pytorch-archive-page'
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#07101c">
+  <meta name="theme-color" content="#f4f0e9">
+  <script src="/assets/reading-theme.js"></script>
   <title>${escapeHtml(title)} · SNOWSTORM</title>
+  <link rel="stylesheet" href="/assets/reading-theme.css">
   <link rel="stylesheet" href="/assets/library.css">
   <link rel="stylesheet" href="/assets/pytorch-reading.css">
 </head>
 <body class="library-page ${pageClass}">
-${readingProgress}  <main class="library-shell">
+${readingProgress}  <header class="library-header">
     <a class="library-brand" href="/">SNOWSTORM / ARCHIVE</a>
-    <p class="library-eyebrow">${escapeHtml(eyebrow)}</p>
+    <button type="button" data-reading-theme-toggle aria-label="切换阅读模式"><span>昼</span><span class="reading-theme-tide" aria-hidden="true"></span><span>夜</span></button>
+  </header>
+  <main class="library-shell">
+    <div class="pytorch-banner"><p class="library-eyebrow">${escapeHtml(eyebrow)}</p></div>
     ${body}
   </main>
 ${readingScript}</body>
@@ -1127,7 +1132,7 @@ function renderArticle(note, content, stageNotes) {
     eyebrow: note.stageLabel,
     pageClass: 'pytorch-reading-page',
     reading: true,
-    body: `<a class="reading-return" href="/learning/">← 返回星图</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span>${stageCrumb}</nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details"><summary>本页目录</summary><ol>${toc}</ol></details></aside><article class="note-article">${title}<div class="note-content">${decoratedContent}</div></article></div>${neighbors}`,
+    body: `<a class="reading-return" href="/learning/">← 返回学习档案</a><nav class="breadcrumbs"><a href="../../../">学习</a><span>/</span><a href="../../">PyTorch</a><span>/</span>${stageCrumb}</nav><div class="reading-layout"><aside class="reading-toc"><details class="reading-toc-details"><summary>本页目录</summary><ol>${toc}</ol></details></aside><article class="note-article">${title}<div class="note-content">${decoratedContent}</div></article></div>${neighbors}`,
   });
 }
 

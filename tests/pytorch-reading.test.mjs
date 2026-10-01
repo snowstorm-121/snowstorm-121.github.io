@@ -13,6 +13,39 @@ const STAGE_KEYS = ['foundation', 'stage-1', 'stage-2', 'stage-3', 'stage-4', 's
 const readArchive = (relativePath) => readFile(path.join(archiveRoot, relativePath), 'utf8');
 const notePath = (note) => path.join(archiveRoot, 'notes', note.stageKey, `${note.slug}.html`);
 const noteUrl = (note) => `/learning/pytorch/notes/${note.stageKey}/${encodeURIComponent(note.slug)}.html`;
+test('day-mode PyTorch accent text meets AA contrast on the paper surface', async () => {
+  const css = await readFile(path.join(repoRoot, 'assets', 'pytorch-reading.css'), 'utf8');
+  const accent = css.match(/:root\[data-reading-theme="light"\]\s*\{\s*--pytorch-gold:\s*(#[\da-f]{6})/i)?.[1];
+  assert.ok(accent, 'light-mode text accent needs an AA override');
+  const luminance = (hex) => {
+    const channels = hex.slice(1).match(/../g).map((value) => parseInt(value, 16) / 255).map((value) => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);
+    return channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+  };
+  assert.ok((luminance('#f4f0e9') + .05) / (luminance(accent) + .05) >= 4.5);
+  assert.match(css, /\.note-content a\s*\{[^}]*color:\s*var\(--pytorch-gold\)/);
+});
+test('all PyTorch shells share early reading themes, same-surface headers, and a coastal banner', async () => {
+  for (const relativePath of ['index.html', ...manifest.stages.map((stage) => `${stage.key}/index.html`), ...manifest.notes.map((note) => `notes/${note.stageKey}/${note.slug}.html`)]) {
+    const page = await readArchive(relativePath);
+    assert.match(page, /<header class="library-header">/);
+    assert.match(page, /<button type="button" data-reading-theme-toggle/);
+    assert.ok(page.indexOf('/assets/reading-theme.js') < page.indexOf('/assets/library.css'));
+    assert.ok(page.indexOf('/assets/reading-theme.css') < page.indexOf('/assets/library.css'));
+    assert.match(page, /class="pytorch-banner"/);
+    assert.doesNotMatch(page, /返回星图/);
+  }
+});
+
+test('PyTorch surfaces, TOC, text, and code consume both shared reading modes', async () => {
+  const css = await readFile(path.join(repoRoot, 'assets', 'pytorch-reading.css'), 'utf8');
+  const library = await readFile(path.join(repoRoot, 'assets', 'library.css'), 'utf8');
+  assert.match(library, /--paper:\s*var\(--reading-surface\)/);
+  assert.match(library, /\.library-header\s*\{[^}]*background:\s*var\(--reading-surface\)/);
+  assert.match(css, /\.note-content\s*\{[^}]*color:\s*var\(--reading-ink\)/);
+  assert.match(css, /\.reading-toc-details\s*\{[^}]*background:\s*var\(--reading-surface\)/);
+  assert.match(css, /\.note-content pre\s*\{[^}]*background:\s*var\(--reading-surface\)/);
+  assert.doesNotMatch(css, /body\.pytorch-reading-page\s*\{[^}]*background:\s*#/);
+});
 function maxWidth720Block(css) {
   const match = /@media\s*\(\s*max-width\s*:\s*720px\s*\)\s*\{/.exec(css);
   if (!match) return '';
@@ -96,7 +129,7 @@ test('all 31 staged notes form one readable sequence across stage boundaries', a
     assert.match(article, /class="reading-toc"/);
     assert.match(article, /<details class="reading-toc-details">/);
     assert.doesNotMatch(article, /<details class="reading-toc-details" open>/);
-    assert.match(article, /href="\/learning\/"[^>]*>[^<]*返回星图</);
+    assert.match(article, /href="\/learning\/"[^>]*>[^<]*返回学习档案</);
     const neighbors = article.match(/<nav class="article-neighbors"[\s\S]*?<\/nav>/)?.[0] ?? '';
     assert.match(neighbors, previous ? new RegExp(`href="${noteUrl(previous).replaceAll('/', '\\/')}"`) : /class="article-neighbor previous" aria-hidden="true"/);
     assert.match(neighbors, next ? new RegExp(`href="${noteUrl(next).replaceAll('/', '\\/')}"`) : /class="article-neighbor next" aria-hidden="true"/);
@@ -134,7 +167,7 @@ test('all 31 staged notes form one readable sequence across stage boundaries', a
   assert.ok(titanicImageAlts.some((alt) => alt.includes('阶段0明确目标')), 'diagram alt retains nearby OCR semantics');
 });
 
-test('reading styles preserve a still, system-cursor long-form experience and glass treatment for note content', async () => {
+test('reading styles preserve a still, system-cursor long-form experience and opaque note surfaces', async () => {
   const css = await readFile(path.join(repoRoot, 'assets', 'pytorch-reading.css'), 'utf8');
   const mobileCss = maxWidth720Block(css);
   const wronglyScopedCss = `
@@ -150,14 +183,14 @@ test('reading styles preserve a still, system-cursor long-form experience and gl
   assert.match(css, /\.reading-layout[\s\S]*?minmax\(0,\s*46rem\)/);
   assert.match(css, /\.reading-toc-details\s*\{[^}]*?max-height:\s*calc\(100vh\s*-\s*52px\)[^}]*?overflow:\s*hidden/);
   assert.match(css, /\.reading-toc-details ol\s*\{[^}]*?max-height:\s*calc\(100vh\s*-\s*104px\)[^}]*?overflow-y:\s*auto/);
-  assert.match(css, /\.note-content table[\s\S]*?backdrop-filter/);
+  assert.match(css, /\.note-content table\s*\{[^}]*background:\s*var\(--reading-surface\)/);
   assert.match(css, /\.note-content pre[\s\S]*?background:/);
   assert.match(css, /\.note-content blockquote[\s\S]*?border-left:/);
-  assert.match(css, /\.note-content \.task-list[\s\S]*?border:[\s\S]*?background:[\s\S]*?backdrop-filter/);
+  assert.match(css, /\.note-content \.task-list\s*\{[^}]*border:[^}]*background:\s*var\(--reading-surface\)/);
   assert.match(css, /\.note-content \.task-list-item[\s\S]*?border-bottom/);
   assert.match(css, /\.note-content input\[type="checkbox"\][\s\S]*?accent-color/);
   assert.match(css, /\.note-content img[\s\S]*?border:/);
-  assert.match(css, /\.source-attachment[\s\S]*?backdrop-filter/);
+  assert.match(css, /\.source-attachment\s*\{[^}]*background:\s*var\(--reading-surface\)/);
   assert.match(mobileCss, /\.reading-toc\s*\{[^}]*?position:\s*static/);
   assert.match(mobileCss, /\.note-content\s*\{[^}]*?overflow-wrap:\s*anywhere/);
   assert.match(mobileCss, /\.note-content pre,\s*\.note-content table\s*\{[^}]*?max-width:\s*100%[^}]*?box-sizing:\s*border-box[^}]*?overflow-x:\s*auto/);
