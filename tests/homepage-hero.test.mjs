@@ -4,17 +4,14 @@ import { access, readFile } from "node:fs/promises";
 import vm from "node:vm";
 
 const readOptional = (path) => readFile(new URL(path, import.meta.url), "utf8").catch(() => "");
-const [html, homepageStyles, shoalStyles, sharedScript, homepageScript] = await Promise.all([
+const [html, homepageStyles, homepageScript] = await Promise.all([
   readFile(new URL("../index.html", import.meta.url), "utf8"),
   readOptional("../assets/homepage/homepage.css"),
-  readOptional("../assets/cursor-shoal.css"),
-  readOptional("../assets/cursor-shoal.js"),
   readOptional("../assets/homepage/homepage.js"),
 ]);
-const styles = `${homepageStyles}\n${shoalStyles}`;
-const script = `${sharedScript}\n${homepageScript}`;
+const styles = homepageStyles;
+const script = homepageScript;
 const page = `${html}\n${styles}\n${script}`;
-const stripPaint = (svg) => svg.replace(/\b(fill|stroke)="[^"]*"/g, '$1="COLOR"');
 
 test("living journal presents one non-navigable semantic four-entry directory", async () => {
   const [living, libraryStyles] = await Promise.all([
@@ -924,76 +921,28 @@ test("motion is capability-gated and has a complete reduced-motion fallback", ()
 });
 
 
-test("orbit cursor is a centered 28px native crosshair with no follower layer", async () => {
-  const [cold, warm] = await Promise.all([
-    readFile(new URL("../assets/cursors/moon-scale-cold-silver.svg", import.meta.url), "utf8"),
-    readFile(new URL("../assets/cursors/moon-scale-warm-gold.svg", import.meta.url), "utf8"),
-  ]);
-
-  for (const svg of [cold, warm]) {
-    assert.match(svg, /viewBox="0 0 28 28"/);
-    assert.match(svg, /width="28"/);
-    assert.match(svg, /height="28"/);
-    assert.match(svg, /data-hotspot="14 14"/);
-    assert.match(svg, /data-part="ring"/);
-    assert.match(svg, /data-part="tick"/);
-    assert.match(svg, /data-part="core"/);
-    assert.doesNotMatch(svg, /<polygon|data-part="tail"|data-part="spine"/);
-  }
-  assert.equal(stripPaint(cold), stripPaint(warm));
-  const ringStroke = (svg) => svg.match(/<circle data-part="ring"[^>]*stroke="([^"]+)"/)?.[1];
-  assert.equal(ringStroke(warm), ringStroke(cold), "clickable state keeps the same cool outer ring");
-  assert.match(shoalStyles, /moon-scale-cold-silver\.svg"\) 14 14, auto/);
-  assert.match(shoalStyles, /moon-scale-warm-gold\.svg"\) 14 14, pointer/);
-  assert.match(
-    shoalStyles,
-    /:is\(a, button, summary, select, \[role="button"\]\):not\(\[disabled\]\),\s*html\[data-moon-scale-shoal="true"\]:not\(\[data-orbit-selecting="true"\]\) :is\(a, button, summary, select, \[role="button"\]\):not\(\[disabled\]\) :where\(\*\)/
-  );
-  assert.doesNotMatch(sharedScript, /requestAnimationFrame|pointermove|pointerdown|moon-scale-cursor|moon-scale-trail|moon-scale-ripple/);
+test("homepage uses system cursors while preserving the night sea hero", () => {
+  assert.match(html, /data-reading-home/);
+  assert.doesNotMatch(html, /data-moon-scale-shoal|cursor-shoal\.(?:css|js)/);
+  assert.doesNotMatch(homepageStyles, /cursor:\s*(?:url|none)/);
+  assert.match(html, /id="origin-title"[\s\S]*?STILL,/);
+  assert.match(html, /name="theme-color" content="#07101c"/);
 });
 
-test("orbit cursor toggles only selection state and never appends DOM", () => {
-  assert.match(shoalStyles, /:is\(input, textarea, \[contenteditable\]\)/);
-  assert.match(shoalStyles, /cursor:\s*text/);
-  assert.match(shoalStyles, /@media \(prefers-reduced-motion: reduce\)/);
-  assert.match(shoalStyles, /cursor:\s*auto/);
-
-  const runtime = createMusicRuntime({ finePointer: true });
-  const context = { ...runtime, fetch: async () => ({ ok: false }), navigator: {} };
-  vm.runInNewContext(sharedScript, context);
-
-  assert.equal(runtime.document.body.children.length, 0);
-  assert.equal(runtime.document.documentElement.dataset.orbitSelecting, undefined);
-
-  runtime.setSelection("orbit note");
-  runtime.document.dispatch("selectionchange");
-  assert.equal(runtime.document.documentElement.dataset.orbitSelecting, "true");
-  assert.equal(runtime.document.body.children.length, 0);
-
-  runtime.setSelection("");
-  runtime.document.dispatch("selectionchange");
-  assert.equal(runtime.document.documentElement.dataset.orbitSelecting, undefined);
-
-  runtime.setSelection("orbit note");
-  runtime.document.dispatch("selectionchange");
-  runtime.window.dispatch("pagehide");
-  assert.equal(runtime.document.documentElement.dataset.orbitSelecting, undefined);
-  assert.equal(runtime.document.body.children.length, 0);
-  assert.equal(runtime.animationFrameCount(), 0);
+test("homepage preserves selectable text without a cursor runtime", () => {
+  assert.doesNotMatch(html, /cursor-shoal\.js/);
+  assert.doesNotMatch(homepageScript, /orbitSelecting|moon-scale-cursor|moon-scale-trail/);
+  assert.doesNotMatch(homepageStyles, /user-select:\s*none/);
+  assert.match(html, /id="hero-search-input"[^>]*type="search"/);
 });
 
-test("reduced motion on a fine pointer removes both native crosshair variants while inputs keep text cursor", () => {
-  const finePointer = shoalStyles.match(/@media \(hover: hover\) and \(pointer: fine\)[^{]*\{[\s\S]*?\n\}/)?.[0] ?? "";
-  const reduced = shoalStyles.match(/@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\n\}/)?.[0] ?? "";
-  assert.match(finePointer, /\(prefers-reduced-motion: no-preference\)/,
-    "custom cursor rules must not match reduced-motion desktops");
-  assert.match(finePointer, /moon-scale-cold-silver\.svg/);
-  assert.match(finePointer, /moon-scale-warm-gold\.svg/);
-  assert.match(reduced, /cursor:\s*auto/);
-  assert.match(shoalStyles, /:is\(input, textarea, \[contenteditable\]\)[\s\S]*?cursor:\s*text/);
+test("reduced motion preserves system cursors and existing homepage motion fallback", () => {
+  assert.doesNotMatch(html, /cursor-shoal\.(?:css|js)/);
+  assert.doesNotMatch(homepageStyles, /moon-scale-(?:cold-silver|warm-gold)\.svg/);
+  assert.match(homepageStyles, /prefers-reduced-motion: reduce[\s\S]*scroll-behavior:\s*auto/);
 });
 
-test("orbit cursor assets stay off timeline, stage, and published reading pages", async () => {
+test("system cursor assets stay off timeline, stage, and published reading pages", async () => {
   const deepPages = await Promise.all([
     "../learning/pytorch/index.html",
     "../learning/pytorch/stage-1/index.html",
@@ -1004,19 +953,12 @@ test("orbit cursor assets stay off timeline, stage, and published reading pages"
   }
 });
 
-test("orbit cursor remains scoped to the homepage and three archive entries", async () => {
-  const entries = await Promise.all(["learning", "living", "research"].map((entry) => readFile(new URL(`../${entry}/index.html`, import.meta.url), "utf8")));
-  assert.match(html, /<html[^>]*data-moon-scale-shoal="true"/);
-  assert.match(html, /href="\.\/assets\/cursor-shoal\.css"/);
-  assert.match(html, /src="\.\/assets\/cursor-shoal\.js" defer/);
-  entries.forEach((entry) => {
-    assert.match(entry, /<html[^>]*data-moon-scale-shoal="true"/);
-    assert.match(entry, /href="\.\.\/assets\/cursor-shoal\.css"/);
-    assert.match(entry, /src="\.\.\/assets\/cursor-shoal\.js" defer/);
-  });
-  assert.match(sharedScript, /selectionchange/);
-  assert.match(sharedScript, /pagehide/);
-  assert.doesNotMatch(sharedScript, /window\.MoonScaleShoal/);
+test("homepage stops loading custom cursors and retains all three archive destinations", () => {
+  assert.doesNotMatch(html, /cursor-shoal\.(?:css|js)|data-moon-scale-shoal/);
+  assert.match(html, /data-reading-theme-toggle/);
+  for (const entry of ["learning", "living", "research"]) {
+    assert.match(html, new RegExp('href="./' + entry + '/"'));
+  }
 });
 
 test("premium motion stages section copy and bounds glass lift and tilt", () => {

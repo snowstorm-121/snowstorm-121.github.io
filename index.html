@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="zh-CN" data-moon-scale-shoal="true" data-visitor-counter-endpoint="https://snowstorm-homepage-visitors.2971234387.workers.dev/v1/visit">
+<html lang="zh-CN" data-reading-home data-visitor-counter-endpoint="https://snowstorm-homepage-visitors.2971234387.workers.dev/v1/visit">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#07101c">
   <title>SNOWSTORM的个人主页 ✦</title>
   <link rel="icon" href="./assets/homepage/profile-coast-backview.png" type="image/png">
+  <script src="./assets/reading-theme.js"></script>
   <link rel="stylesheet" href="./assets/homepage/homepage.css">
-  <link rel="stylesheet" href="./assets/cursor-shoal.css">
-  <script src="./assets/cursor-shoal.js" defer></script>
+  <link rel="stylesheet" href="./assets/reading-theme.css">
   <script src="./assets/homepage/homepage.js" defer></script>
 </head>
 <body>
@@ -20,6 +20,10 @@
       <a href="#identity" data-section-link>身份</a>
       <a href="#archive" data-section-link>归档</a>
       <a href="#connection" data-section-link>联系</a>
+      <button type="button" data-reading-theme-toggle aria-pressed="false" aria-label="阅读模式：日间，切换为夜间">
+        <span class="reading-theme-label">阅读模式</span>
+        <span aria-hidden="true">昼</span><span class="reading-theme-tide" aria-hidden="true"></span><span aria-hidden="true">夜</span>
+      </button>
     </nav>
   </header>
 
