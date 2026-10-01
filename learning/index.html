@@ -1,62 +1,55 @@
 <!doctype html>
-<html lang="zh-CN" data-moon-scale-shoal="true">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#050b14">
+  <meta name="theme-color" content="#f4f0e9">
+  <script src="../assets/reading-theme.js"></script>
   <title>星野问津 · SNOWSTORM</title>
   <link rel="icon" href="../assets/homepage/profile-coast-backview.png" type="image/png">
   <link rel="stylesheet" href="../assets/library.css">
-  <link rel="stylesheet" href="../assets/archive-atlas.css">
-  <link rel="stylesheet" href="../assets/cursor-shoal.css">
-  <script src="../assets/archive-atlas.js" defer></script>
-  <script src="../assets/cursor-shoal.js" defer></script>
+  <link rel="stylesheet" href="../assets/reading-theme.css">
+  <link rel="stylesheet" href="../assets/archive-directory.css">
+  <script src="../assets/learning-directory.js" defer></script>
 </head>
-<body class="archive-atlas-page archive-atlas-learning">
-  <header class="atlas-header">
-    <a class="atlas-home" href="../index.html">← 返回主页</a>
-    <span class="atlas-current" aria-label="当前档案">星野问津</span>
-    <nav class="atlas-switcher" aria-label="档案分类">
+<body class="archive-page archive-learning">
+  <header class="archive-header">
+    <a href="../index.html">← 返回主页</a>
+    <nav class="archive-switcher" aria-label="档案分类">
       <a href="../learning/" aria-current="page">星野问津</a>
       <a href="../living/">人间照影</a>
       <a href="../research/">烛微观澜</a>
     </nav>
+    <button type="button" data-reading-theme-toggle aria-label="切换阅读模式"><span>昼</span><span class="reading-theme-tide" aria-hidden="true"></span><span>夜</span></button>
   </header>
-
-  <main class="library-shell" data-atlas-root data-atlas-selected="pytorch">
-    <div class="atlas-prologue">
-      <div>
-        <p class="atlas-kicker">LEARNING ARCHIVE / 01</p>
-        <h1>星野问津</h1>
-      </div>
-      <p class="atlas-intro">从近岸基础走向远处模型，让 PyTorch 总览与七个阶段沿月光潮痕次第展开。</p>
-    </div>
-
-    <section class="atlas-layout" aria-label="学习档案月海长卷">
-      <div class="atlas-scroll" data-atlas-map data-atlas-relations-url="./pytorch/atlas-relations.json" role="group" aria-label="PyTorch 总览与七阶段潮痕" style="--atlas-stop-count: 8">
-        <div class="atlas-tide">
-          <ol class="atlas-tide-list">
-            <li class="atlas-tide-stop"><button class="atlas-map-node atlas-control is-active" type="button" data-atlas-control data-atlas-key="pytorch" data-atlas-count="32 篇" data-atlas-meta="7 阶段" data-atlas-title="PyTorch" data-atlas-description="七个阶段与一份总览，共同构成仍在生长的学习主航线。" data-atlas-href="./pytorch/" data-orbit-role="center" aria-pressed="true"><span class="atlas-node-copy"><span class="atlas-node-number">总览</span><span class="atlas-index-title">PyTorch</span><span class="atlas-index-description">7 阶段 · 32 篇</span></span></button></li>
-            <li class="atlas-tide-stop"><button class="atlas-map-node atlas-control is-dimmed" type="button" data-atlas-control data-atlas-key="foundation" data-atlas-count="10 篇" data-atlas-meta="基础阶段" data-atlas-title="基础阶段" data-atlas-description="Python、NumPy、Pandas 与数据分析的启航准备。" data-atlas-href="./pytorch/foundation/" data-orbit-role="stage" aria-pressed="false"><span class="atlas-node-copy"><span class="atlas-node-number">00</span><span class="atlas-index-title">基础阶段</span><span class="atlas-index-description">近岸 · 10 篇</span></span></button></li>
-            <li class="atlas-tide-stop"><button class="atlas-map-node atlas-control is-dimmed" type="button" data-atlas-control data-atlas-key="stage-1" data-atlas-count="4 篇" data-atlas-meta="阶段 1" data-atlas-title="Tensor 与自动微分" data-atlas-description="从 Tensor 操作进入 autograd 与纯 Tensor 训练。" data-atlas-href="./pytorch/stage-1/" data-orbit-role="stage" aria-pressed="false"><span class="atlas-node-copy"><span class="atlas-node-number">01</span><span class="atlas-index-title">Tensor 与自动微分</span><span class="atlas-index-description">阶段 1 · 4 篇</span></span></button></li>
-            <li class="atlas-tide-stop"><button class="atlas-map-node atlas-control is-dimmed" type="button" data-atlas-control data-atlas-key="stage-2" data-atlas-count="5 篇" data-atlas-meta="阶段 2" data-atlas-title="模型与训练闭环" data-atlas-description="连接 nn.Module、Dataset、DataLoader 与完整训练流程。" data-atlas-href="./pytorch/stage-2/" data-orbit-role="stage" aria-pressed="false"><span class="atlas-node-copy"><span class="atlas-node-number">02</span><span class="atlas-index-title">模型与训练闭环</span><span class="atlas-index-description">阶段 2 · 5 篇</span></span></button></li>
-            <li class="atlas-tide-stop"><button class="atlas-map-node atlas-control is-dimmed" type="button" data-atlas-control data-atlas-key="stage-3" data-atlas-count="5 篇" data-atlas-meta="阶段 3" data-atlas-title="卷积网络" data-atlas-description="沿 LeNet、ResNet 与迁移学习理解视觉模型。" data-atlas-href="./pytorch/stage-3/" data-orbit-role="stage" aria-pressed="false"><span class="atlas-node-copy"><span class="atlas-node-number">03</span><span class="atlas-index-title">卷积网络</span><span class="atlas-index-description">阶段 3 · 5 篇</span></span></button></li>
-            <li class="atlas-tide-stop"><button class="atlas-map-node atlas-control is-dimmed" type="button" data-atlas-control data-atlas-key="stage-4" data-atlas-count="5 篇" data-atlas-meta="阶段 4" data-atlas-title="Transformer 与 BERT" data-atlas-description="从 Attention 机制抵达 BERT 最小微调闭环。" data-atlas-href="./pytorch/stage-4/" data-orbit-role="stage" aria-pressed="false"><span class="atlas-node-copy"><span class="atlas-node-number">04</span><span class="atlas-index-title">Transformer 与 BERT</span><span class="atlas-index-description">阶段 4 · 5 篇</span></span></button></li>
-            <li class="atlas-tide-stop"><button class="atlas-map-node atlas-control is-dimmed" type="button" data-atlas-control data-atlas-key="stage-5" data-atlas-count="1 篇" data-atlas-meta="阶段 5" data-atlas-title="全量微调与 LoRA" data-atlas-description="在同一实验边界内比较全量微调与参数高效微调。" data-atlas-href="./pytorch/stage-5/" data-orbit-role="stage" aria-pressed="false"><span class="atlas-node-copy"><span class="atlas-node-number">05</span><span class="atlas-index-title">全量微调与 LoRA</span><span class="atlas-index-description">阶段 5 · 1 篇</span></span></button></li>
-            <li class="atlas-tide-stop"><button class="atlas-map-node atlas-control is-dimmed" type="button" data-atlas-control data-atlas-key="stage-6" data-atlas-count="1 篇" data-atlas-meta="阶段 6" data-atlas-title="RAG" data-atlas-description="把检索、向量表示与生成连接成透明的最小闭环。" data-atlas-href="./pytorch/stage-6/" data-orbit-role="stage" aria-pressed="false"><span class="atlas-node-copy"><span class="atlas-node-number">06</span><span class="atlas-index-title">RAG</span><span class="atlas-index-description">远汐 · 1 篇</span></span></button></li>
-          </ol>
-          <svg class="atlas-threads" aria-hidden="true"></svg>
-        </div>
-      </div>
-
-      <aside class="atlas-colophon" aria-labelledby="learning-atlas-index">
-        <p class="atlas-index-label" id="learning-atlas-index">卷尾题跋</p>
-        <h2 data-atlas-title aria-live="polite">PyTorch</h2>
-        <div class="atlas-tally"><strong data-atlas-count>32 篇</strong><span data-atlas-meta>7 阶段</span></div>
-        <p class="atlas-description" data-atlas-description>七个阶段与一份总览，共同构成仍在生长的学习主航线。</p>
-        <a class="atlas-destination" data-atlas-destination href="./pytorch/">进入此卷&nbsp; →</a>
-        <span class="atlas-empty" data-atlas-empty hidden>尚待启航</span>
-      </aside>
+  <main class="archive-shell">
+    <section class="archive-photo" aria-label="星野问津">
+      <p class="archive-label">LEARNING ARCHIVE / 01</p>
+      <h1>星野问津</h1>
+      <p class="archive-intro">从近岸基础走向远处模型，沿学习路线与七个阶段次第阅读。</p>
+    </section>
+    <section class="archive-layout" data-learning-directory data-relations-url="./pytorch/atlas-relations.json" aria-label="PyTorch 学习目录">
+      <nav class="archive-index" aria-labelledby="directory-index-title">
+        <p class="archive-label" id="directory-index-title">PyTorch · 学习路线</p>
+        <ol class="archive-stage-list">
+          <li><a data-directory-stage data-stage-key="overview" href="./pytorch/">学习路线</a></li>
+          <li><a data-directory-stage data-stage-key="foundation" href="./pytorch/foundation/">基础阶段</a></li>
+          <li><a data-directory-stage data-stage-key="stage-1" href="./pytorch/stage-1/">Tensor 与自动微分</a></li>
+          <li><a data-directory-stage data-stage-key="stage-2" href="./pytorch/stage-2/">模型与训练闭环</a></li>
+          <li><a data-directory-stage data-stage-key="stage-3" href="./pytorch/stage-3/">卷积网络</a></li>
+          <li><a data-directory-stage data-stage-key="stage-4" href="./pytorch/stage-4/">Transformer 与 BERT</a></li>
+          <li><a data-directory-stage data-stage-key="stage-5" href="./pytorch/stage-5/">全量微调与 LoRA</a></li>
+          <li><a data-directory-stage data-stage-key="stage-6" href="./pytorch/stage-6/">RAG</a></li>
+        </ol>
+      </nav>
+      <section class="archive-content" aria-labelledby="directory-title">
+        <p class="archive-label">按顺序阅读 · <span data-directory-count>10 篇</span></p>
+        <h2 id="directory-title" data-directory-title aria-live="polite">基础阶段</h2>
+        <p>从 Python、NumPy 与数据分析开始，逐步进入模型与工程实践。</p>
+        <a class="archive-destination" data-directory-destination href="./pytorch/foundation/">进入此阶段 →</a>
+        <p class="archive-status" data-directory-status role="status">文章列表暂不可用</p>
+        <ol class="archive-articles" data-directory-articles></ol>
+      </section>
     </section>
   </main>
 </body>

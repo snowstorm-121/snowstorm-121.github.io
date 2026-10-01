@@ -1,0 +1,78 @@
+html { background: var(--reading-surface); }
+.archive-page {
+  min-height: 100vh;
+  color: var(--reading-ink);
+  background: var(--reading-surface);
+  font-size: 16px;
+  line-height: 1.75;
+}
+.archive-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 18px max(24px, calc((100% - 1120px) / 2));
+  border-bottom: 1px solid var(--reading-line);
+  background: var(--reading-surface);
+  font-size: 14px;
+}
+.archive-switcher { display: flex; flex-wrap: wrap; gap: 22px; margin-left: auto; }
+.archive-switcher [aria-current="page"] { color: var(--reading-accent); text-decoration: underline; text-underline-offset: 6px; }
+.archive-header a:hover, .archive-content a:hover { color: var(--reading-accent); }
+.archive-page :focus-visible { outline: 2px solid var(--reading-accent); outline-offset: 4px; }
+.archive-shell { width: min(1120px, calc(100% - 48px)); margin: 32px auto 80px; }
+.archive-photo {
+  padding: clamp(28px, 5vw, 64px);
+  min-height: 260px;
+  color: #eef2f4;
+  background-color: #0a1623;
+  background-image: linear-gradient(90deg, rgba(10,22,35,.92), rgba(10,22,35,.76)), url("./homepage/coast-background.png");
+  background-position: center;
+  background-size: cover;
+}
+.archive-living .archive-photo { background-image: linear-gradient(90deg, rgba(10,22,35,.92), rgba(10,22,35,.76)), url("./homepage/archive-living.jpg"); }
+.archive-research .archive-photo { background-image: linear-gradient(90deg, rgba(10,22,35,.92), rgba(10,22,35,.76)), url("./homepage/archive-research.jpg"); }
+.archive-label { margin: 0 0 14px; font-size: 12px; letter-spacing: .12em; color: var(--reading-muted); }
+.archive-photo .archive-label { color: #eef2f4; }
+.archive-photo h1 { font-size: clamp(36px, 5vw, 58px); }
+.archive-intro { max-width: 36rem; margin: 20px 0 0; }
+.archive-layout { display: grid; grid-template-columns: minmax(0, 260px) minmax(0, 1fr); gap: 56px; margin-top: 44px; }
+.archive-index, .archive-content, .archive-categories { min-width: 0; overflow-wrap: anywhere; }
+.archive-index { padding-right: 28px; border-right: 1px solid var(--reading-line); }
+.archive-stage-list, .archive-category-index, .archive-categories { list-style: none; padding: 0; margin: 0; }
+.archive-stage-list li { border-bottom: 1px solid var(--reading-line); }
+.archive-stage-list a, .archive-stage-list button {
+  display: block;
+  width: 100%;
+  padding: 14px 0;
+  border: 0;
+  color: var(--reading-ink);
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.archive-stage-list button { cursor: pointer; }
+.archive-stage-list [aria-pressed="true"] { color: var(--reading-accent); font-weight: 650; }
+.archive-stage-list a:hover, .archive-stage-list button:hover { color: var(--reading-accent); }
+.archive-category-index li { padding: 12px 0; border-bottom: 1px solid var(--reading-line); }
+.archive-content h2, .archive-category h2 { font-size: clamp(26px, 3vw, 36px); }
+.archive-content > p:not(.archive-label), .archive-category > p:not(.archive-label) { color: var(--reading-muted); }
+.archive-destination { display: inline-block; padding: 6px 0; color: var(--reading-accent); text-decoration: underline; text-underline-offset: 5px; }
+.archive-status { color: var(--reading-muted); font-size: 14px; }
+.archive-articles { margin: 28px 0 0; padding-left: 1.7em; }
+.archive-articles li { padding: 15px 0 15px 8px; border-top: 1px solid var(--reading-line); }
+.archive-articles li::marker { color: var(--reading-accent); }
+.archive-articles a { text-decoration: underline; text-underline-offset: 4px; }
+.archive-category { padding: 0 0 30px; margin-bottom: 30px; border-bottom: 1px solid var(--reading-line); }
+@media (max-width: 720px) {
+  .archive-header { padding: 12px 20px; gap: 12px; }
+  .archive-switcher { width: 100%; margin: 0; gap: 18px; order: 3; }
+  .archive-header [data-reading-theme-toggle] { margin-left: auto; }
+  .archive-shell { width: calc(100% - 32px); margin-top: 20px; }
+  .archive-photo { min-height: 240px; padding: 28px 22px; }
+  .archive-layout { grid-template-columns: minmax(0, 1fr); gap: 32px; margin-top: 30px; }
+  .archive-index { border-right: 0; border-bottom: 1px solid var(--reading-line); padding: 0 0 24px; }
+  .archive-stage-list a, .archive-stage-list button { padding: 12px 0; }
+}

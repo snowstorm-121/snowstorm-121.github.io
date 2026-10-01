@@ -14,11 +14,11 @@ const script = homepageScript;
 const page = `${html}\n${styles}\n${script}`;
 
 test("living journal presents one non-navigable semantic four-entry directory", async () => {
-  const [living, libraryStyles] = await Promise.all([
+  const [living, directoryStyles] = await Promise.all([
     readFile(new URL("../living/index.html", import.meta.url), "utf8"),
-    readFile(new URL("../assets/library.css", import.meta.url), "utf8"),
+    readFile(new URL("../assets/archive-directory.css", import.meta.url), "utf8"),
   ]);
-  const directory = living.match(/<ul class="living-directory"[\s\S]*?<\/ul>/)?.[0] ?? "";
+  const directory = living.match(/<ol class="archive-categories"[\s\S]*?<\/ol>/)?.[0] ?? "";
   const entries = [
     ["长夜微澜", "个人思考与随笔"],
     ["纸上星河", "读书笔记"],
@@ -26,16 +26,16 @@ test("living journal presents one non-navigable semantic four-entry directory", 
     ["岁序留痕", "年度与阶段记录"],
   ];
 
-  assert.match(living, /<main class="library-shell living-journal"[^>]*>/);
+  assert.match(living, /<main class="archive-shell"[^>]*>/);
   assert.ok(directory, "living journal exposes one semantic directory list");
-  assert.equal((living.match(/<ul class="living-directory"/g) ?? []).length, 1);
+  assert.equal((living.match(/<ol class="archive-categories"/g) ?? []).length, 1);
   assert.equal((directory.match(/<li\b/g) ?? []).length, 4);
-  assert.doesNotMatch(directory, /<a\b/);
+  assert.doesNotMatch(directory, /<a\b|<button\b/);
   for (const [title, description] of entries) {
-    assert.match(directory, new RegExp(`<span class="atlas-index-title">${title}<\/span>[\\s\\S]*?<span class="atlas-index-description">${description}<\/span>`));
+    assert.match(directory, new RegExp('<p class="archive-label">' + description + '</p>[\\s\\S]*?<h2>' + title + '</h2>'));
   }
-  assert.match(libraryStyles, /\.living-journal \.living-directory \.atlas-index-title\s*\{/);
-  assert.doesNotMatch(libraryStyles, /\.living-journal \.living-directory h2\s*\{/);
+  assert.equal((directory.match(/<span class="archive-status">尚未发布<\/span>/g) ?? []).length, 4);
+  assert.match(directoryStyles, /\.archive-category\s*\{[^}]*border-bottom:/);
 });
 
 test("homepage uses a semantic four-act shell and one local runtime", () => {

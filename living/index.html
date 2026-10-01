@@ -1,57 +1,69 @@
 <!doctype html>
-<html lang="zh-CN" data-moon-scale-shoal="true">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#050b14">
+  <meta name="theme-color" content="#f4f0e9">
+  <script src="../assets/reading-theme.js"></script>
   <title>人间照影 · SNOWSTORM</title>
   <link rel="icon" href="../assets/homepage/profile-coast-backview.png" type="image/png">
   <link rel="stylesheet" href="../assets/library.css">
-  <link rel="stylesheet" href="../assets/archive-atlas.css">
-  <link rel="stylesheet" href="../assets/cursor-shoal.css">
-  <script src="../assets/archive-atlas.js" defer></script>
-  <script src="../assets/cursor-shoal.js" defer></script>
+  <link rel="stylesheet" href="../assets/reading-theme.css">
+  <link rel="stylesheet" href="../assets/archive-directory.css">
 </head>
-<body class="archive-atlas-page archive-atlas-living">
-  <header class="atlas-header">
-    <a class="atlas-home" href="../index.html">← 返回主页</a>
-    <span class="atlas-current" aria-label="当前档案">人间照影</span>
-    <nav class="atlas-switcher" aria-label="档案分类">
+<body class="archive-page archive-living">
+  <header class="archive-header">
+    <a href="../index.html">← 返回主页</a>
+    <nav class="archive-switcher" aria-label="档案分类">
       <a href="../learning/">星野问津</a>
       <a href="../living/" aria-current="page">人间照影</a>
       <a href="../research/">烛微观澜</a>
     </nav>
+    <button type="button" data-reading-theme-toggle aria-label="切换阅读模式"><span>昼</span><span class="reading-theme-tide" aria-hidden="true"></span><span>夜</span></button>
   </header>
-
-  <main class="library-shell living-journal" data-atlas-root data-atlas-selected="night-ripple">
-    <div class="atlas-prologue">
-      <div>
-        <p class="atlas-kicker">LIVING ARCHIVE / 02</p>
-        <h1>人间照影</h1>
-      </div>
-      <p class="atlas-intro">收拢书页、山河与长夜里未曾说尽的念头，让四处安静月湾先被看见，再等一封来信。</p>
-    </div>
-
-    <section class="atlas-layout" aria-label="生活档案月海长卷">
-      <div class="atlas-scroll" data-atlas-map role="group" aria-label="生活四处月湾" style="--atlas-stop-count: 4">
-        <div class="atlas-tide">
-          <ul class="living-directory">
-            <li class="atlas-tide-stop"><button class="atlas-map-node atlas-control is-active" type="button" data-atlas-control data-atlas-key="night-ripple" data-atlas-count="0 篇" data-atlas-meta="个人思考与随笔" data-atlas-title="长夜微澜" data-atlas-description="留给独处、迟疑与未必需要结论的个人思考。" aria-pressed="true"><span class="atlas-node-number">一湾</span><span class="atlas-node-copy"><span class="atlas-index-title">长夜微澜</span><span class="atlas-index-description">个人思考与随笔</span></span></button></li>
-            <li class="atlas-tide-stop"><button class="atlas-map-node atlas-control is-dimmed" type="button" data-atlas-control data-atlas-key="paper-stars" data-atlas-count="0 篇" data-atlas-meta="读书笔记" data-atlas-title="纸上星河" data-atlas-description="让读过的句子与自己的追问在纸上重新相遇。" aria-pressed="false"><span class="atlas-node-number">二湾</span><span class="atlas-node-copy"><span class="atlas-index-title">纸上星河</span><span class="atlas-index-description">读书笔记</span></span></button></li>
-            <li class="atlas-tide-stop"><button class="atlas-map-node atlas-control is-dimmed" type="button" data-atlas-control data-atlas-key="mountain-letter" data-atlas-count="0 篇" data-atlas-meta="旅行日记" data-atlas-title="山河来信" data-atlas-description="记录行走时遇见的风景，以及离开以后才懂得的回声。" aria-pressed="false"><span class="atlas-node-number">三湾</span><span class="atlas-node-copy"><span class="atlas-index-title">山河来信</span><span class="atlas-index-description">旅行日记</span></span></button></li>
-            <li class="atlas-tide-stop"><button class="atlas-map-node atlas-control is-dimmed" type="button" data-atlas-control data-atlas-key="year-trace" data-atlas-count="0 篇" data-atlas-meta="年度与阶段记录" data-atlas-title="岁序留痕" data-atlas-description="为一年与一个阶段留下可以回望的刻度。" aria-pressed="false"><span class="atlas-node-number">四湾</span><span class="atlas-node-copy"><span class="atlas-index-title">岁序留痕</span><span class="atlas-index-description">年度与阶段记录</span></span></button></li>
-          </ul>
-        </div>
-      </div>
-
-      <aside class="atlas-colophon" aria-labelledby="living-atlas-index">
-        <p class="atlas-index-label" id="living-atlas-index">卷尾题跋</p>
-        <h2 data-atlas-title aria-live="polite">长夜微澜</h2>
-        <div class="atlas-tally"><strong data-atlas-count>0 篇</strong><span data-atlas-meta>个人思考与随笔</span></div>
-        <p class="atlas-description" data-atlas-description>留给独处、迟疑与未必需要结论的个人思考。</p>
-        <a class="atlas-destination" data-atlas-destination hidden>进入此卷&nbsp; →</a>
-        <span class="atlas-empty" data-atlas-empty>尚待启航</span>
+  <main class="archive-shell">
+    <section class="archive-photo" aria-label="人间照影">
+      <p class="archive-label">LIVING ARCHIVE / 02</p>
+      <h1>人间照影</h1>
+      <p class="archive-intro">收拢书页、山河与长夜里未曾说尽的念头，等待下一封来信。</p>
+    </section>
+    <section class="archive-layout" aria-label="生活档案目录">
+      <aside class="archive-index" aria-labelledby="category-index-title">
+        <p class="archive-label" id="category-index-title">栏目索引 · 4 栏</p>
+        <ol class="archive-category-index">
+          <li>长夜微澜</li>
+          <li>纸上星河</li>
+          <li>山河来信</li>
+          <li>岁序留痕</li>
+        </ol>
+        <p class="archive-status">目前没有已发布条目。</p>
       </aside>
+      <ol class="archive-categories">
+        <li class="archive-category">
+          <p class="archive-label">个人思考与随笔</p>
+          <h2>长夜微澜</h2>
+          <p>留给独处、迟疑与未必需要结论的个人思考。</p>
+          <span class="archive-status">尚未发布</span>
+        </li>
+        <li class="archive-category">
+          <p class="archive-label">读书笔记</p>
+          <h2>纸上星河</h2>
+          <p>让读过的句子与自己的追问在纸上重新相遇。</p>
+          <span class="archive-status">尚未发布</span>
+        </li>
+        <li class="archive-category">
+          <p class="archive-label">旅行日记</p>
+          <h2>山河来信</h2>
+          <p>记录行走时遇见的风景，以及离开以后才懂得的回声。</p>
+          <span class="archive-status">尚未发布</span>
+        </li>
+        <li class="archive-category">
+          <p class="archive-label">年度与阶段记录</p>
+          <h2>岁序留痕</h2>
+          <p>为一年与一个阶段留下可以回望的刻度。</p>
+          <span class="archive-status">尚未发布</span>
+        </li>
+      </ol>
     </section>
   </main>
 </body>

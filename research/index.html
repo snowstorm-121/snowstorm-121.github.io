@@ -1,57 +1,69 @@
 <!doctype html>
-<html lang="zh-CN" data-moon-scale-shoal="true">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#050b14">
+  <meta name="theme-color" content="#f4f0e9">
+  <script src="../assets/reading-theme.js"></script>
   <title>烛微观澜 · SNOWSTORM</title>
   <link rel="icon" href="../assets/homepage/profile-coast-backview.png" type="image/png">
   <link rel="stylesheet" href="../assets/library.css">
-  <link rel="stylesheet" href="../assets/archive-atlas.css">
-  <link rel="stylesheet" href="../assets/cursor-shoal.css">
-  <script src="../assets/archive-atlas.js" defer></script>
-  <script src="../assets/cursor-shoal.js" defer></script>
+  <link rel="stylesheet" href="../assets/reading-theme.css">
+  <link rel="stylesheet" href="../assets/archive-directory.css">
 </head>
-<body class="archive-atlas-page archive-atlas-research">
-  <header class="atlas-header">
-    <a class="atlas-home" href="../index.html">← 返回主页</a>
-    <span class="atlas-current" aria-label="当前档案">烛微观澜</span>
-    <nav class="atlas-switcher" aria-label="档案分类">
+<body class="archive-page archive-research">
+  <header class="archive-header">
+    <a href="../index.html">← 返回主页</a>
+    <nav class="archive-switcher" aria-label="档案分类">
       <a href="../learning/">星野问津</a>
       <a href="../living/">人间照影</a>
       <a href="../research/" aria-current="page">烛微观澜</a>
     </nav>
+    <button type="button" data-reading-theme-toggle aria-label="切换阅读模式"><span>昼</span><span class="reading-theme-tide" aria-hidden="true"></span><span>夜</span></button>
   </header>
-
-  <main class="library-shell" data-atlas-root data-atlas-selected="question-beacon">
-    <div class="atlas-prologue">
-      <div>
-        <p class="atlas-kicker">RESEARCH ARCHIVE / 03</p>
-        <h1>烛微观澜</h1>
-      </div>
-      <p class="atlas-intro">从暗处的问题出发，让实验、工程与结论在四盏由暗到明的观澜灯位上依次显影。</p>
-    </div>
-
-    <section class="atlas-layout" aria-label="研究档案月海长卷">
-      <div class="atlas-scroll" data-atlas-map role="group" aria-label="研究四盏观澜灯位" style="--atlas-stop-count: 4">
-        <div class="atlas-tide">
-          <ol class="atlas-tide-list atlas-research-tide">
-            <li class="atlas-tide-stop"><button class="atlas-map-node atlas-control is-active" type="button" data-atlas-control data-atlas-key="question-beacon" data-atlas-count="0 项" data-atlas-meta="问题" data-atlas-title="问题航标" data-atlas-description="先把真正要回答的问题和判断边界钉在潮痕起点。" aria-pressed="true"><span class="atlas-node-number">一灯</span><span class="atlas-node-copy"><span class="atlas-index-title">问题航标</span><span class="atlas-index-description">问题 · 起念</span></span></button></li>
-            <li class="atlas-tide-stop"><button class="atlas-map-node atlas-control is-dimmed" type="button" data-atlas-control data-atlas-key="experiment-tide" data-atlas-count="0 项" data-atlas-meta="实验" data-atlas-title="实验潮汐" data-atlas-description="保存对照条件、运行结果与失败证据，不让结论脱离实验。" aria-pressed="false"><span class="atlas-node-number">二灯</span><span class="atlas-node-copy"><span class="atlas-index-title">实验潮汐</span><span class="atlas-index-description">实验 · 求证</span></span></button></li>
-            <li class="atlas-tide-stop"><button class="atlas-map-node atlas-control is-dimmed" type="button" data-atlas-control data-atlas-key="engineering-map" data-atlas-count="0 项" data-atlas-meta="工程" data-atlas-title="工程舱图" data-atlas-description="沉淀实现结构、数据流与可以复现的工程边界。" aria-pressed="false"><span class="atlas-node-number">三灯</span><span class="atlas-node-copy"><span class="atlas-index-title">工程舱图</span><span class="atlas-index-description">工程 · 成形</span></span></button></li>
-            <li class="atlas-tide-stop"><button class="atlas-map-node atlas-control is-dimmed" type="button" data-atlas-control data-atlas-key="conclusion-islet" data-atlas-count="0 项" data-atlas-meta="结论" data-atlas-title="结论星屿" data-atlas-description="把回答、限制和下一步放在同一个可回望的落点。" aria-pressed="false"><span class="atlas-node-number">四灯</span><span class="atlas-node-copy"><span class="atlas-index-title">结论星屿</span><span class="atlas-index-description">结论 · 返照</span></span></button></li>
-          </ol>
-        </div>
-      </div>
-
-      <aside class="atlas-colophon" aria-labelledby="research-atlas-index">
-        <p class="atlas-index-label" id="research-atlas-index">卷尾题跋</p>
-        <h2 data-atlas-title aria-live="polite">问题航标</h2>
-        <div class="atlas-tally"><strong data-atlas-count>0 项</strong><span data-atlas-meta>问题</span></div>
-        <p class="atlas-description" data-atlas-description>先把真正要回答的问题和判断边界钉在潮痕起点。</p>
-        <a class="atlas-destination" data-atlas-destination hidden>进入此卷&nbsp; →</a>
-        <span class="atlas-empty" data-atlas-empty>尚待启航</span>
+  <main class="archive-shell">
+    <section class="archive-photo" aria-label="烛微观澜">
+      <p class="archive-label">RESEARCH ARCHIVE / 03</p>
+      <h1>烛微观澜</h1>
+      <p class="archive-intro">从问题出发，留下实验、工程与结论可以回望的记录。</p>
+    </section>
+    <section class="archive-layout" aria-label="研究档案目录">
+      <aside class="archive-index" aria-labelledby="category-index-title">
+        <p class="archive-label" id="category-index-title">栏目索引 · 4 栏</p>
+        <ol class="archive-category-index">
+          <li>问题航标</li>
+          <li>实验潮汐</li>
+          <li>工程舱图</li>
+          <li>结论星屿</li>
+        </ol>
+        <p class="archive-status">目前没有已发布条目。</p>
       </aside>
+      <ol class="archive-categories">
+        <li class="archive-category">
+          <p class="archive-label">问题 · 起念</p>
+          <h2>问题航标</h2>
+          <p>先把真正要回答的问题和判断边界钉在潮痕起点。</p>
+          <span class="archive-status">尚未发布</span>
+        </li>
+        <li class="archive-category">
+          <p class="archive-label">实验 · 求证</p>
+          <h2>实验潮汐</h2>
+          <p>保存对照条件、运行结果与失败证据，不让结论脱离实验。</p>
+          <span class="archive-status">尚未发布</span>
+        </li>
+        <li class="archive-category">
+          <p class="archive-label">工程 · 成形</p>
+          <h2>工程舱图</h2>
+          <p>沉淀实现结构、数据流与可以复现的工程边界。</p>
+          <span class="archive-status">尚未发布</span>
+        </li>
+        <li class="archive-category">
+          <p class="archive-label">结论 · 返照</p>
+          <h2>结论星屿</h2>
+          <p>把回答、限制和下一步放在同一个可回望的落点。</p>
+          <span class="archive-status">尚未发布</span>
+        </li>
+      </ol>
     </section>
   </main>
 </body>
