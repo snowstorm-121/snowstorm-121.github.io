@@ -42,6 +42,8 @@ for(const [page,names] of Object.entries({living:["长夜微澜","纸上星河",
 }));
 class Element{
  constructor(tag="div"){this.tagName=tag.toUpperCase();this.children=[];this.dataset={};this.attributes={};this.listeners={};this.textContent="";}
+ get parentNode(){return this.parent;}
+ insertBefore(child,anchor){child.parent=this;this.children.splice(this.children.indexOf(anchor),0,child);}
  setAttribute(n,v){this.attributes[n]=String(v);} getAttribute(n){return this.attributes[n]??null;}
  append(...children){children.forEach(c=>{c.parent=this;this.children.push(c);});}
  replaceChildren(...children){this.children=[];this.append(...children);}
@@ -68,7 +70,7 @@ test("learning supplies complete controller contract and visible fallback",()=>{
 test("only learning loads enhancement",()=>{assert.match(learning,/src="\.\.\/assets\/learning-directory.js" defer/);for(const html of [living,research])assert.doesNotMatch(html,/learning-directory.js|data-relations-url/);});
 test("all 32 published article titles and URLs render through real page anchors in order",async()=>{
  const ui=await boot();const actual=[];assert.equal(ui.outputs.title.textContent,"基础阶段");assert.equal(links(ui).length,10);
- for(const stage of data.stages){ui.index.children.find(b=>b.dataset.stageKey===stage.key).fire("click");assert.equal(ui.outputs.destination.getAttribute("href"),stage.key==="overview"?"./pytorch/":"./pytorch/"+stage.key+"/");actual.push(...links(ui).map(a=>[a.getAttribute("href"),a.textContent]));}
+ for(const stage of data.stages){ui.index.children.filter(b=>b.tagName==="BUTTON").find(b=>b.dataset.stageKey===stage.key).fire("click");assert.equal(ui.outputs.destination.getAttribute("href"),stage.key==="overview"?"./pytorch/":"./pytorch/"+stage.key+"/");actual.push(...links(ui).map(a=>[a.getAttribute("href"),a.textContent]));}
  assert.deepEqual(actual,data.notes.map(n=>[n.href,n.title]));assert.equal(actual.length,32);
 });
 test("invalid or unavailable JSON preserves all eight static page anchors",async()=>{
@@ -82,7 +84,7 @@ test("unsafe note URLs and stage order remain rejected",async()=>{
  const payload=structuredClone(data);payload.stages[1].noteIds.reverse();const ui=await boot(payload);assert.deepEqual(ui.index.children,ui.staticAnchors);
 });
 test("keyboard selection retains native links and hover never selects",async()=>{
- const ui=await boot();assert.equal(ui.index.children.length,8);ui.index.children[0].fire("keydown","Enter");assert.equal(links(ui).length,1);ui.index.children[1].fire("keydown"," ");assert.equal(links(ui).length,10);ui.index.children[2].fire("pointerenter");ui.index.children[2].fire("focus");assert.equal(links(ui).length,10);
+ const ui=await boot();assert.equal(ui.index.children.filter(b=>b.tagName==="BUTTON").length,8);ui.index.children.filter(b=>b.tagName==="BUTTON")[0].fire("keydown","Enter");assert.equal(links(ui).length,1);ui.index.children.filter(b=>b.tagName==="BUTTON")[1].fire("keydown"," ");assert.equal(links(ui).length,10);ui.index.children.filter(b=>b.tagName==="BUTTON")[2].fire("pointerenter");ui.index.children.filter(b=>b.tagName==="BUTTON")[2].fire("focus");assert.equal(links(ui).length,10);
 });
 test("photo sources remain local with solid and gradient fallback layers",async()=>{
  for(const image of ["coast-background.png","archive-living.jpg","archive-research.jpg"]){assert.ok(styles.includes(image));await access(new URL("../assets/homepage/"+image,import.meta.url));}
@@ -102,7 +104,7 @@ test("720px stack stays readable and fluid at 320px",()=>{
  assert.match(styles,/@media\s*\(max-width:\s*720px\)[\s\S]*?\.archive-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/);
  assert.match(styles,/overflow-wrap:\s*anywhere/);assert.match(styles,/min-width:\s*0/);assert.match(styles,/font-size:\s*16px/);assert.doesNotMatch(styles,/min-width:\s*(?:[4-9]\d{2}|\d{4})px|user-select:\s*none|animation:/);
 });
-test("obsolete atlas resources are deleted after references disappear",async()=>{for(const path of ["../assets/archive-atlas.css","../assets/archive-atlas.js"])await assert.rejects(access(new URL(path,import.meta.url)),{code:"ENOENT"});});
+test("unused atlas resources remain preserved without live page references",async()=>{for(const path of ["../assets/archive-atlas.css","../assets/archive-atlas.js"])await access(new URL(path,import.meta.url));for(const html of Object.values(pages))assert.doesNotMatch(html,/archive-atlas\.(?:css|js)/);});
 
 // Retain the old nested validation coverage as explicit page-integration cases.
 const invalidPageData = [
@@ -126,4 +128,19 @@ for(const [name,mutate] of invalidPageData) test("page-integrated fallback: "+na
  assert.equal(ui.outputs.status.textContent,"文章列表暂不可用");
  assert.equal(links(ui).length,0);
  assert.deepEqual(ui.staticAnchors.map(a=>a.getAttribute("href")),data.stages.map(s=>s.key==="overview"?"./pytorch/":"./pytorch/"+s.key+"/"));
+});
+
+test("page enhancement keeps all eight native stage links visible with distinct controls",async()=>{
+ const ui=await boot();const direct=ui.index.children.filter(child=>child.tagName==="A");
+ assert.deepEqual(direct,ui.staticAnchors);
+ for(const stage of data.stages){const anchor=direct.find(a=>a.dataset.stageKey===stage.key);assert.equal(anchor.getAttribute("aria-label"),`进入${stage.label}`);}
+});
+const luminance=hex=>hex.slice(1).match(/../g).map(value=>parseInt(value,16)/255).map(value=>value<=.04045?value/12.92:((value+.055)/1.055)**2.4).reduce((sum,value,index)=>sum+value*[.2126,.7152,.0722][index],0);
+const contrast=hex=>(luminance("#f4f0e9")+.05)/(luminance(hex)+.05);
+test("archive accent text meets AA without a theme dataset",()=>{
+ const color=styles.match(/--archive-accent-text:\s*(#[a-f0-9]{6})/i)?.[1];assert.ok(color,"default text accent must have a safe light fallback");assert.ok(contrast(color)>=4.5);
+});
+test("overview ordinary hover text meets AA on day paper",async()=>{
+ const css=await read("../assets/library.css");const token=css.match(/\.note-list a:hover\s*\{[^}]*color:\s*var\((--[\w-]+)\)/)?.[1];
+ const color=css.match(new RegExp(token+":\\s*(#[a-f0-9]{6})","i"))?.[1];assert.ok(color,"hover text uses a safe default text accent");assert.ok(contrast(color)>=4.5);
 });

@@ -5,7 +5,9 @@
   --line: var(--reading-line);
   --glass: var(--reading-surface);
   --accent: var(--reading-accent);
+  --accent-text: #805a35;
 }
+:root[data-reading-theme="dark"] { --accent-text: var(--reading-accent); }
 
 * { box-sizing: border-box; }
 html { background: var(--paper); }
@@ -49,7 +51,7 @@ h3 { margin-top: 2.2rem; font-size: 1.45rem; }
 .note-list { padding: 0; margin: 24px 0 0; list-style: none; border-top: 1px solid var(--line); }
 .note-list li { border-bottom: 1px solid var(--line); }
 .note-list a { display: flex; justify-content: space-between; gap: 20px; padding: 19px 4px; transition: color .25s ease, padding .25s ease; }
-.note-list a:hover { padding-left: 10px; color: var(--accent); }
+.note-list a:hover { padding-left: 10px; color: var(--accent-text); }
 .note-list small { flex: none; color: var(--muted); }
 .note-article { max-width: 820px; }
 .note-article h1 { margin-bottom: 46px; font-size: clamp(34px, 5vw, 57px); line-height: 1.2; }

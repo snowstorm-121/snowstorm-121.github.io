@@ -1,13 +1,13 @@
 html { background: var(--reading-surface); }
 .archive-page {
-  --archive-accent-text: var(--reading-accent);
+  --archive-accent-text: #805a35;
   min-height: 100vh;
   color: var(--reading-ink);
   background: var(--reading-surface);
   font-size: 16px;
   line-height: 1.75;
 }
-[data-reading-theme="light"] .archive-page { --archive-accent-text: #805a35; }
+[data-reading-theme="dark"] .archive-page { --archive-accent-text: var(--reading-accent); }
 .archive-header {
   display: flex;
   align-items: center;
@@ -56,6 +56,7 @@ html { background: var(--reading-surface); }
   overflow-wrap: anywhere;
 }
 .archive-stage-list button { cursor: pointer; }
+.archive-stage-list button + a { padding-top: 0; font-size: 14px; text-decoration: underline; text-underline-offset: 4px; }
 .archive-stage-list [aria-pressed="true"] { color: var(--archive-accent-text); font-weight: 650; }
 .archive-stage-list a:hover, .archive-stage-list button:hover { color: var(--archive-accent-text); }
 .archive-category-index li { padding: 12px 0; border-bottom: 1px solid var(--reading-line); }

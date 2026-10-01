@@ -35,7 +35,8 @@ test('all manifest notes and seven stage indexes remain published', async () => 
 
 test('archive accent text meets AA on light paper while preserving the design accent', async () => {
   const css = await readFile(new URL('assets/archive-directory.css', root), 'utf8');
-  assert.match(css, /\[data-reading-theme="light"\]\s+\.archive-page\s*\{[^}]*--archive-accent-text:\s*#805a35/i);
+  assert.match(css, /\.archive-page\s*\{[^}]*--archive-accent-text:\s*#805a35/i);
+  assert.match(css, /\[data-reading-theme="dark"\]\s+\.archive-page\s*\{[^}]*--archive-accent-text:\s*var\(--reading-accent\)/);
   assert.doesNotMatch(css, /color:\s*var\(--reading-accent\)/);
   const luminance = (hex) => {
     const rgb = hex.match(/\w\w/g).map((channel) => parseInt(channel, 16) / 255).map((value) => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4);

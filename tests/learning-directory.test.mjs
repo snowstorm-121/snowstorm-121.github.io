@@ -7,6 +7,8 @@ const published = JSON.parse(await readFile(new URL("../learning/pytorch/atlas-r
 const sourceUrl = new URL("../assets/learning-directory.js", import.meta.url);
 class Element {
   constructor(tag = "div") { this.tagName = tag.toUpperCase(); this.children = []; this.dataset = {}; this.attributes = {}; this.listeners = {}; this.textContent = ""; }
+  get parentNode() { return this.parent; }
+  insertBefore(child, anchor) { child.parent = this; this.children.splice(this.children.indexOf(anchor), 0, child); }
   setAttribute(name, value) { this.attributes[name] = String(value); }
   getAttribute(name) { return this.attributes[name] ?? null; }
   append(...children) { children.forEach(child => { child.parent = this; this.children.push(child); }); }
@@ -54,21 +56,21 @@ function assertStage(ui, stageKey) {
   assert.equal(ui.outputs.title.textContent, published.stages.find(stage => stage.key === stageKey).label);
   assert.equal(ui.outputs.count.textContent, `${notes.length} 篇`);
   assert.equal(ui.outputs.destination.getAttribute("href"), ui.anchors.find(anchor => anchor.dataset.stageKey === stageKey).getAttribute("href"));
-  assert.deepEqual(ui.index.children.map(button => button.getAttribute("aria-pressed")), published.stages.map(stage => String(stage.key === stageKey)));
+  assert.deepEqual(ui.index.children.filter(button => button.tagName === "BUTTON").map(button => button.getAttribute("aria-pressed")), published.stages.map(stage => String(stage.key === stageKey)));
 }
 test("verified data defaults to the exact ten foundation articles and native buttons", async () => {
   const ui = await boot();
   assertStage(ui, "foundation");
   assert.equal(links(ui.outputs.articles).length, 10);
-  assert.deepEqual(ui.index.children.map(button => button.tagName), Array(8).fill("BUTTON"));
-  assert.deepEqual(ui.index.children.map(button => button.getAttribute("type")), Array(8).fill("button"));
+  assert.deepEqual(ui.index.children.filter(button => button.tagName === "BUTTON").map(button => button.tagName), Array(8).fill("BUTTON"));
+  assert.deepEqual(ui.index.children.filter(button => button.tagName === "BUTTON").map(button => button.getAttribute("type")), Array(8).fill("button"));
   assert.deepEqual(ui.requests, [ui.root.dataset.relationsUrl]);
 });
 test("all eight click selections preserve all 32 published note titles, URLs and order", async () => {
   const ui = await boot();
   const union = [];
   for (const stage of published.stages) {
-    ui.index.children.find(button => button.dataset.stageKey === stage.key).fire("click");
+    ui.index.children.filter(button => button.tagName === "BUTTON").find(button => button.dataset.stageKey === stage.key).fire("click");
     assertStage(ui, stage.key);
     union.push(...links(ui.outputs.articles).map(link => link.getAttribute("href")));
   }
@@ -77,14 +79,14 @@ test("all eight click selections preserve all 32 published note titles, URLs and
 });
 test("Enter and Space select stages; hover and focus leave the selection alone", async () => {
   const ui = await boot();
-  ui.index.children[0].fire("keydown", "Enter");
+  ui.index.children.filter(button => button.tagName === "BUTTON")[0].fire("keydown", "Enter");
   assertStage(ui, "overview");
   assert.equal(links(ui.outputs.articles).length, 1);
-  ui.index.children[2].fire("keydown", " ");
+  ui.index.children.filter(button => button.tagName === "BUTTON")[2].fire("keydown", " ");
   assertStage(ui, "stage-1");
-  ui.index.children[3].fire("pointerenter");
-  ui.index.children[3].fire("focus");
-  ui.index.children[3].fire("keydown", "Escape");
+  ui.index.children.filter(button => button.tagName === "BUTTON")[3].fire("pointerenter");
+  ui.index.children.filter(button => button.tagName === "BUTTON")[3].fire("focus");
+  ui.index.children.filter(button => button.tagName === "BUTTON")[3].fire("keydown", "Escape");
   assertStage(ui, "stage-1");
 });
 const invalidCases = [
@@ -123,4 +125,15 @@ test("article titles are text and controller creates no visualization or geometr
   assert.equal(links(ui.outputs.articles)[0].textContent, data.notes[1].title);
   assert.ok(ui.created.every(tag => ["button", "li", "a"].includes(tag)));
   assert.doesNotMatch(ui.source, /innerHTML|createElementNS|pointermove|getBoundingClientRect|requestAnimationFrame|window\.[A-Za-z]+\s*=/);
+});
+
+test("enhancement retains every native stage destination beside a distinctly labelled selection button", async () => {
+  const ui = await boot();
+  assert.deepEqual(links(ui.index), ui.anchors);
+  for (const stage of published.stages) {
+    const anchor = ui.anchors.find(a => a.dataset.stageKey === stage.key);
+    const button = ui.index.children.find(b => b.tagName === "BUTTON" && b.dataset.stageKey === stage.key);
+    assert.equal(anchor.getAttribute("aria-label"), `进入${stage.label}`);
+    assert.equal(button.getAttribute("aria-label"), `查看${stage.label}文章`);
+  }
 });

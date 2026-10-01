@@ -101,7 +101,7 @@
 - Root: `[data-learning-directory][data-relations-url]`。
 - Static stage anchors: `a[data-directory-stage][data-stage-key]` with real hrefs, manifest order overview/foundation/stage-1…stage-6。
 - Output: `[data-directory-articles]`, `[data-directory-title]`, `[data-directory-count]`, `[data-directory-destination]`, `[data-directory-status]`。
-- On verified data, replace the eight static stage anchors with native selection buttons while retaining their href as the selected panel's destination. On failure, do not replace anchors. No relationship visualization/public JS API.
+- On verified data, insert native selection buttons beside all eight original native stage anchors; keep every direct link visible with distinct accessible labels and retain the selected panel destination. On failure, preserve all original anchors. No relationship visualization/public JS API.
 
 - [ ] **Step 1: Write RED tests.** Use a minimal fake DOM/fetch harness in `tests/learning-directory.test.mjs` and the published `atlas-relations.json` fixture. Assert the default foundation panel renders its exact 10 native article links, and the union of all eight stage selections covers the 32 published notes with exact `href`/title/order; overview selects its one note; click/Enter/Space select stages; unavailable/invalid/reordered data leave all eight original anchors and display `文章列表暂不可用`; note href outside `/learning/pytorch/notes/` is rejected; no SVG or pointermove/geometry code is created. Representative assertion:
   ```js
@@ -110,7 +110,7 @@
     .map((note) => note.href));
   ```
 - [ ] **Step 2: Verify RED.** Run bundled `node --test tests/learning-directory.test.mjs`; expect failure because controller is absent.
-- [ ] **Step 3: Minimal implementation.** Reuse the existing `atlas-relations.json` schema and its manifest-order/URL validation contract from `archive-atlas.js`: exactly eight canonical stages, unique ordered note IDs, contiguous note `order`, safe published note hrefs, valid references. Use `textContent` and `createElement` for article list links, never interpolated HTML. Fetch only the URL from `data-relations-url`; default to foundation, ignore hover, keep native stage destinations in the panel.
+- [ ] **Step 3: Minimal implementation.** Reuse the existing `atlas-relations.json` schema and its manifest-order/URL validation contract from `archive-atlas.js`: exactly eight canonical stages, unique ordered note IDs, contiguous note `order`, safe published note hrefs, valid references. Use `textContent` and `createElement` for article list links, never interpolated HTML. Fetch only the URL from `data-relations-url`; default to foundation, ignore hover, keep all eight native stage links visible beside distinctly labelled selection buttons and keep the selected destination in the panel.
 - [ ] **Step 4: Verify GREEN and commit.** Run focused tests, full 248+ suite, `node --check assets/learning-directory.js`, and `git diff --check`. Stage only Task 2 files and commit `feat: build safe learning directory controller`.
 
 ### Task 3: A 版学习入口与生活/研究档案
@@ -118,7 +118,7 @@
 **Files:**
 - Create: `assets/archive-directory.css`
 - Modify: `learning/index.html`, `living/index.html`, `research/index.html`, `tests/archive-atlas.test.mjs`
-- Delete after all three pages no longer reference them: `assets/archive-atlas.css`, `assets/archive-atlas.js`
+- Preserve byte-identically: `assets/archive-atlas.css`, `assets/archive-atlas.js`; all live pages stop referencing them.
 - Preserve: all old page URLs, archive image bytes, `learning/pytorch/atlas-relations.json`。
 
 **Interfaces:**
@@ -134,7 +134,7 @@
   assert.doesNotMatch(learning, /<svg\b|atlas-threads|data-orbit-role/);
   ```
 - [ ] **Step 2: Verify RED.** Run bundled `node --test tests/archive-atlas.test.mjs`; expect new directory assertions to fail against orbit pages.
-- [ ] **Step 3: Minimal implementation.** Replace the shared atlas shell with a photo strip and `grid-template-columns` directory/content body. The learning HTML contains eight real stage anchors and a visible stage destination. The controller enhances it only after validating JSON. Living/research use semantic ordered/unordered lists, each item with an explicit non-link `尚未发布` status. CSS consumes Task 1 theme variables; set the header background to `var(--reading-surface)`, never a separate colored block. At 720px stack the columns; at 320px use one readable column. Stop loading old atlas/cursor resources and delete obsolete atlas CSS/JS only after references are gone.
+- [ ] **Step 3: Minimal implementation.** Replace the shared atlas shell with a photo strip and `grid-template-columns` directory/content body. The learning HTML contains eight real stage anchors and a visible stage destination. The controller enhances it only after validating JSON. Living/research use semantic ordered/unordered lists, each item with an explicit non-link `尚未发布` status. CSS consumes Task 1 theme variables; set the header background to `var(--reading-surface)`, never a separate colored block. At 720px stack the columns; at 320px use one readable column. Stop loading old atlas/cursor resources; preserve their files byte-identically. Only the four specified legacy HTML pages may be deleted.
 - [ ] **Step 4: Verify GREEN and commit.** Run focused tests and full suite (at least 248/248), `node --check assets/learning-directory.js`, `git diff --check`, and confirm `rg -n 'archive-atlas\.(css|js)|cursor-shoal\.(css|js)' learning/index.html living/index.html research/index.html` has no matches. Stage only Task 3 files and commit `feat: replace atlas maps with coastal directories`.
 
 ### Task 4: PyTorch 总览、阶段与笔记的日夜书页

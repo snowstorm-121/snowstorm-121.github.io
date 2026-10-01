@@ -83,6 +83,7 @@
         button.dataset.directoryStage = "";
         button.dataset.stageKey = stage.key;
         button.textContent = stage.label;
+        button.setAttribute("aria-label", `查看${stage.label}文章`);
         return button;
       });
       function select(key) {
@@ -113,7 +114,11 @@
         });
       });
       select("foundation");
-      anchors.forEach((anchor, index) => anchor.replaceWith(buttons[index]));
+      anchors.forEach((anchor, index) => {
+        anchor.parentNode.insertBefore(buttons[index], anchor);
+        anchor.setAttribute("aria-label", `进入${data.stages[index].label}`);
+        anchor.textContent = "进入阶段 →";
+      });
       if (status) status.textContent = "";
     } catch {
       unavailable();
