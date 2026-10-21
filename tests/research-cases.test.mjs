@@ -7,6 +7,24 @@ const retailPage = new URL("../research/retailflow/index.html", import.meta.url)
 const retailHtml = () => readFile(retailPage, "utf8");
 const overviewPage = new URL("../research/index.html", import.meta.url);
 
+test("Research dossiers: scoped covers and single-column reading preserve the overview", async () => {
+  for (const name of ["scholarlens", "retailflow"]) {
+    const text = await readFile(new URL(`../research/${name}/index.html`, import.meta.url), "utf8");
+    assert.match(text, /class="archive-page archive-research research-case research-case--(?:scholarlens|retailflow)"/);
+    assert.ok(text.includes(`research-case--${name}`));
+    assert.match(text, /class="archive-photo research-cover"/);
+  }
+  const css = await readFile(new URL("../assets/research-cases.css", import.meta.url), "utf8");
+  assert.match(css, /\.research-case \.archive-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  const overview = await readFile(overviewPage);
+  assert.equal(createHash("sha256").update(overview).digest("hex"), "f817c0b496d799214ddb226d7652de732389041c763180edbda6d03a01bf29db");
+});
+
+test("Research dossier covers: labels use the theme-aware copper ink", async () => {
+  const css = await readFile(new URL("../assets/research-cases.css", import.meta.url), "utf8");
+  assert.match(css, /\.research-case \.research-cover \.archive-label\s*\{[^}]*color:\s*var\(--case-copper\)/);
+});
+
 test("RetailFlow deep reading: separated version ledger and proof slip", async () => {
   const text = await retailHtml();
   for (const token of ["research-version-ledger", "research-proof-slip", "research-deep-dive", "research-deep-body"])
