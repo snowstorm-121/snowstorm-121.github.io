@@ -31,7 +31,7 @@
 
 **Interface:** 总览公开 `./scholarlens/`、`./retailflow/`；两张卡分别链接对应 GitHub 仓库。共享 CSS 后续供两个案例页引用。
 
-- [ ] **Step 1 RED:** 把研究页四个未发布测试换成至少六个针对两项目卡的检查：数量与顺序、具体状态/描述、案例页链接、GitHub 链接、链接目标文件存在、无虚假的“尚未发布”。保留生活页四个未发布测试。命令：`/Users/yyy/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --test tests/archive-atlas.test.mjs`；预期新测试因为入口缺失而失败。
+- [ ] **Step 1 RED:** 把研究页四个未发布测试换成至少六个针对两项目卡的检查：数量与顺序、具体状态/描述、两个案例页相对链接、GitHub 链接、主题资源和无虚假的“尚未发布”。案例页实际目标文件由 Tasks 2–3 建立，再由 Task 4 验证。保留生活页四个未发布测试。命令：`/Users/yyy/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node --test tests/archive-atlas.test.mjs`；预期新测试因为入口缺失而失败。
 - [ ] **Step 2 GREEN:** 将总览旁栏改成“项目索引 · 2 项”与两个原生锚点；主列改为两张静态项目卡。准确简述 ScholarLens 的单篇论文证据问答和 RetailFlow 的模拟零售 CLI Agent；分别标注“研究原型”与“实验原型”。`archive-photo`、页眉导航、主题按钮保持原样，新增 `research-cases.css` 链接。CSS 提供有留白的卡片、紧凑的两条链接、响应式堆叠、焦点沿用现有规则；不增加脚本或动效。
 - [ ] **Step 3 GREEN verification:** 同一单测通过；运行全量测试 `.../node --test tests/*.test.mjs counter-worker/tests/*.test.mjs`，总数不少于 303；`git diff --check`。
 - [ ] **Step 4 Commit:** 仅 stage 这三个文件，`git commit -m "feat: publish research project overview"`，自检提交不含既有脏文件。
@@ -63,7 +63,7 @@
 
 **Files:** `tests/research-cases.test.mjs`, `assets/research-cases.css`；若验收发现确切缺陷，可触及对应研究页 HTML。
 
-- [ ] **Step 1 RED:** 为研究页增加有意义的合同测试：每页只有一个 `h1` 和当前研究导航、章节原生锚点均有对应 ID、图片带替代文本、指标表有 `<caption>` 与 `<th scope>`、外链是 HTTPS GitHub 地址、CSS 在 720px 堆叠并允许长链接换行、无 `user-select:none` 和自定义 cursor；使至少一项测试先因缺失而失败。
+- [ ] **Step 1 RED:** 为研究页增加有意义的合同测试：两个总览案例链接的目标文件存在，每页只有一个 `h1` 和当前研究导航、章节原生锚点均有对应 ID、图片带替代文本、指标表有 `<caption>` 与 `<th scope>`、外链是 HTTPS GitHub 地址、CSS 在 720px 堆叠并允许长链接换行、无 `user-select:none` 和自定义 cursor；使至少一项测试先因缺失而失败。
 - [ ] **Step 2 GREEN:** 只修测试暴露的研究页缺陷；保持选择、焦点、系统指针和昼夜主题。长数字表允许容器内滚动但页面不得水平溢出。无动画，尊重现有 reduced-motion 处理。
 - [ ] **Step 3 Verify:** 运行聚焦与全量测试（≥303）、相关 JS `node --check assets/reading-theme.js` 和 `node --check assets/learning-directory.js`、真实 PyTorch 来源的 `scripts/sync-pytorch.mjs --source '/Users/yyy/Documents/知识库/Notes/Pytorch学习' --check`、`git diff --check`。对照 `git diff` 证明主页和 32 篇笔记正文未变。
 - [ ] **Step 4 Browser acceptance:** 用真实浏览器检查 `/research/` 及两个案例在 1440×900、1024×768、720×900、320×568 的昼夜模式；记录水平溢出、内容顺序、截图、流程、表格、键盘、触摸目标、文本选择和背景资源失败回退。浏览器不能直接模拟的条件由 CSS/自动化合同核对，并如实记录。
