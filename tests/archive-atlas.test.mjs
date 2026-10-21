@@ -36,10 +36,34 @@ for(const [i,stage] of data.stages.entries()){
  test(stage.key+": real static destination",async()=>{const href=attr(anchors[i],"href");assert.ok(href);await access(new URL("../learning/"+href+"index.html",import.meta.url));});
  test(stage.key+": published stage label",()=>assert.ok(anchors[i]?.includes(stage.label)));
 }
-for(const [page,names] of Object.entries({living:["长夜微澜","纸上星河","山河来信","岁序留痕"],research:["问题航标","实验潮汐","工程舱图","结论星屿"]})) names.forEach((name,i)=>test(page+": unpublished "+name,()=>{
+for(const [page,names] of Object.entries({living:["长夜微澜","纸上星河","山河来信","岁序留痕"]})) names.forEach((name,i)=>test(page+": unpublished "+name,()=>{
  const items=[...pages[page].matchAll(/<li class="archive-category">([\s\S]*?)<\/li>/g)].map(m=>m[1]);
  assert.equal(items.length,4);assert.match(items[i],new RegExp("<h2>"+name+"</h2>"));assert.match(items[i],/<span class="archive-status">尚未发布<\/span>/);assert.doesNotMatch(items[i],/<a\b|<button\b|href=/);
 }));
+const projects=[...research.matchAll(/<li class="archive-project"[^>]*>([\s\S]*?)<\/li>/g)].map(m=>m[1]);
+test("research: two published projects in order",()=>{
+ assert.equal(projects.length,2);assert.match(projects[0],/<h2>ScholarLens<\/h2>/);assert.match(projects[1],/<h2>RetailFlow<\/h2>/);
+});
+test("research: ScholarLens describes its single-paper evidence scope",()=>{
+ assert.match(projects[0]??"",/研究原型/);assert.match(projects[0]??"",/单篇论文/);assert.match(projects[0]??"",/证据问答/);
+});
+test("research: RetailFlow describes its simulated CLI scope",()=>{
+ assert.match(projects[1]??"",/实验原型/);assert.match(projects[1]??"",/模拟零售/);assert.match(projects[1]??"",/CLI Agent/);
+});
+test("research: native relative case links",()=>{
+ for(const [i,slug] of ["scholarlens","retailflow"].entries())assert.match(projects[i]??"",new RegExp('<a href="\\./'+slug+'/">[^<]+</a>'));
+});
+test("research: explicit GitHub repository links",()=>{
+ for(const [i,name] of ["ScholarLens","RetailFlow"].entries())assert.ok((projects[i]??"").includes('<a href="https://github.com/snowstorm-121/'+name+'">GitHub · '+name+'</a>'));
+});
+test("research: project index anchors target each card",()=>{
+ assert.match(research,/项目索引 · 2 项/);
+ for(const slug of ["scholarlens","retailflow"]){assert.ok(research.includes('href="#'+slug+'"'));assert.ok(research.includes('id="'+slug+'"'));}
+});
+test("research: shared styles preserve static themed content",()=>{
+ assert.match(research,/href="\.\.\/assets\/research-cases.css"/);assert.match(research,/href="\.\.\/assets\/reading-theme.css"/);
+ assert.doesNotMatch(research,/尚未发布|目前没有已发布条目/);assert.equal((research.match(/<script\b/g)??[]).length,1);
+});
 class Element{
  constructor(tag="div"){this.tagName=tag.toUpperCase();this.children=[];this.dataset={};this.attributes={};this.listeners={};this.textContent="";}
  get parentNode(){return this.parent;}

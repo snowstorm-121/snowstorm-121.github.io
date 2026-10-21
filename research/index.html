@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="../assets/library.css">
   <link rel="stylesheet" href="../assets/reading-theme.css">
   <link rel="stylesheet" href="../assets/archive-directory.css">
+  <link rel="stylesheet" href="../assets/research-cases.css">
 </head>
 <body class="archive-page archive-research">
   <header class="archive-header">
@@ -29,39 +30,34 @@
     </section>
     <section class="archive-layout" aria-label="研究档案目录">
       <aside class="archive-index" aria-labelledby="category-index-title">
-        <p class="archive-label" id="category-index-title">栏目索引 · 4 栏</p>
+        <p class="archive-label" id="category-index-title">项目索引 · 2 项</p>
         <ol class="archive-category-index">
-          <li>问题航标</li>
-          <li>实验潮汐</li>
-          <li>工程舱图</li>
-          <li>结论星屿</li>
+          <li><a href="#scholarlens">ScholarLens</a></li>
+          <li><a href="#retailflow">RetailFlow</a></li>
         </ol>
-        <p class="archive-status">目前没有已发布条目。</p>
       </aside>
-      <ol class="archive-categories">
-        <li class="archive-category">
-          <p class="archive-label">问题 · 起念</p>
-          <h2>问题航标</h2>
-          <p>先把真正要回答的问题和判断边界钉在潮痕起点。</p>
-          <span class="archive-status">尚未发布</span>
+      <ol class="archive-projects">
+        <li class="archive-project" id="scholarlens">
+          <p class="archive-label">论文 · 证据</p>
+          <h2>ScholarLens</h2>
+          <p class="archive-status">研究原型</p>
+          <p>面向用户选定单篇论文的本地 RAG 证据问答，保留可回看的原文位置与引用记录。</p>
+          <p>主要工作：正文与标注隔离、混合检索、引用审计与冻结评测。</p>
+          <div class="research-links">
+            <a href="./scholarlens/">阅读 ScholarLens 案例</a>
+            <a href="https://github.com/snowstorm-121/ScholarLens">GitHub · ScholarLens</a>
+          </div>
         </li>
-        <li class="archive-category">
-          <p class="archive-label">实验 · 求证</p>
-          <h2>实验潮汐</h2>
-          <p>保存对照条件、运行结果与失败证据，不让结论脱离实验。</p>
-          <span class="archive-status">尚未发布</span>
-        </li>
-        <li class="archive-category">
-          <p class="archive-label">工程 · 成形</p>
-          <h2>工程舱图</h2>
-          <p>沉淀实现结构、数据流与可以复现的工程边界。</p>
-          <span class="archive-status">尚未发布</span>
-        </li>
-        <li class="archive-category">
-          <p class="archive-label">结论 · 返照</p>
-          <h2>结论星屿</h2>
-          <p>把回答、限制和下一步放在同一个可回望的落点。</p>
-          <span class="archive-status">尚未发布</span>
+        <li class="archive-project" id="retailflow">
+          <p class="archive-label">零售 · 执行</p>
+          <h2>RetailFlow</h2>
+          <p class="archive-status">实验原型</p>
+          <p>模拟零售环境中的本地 CLI Agent，探索工具执行前的身份校验、用户确认与事务恢复边界。</p>
+          <p>主要工作：具体参数提案、确认失效机制、SQLite 事务回执与冻结评测；不连接真实订单或支付。</p>
+          <div class="research-links">
+            <a href="./retailflow/">阅读 RetailFlow 案例</a>
+            <a href="https://github.com/snowstorm-121/RetailFlow">GitHub · RetailFlow</a>
+          </div>
         </li>
       </ol>
     </section>

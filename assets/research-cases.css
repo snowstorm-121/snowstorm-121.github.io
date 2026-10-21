@@ -1,0 +1,38 @@
+.archive-research .archive-projects {
+  min-width: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.archive-research .archive-project {
+  padding: 0 0 36px;
+  margin-bottom: 36px;
+  border-bottom: 1px solid var(--reading-line);
+  overflow-wrap: anywhere;
+}
+.archive-research .archive-project h2 {
+  margin: 0 0 12px;
+  font-size: clamp(26px, 3vw, 36px);
+}
+.archive-research .archive-project > p:not(.archive-label) { color: var(--reading-muted); }
+.archive-research .research-links, .research-case .research-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  margin-top: 20px;
+}
+.archive-research .research-links a, .research-case .research-links a {
+  padding: 6px 0;
+  color: var(--archive-accent-text);
+  text-decoration: underline;
+  text-underline-offset: 5px;
+  overflow-wrap: anywhere;
+}
+.archive-research .archive-category-index a { display: block; padding: 6px 0; }
+@media (max-width: 720px) {
+  .archive-research .research-links, .research-case .research-links {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .archive-research .archive-project { padding-bottom: 28px; margin-bottom: 28px; }
+}
