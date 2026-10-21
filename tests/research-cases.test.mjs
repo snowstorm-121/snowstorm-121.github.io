@@ -7,6 +7,31 @@ const retailPage = new URL("../research/retailflow/index.html", import.meta.url)
 const retailHtml = () => readFile(retailPage, "utf8");
 const overviewPage = new URL("../research/index.html", import.meta.url);
 
+test("Paper dossiers: chapter index wraps without row borders", async () => {
+  const css = await readFile(new URL("../assets/research-cases.css", import.meta.url), "utf8");
+  assert.match(css, /\.research-case \.archive-category-index\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;[^}]*gap:\s*0 18px/);
+  assert.match(css, /\.research-case \.archive-category-index li\s*\{[^}]*padding:\s*0;[^}]*border:\s*0/);
+  assert.match(css, /\.research-case \.archive-category-index a\s*\{[^}]*min-height:\s*44px/);
+});
+
+test("Paper dossiers: mobile evidence grids collapse despite case-specific desktop rules", async () => {
+  const css = await readFile(new URL("../assets/research-cases.css", import.meta.url), "utf8");
+  const lastMobile = css.slice(css.lastIndexOf("@media (max-width: 720px)"));
+  assert.match(lastMobile, /\.research-case--scholarlens \.research-evidence-ruler,\s*\.research-case \.research-version-ledger\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.match(lastMobile, /\.research-case \.research-cover\s*\{[^}]*padding:\s*28px 22px/);
+});
+
+test("Paper dossiers: smallest covers wrap long titles and identifiers", async () => {
+  const css = await readFile(new URL("../assets/research-cases.css", import.meta.url), "utf8");
+  assert.match(css, /@media\s*\(max-width:\s*360px\)\s*\{\s*\.research-case \.research-cover\s*\{[^}]*overflow-wrap:\s*anywhere/);
+});
+
+test("Paper dossiers: dark palette remains case scoped", async () => {
+  const css = await readFile(new URL("../assets/research-cases.css", import.meta.url), "utf8");
+  const rule = css.match(/\[data-reading-theme="dark"\] \.research-case\s*\{([^}]+)\}/)?.[1];
+  for (const token of ["paper", "ink", "copper", "rule"]) assert.ok(rule?.includes(`--case-${token}:`), token);
+});
+
 test("RetailFlow dossier: factual process plate and separate phase ledger", async () => {
   const text = await retailHtml();
   assert.match(text, /<figure class="research-process-plate">/);
