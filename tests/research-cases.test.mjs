@@ -7,6 +7,16 @@ const retailPage = new URL("../research/retailflow/index.html", import.meta.url)
 const retailHtml = () => readFile(retailPage, "utf8");
 const overviewPage = new URL("../research/index.html", import.meta.url);
 
+test("RetailFlow dossier: factual process plate and separate phase ledger", async () => {
+  const text = await retailHtml();
+  assert.match(text, /<figure class="research-process-plate">/);
+  for (const value of ["流程示意", "B0 / B1 / B2 各 0/4", "V5 1/9 · V4 2/9", "不直接比较"])
+    assert.ok(text.includes(value), value);
+  assert.doesNotMatch(text, /<(?:svg|canvas|img)\b/i);
+  const css = await readFile(new URL("../assets/research-cases.css", import.meta.url), "utf8");
+  assert.match(css, /\.research-case--retailflow \.research-version-ledger\s*\{[^}]*font-variant-numeric:\s*tabular-nums/);
+});
+
 test("Research dossiers: scoped covers and single-column reading preserve the overview", async () => {
   for (const name of ["scholarlens", "retailflow"]) {
     const text = await readFile(new URL(`../research/${name}/index.html`, import.meta.url), "utf8");
