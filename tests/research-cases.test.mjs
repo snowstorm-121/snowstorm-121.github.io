@@ -189,3 +189,12 @@ test("ScholarLens: failure stages, limitations and public attribution are explic
   for (const file of ["README.md", "reports/test.md", "reports/t9-failures.md", "UPSTREAM.md"])
     assert.ok(text.includes(`https://github.com/snowstorm-121/ScholarLens/blob/main/${file}`), file);
 });
+test("Research deep reading: native disclosure styling is responsive and accessible", async () => {
+  const css = await readFile(new URL("../assets/research-cases.css", import.meta.url), "utf8");
+  for (const selector of [".research-marginalia", ".research-evidence-ruler", ".research-trace", ".research-version-ledger", ".research-proof-slip", ".research-deep-dive", ".research-deep-body"])
+    assert.ok(css.includes(selector), selector);
+  assert.match(css, /\.research-deep-dive summary\s*\{[^}]*min-height:\s*44px/);
+  assert.match(css, /\.research-deep-dive summary:focus-visible\s*\{[^}]*outline:/);
+  assert.match(css, /@media\s*\(max-width:\s*720px\)[\s\S]*?\.research-version-ledger/);
+  assert.doesNotMatch(css, /user-select:\s*none|cursor\s*:|animation\s*:/);
+});
