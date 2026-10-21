@@ -29,6 +29,16 @@
   overflow-wrap: anywhere;
 }
 .archive-research .archive-category-index a { display: block; padding: 6px 0; }
+.research-case .archive-content section { margin-bottom: 44px; scroll-margin-top: 24px; }
+.research-case .archive-content h2 { margin-top: 0; }
+.research-case .archive-content { overflow-wrap: anywhere; }
+.research-case figure { margin: 28px 0; }
+.research-case img { display: block; max-width: 100%; height: auto; }
+.research-case figcaption { margin-top: 12px; font-size: 14px; color: var(--reading-muted); }
+.research-case .research-table { max-width: 100%; overflow-x: auto; }
+.research-case table { width: 100%; border-collapse: collapse; text-align: left; }
+.research-case caption { text-align: left; margin-bottom: 12px; color: var(--reading-muted); }
+.research-case th, .research-case td { padding: 12px; border-bottom: 1px solid var(--reading-line); }
 @media (max-width: 720px) {
   .archive-research .research-links, .research-case .research-links {
     flex-direction: column;

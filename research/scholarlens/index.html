@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f0e9">
+  <script src="../../assets/reading-theme.js"></script>
+  <title>ScholarLens · 烛微观澜 · SNOWSTORM</title>
+  <link rel="icon" href="../../assets/homepage/profile-coast-backview.png" type="image/png">
+  <link rel="stylesheet" href="../../assets/library.css">
+  <link rel="stylesheet" href="../../assets/reading-theme.css">
+  <link rel="stylesheet" href="../../assets/archive-directory.css">
+  <link rel="stylesheet" href="../../assets/research-cases.css">
+</head>
+<body class="archive-page archive-research research-case">
+  <header class="archive-header">
+    <a href="../../index.html">← 返回主页</a>
+    <nav class="archive-switcher" aria-label="档案分类">
+      <a href="../../learning/">星野问津</a>
+      <a href="../../living/">人间照影</a>
+      <a href="../" aria-current="page">烛微观澜</a>
+    </nav>
+    <button type="button" data-reading-theme-toggle aria-label="切换阅读模式"><span>昼</span><span class="reading-theme-tide" aria-hidden="true"></span><span>夜</span></button>
+  </header>
+  <main class="archive-shell">
+    <section class="archive-photo" aria-label="ScholarLens 案例">
+      <p class="archive-label">RESEARCH CASE / 01 · 研究原型</p>
+      <h1>ScholarLens · 研知</h1>
+      <p class="archive-intro">让论文问答回到原文：在单篇论文内，留下可定位的证据与可复核的实验。</p>
+    </section>
+    <div class="archive-layout">
+      <aside class="archive-index" aria-label="案例章节">
+        <p class="archive-label">阅读航线</p>
+        <ol class="archive-category-index">
+          <li><a href="#problem">问题航标</a></li>
+          <li><a href="#engineering">工程舱图</a></li>
+          <li><a href="#experiments">实验潮汐</a></li>
+          <li><a href="#conclusion">结论星屿</a></li>
+        </ol>
+        <div class="research-links"><a href="../">← 返回研究总览</a><a href="../retailflow/">下一案例 · RetailFlow →</a></div>
+      </aside>
+      <article class="archive-content">
+        <section id="problem">
+          <h2>问题航标</h2>
+          <p>阅读论文时，生成式回答可能省略实验条件，或给出无法核对的引用。ScholarLens 将问题限定在用户选定的单篇论文，展示对应原文，让读者核对方法、数据集与实验设置。</p>
+          <p>这是本地 RAG 研究原型；当前结果来自英文 QASPER 题集与单机 4B 模型。</p>
+        </section>
+        <section id="engineering">
+          <h2>工程舱图</h2>
+          <p>QASPER 正文与标注分开导出，问题、答案和证据标注不进入检索索引。段落位置与规范化字符区间用于定位原文，gold evidence 绑定原文位置，而非某次切分的 chunk ID。</p>
+          <p>查询先限定论文，再进行 BM25、Dense 或 RRF 混合排名。Dev 选择的最终配置为 2400/200 字符切分与 Dense；Top-5 原文组成上下文，由本地 Ollama 的 Qwen3 4B 生成回答或证据不足拒答。</p>
+          <p>引用检查核对引文是否来自本次上下文，并保留问题、检索排名、context、prompt、模型响应和审计记录，便于追踪失败阶段。</p>
+          <figure>
+            <img src="../assets/scholarlens-demo.png" width="1440" height="900" alt="ScholarLens 真实本地界面，展示单篇论文的问题、生成答案与右侧可核对的原文证据">
+            <figcaption>真实本地截图：公开论文 Learning to Compose Neural Networks for Question Answering 的问答。演示题不计入正式评测，成功截图不代表总体效果。</figcaption>
+          </figure>
+        </section>
+        <section id="experiments">
+          <h2>实验潮汐</h2>
+          <p>冻结 Test 含 300 道检索题，其中 240 道可回答、60 道无答案。下表仅以 240 道可回答题为分母；三种方法使用同一 2400/200 索引与论文范围。EvidenceRecall@5 衡量 Top-5 对标注原文证据 span 的覆盖，不是答案正确率。</p>
+          <div class="research-table" role="region" aria-label="检索评测表" tabindex="0">
+            <table>
+              <caption>冻结 Test · 240 道可回答题的证据覆盖</caption>
+              <thead><tr><th scope="col">检索方法</th><th scope="col">EvidenceRecall@5</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">BM25</th><td>0.4654</td></tr>
+                <tr><th scope="row">Dense</th><td>0.6290</td></tr>
+                <tr><th scope="row">RRF Hybrid</th><td>0.5901</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>预先冻结的 100 题生成子集包含 80 道可回答题、20 道无答案题。Dense 与本地 Qwen3 4B 的整体 Answer F1 为 0.3347；可回答题错误拒答 22/80，输出截断 9/100。整体 F1 包含无答案题，不能当作 80 道可回答题的答案质量，也不能直接与 240 题检索成绩作因果比较。</p>
+          <p>三个公开失败案例帮助区分阶段，不能用于估计各类故障占比：</p>
+          <ol>
+            <li>检索未召回：论文 1911.06815 的实验数据集问题，Dense Top-10 未覆盖任何 gold，最终拒答。</li>
+            <li>候选到上下文交接：论文 1805.04579 的模型权重问题，第 6 名已含完整替代 gold，却被 Top-5 排除；这是排名边界，并非 4500-token 截断。</li>
+            <li>生成与证据使用：论文 1804.07445 的数据语言问题，Top-1 已完整覆盖 gold，模型仍拒答，失败发生在生成阶段。</li>
+          </ol>
+          <p>Dev 用于选配置，冻结 Test 未用于调参。这次 Test 中 Dense 的 @5 高于 Hybrid，不足以推断某种方法普遍最好。</p>
+          <div class="research-links"><a href="https://github.com/snowstorm-121/ScholarLens/blob/main/reports/test.md">正式 Test 报告 · 分母与结果</a><a href="https://github.com/snowstorm-121/ScholarLens/blob/main/reports/t9-failures.md">三类真实失败 · 原始分析</a></div>
+        </section>
+        <section id="conclusion">
+          <h2>结论星屿</h2>
+          <p>可定位引用便于核对，不保证事实正确。当前未做跨论文综合，也不是生产服务；小规模英文题集、单机模型与缺少独立人工 gold 全量审核限制了结论范围。</p>
+          <p>项目复用 Kotaemon 的 Gradio 应用、存储和模型接入组件，以及 QASPER 数据与官方评测资源。本项目改造集中于论文数据定位、正文与标注隔离、论文范围检索、引用审计和冻结评测。部分工程与报告由助手协作完成，不代表全部模块由作者独立手写。</p>
+          <div class="research-links"><a href="https://github.com/snowstorm-121/ScholarLens/blob/main/README.md">GitHub · ScholarLens 项目说明</a><a href="https://github.com/snowstorm-121/ScholarLens/blob/main/UPSTREAM.md">上游来源 · 复用与改动边界</a></div>
+        </section>
+      </article>
+    </div>
+  </main>
+</body>
+</html>
