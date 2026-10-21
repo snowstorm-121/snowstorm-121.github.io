@@ -62,6 +62,19 @@
         </section>
         <section id="experiments">
           <h2>实验潮汐</h2>
+          <div class="research-version-ledger" aria-label="RetailFlow 不同阶段的实验记录">
+            <div><p class="archive-label">历史冻结 Test · 2026-10-20</p><strong>B0 / B1 / B2 各 0/4</strong><p>四道独立 Test 题，各组一次；冻结对照，不是当前 V5 成绩。</p></div>
+            <div><p class="archive-label">当前已见 Dev · 2026-10-21</p><strong>V5 1/9 · V4 2/9</strong><p>开发排障修改过协议、提示和用户脚本；未重跑 Test，不直接比较，也不是因果提升。</p></div>
+          </div>
+          <aside class="research-marginalia" aria-label="RetailFlow 单例证据签">
+            <p class="archive-label">证据签 / 一次已见 Dev 取消</p>
+            <dl class="research-proof-slip">
+              <div><dt>请求</dt><dd>取消订单 #W2417020</dd></div>
+              <div><dt>权限</dt><dd>身份核查、具体提案与用户明确确认</dd></div>
+              <div><dt>实际末态</dt><dd>订单 cancelled；礼品卡余额 $62.00 → $2736.40；新增退款 $2674.40</dd></div>
+              <div><dt>证据边界</dt><dd>V5 已见 Dev task 69 单例；不是总体成功率或生产安全证明</dd></div>
+            </dl>
+          </aside>
           <p>以下三类证据分别回答不同问题，不能相互替代。</p>
           <ol>
             <li>真实模型跨进程演示：公开记录中，两个 CLI 进程完成取消订单的提案、恢复、用户确认与提交，末态为 cancelled，支付记录由 1 条变为 2 条。这次开场提供了完整身份，只说明该单例链路跑通。</li>
@@ -85,6 +98,24 @@
           <p>一次演示与工程测试不证明通用安全、生产可靠性或业务成功。Test 没有可恢复故障，也未完成长上下文业务路径，不能据此声称恢复或上下文收益；观察违规 0/4 也不能推出全面安全。</p>
           <p>当前修复记录（2026-10-21）：V5 完整 Dev 1/9，前一版 V4 完整 Dev 2/9；129 项工程测试通过，业务效果仍未稳定。这是已见 Dev 上的开发排障，运行间修改了协议适配、提示和用户脚本；未重跑 Test，也未完成新版本 B0/B1/B2 对照，不能归因于某个组件的因果提升。</p>
           <p>当前允许说明文字与单个原生工具调用并存，说明文字仅保留审计，文字不提供确认权限；多工具调用仍拒绝。写入仍须由应用接收当前具体提案的用户明确确认。</p>
+          <details class="research-deep-dive">
+            <summary>展开实验手札 · 对照、逐题失败与当前修复</summary>
+            <div class="research-deep-body">
+              <h3>历史冻结对照的共同条件</h3>
+              <p>Dev 为 9 道独立题，三组共 27 次运行；Test 为 4 道独立题，三组共 12 次运行，不能改称 27 或 12 道题。B0 保留近期完整消息块；B1 加一次已知执行前只读故障重试；B2 再加结构化关键状态与工具结果裁剪。三组的权限、具体提案、确认和回执保护相同。成功同时要求业务末态、必要确认、无禁止副作用与必要沟通。</p>
+              <p>历史 T7 Test 包含 3 道退货、1 道查询，没有需求变更，也没有触发故障；B0/B1/B2 各 0/4。schema 合法 3/3 不是业务成功；观察违规 0/4 不证明通用安全，不能据此推断恢复或长上下文收益。</p>
+              <h3>全部四道 Test 的失败路径</h3>
+              <ol class="research-trace">
+                <li><strong>task 51</strong><p>未定位身份先读取订单，应用返回 AUTH_REQUIRED；后续文字追问未形成结构化身份交互。</p></li>
+                <li><strong>task 53</strong><p>只以普通文字询问身份，未创建退货确认，也未执行写入。</p></li>
+                <li><strong>task 68</strong><p>编造示例身份，两次混合答复中的工具请求被历史协议以 PROTOCOL_ERROR 拒绝；最终未回答 $829.43。</p></li>
+                <li><strong>task 108</strong><p>只以普通文字询问身份，未退货、未回答金额。</p></li>
+              </ol>
+              <h3>当前 V5 是开发排障，不是新版 Test</h3>
+              <p>V4 已见 Dev 2/9，V5 已见 Dev 1/9；期间修改协议适配、提示和用户脚本。V5 task 69 在身份查询、订单检查、取消原因追问、提案和当前用户明确确认后取消 #W2417020，礼品卡余额 $62.00 → $2736.40，新增退款 $2674.40。这仅是单例链路；129 项工程测试不等于业务成功率。当前协议允许说明文字与单个原生工具调用并存，文字不构成确认，多工具调用仍拒绝。V5 未重跑 Test，也没有新版 B0/B1/B2 对照；与历史结果不直接比较。</p>
+              <p>原始报告：<a href="https://github.com/snowstorm-121/RetailFlow/blob/8dd99dfc8758385342095275a052ce65a151cc31/reports/t6-dev.md">T6 Dev</a>、<a href="https://github.com/snowstorm-121/RetailFlow/blob/8dd99dfc8758385342095275a052ce65a151cc31/reports/t7-test.md">T7 Test</a>、<a href="https://github.com/snowstorm-121/RetailFlow/blob/8dd99dfc8758385342095275a052ce65a151cc31/reports/repair-native-dialogue.md">V5 修复记录</a>。</p>
+            </div>
+          </details>
           <div class="research-links"><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/reports/repair-native-dialogue.md">当前 V5 修复记录 · 已见 Dev 与边界</a><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/reports/t7-test.md">历史冻结 Test 报告 · 结果与失败</a><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/docs/demos.md">演示操作单 · 真实模型与保护层</a><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/reports/contribution.md">贡献记录 · Dev 与工程证据</a></div>
         </section>
         <section id="conclusion">

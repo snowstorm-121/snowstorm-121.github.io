@@ -7,6 +7,24 @@ const retailPage = new URL("../research/retailflow/index.html", import.meta.url)
 const retailHtml = () => readFile(retailPage, "utf8");
 const overviewPage = new URL("../research/index.html", import.meta.url);
 
+test("RetailFlow deep reading: separated version ledger and proof slip", async () => {
+  const text = await retailHtml();
+  for (const token of ["research-version-ledger", "research-proof-slip", "research-deep-dive", "research-deep-body"])
+    assert.ok(text.includes(token), token);
+  assert.match(text, /<details class="research-deep-dive">\s*<summary>[^<]+<\/summary>/);
+  assert.match(text, /<dl class="research-proof-slip"/);
+  assert.match(text, /历史冻结 Test[\s\S]*?当前已见 Dev/);
+});
+
+test("RetailFlow deep reading: honest denominators, actual failures and fixed reports", async () => {
+  const text = await retailHtml();
+  for (const value of ["27 次运行", "12 次运行", "3 道退货", "1 道查询", "task 51", "task 53", "task 68", "task 108", "AUTH_REQUIRED", "PROTOCOL_ERROR", "$829.43", "#W2417020", "$62.00", "$2736.40", "$2674.40", "未重跑 Test", "不直接比较"])
+    assert.ok(text.includes(value), value);
+  for (const file of ["reports/t6-dev.md", "reports/t7-test.md", "reports/repair-native-dialogue.md"])
+    assert.ok(text.includes(`https://github.com/snowstorm-121/RetailFlow/blob/8dd99dfc8758385342095275a052ce65a151cc31/${file}`));
+  assert.match(text, /工程测试[^<]*不等于业务成功率|工程测试[^<]*不能代替业务成功率/);
+});
+
 test("Research overview: both published case destinations exist", async () => {
   const text = await readFile(overviewPage, "utf8");
   const destinations = [...text.matchAll(/href="(\.\/(?:scholarlens|retailflow)\/)"/g)].map(m => m[1]);
