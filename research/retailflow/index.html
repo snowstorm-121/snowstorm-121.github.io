@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f0e9">
+  <script src="../../assets/reading-theme.js"></script>
+  <title>RetailFlow · 烛微观澜 · SNOWSTORM</title>
+  <link rel="icon" href="../../assets/homepage/profile-coast-backview.png" type="image/png">
+  <link rel="stylesheet" href="../../assets/library.css">
+  <link rel="stylesheet" href="../../assets/reading-theme.css">
+  <link rel="stylesheet" href="../../assets/archive-directory.css">
+  <link rel="stylesheet" href="../../assets/research-cases.css">
+</head>
+<body class="archive-page archive-research research-case">
+  <header class="archive-header">
+    <a href="../../index.html">← 返回主页</a>
+    <nav class="archive-switcher" aria-label="档案分类">
+      <a href="../../learning/">星野问津</a>
+      <a href="../../living/">人间照影</a>
+      <a href="../" aria-current="page">烛微观澜</a>
+    </nav>
+    <button type="button" data-reading-theme-toggle aria-label="切换阅读模式"><span>昼</span><span class="reading-theme-tide" aria-hidden="true"></span><span>夜</span></button>
+  </header>
+  <main class="archive-shell">
+    <section class="archive-photo" aria-label="RetailFlow 案例">
+      <p class="archive-label">RESEARCH CASE / 02 · 实验原型</p>
+      <h1>RetailFlow</h1>
+      <p class="archive-intro">让模型提出操作，让应用核验边界：在模拟零售业务中，追踪确认、提交与恢复。</p>
+    </section>
+    <div class="archive-layout">
+      <aside class="archive-index" aria-label="案例章节">
+        <p class="archive-label">阅读航线</p>
+        <ol class="archive-category-index">
+          <li><a href="#problem">问题航标</a></li>
+          <li><a href="#engineering">工程舱图</a></li>
+          <li><a href="#experiments">实验潮汐</a></li>
+          <li><a href="#conclusion">结论星屿</a></li>
+        </ol>
+        <div class="research-links"><a href="../">← 返回研究总览</a><a href="../scholarlens/">另一案例 · ScholarLens →</a></div>
+      </aside>
+      <article class="archive-content">
+        <section id="problem">
+          <h2>问题航标</h2>
+          <p>零售执行需要检查实际订单变化，不能只看回答是否流畅。模型可能选错工具、遗漏身份追问，或在用户改变需求后沿用旧确认；进程重启后，也需要判断写操作是否已经提交。</p>
+          <p>RetailFlow 是本地 CLI Agent 实验原型，基于 LangGraph、Ollama 与 τ2 retail 模拟环境，研究查询、取消与退货中的确认和恢复边界。不连接真实订单、支付或客服系统。</p>
+        </section>
+        <section id="engineering">
+          <h2>工程舱图</h2>
+          <p>LangGraph 运行模型—工具循环，Ollama 接入本地 Qwen3 4B。模型选择工具和参数，应用负责协议、身份与订单所有权校验；用户脚本与评分器不参与模型规划。</p>
+          <figure>
+            <figcaption>流程示意 · 模拟写操作的控制边界</figcaption>
+            <ol class="research-flow">
+              <li><strong>模型提出</strong><p>请求工具与参数；模型答复本身不提供执行权限。</p></li>
+              <li><strong>应用校验/提案</strong><p>核验身份、归属与政策；写操作先生成绑定具体参数的 proposal_id，尚不改变订单。</p></li>
+              <li><strong>用户确认</strong><p>应用展示当前提案，接收明确 yes/no；参数变化使旧确认失效，需要重新确认。</p></li>
+              <li><strong>事务提交/回执</strong><p>确认当前提案后执行业务方法，SQLite 同一事务保存业务状态与回执，供恢复及防本地重放。</p></li>
+            </ol>
+          </figure>
+          <p>confirm_action 不向模型暴露；模型不能通过 approved=true 替用户确认。更换订单、商品或原因都不能沿用旧提案。已提交操作先查回执，写入结果未知时不盲目重试；明确发生在执行前的只读临时故障最多重试一次。</p>
+          <p>SQLite 事务覆盖本地业务快照与执行回执，不覆盖业务、对话和模型请求的全局事务，也不是分布式 exactly-once 保证。实现采用自定义 SQLite 表，未接入 LangGraph 原生 SqliteSaver。</p>
+        </section>
+        <section id="experiments">
+          <h2>实验潮汐</h2>
+          <p>以下三类证据分别回答不同问题，不能相互替代。</p>
+          <ol>
+            <li>真实模型跨进程演示：公开记录中，两个 CLI 进程完成取消订单的提案、恢复、用户确认与提交，末态为 cancelled，支付记录由 1 条变为 2 条。这次开场提供了完整身份，只说明该单例链路跑通。</li>
+            <li>直接保护层演示：参数变更脚本不调用模型，直接调用真实业务保护层与固定上游业务方法，验证旧提案被拒、新提案重新确认，以及重放读取回执。它不证明模型自主理解需求变更。</li>
+            <li>工程回归：公开报告记录 104 个确定性测试通过，包括脚本模型与注入故障；它们检查工程路径，不能代替真实模型的业务成功率。</li>
+          </ol>
+          <p>冻结派生题集为 Dev 9 题、Test 4 题。B0 使用近期完整消息块；B1 增加一次已知执行前只读故障重试；B2 再增加结构化关键状态与工具结果裁剪。三组的权限、确认与回执保护相同。</p>
+          <div class="research-table" role="region" aria-label="正式模型评测表" tabindex="0">
+            <table>
+              <caption>正式模型端到端成功 · 每组保留全部题目</caption>
+              <thead><tr><th scope="col">配置</th><th scope="col">Dev 9 题</th><th scope="col">Test 4 题</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">B0</th><td>0/9</td><td>0/4</td></tr>
+                <tr><th scope="row">B1</th><td>0/9</td><td>0/4</td></tr>
+                <tr><th scope="row">B2</th><td>0/9</td><td>0/4</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>业务效果未达标，未取得对照提升。Test 是 4 道独立题、三组各运行一次，共 12 次运行，不能算作 12 道独立题；成功要求业务末态、必要确认、无禁止副作用和必要沟通同时满足。这是本地派生评测，不是官方 τ2 排行榜。</p>
+          <p>失败集中在身份追问与工具协议：未定位身份先查订单被 AUTH_REQUIRED 拦截；普通文字追问没有触发结构化 ask_user；编造身份及混合答复的工具请求被 PROTOCOL_ERROR 拒绝。参数 schema 合法不代表已获权限或业务成功。</p>
+          <p>一次演示与工程测试不证明通用安全、生产可靠性或业务成功。Test 没有可恢复故障，也未完成长上下文业务路径，不能据此声称恢复或上下文收益；观察违规 0/4 也不能推出全面安全。</p>
+          <div class="research-links"><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/reports/t7-test.md">冻结 Test 报告 · 结果与失败</a><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/docs/demos.md">演示操作单 · 真实模型与保护层</a><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/reports/contribution.md">贡献记录 · Dev 与工程证据</a></div>
+        </section>
+        <section id="conclusion">
+          <h2>结论星屿</h2>
+          <p>应用保护能约束部分副作用，无法替代模型正确规划与必要沟通。当前仅是实验性本地 CLI 与模拟业务，身份定位不是生产认证，尚无真实平台集成、生产负载、稳定性或全面提示注入防护结论。</p>
+          <p>项目基于 LangChain react-agent 模板和 τ2-bench retail 的数据、政策及业务方法。新增工作集中于本地模型接入、受控工具节点、身份与提案确认、SQLite 回执恢复及冻结派生评测；不代表从零自研 Agent 框架或全部订单规则。工程实现使用了 Codex 辅助。</p>
+          <p>上游许可通知保留；RetailFlow 新增代码尚未选择独立许可证，公开仓库不等于整个项目采用 MIT。</p>
+          <div class="research-links"><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/README.md">GitHub · RetailFlow 项目说明</a><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/UPSTREAM.md">上游来源 · 模板与模拟环境</a></div>
+        </section>
+      </article>
+    </div>
+  </main>
+</body>
+</html>

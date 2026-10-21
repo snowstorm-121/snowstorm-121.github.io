@@ -3,6 +3,46 @@ import test from "node:test";
 import { access, readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 
+const retailPage = new URL("../research/retailflow/index.html", import.meta.url);
+const retailHtml = () => readFile(retailPage, "utf8");
+test("RetailFlow: static case exists with shared theme and ordered sections", async () => {
+  await access(retailPage);
+  const text = await retailHtml();
+  assert.match(text, /<header class="archive-header">/);
+  assert.match(text, /data-reading-theme-toggle/);
+  for (const resource of ["library.css", "reading-theme.css", "archive-directory.css", "research-cases.css", "reading-theme.js"])
+    assert.ok(text.includes(`../../assets/${resource}`));
+  assert.equal((text.match(/<script\b/g) ?? []).length, 1);
+  assert.deepEqual([...text.matchAll(/<section id="([^"]+)"/g)].map(m => m[1]), ["problem", "engineering", "experiments", "conclusion"]);
+  for (const id of ["problem", "engineering", "experiments", "conclusion"]) assert.ok(text.includes(`href="#${id}"`));
+});
+test("RetailFlow: all local resources and native navigation resolve", async () => {
+  const text = await retailHtml();
+  for (const route of ['href="../"', 'href="../scholarlens/"']) assert.ok(text.includes(route));
+  for (const [, href] of text.matchAll(/(?:href|src)="([^"]+)"/g)) {
+    if (href.startsWith("https:") || href.startsWith("#")) continue;
+    assert.ok(href.startsWith("../"), href);
+    await access(new URL(href.endsWith("/") ? href + "index.html" : href, retailPage));
+  }
+});
+test("RetailFlow: semantic flow distinguishes model, application and confirmation", async () => {
+  const text = await retailHtml();
+  assert.match(text, /<figcaption[^>]*>流程示意/);
+  assert.match(text, /<ol class="research-flow">/);
+  for (const value of ["模型提出", "应用校验/提案", "用户确认", "事务提交/回执", "LangGraph", "Ollama", "身份", "所有权", "具体参数", "参数变化", "旧确认失效", "SQLite", "同一事务", "confirm_action", "全局事务", "exactly-once"])
+    assert.ok(text.includes(value), value);
+  assert.doesNotMatch(text, /<img\b|<svg\b|<canvas\b/);
+});
+test("RetailFlow: frozen results retain every variant and denominator", async () => {
+  const text = await retailHtml();
+  for (const variant of ["B0", "B1", "B2"])
+    assert.match(text, new RegExp(`<tr><th scope="row">${variant}</th><td>0/9</td><td>0/4</td></tr>`));
+  for (const value of ["Dev 9", "Test 4", "身份追问", "工具协议", "不调用模型", "跨进程", "工程回归", "不能代替", "不证明", "生产", "真实订单", "支付", "react-agent", "τ2", "新增代码尚未选择独立许可证"])
+    assert.ok(text.includes(value), value);
+  for (const file of ["README.md", "reports/t7-test.md", "docs/demos.md", "UPSTREAM.md"])
+    assert.ok(text.includes(`https://github.com/snowstorm-121/RetailFlow/blob/main/${file}`), file);
+});
+
 const page = new URL("../research/scholarlens/index.html", import.meta.url);
 const html = () => readFile(page, "utf8");
 test("ScholarLens: static case exists", async () => { await access(page); });
