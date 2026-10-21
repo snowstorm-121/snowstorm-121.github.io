@@ -109,6 +109,26 @@ test("RetailFlow: historical comparison is separated from current seen-Dev repai
 
 const page = new URL("../research/scholarlens/index.html", import.meta.url);
 const html = () => readFile(page, "utf8");
+
+test("ScholarLens deep reading: two evidence widgets and native disclosure", async () => {
+  const text = await html();
+  for (const token of ["research-marginalia", "research-evidence-ruler", "research-trace", "research-deep-dive", "research-deep-body"])
+    assert.ok(text.includes(token), token);
+  assert.match(text, /<details class="research-deep-dive">\s*<summary>[^<]+<\/summary>/);
+  assert.doesNotMatch(text, /<details class="research-deep-dive" open/);
+  assert.match(text, /<dl class="research-evidence-ruler"/);
+  assert.match(text, /<ol class="research-trace"/);
+});
+
+test("ScholarLens deep reading: distinct denominators, failures and fixed reports", async () => {
+  const text = await html();
+  for (const value of ["240 道可回答检索题", "100 题生成子集", "80 道可回答生成题", "AllEvidence@5", "0.4250", "0.5542", "0.5250", "MRR@10", "0.3649", "0.4965", "0.4878", "Evidence F1", "0.3790", "17/20", "3/20", "1911.06815", "1805.04579", "1804.07445", "4500", "temperature 0", "seed 42"])
+    assert.ok(text.includes(value), value);
+  for (const file of ["reports/test.md", "reports/t9-failures.md"])
+    assert.ok(text.includes(`https://github.com/snowstorm-121/ScholarLens/blob/8b496ae1d8a622fd6fd74ec0be20cfc92fec7c9e/${file}`));
+  assert.match(text, /不同样本|分母不同/);
+  assert.match(text, /不是答案正确率|不等于答案正确率/);
+});
 test("ScholarLens: static case exists", async () => { await access(page); });
 test("ScholarLens: shared header, theme and ordered native sections", async () => {
   const text = await html();

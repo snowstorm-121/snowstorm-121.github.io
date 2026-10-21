@@ -57,6 +57,13 @@
         </section>
         <section id="experiments">
           <h2>实验潮汐</h2>
+          <aside class="research-marginalia" aria-label="ScholarLens 实验旁注">
+            <p class="archive-label">实验手札 / 两种不同分母</p>
+            <dl class="research-evidence-ruler">
+              <div><dt>检索 Test · 240 道可回答检索题</dt><dd>Dense EvidenceRecall@5 <strong>0.6290</strong><small>gold span 覆盖，不是答案正确率</small></dd></div>
+              <div><dt>生成 · 100 题生成子集，其中 80 道可回答生成题</dt><dd>Answer F1 <strong>0.3347</strong><small>可回答题错误拒答 22/80；分母不同，不能画成转化漏斗</small></dd></div>
+            </dl>
+          </aside>
           <p>冻结 Test 含 300 道检索题，其中 240 道可回答、60 道无答案。下表仅以 240 道可回答题为分母；三种方法使用同一 2400/200 索引与论文范围。EvidenceRecall@5 衡量 Top-5 对标注原文证据 span 的覆盖，不是答案正确率。</p>
           <div class="research-table" role="region" aria-label="检索评测表" tabindex="0">
             <table>
@@ -78,6 +85,23 @@
           </ol>
           <p>Dev 用于选配置，冻结 Test 未用于调参。这次 Test 中 Dense 的 @5 高于 Hybrid，不足以推断某种方法普遍最好。</p>
           <div class="research-links"><a href="https://github.com/snowstorm-121/ScholarLens/blob/main/reports/test.md">正式 Test 报告 · 分母与结果</a><a href="https://github.com/snowstorm-121/ScholarLens/blob/main/reports/t9-failures.md">三类真实失败 · 原始分析</a></div>
+          <details class="research-deep-dive">
+            <summary>展开实验手札 · 检索、生成与失败定位</summary>
+            <div class="research-deep-body">
+              <h3>同条件检索对照</h3>
+              <p>2026-10-16 冻结 Test 共 300 题，其中 240 道可回答、60 道无答案；三路共用 2400/200 字符切分、论文范围与 Top-5 证据口径。AllEvidence@5 衡量整组标注证据完整覆盖，MRR@10 衡量首个命中位置，均不是答案正确率。</p>
+              <p>BM25 / Dense / RRF Hybrid 的 AllEvidence@5 分别为 0.4250 / 0.5542 / 0.5250；MRR@10 分别为 0.3649 / 0.4965 / 0.4878。这次 Dense 在 @5 占优，不代表对所有论文普遍最优。</p>
+              <h3>独立的生成子集</h3>
+              <p>预先冻结的 100 题生成子集为 80 道可回答与 20 道无答案；Dense Top-5 最多 4500 context tokens，本地 qwen3:4b-instruct-2507-q4_K_M，temperature 0、seed 42。整体 Answer F1 0.3347、Evidence F1 0.3790；无答案题正确拒答 17/20、错误回答 3/20，输出截断 9/100。整体 F1 含无答案题；不能和 240 题检索结果作因果比较。</p>
+              <h3>失败轨迹：先定位阶段</h3>
+              <ol class="research-trace">
+                <li><strong>检索未召回 · 1911.06815</strong><p>实验数据集问题的 Dense Top-10 未覆盖任何 gold；拒答没有凭空编造，但证据未进入候选。</p></li>
+                <li><strong>候选交接 · 1805.04579</strong><p>模型权重问题的完整替代 gold 排第 6，被 Top-5 排除；不是 4500-token 截断。</p></li>
+                <li><strong>生成拒答 · 1804.07445</strong><p>数据语言问题的 Top-1 已完整覆盖 gold，模型仍拒答；此例不能归咎检索。</p></li>
+              </ol>
+              <p>三例用于定位阶段，不代表故障类型占比。原始报告：<a href="https://github.com/snowstorm-121/ScholarLens/blob/8b496ae1d8a622fd6fd74ec0be20cfc92fec7c9e/reports/test.md">冻结 Test</a>、<a href="https://github.com/snowstorm-121/ScholarLens/blob/8b496ae1d8a622fd6fd74ec0be20cfc92fec7c9e/reports/t9-failures.md">失败轨迹</a>。</p>
+            </div>
+          </details>
         </section>
         <section id="conclusion">
           <h2>结论星屿</h2>
