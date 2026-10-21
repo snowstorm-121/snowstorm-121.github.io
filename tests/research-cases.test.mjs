@@ -146,6 +146,16 @@ test("RetailFlow: historical comparison is separated from current seen-Dev repai
 const page = new URL("../research/scholarlens/index.html", import.meta.url);
 const html = () => readFile(page, "utf8");
 
+test("ScholarLens dossier: source plate preserves authentic evidence and separates metrics", async () => {
+  const text = await html();
+  assert.match(text, /<figure class="research-source-plate">\s*<img[^>]+src="\.\.\/assets\/scholarlens-demo.png"/);
+  assert.match(text, /演示题不计入正式评测/);
+  const css = await readFile(new URL("../assets/research-cases.css", import.meta.url), "utf8");
+  assert.match(css, /\.research-case--scholarlens \.research-evidence-ruler\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/);
+  const bytes = await readFile(new URL("../research/assets/scholarlens-demo.png", import.meta.url));
+  assert.equal(createHash("sha256").update(bytes).digest("hex"), "35ed26e1bce896f10a91d9a1d22c6b24af8c5dc6ecac229d875c2716e6e065be");
+});
+
 test("ScholarLens deep reading: two evidence widgets and native disclosure", async () => {
   const text = await html();
   for (const token of ["research-marginalia", "research-evidence-ruler", "research-trace", "research-deep-dive", "research-deep-body"])

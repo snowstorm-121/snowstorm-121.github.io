@@ -50,7 +50,7 @@
           <p>QASPER 正文与标注分开导出，问题、答案和证据标注不进入检索索引。段落位置与规范化字符区间用于定位原文，gold evidence 绑定原文位置，而非某次切分的 chunk ID。</p>
           <p>查询先限定论文，再进行 BM25、Dense 或 RRF 混合排名。Dev 选择的最终配置为 2400/200 字符切分与 Dense；Top-5 原文组成上下文，由本地 Ollama 的 Qwen3 4B 生成回答或证据不足拒答。</p>
           <p>引用检查核对引文是否来自本次上下文，并保留问题、检索排名、context、prompt、模型响应和审计记录，便于追踪失败阶段。</p>
-          <figure>
+          <figure class="research-source-plate">
             <img src="../assets/scholarlens-demo.png" width="1440" height="900" alt="ScholarLens 真实本地界面，展示单篇论文的问题、生成答案与右侧可核对的原文证据">
             <figcaption>真实本地截图：公开论文 Learning to Compose Neural Networks for Question Answering 的问答。演示题不计入正式评测，成功截图不代表总体效果。</figcaption>
           </figure>

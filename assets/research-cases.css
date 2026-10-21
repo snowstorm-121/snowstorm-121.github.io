@@ -90,6 +90,12 @@
 .research-deep-dive summary:focus-visible { outline: 2px solid var(--reading-accent); outline-offset: 4px; }
 .research-deep-body { padding-top: 18px; border-top: 1px solid var(--reading-line); }
 .research-deep-body h3 { margin: 24px 0 10px; }
+.research-case--scholarlens .research-source-plate { margin: 42px 0; padding-top: 14px; border-top: 2px solid var(--case-ink); }
+.research-case--scholarlens .research-source-plate::before { display: block; margin-bottom: 14px; color: var(--case-copper); font: 12px/1.5 ui-monospace,monospace; letter-spacing: .12em; content: "01 / 原始证据 · 本地界面"; }
+.research-case--scholarlens .research-source-plate img { border: 1px solid var(--case-rule); }
+.research-case--scholarlens .research-marginalia { padding: 18px 0; background: transparent; border: 0; border-top: 2px solid var(--case-ink); border-bottom: 1px solid var(--case-rule); }
+.research-case--scholarlens .research-evidence-ruler { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; }
+.research-case--scholarlens .research-evidence-ruler strong { display: block; margin: 8px 0; color: var(--case-copper); font: clamp(34px,5vw,52px)/1 Georgia,serif; font-variant-numeric: tabular-nums; }
 @media (max-width: 720px) {
   .research-case .research-version-ledger { grid-template-columns: minmax(0, 1fr); }
   .research-case .research-version-ledger > div + div { border-left: 0; border-top: 1px solid var(--reading-line); padding: 16px 0 0; }
