@@ -5,6 +5,59 @@ import { createHash } from "node:crypto";
 
 const retailPage = new URL("../research/retailflow/index.html", import.meta.url);
 const retailHtml = () => readFile(retailPage, "utf8");
+const overviewPage = new URL("../research/index.html", import.meta.url);
+
+test("Research overview: both published case destinations exist", async () => {
+  const text = await readFile(overviewPage, "utf8");
+  const destinations = [...text.matchAll(/href="(\.\/(?:scholarlens|retailflow)\/)"/g)].map(m => m[1]);
+  assert.deepEqual(destinations, ["./scholarlens/", "./retailflow/"]);
+  for (const href of destinations) await access(new URL(`${href}index.html`, overviewPage));
+});
+
+for (const route of ["index.html", "scholarlens/index.html", "retailflow/index.html"]) {
+  test(`Research accessibility: ${route} has native navigation and semantic content`, async () => {
+    const text = await readFile(new URL(`../research/${route}`, import.meta.url), "utf8");
+    assert.equal([...text.matchAll(/<h1\b/g)].length, 1);
+    const nav = text.match(/<nav class="archive-switcher"[^>]*>([\s\S]*?)<\/nav>/)?.[1];
+    assert.ok(nav);
+    assert.equal([...nav.matchAll(/aria-current="page"/g)].length, 1);
+    assert.match(nav, /<a href="[^"]*\/" aria-current="page">烛微观澜<\/a>/);
+    const ids = [...text.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
+    assert.equal(new Set(ids).size, ids.length, "IDs must be unique");
+    for (const [, id] of text.matchAll(/href="#([^"]+)"/g)) assert.ok(ids.includes(id), `Missing anchor ${id}`);
+    for (const [img] of text.matchAll(/<img\b[^>]*>/g)) assert.match(img, /\balt="[^"\s][^"]*"/);
+    for (const [table] of text.matchAll(/<table\b[\s\S]*?<\/table>/g)) {
+      assert.match(table, /<caption>[^<]+<\/caption>/);
+      assert.match(table, /<th\b/);
+      for (const [th] of table.matchAll(/<th\b[^>]*>/g)) assert.match(th, /scope="(?:col|row)"/);
+    }
+    for (const [, href] of text.matchAll(/href="([^"]+)"/g)) {
+      if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(href))
+        assert.equal(new URL(href).origin, "https://github.com", href);
+    }
+  });
+}
+
+test("Research CSS: narrow layouts wrap links and contain scrolling tables", async () => {
+  const css = await readFile(new URL("../assets/research-cases.css", import.meta.url), "utf8");
+  const shared = await readFile(new URL("../assets/archive-directory.css", import.meta.url), "utf8");
+  assert.match(css, /@media\s*\(max-width:\s*720px\)[\s\S]*?\.research-links\s*\{[^}]*flex-direction:\s*column/);
+  assert.match(shared, /@media\s*\(max-width:\s*720px\)[\s\S]*?\.archive-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+  assert.match(css, /\.research-links a\s*\{[^}]*overflow-wrap:\s*anywhere/);
+  assert.match(css, /\.research-table\s*\{[^}]*max-width:\s*100%;[^}]*overflow-x:\s*auto/);
+  assert.match(css, /\.research-case img\s*\{[^}]*max-width:\s*100%;[^}]*height:\s*auto/);
+  assert.doesNotMatch(css, /user-select:\s*none|cursor\s*:|animation\s*:/);
+  assert.match(shared, /:focus-visible\s*\{[^}]*outline:\s*2px solid/);
+});
+
+test("Research touch navigation: links and chapter anchors provide 44px targets", async () => {
+  const css = await readFile(new URL("../assets/research-cases.css", import.meta.url), "utf8");
+  for (const selector of [".research-links a", ".archive-category-index a"]) {
+    const rule = css.slice(css.indexOf(selector)).match(/\{([^}]*)\}/)?.[1];
+    assert.match(rule, /min-height:\s*44px/, selector);
+    assert.match(rule, /box-sizing:\s*border-box/, selector);
+  }
+});
 test("RetailFlow: static case exists with shared theme and ordered sections", async () => {
   await access(retailPage);
   const text = await retailHtml();

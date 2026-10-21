@@ -22,13 +22,15 @@
   margin-top: 20px;
 }
 .archive-research .research-links a, .research-case .research-links a {
+  box-sizing: border-box;
+  min-height: 44px;
   padding: 6px 0;
   color: var(--archive-accent-text);
   text-decoration: underline;
   text-underline-offset: 5px;
   overflow-wrap: anywhere;
 }
-.archive-research .archive-category-index a { display: block; padding: 6px 0; }
+.archive-research .archive-category-index a { display: block; box-sizing: border-box; min-height: 44px; padding: 6px 0; }
 .research-case .archive-content section { margin-bottom: 44px; scroll-margin-top: 24px; }
 .research-case .archive-content h2 { margin-top: 0; }
 .research-case .archive-content { overflow-wrap: anywhere; }
