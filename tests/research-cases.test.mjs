@@ -96,6 +96,17 @@ test("RetailFlow: frozen results retain every variant and denominator", async ()
     assert.ok(text.includes(`https://github.com/snowstorm-121/RetailFlow/blob/main/${file}`), file);
 });
 
+test("RetailFlow: historical comparison is separated from current seen-Dev repairs", async () => {
+  const text = await retailHtml();
+  assert.match(text, /<caption>历史 T6\/T7 冻结结果 · 2026-10-20[^<]*<\/caption>/);
+  assert.match(text, /历史版本[^<]*104 个确定性测试/);
+  assert.match(text, /历史冻结版本[^<]*混合答复[^<]*PROTOCOL_ERROR/);
+  for (const value of ["2026-10-21", "V5", "Dev 1/9", "V4", "Dev 2/9", "129 项工程测试", "已见 Dev", "提示", "协议", "用户脚本", "未重跑 Test", "未完成新版本 B0/B1/B2 对照"])
+    assert.ok(text.includes(value), value);
+  assert.match(text, /当前允许说明文字与单个原生工具调用并存[^<]*文字不提供确认权限[^<]*多工具调用仍拒绝/);
+  assert.ok(text.includes("https://github.com/snowstorm-121/RetailFlow/blob/main/reports/repair-native-dialogue.md"));
+});
+
 const page = new URL("../research/scholarlens/index.html", import.meta.url);
 const html = () => readFile(page, "utf8");
 test("ScholarLens: static case exists", async () => { await access(page); });

@@ -66,12 +66,12 @@
           <ol>
             <li>真实模型跨进程演示：公开记录中，两个 CLI 进程完成取消订单的提案、恢复、用户确认与提交，末态为 cancelled，支付记录由 1 条变为 2 条。这次开场提供了完整身份，只说明该单例链路跑通。</li>
             <li>直接保护层演示：参数变更脚本不调用模型，直接调用真实业务保护层与固定上游业务方法，验证旧提案被拒、新提案重新确认，以及重放读取回执。它不证明模型自主理解需求变更。</li>
-            <li>工程回归：公开报告记录 104 个确定性测试通过，包括脚本模型与注入故障；它们检查工程路径，不能代替真实模型的业务成功率。</li>
+            <li>工程回归：历史版本（2026-10-20）的公开报告记录 104 个确定性测试通过，包括脚本模型与注入故障；它们检查工程路径，不能代替真实模型的业务成功率。</li>
           </ol>
-          <p>冻结派生题集为 Dev 9 题、Test 4 题。B0 使用近期完整消息块；B1 增加一次已知执行前只读故障重试；B2 再增加结构化关键状态与工具结果裁剪。三组的权限、确认与回执保护相同。</p>
+          <p>以下为历史 T6/T7 冻结评测（2026-10-20），派生题集为 Dev 9 题、Test 4 题。B0 使用近期完整消息块；B1 增加一次已知执行前只读故障重试；B2 再增加结构化关键状态与工具结果裁剪。三组的权限、确认与回执保护相同。</p>
           <div class="research-table" role="region" aria-label="正式模型评测表" tabindex="0">
             <table>
-              <caption>正式模型端到端成功 · 每组保留全部题目</caption>
+              <caption>历史 T6/T7 冻结结果 · 2026-10-20 · 端到端成功，每组保留全部题目</caption>
               <thead><tr><th scope="col">配置</th><th scope="col">Dev 9 题</th><th scope="col">Test 4 题</th></tr></thead>
               <tbody>
                 <tr><th scope="row">B0</th><td>0/9</td><td>0/4</td></tr>
@@ -81,9 +81,11 @@
             </table>
           </div>
           <p>业务效果未达标，未取得对照提升。Test 是 4 道独立题、三组各运行一次，共 12 次运行，不能算作 12 道独立题；成功要求业务末态、必要确认、无禁止副作用和必要沟通同时满足。这是本地派生评测，不是官方 τ2 排行榜。</p>
-          <p>失败集中在身份追问与工具协议：未定位身份先查订单被 AUTH_REQUIRED 拦截；普通文字追问没有触发结构化 ask_user；编造身份及混合答复的工具请求被 PROTOCOL_ERROR 拒绝。参数 schema 合法不代表已获权限或业务成功。</p>
+          <p>历史冻结版本的失败集中在身份追问与工具协议：未定位身份先查订单被 AUTH_REQUIRED 拦截；普通文字追问没有触发结构化 ask_user；编造身份及混合答复的工具请求被 PROTOCOL_ERROR 拒绝。参数 schema 合法不代表已获权限或业务成功。</p>
           <p>一次演示与工程测试不证明通用安全、生产可靠性或业务成功。Test 没有可恢复故障，也未完成长上下文业务路径，不能据此声称恢复或上下文收益；观察违规 0/4 也不能推出全面安全。</p>
-          <div class="research-links"><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/reports/t7-test.md">冻结 Test 报告 · 结果与失败</a><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/docs/demos.md">演示操作单 · 真实模型与保护层</a><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/reports/contribution.md">贡献记录 · Dev 与工程证据</a></div>
+          <p>当前修复记录（2026-10-21）：V5 完整 Dev 1/9，前一版 V4 完整 Dev 2/9；129 项工程测试通过，业务效果仍未稳定。这是已见 Dev 上的开发排障，运行间修改了协议适配、提示和用户脚本；未重跑 Test，也未完成新版本 B0/B1/B2 对照，不能归因于某个组件的因果提升。</p>
+          <p>当前允许说明文字与单个原生工具调用并存，说明文字仅保留审计，文字不提供确认权限；多工具调用仍拒绝。写入仍须由应用接收当前具体提案的用户明确确认。</p>
+          <div class="research-links"><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/reports/repair-native-dialogue.md">当前 V5 修复记录 · 已见 Dev 与边界</a><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/reports/t7-test.md">历史冻结 Test 报告 · 结果与失败</a><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/docs/demos.md">演示操作单 · 真实模型与保护层</a><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/reports/contribution.md">贡献记录 · Dev 与工程证据</a></div>
         </section>
         <section id="conclusion">
           <h2>结论星屿</h2>
