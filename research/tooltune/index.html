@@ -51,7 +51,7 @@
           <h2>工程舱图</h2>
           <p>112,960 条原始对话中，99,108 条通过严格解析。畸形角色、未知工具与参数 schema 错误进入隔离记录。训练与评测按完整来源对话、工具家族及既定近重复规则连通分组，避免把同一组拆到不同 split。随后在模型正式评测前固定均衡抽样：Validation 100+100，Test 95+95，分别是调用与非调用。规则内交集审计为零，不代表语义或预训练层面绝无泄漏。</p>
           <figure class="research-process-plate">
-            <figcaption>流程示意 · 从来源对话到冻结 Test；箭头代表实验步骤，不代表线上工具执行</figcaption>
+            <figcaption>流程示意 · 从来源对话到冻结 Test；编号标示实验步骤，不代表线上工具执行</figcaption>
             <ol class="research-flow">
               <li><strong>解析、隔离、分组</strong><p>保留来源与隔离记录，在原 split 内抽样，不拆组、不补造标签。</p></li>
               <li><strong>格式与目标校验</strong><p>固定官方 Instruct 模板；只监督当前 assistant 的目标 token。历史消息和工具回复仅作输入，未来工具回复不进入目标；针对 MLX-LM padding 边界修正 loss mask。</p></li>

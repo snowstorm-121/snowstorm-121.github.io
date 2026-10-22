@@ -55,6 +55,21 @@ test("ToolTune: frozen Test table retains paired denominators and limits", async
   assert.match(text, /50%[^<]*恒不调用|恒不调用[^<]*50%/);
 });
 
+test("ToolTune: narrow Test table keeps numeric cells whole inside a focusable scroll region", async () => {
+  const text = await html();
+  const css = await readFile(new URL("../assets/research-cases.css", import.meta.url), "utf8");
+  assert.match(text, /<div class="research-table" role="region"[^>]*tabindex="0">\s*<table>[\s\S]*?<\/table>\s*<\/div>/);
+  assert.match(css, /\.research-case \.research-table\s*\{[^}]*max-width:\s*100%;[^}]*overflow-x:\s*auto/);
+  assert.match(css, /\.research-case--tooltune \.research-table table\s*\{[^}]*min-width:\s*\d+px/);
+  assert.match(css, /\.research-case--tooltune \.research-table td\s*\{[^}]*white-space:\s*nowrap/);
+});
+
+test("ToolTune: process caption describes the numbered flow", async () => {
+  const text = await html();
+  assert.match(text, /<figcaption>[^<]*实验步骤[^<]*<\/figcaption>\s*<ol class="research-flow">/);
+  assert.doesNotMatch(text, /箭头代表实验步骤/);
+});
+
 test("ToolTune: paired record, examples and native disclosure preserve interpretation", async () => {
   const text = await html();
   assert.match(text, /<dl class="research-paired-record"/);

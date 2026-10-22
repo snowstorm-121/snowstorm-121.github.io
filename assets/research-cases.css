@@ -131,3 +131,5 @@
 .research-case--tooltune .research-paired-record dt { color: var(--reading-muted); font-size: 14px; }
 .research-case--tooltune .research-paired-record dd { margin: 6px 0 0; color: var(--case-copper); font: clamp(32px,5vw,46px)/1 Georgia,serif; font-variant-numeric: tabular-nums; }
 .research-case--tooltune .research-table { font-variant-numeric: tabular-nums; }
+.research-case--tooltune .research-table table { min-width: 440px; }
+.research-case--tooltune .research-table td { white-space: nowrap; }
