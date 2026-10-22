@@ -25,7 +25,7 @@
   <main class="archive-shell">
     <section class="archive-photo research-cover" aria-label="ScholarLens 案例">
       <p class="archive-label">RESEARCH CASE / 01 · 研究原型</p>
-      <h1>ScholarLens · 研知</h1>
+      <h1>ScholarLens · <span class="research-cover-name">研知</span></h1>
       <p class="archive-intro">让论文问答回到原文：在单篇论文内，留下可定位的证据与可复核的实验。</p>
     </section>
     <div class="archive-layout">
@@ -41,11 +41,13 @@
       </aside>
       <article class="archive-content">
         <section id="problem">
+          <p class="research-chapter-label">01 / CHAPTER</p>
           <h2>问题航标</h2>
           <p>阅读论文时，生成式回答可能省略实验条件，或给出无法核对的引用。ScholarLens 将问题限定在用户选定的单篇论文，展示对应原文，让读者核对方法、数据集与实验设置。</p>
           <p>这是本地 RAG 研究原型；当前结果来自英文 QASPER 题集与单机 4B 模型。</p>
         </section>
         <section id="engineering">
+          <p class="research-chapter-label">02 / CHAPTER</p>
           <h2>工程舱图</h2>
           <p>QASPER 正文与标注分开导出，问题、答案和证据标注不进入检索索引。段落位置与规范化字符区间用于定位原文，gold evidence 绑定原文位置，而非某次切分的 chunk ID。</p>
           <p>查询先限定论文，再进行 BM25、Dense 或 RRF 混合排名。Dev 选择的最终配置为 2400/200 字符切分与 Dense；Top-5 原文组成上下文，由本地 Ollama 的 Qwen3 4B 生成回答或证据不足拒答。</p>
@@ -56,6 +58,7 @@
           </figure>
         </section>
         <section id="experiments">
+          <p class="research-chapter-label">03 / CHAPTER</p>
           <h2>实验潮汐</h2>
           <aside class="research-marginalia" aria-label="ScholarLens 实验旁注">
             <p class="archive-label">实验手札 / 两种不同分母</p>
@@ -104,6 +107,7 @@
           </details>
         </section>
         <section id="conclusion">
+          <p class="research-chapter-label">04 / CHAPTER</p>
           <h2>结论星屿</h2>
           <p>可定位引用便于核对，不保证事实正确。当前未做跨论文综合，也不是生产服务；小规模英文题集、单机模型与缺少独立人工 gold 全量审核限制了结论范围。</p>
           <p>项目复用 Kotaemon 的 Gradio 应用、存储和模型接入组件，以及 QASPER 数据与官方评测资源。本项目改造集中于论文数据定位、正文与标注隔离、论文范围检索、引用审计和冻结评测。部分工程与报告由助手协作完成，不代表全部模块由作者独立手写。</p>

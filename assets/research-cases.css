@@ -3,6 +3,7 @@
 .research-case .archive-header { background: var(--case-paper); border-color: var(--case-rule); }
 .research-case .archive-photo { min-height: 0; background: var(--case-paper); color: var(--case-ink); border-bottom: 1px solid var(--case-rule); padding: clamp(30px,6vw,76px) clamp(22px,5vw,60px) 35px; }
 .research-case .research-cover .archive-label { color: var(--case-copper); }
+.research-case .research-cover-name { white-space: nowrap; }
 .research-case .research-cover::after { display: block; height: 6px; margin-top: 36px; background: repeating-linear-gradient(90deg,var(--case-copper) 0 30px,var(--case-paper) 30px 38px,var(--case-ink) 38px 72px,var(--case-paper) 72px 80px); content: ""; }
 .research-case .archive-layout { grid-template-columns: minmax(0,1fr); gap: 0; margin-top: 0; }
 .research-case .archive-index { border-right: 0; border-bottom: 1px solid var(--case-rule); padding: 12px 0; }
@@ -44,6 +45,9 @@
 }
 .archive-research .archive-category-index a { display: block; box-sizing: border-box; min-height: 44px; padding: 6px 0; }
 .research-case .archive-content section { margin-bottom: 44px; scroll-margin-top: 24px; }
+.research-case .archive-content > section { padding-top: 40px; border-top: 1px solid var(--case-rule); }
+.research-case .archive-content > section:first-child { padding-top: 48px; border-top: 0; }
+.research-case .research-chapter-label { margin: 0 0 12px; color: var(--case-copper); font: 12px/1.5 ui-monospace,monospace; letter-spacing: .12em; }
 .research-case .archive-content h2 { margin-top: 0; }
 .research-case .archive-content { overflow-wrap: anywhere; }
 .research-case figure { margin: 28px 0; }

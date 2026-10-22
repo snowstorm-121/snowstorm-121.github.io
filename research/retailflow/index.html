@@ -41,11 +41,13 @@
       </aside>
       <article class="archive-content">
         <section id="problem">
+          <p class="research-chapter-label">01 / CHAPTER</p>
           <h2>问题航标</h2>
           <p>零售执行需要检查实际订单变化，不能只看回答是否流畅。模型可能选错工具、遗漏身份追问，或在用户改变需求后沿用旧确认；进程重启后，也需要判断写操作是否已经提交。</p>
           <p>RetailFlow 是本地 CLI Agent 实验原型，基于 LangGraph、Ollama 与 τ2 retail 模拟环境，研究查询、取消与退货中的确认和恢复边界。不连接真实订单、支付或客服系统。</p>
         </section>
         <section id="engineering">
+          <p class="research-chapter-label">02 / CHAPTER</p>
           <h2>工程舱图</h2>
           <p>LangGraph 运行模型—工具循环，Ollama 接入本地 Qwen3 4B。模型选择工具和参数，应用负责协议、身份与订单所有权校验；用户脚本与评分器不参与模型规划。</p>
           <figure class="research-process-plate">
@@ -61,6 +63,7 @@
           <p>SQLite 事务覆盖本地业务快照与执行回执，不覆盖业务、对话和模型请求的全局事务，也不是分布式 exactly-once 保证。实现采用自定义 SQLite 表，未接入 LangGraph 原生 SqliteSaver。</p>
         </section>
         <section id="experiments">
+          <p class="research-chapter-label">03 / CHAPTER</p>
           <h2>实验潮汐</h2>
           <div class="research-version-ledger" aria-label="RetailFlow 不同阶段的实验记录">
             <div><p class="archive-label">历史冻结 Test · 2026-10-20</p><strong>B0 / B1 / B2 各 0/4</strong><p>四道独立 Test 题，各组一次；冻结对照，不是当前 V5 成绩。</p></div>
@@ -119,6 +122,7 @@
           <div class="research-links"><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/reports/repair-native-dialogue.md">当前 V5 修复记录 · 已见 Dev 与边界</a><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/reports/t7-test.md">历史冻结 Test 报告 · 结果与失败</a><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/docs/demos.md">演示操作单 · 真实模型与保护层</a><a href="https://github.com/snowstorm-121/RetailFlow/blob/main/reports/contribution.md">贡献记录 · Dev 与工程证据</a></div>
         </section>
         <section id="conclusion">
+          <p class="research-chapter-label">04 / CHAPTER</p>
           <h2>结论星屿</h2>
           <p>应用保护能约束部分副作用，无法替代模型正确规划与必要沟通。当前仅是实验性本地 CLI 与模拟业务，身份定位不是生产认证，尚无真实平台集成、生产负载、稳定性或全面提示注入防护结论。</p>
           <p>项目基于 LangChain react-agent 模板和 τ2-bench retail 的数据、政策及业务方法。新增工作集中于本地模型接入、受控工具节点、身份与提案确认、SQLite 回执恢复及冻结派生评测；不代表从零自研 Agent 框架或全部订单规则。工程实现使用了 Codex 辅助。</p>

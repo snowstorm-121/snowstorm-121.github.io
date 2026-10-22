@@ -7,6 +7,24 @@ const retailPage = new URL("../research/retailflow/index.html", import.meta.url)
 const retailHtml = () => readFile(retailPage, "utf8");
 const overviewPage = new URL("../research/index.html", import.meta.url);
 
+test("Paper dossiers: four chapter starts carry ordered document labels and breathing room", async () => {
+  for (const name of ["scholarlens", "retailflow"]) {
+    const text = await readFile(new URL(`../research/${name}/index.html`, import.meta.url), "utf8");
+    assert.deepEqual([...text.matchAll(/<p class="research-chapter-label">(\d{2}) \/ CHAPTER<\/p>/g)].map(m => m[1]), ["01", "02", "03", "04"]);
+  }
+  const css = await readFile(new URL("../assets/research-cases.css", import.meta.url), "utf8");
+  assert.match(css, /\.research-case \.archive-content > section\s*\{[^}]*padding-top:\s*40px;[^}]*border-top:\s*1px solid var\(--case-rule\)/);
+  assert.match(css, /\.research-case \.archive-content > section:first-child\s*\{[^}]*padding-top:\s*48px;[^}]*border-top:\s*0/);
+  assert.match(css, /\.research-case \.research-chapter-label\s*\{[^}]*color:\s*var\(--case-copper\)/);
+});
+
+test("ScholarLens dossier: Chinese cover name stays together at narrow widths", async () => {
+  const text = await readFile(new URL("../research/scholarlens/index.html", import.meta.url), "utf8");
+  assert.match(text, /<h1>ScholarLens · <span class="research-cover-name">研知<\/span><\/h1>/);
+  const css = await readFile(new URL("../assets/research-cases.css", import.meta.url), "utf8");
+  assert.match(css, /\.research-case \.research-cover-name\s*\{[^}]*white-space:\s*nowrap/);
+});
+
 test("Paper dossiers: chapter index wraps without row borders", async () => {
   const css = await readFile(new URL("../assets/research-cases.css", import.meta.url), "utf8");
   assert.match(css, /\.research-case \.archive-category-index\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;[^}]*gap:\s*0 18px/);
@@ -42,7 +60,7 @@ test("RetailFlow dossier: factual process plate and separate phase ledger", asyn
   assert.match(css, /\.research-case--retailflow \.research-version-ledger\s*\{[^}]*font-variant-numeric:\s*tabular-nums/);
 });
 
-test("Research dossiers: scoped covers and single-column reading preserve the overview", async () => {
+test("Research dossiers: scoped covers, single-column reading and unchanged overview HTML", async () => {
   for (const name of ["scholarlens", "retailflow"]) {
     const text = await readFile(new URL(`../research/${name}/index.html`, import.meta.url), "utf8");
     assert.match(text, /class="archive-page archive-research research-case research-case--(?:scholarlens|retailflow)"/);
