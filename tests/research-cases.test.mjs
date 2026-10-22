@@ -8,7 +8,7 @@ const retailHtml = () => readFile(retailPage, "utf8");
 const overviewPage = new URL("../research/index.html", import.meta.url);
 
 test("Paper dossiers: four chapter starts carry ordered document labels and breathing room", async () => {
-  for (const name of ["scholarlens", "retailflow"]) {
+  for (const name of ["scholarlens", "retailflow", "tooltune"]) {
     const text = await readFile(new URL(`../research/${name}/index.html`, import.meta.url), "utf8");
     assert.deepEqual([...text.matchAll(/<p class="research-chapter-label">(\d{2}) \/ CHAPTER<\/p>/g)].map(m => m[1]), ["01", "02", "03", "04"]);
   }
@@ -60,17 +60,24 @@ test("RetailFlow dossier: factual process plate and separate phase ledger", asyn
   assert.match(css, /\.research-case--retailflow \.research-version-ledger\s*\{[^}]*font-variant-numeric:\s*tabular-nums/);
 });
 
-test("Research dossiers: scoped covers, single-column reading and unchanged overview HTML", async () => {
-  for (const name of ["scholarlens", "retailflow"]) {
+test("Research dossiers: scoped covers, single-column reading and unchanged earlier projects", async () => {
+  for (const name of ["scholarlens", "retailflow", "tooltune"]) {
     const text = await readFile(new URL(`../research/${name}/index.html`, import.meta.url), "utf8");
-    assert.match(text, /class="archive-page archive-research research-case research-case--(?:scholarlens|retailflow)"/);
+    assert.match(text, /class="archive-page archive-research research-case research-case--(?:scholarlens|retailflow|tooltune)"/);
     assert.ok(text.includes(`research-case--${name}`));
     assert.match(text, /class="archive-photo research-cover"/);
   }
   const css = await readFile(new URL("../assets/research-cases.css", import.meta.url), "utf8");
   assert.match(css, /\.research-case \.archive-layout\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
-  const overview = await readFile(overviewPage);
-  assert.equal(createHash("sha256").update(overview).digest("hex"), "f817c0b496d799214ddb226d7652de732389041c763180edbda6d03a01bf29db");
+  const overview = await readFile(overviewPage, "utf8");
+  for (const [name, hash] of [
+    ["scholarlens", "3d4d5825244f946c2bce60ac4980889e93c48347d85325369363e43539293862"],
+    ["retailflow", "3113e6e6dc79265522fe1fc371b12c47c608f616b60eb4f4b0f0e557947624ca"],
+  ]) {
+    const block = overview.match(new RegExp(`<li class="archive-project" id="${name}">[\\s\\S]*?<\\/li>`))?.[0];
+    assert.ok(block, name);
+    assert.equal(createHash("sha256").update(block).digest("hex"), hash, name);
+  }
 });
 
 test("Research dossier covers: labels use the theme-aware copper ink", async () => {
@@ -96,14 +103,15 @@ test("RetailFlow deep reading: honest denominators, actual failures and fixed re
   assert.match(text, /工程测试[^<]*不等于业务成功率|工程测试[^<]*不能代替业务成功率/);
 });
 
-test("Research overview: both published case destinations exist", async () => {
+test("Research overview: three published case destinations exist", async () => {
   const text = await readFile(overviewPage, "utf8");
-  const destinations = [...text.matchAll(/href="(\.\/(?:scholarlens|retailflow)\/)"/g)].map(m => m[1]);
-  assert.deepEqual(destinations, ["./scholarlens/", "./retailflow/"]);
+  const destinations = [...text.matchAll(/href="(\.\/(?:scholarlens|retailflow|tooltune)\/)"/g)].map(m => m[1]);
+  assert.deepEqual(destinations, ["./scholarlens/", "./retailflow/", "./tooltune/"]);
+  assert.match(text, /项目索引 · 3 项/);
   for (const href of destinations) await access(new URL(`${href}index.html`, overviewPage));
 });
 
-for (const route of ["index.html", "scholarlens/index.html", "retailflow/index.html"]) {
+for (const route of ["index.html", "scholarlens/index.html", "retailflow/index.html", "tooltune/index.html"]) {
   test(`Research accessibility: ${route} has native navigation and semantic content`, async () => {
     const text = await readFile(new URL(`../research/${route}`, import.meta.url), "utf8");
     assert.equal([...text.matchAll(/<h1\b/g)].length, 1);

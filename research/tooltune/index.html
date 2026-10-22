@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f0e9">
+  <script src="../../assets/reading-theme.js"></script>
+  <title>ToolTune · 工具调用微调 · 烛微观澜 · SNOWSTORM</title>
+  <link rel="icon" href="../../assets/homepage/profile-coast-backview.png" type="image/png">
+  <link rel="stylesheet" href="../../assets/library.css">
+  <link rel="stylesheet" href="../../assets/reading-theme.css">
+  <link rel="stylesheet" href="../../assets/archive-directory.css">
+  <link rel="stylesheet" href="../../assets/research-cases.css">
+</head>
+<body class="archive-page archive-research research-case research-case--tooltune">
+  <header class="archive-header">
+    <a href="../../index.html">← 返回主页</a>
+    <nav class="archive-switcher" aria-label="档案分类">
+      <a href="../../learning/">星野问津</a>
+      <a href="../../living/">人间照影</a>
+      <a href="../" aria-current="page">烛微观澜</a>
+    </nav>
+    <button type="button" data-reading-theme-toggle aria-label="切换阅读模式"><span>昼</span><span class="reading-theme-tide" aria-hidden="true"></span><span>夜</span></button>
+  </header>
+  <main class="archive-shell">
+    <section class="archive-photo research-cover" aria-label="ToolTune 案例">
+      <p class="archive-label">RESEARCH CASE / 03 · 实验原型 · 2026-10-22</p>
+      <h1>ToolTune · 工具调用微调</h1>
+      <p class="archive-intro">在本地小预算下，追踪一次量化 LoRA 训练怎样改变工具调用决策，以及它没有证明什么。</p>
+    </section>
+    <div class="archive-layout">
+      <aside class="archive-index" aria-label="案例章节">
+        <p class="archive-label">阅读航线</p>
+        <ol class="archive-category-index">
+          <li><a href="#problem">问题航标</a></li>
+          <li><a href="#engineering">工程舱图</a></li>
+          <li><a href="#experiments">实验潮汐</a></li>
+          <li><a href="#conclusion">结论星屿</a></li>
+        </ol>
+        <div class="research-links"><a href="../">← 返回研究总览</a><a href="../scholarlens/">ScholarLens →</a><a href="../retailflow/">RetailFlow →</a></div>
+      </aside>
+      <article class="archive-content">
+        <section id="problem">
+          <p class="research-chapter-label">01 / CHAPTER</p>
+          <h2>问题航标</h2>
+          <p>模型说“我会调用工具”与真正生成可解析的工具名、参数，是两种不同结果。ToolTune 把问题缩到单轮决策：该调用还是不调用；若调用，能否完整输出指定工具及参考参数。这里没有运行真实 API，文本调用正确不等于外部动作成功。</p>
+          <p>实验在 Apple M5、16 GB 统一内存上，用 MLX 4-bit Qwen3-4B-Instruct-2507 的冻结基座训练 rank 8 LoRA。它是本地量化微调与冻结对照实验，样本来自 Glaive；主要看一组可审计的诊断结果，而非生产流量准确率。</p>
+        </section>
+        <section id="engineering">
+          <p class="research-chapter-label">02 / CHAPTER</p>
+          <h2>工程舱图</h2>
+          <p>112,960 条原始对话中，99,108 条通过严格解析。畸形角色、未知工具与参数 schema 错误进入隔离记录。训练与评测按完整来源对话、工具家族及既定近重复规则连通分组，避免把同一组拆到不同 split。随后在模型正式评测前固定均衡抽样：Validation 100+100，Test 95+95，分别是调用与非调用。规则内交集审计为零，不代表语义或预训练层面绝无泄漏。</p>
+          <figure class="research-process-plate">
+            <figcaption>流程示意 · 从来源对话到冻结 Test；箭头代表实验步骤，不代表线上工具执行</figcaption>
+            <ol class="research-flow">
+              <li><strong>解析、隔离、分组</strong><p>保留来源与隔离记录，在原 split 内抽样，不拆组、不补造标签。</p></li>
+              <li><strong>格式与目标校验</strong><p>固定官方 Instruct 模板；只监督当前 assistant 的目标 token。历史消息和工具回复仅作输入，未来工具回复不进入目标；针对 MLX-LM padding 边界修正 loss mask。</p></li>
+              <li><strong>冻结基座上训练</strong><p>仅在最后 4 个 block 的注意力 q/v 投影挂载 LoRA；保留基座张量不变，保存 U100 与 U200 候选。</p></li>
+              <li><strong>先选模，再测 Test</strong><p>只由 Validation 严格决策匹配选中 U200；Test 在选定之后一次性冻结对照。</p></li>
+            </ol>
+          </figure>
+          <dl class="research-training-ledger" aria-label="ToolTune 训练记录">
+            <div><dt>可训练范围</dt><dd>最后 4 个 block 的 q/v · rank 8 · 327,680 个可训练参数；MLX scale=16 是直接乘数，不是 PEFT alpha。</dd></div>
+            <div><dt>正式预算</dt><dd>200 次 optimizer updates / 800 个 microsteps；4,000 条训练池中实际曝光 800 条、40,821 个监督 token，未遍历完整一轮。</dd></div>
+            <div><dt>Validation 选模</dt><dd>B0 94/200、U100 103/200、U200 107/200；选择 U200，未用 Test 调参。</dd></div>
+          </dl>
+          <p>训练修正使用 MLX-LM 支持的 loss 回调，不修改安装包源码。模型架构、量化和优化器由上游实现；项目工作集中在数据处理、训练编排、目标遮罩与可复核评测。</p>
+          <div class="research-links"><a href="https://github.com/snowstorm-121/ToolTune/blob/82c53f9eb15e37e01f8f16e7ece33198e11ba1f4/reports/T2-balanced-protocol.md">均衡数据协议</a><a href="https://github.com/snowstorm-121/ToolTune/blob/82c53f9eb15e37e01f8f16e7ece33198e11ba1f4/reports/T3-validation.md">训练与 Validation</a><a href="https://github.com/snowstorm-121/ToolTune/blob/82c53f9eb15e37e01f8f16e7ece33198e11ba1f4/src/tooltune/train.py">训练目标实现</a></div>
+        </section>
+        <section id="experiments">
+          <p class="research-chapter-label">03 / CHAPTER</p>
+          <h2>实验潮汐</h2>
+          <p>冻结 Test 是预先确定的均衡诊断集，95 个 gold 调用、95 个 gold 非调用。B0 无 adapter 与 Validation 选中的 U200 从同一冻结基座独立加载；逐题 prompt token 相同，均为 greedy 解码、EOS 停止、256-token 上限、无强制 JSON。金标准不进入输入；首次预测中的截断、解析失败与空输出照常计错且保留分母。</p>
+          <div class="research-table" role="region" aria-label="ToolTune 冻结 Test 对照表" tabindex="0">
+            <table>
+              <caption>冻结 Test · 同一 190 题的 B0 / U200 对照</caption>
+              <thead><tr><th scope="col">指标与分母</th><th scope="col">B0 无 adapter</th><th scope="col">U200 LoRA</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">严格决策匹配，含完整结束</th><td>89/190（46.84%）</td><td>100/190（52.63%）</td></tr>
+                <tr><th scope="row">gold 调用严格匹配</th><td>66/95</td><td>71/95</td></tr>
+                <tr><th scope="row">非调用动作匹配且完整结束</th><td>23/95</td><td>29/95</td></tr>
+                <tr><th scope="row">调用召回 / 工具名正确</th><td>88/95</td><td>91/95</td></tr>
+                <tr><th scope="row">参数 schema 有效，全部 gold 调用</th><td>88/95</td><td>91/95</td></tr>
+                <tr><th scope="row">256-token 截断，全部样本</th><td>72/190</td><td>66/190</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>主指标净增 11/190，即 5.79 个百分点。均衡集上“恒不调用”动作参照为 50%，只是类别比例决定的常数，不是另一个实测模型。这里未计算显著性或置信区间；同一来源对话可能贡献多条决策，不宜把 190 行都当独立证据。</p>
+          <dl class="research-paired-record" aria-label="同题配对结果">
+            <div><dt>两者都对</dt><dd>83</dd></div>
+            <div><dt>由错变对 · 改善</dt><dd>17</dd></div>
+            <div><dt>由对变错 · 退化</dt><dd>6</dd></div>
+            <div><dt>两者都错</dt><dd>84</dd></div>
+          </dl>
+          <p>17 个改善由三种变化组成：7 题非调用答复在固定预算内结束，6 题恢复完整调用包裹，4 题与参考参数对齐。因此净增 11 题不能整体解释为更强的工具路由或参数推理；6 题退化也在同一张配对记录中。</p>
+          <ol class="research-trace">
+            <li><strong>调用文本正确 · glaive-v2:112844:a2</strong><p>U200 输出完整 play_music，专辑与艺人参数对齐；这是文本调用，没有播放音乐。</p></li>
+            <li><strong>漏调用退化 · glaive-v2:037855:a4</strong><p>日历标题和日期已给齐，B0 生成结构化调用，U200 只有“会创建事件”的口头承诺，按漏调用计错。</p></li>
+            <li><strong>指标与内容分离 · glaive-v2:081350:a2</strong><p>Ruby 代码请求中，U200 在预算内结束却拒绝给代码；未调用动作由错变对，不代表内容质量改善。</p></li>
+          </ol>
+          <details class="research-deep-dive">
+            <summary>展开实验手札 · 配对变化、标签疑点与评分边界</summary>
+            <div class="research-deep-body">
+              <h3>从首次输出复算</h3>
+              <p>实验契约在生成前锁定基座、adapter、模板、数据、样本 ID、解析器与指标。两臂各保留 190 条首次预测，逐题输入 token 完全相同；离线复算与总分一致。严格决策匹配要求调用的工具及参考参数一致，或非调用在预算内完整结束。调用召回、工具名和 schema 的分母均为全部 95 条 gold 调用，不以生成的调用数重新设分母。</p>
+              <p>配对为 83 都对、17 改善、6 退化、84 都错。改善中的 7 题来自非调用完整结束、6 题来自调用包裹恢复、4 题来自参考参数对齐。截断 B0 72/190、U200 66/190，改善并未消除输出预算问题。</p>
+              <h3>真实样例如何读</h3>
+              <p>play_music 成功样例没有触发实际播放器。日历样例 glaive-v2:037855:a4 的口头承诺不是工具调用。Ruby 样例 glaive-v2:081350:a2 的拒绝回答按动作计对，但不证明回答质量。另有 glaive-v2:095636:a4 的参考参数含可见上下文未给出的密码；仍按冻结参考计分，不将匹配它解释为安全的密码提取。这里不展示密码原文。</p>
+              <h3>样本覆盖与外推</h3>
+              <p>所有 held-out 调用题都只有一个候选工具；Test 95 个非调用题中仅 1 个带可用工具。这里不能证明复杂多工具路由、广泛“工具可用但不适配”的拒绝、自然语言质量或真实 API 成功。局部只读工具演示使用构造调用文本，不计入 Test。</p>
+              <p>原始记录：<a href="https://github.com/snowstorm-121/ToolTune/blob/82c53f9eb15e37e01f8f16e7ece33198e11ba1f4/reports/T4-test.md">T4 冻结 Test</a>、<a href="https://github.com/snowstorm-121/ToolTune/blob/82c53f9eb15e37e01f8f16e7ece33198e11ba1f4/reports/evidence/t4/recomputed-comparison.json">离线复算摘要</a>、<a href="https://github.com/snowstorm-121/ToolTune/blob/82c53f9eb15e37e01f8f16e7ece33198e11ba1f4/reports/evidence/t3/selection.json">Validation 选模记录</a>、<a href="https://github.com/snowstorm-121/ToolTune/blob/82c53f9eb15e37e01f8f16e7ece33198e11ba1f4/src/tooltune/metrics.py">评分实现</a>。</p>
+            </div>
+          </details>
+        </section>
+        <section id="conclusion">
+          <p class="research-chapter-label">04 / CHAPTER</p>
+          <h2>结论星屿</h2>
+          <p>这一轮固定预算实验在均衡诊断 Test 上观察到严格决策匹配 89/190→100/190，同时留下 6 题退化与 66/190 题截断。它说明部分输出格式和预算内完成状态改善；当前数据不足以声称广泛工具选择能力、自然语言质量或真实 API 执行成功率提高。</p>
+          <p>原创工作包括解析与隔离、分组抽样、训练编排和 loss mask、冻结契约、评分与复算。MLX/MLX-LM、Qwen、Glaive 的模型、量化、优化器与数据归上游；使用的量化权重是社区转换。68 项工程测试核对实现路径，不等于模型质量。原始数据、模型权重、adapter 和完整原始预测未随公开仓库发布，不能声称一键完整复现。</p>
+          <div class="research-links"><a href="https://github.com/snowstorm-121/ToolTune/blob/82c53f9eb15e37e01f8f16e7ece33198e11ba1f4/README.md">GitHub · ToolTune 项目说明</a><a href="https://github.com/snowstorm-121/ToolTune/blob/82c53f9eb15e37e01f8f16e7ece33198e11ba1f4/UPSTREAM.md">上游来源与许可</a></div>
+        </section>
+      </article>
+    </div>
+  </main>
+</body>
+</html>

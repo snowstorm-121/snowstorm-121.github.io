@@ -41,8 +41,8 @@ for(const [page,names] of Object.entries({living:["长夜微澜","纸上星河",
  assert.equal(items.length,4);assert.match(items[i],new RegExp("<h2>"+name+"</h2>"));assert.match(items[i],/<span class="archive-status">尚未发布<\/span>/);assert.doesNotMatch(items[i],/<a\b|<button\b|href=/);
 }));
 const projects=[...research.matchAll(/<li class="archive-project"[^>]*>([\s\S]*?)<\/li>/g)].map(m=>m[1]);
-test("research: two published projects in order",()=>{
- assert.equal(projects.length,2);assert.match(projects[0],/<h2>ScholarLens<\/h2>/);assert.match(projects[1],/<h2>RetailFlow<\/h2>/);
+test("research: three published projects in order",()=>{
+ assert.equal(projects.length,3);assert.match(projects[0],/<h2>ScholarLens<\/h2>/);assert.match(projects[1],/<h2>RetailFlow<\/h2>/);assert.match(projects[2],/<h2>ToolTune<\/h2>/);
 });
 test("research: ScholarLens describes its single-paper evidence scope",()=>{
  assert.match(projects[0]??"",/研究原型/);assert.match(projects[0]??"",/单篇论文/);assert.match(projects[0]??"",/证据问答/);
@@ -51,14 +51,14 @@ test("research: RetailFlow describes its simulated CLI scope",()=>{
  assert.match(projects[1]??"",/实验原型/);assert.match(projects[1]??"",/模拟零售/);assert.match(projects[1]??"",/CLI Agent/);
 });
 test("research: native relative case links",()=>{
- for(const [i,slug] of ["scholarlens","retailflow"].entries())assert.match(projects[i]??"",new RegExp('<a href="\\./'+slug+'/">[^<]+</a>'));
+ for(const [i,slug] of ["scholarlens","retailflow","tooltune"].entries())assert.match(projects[i]??"",new RegExp('<a href="\\./'+slug+'/">[^<]+</a>'));
 });
 test("research: explicit GitHub repository links",()=>{
- for(const [i,name] of ["ScholarLens","RetailFlow"].entries())assert.ok((projects[i]??"").includes('<a href="https://github.com/snowstorm-121/'+name+'">GitHub · '+name+'</a>'));
+ for(const [i,name] of ["ScholarLens","RetailFlow","ToolTune"].entries())assert.ok((projects[i]??"").includes('<a href="https://github.com/snowstorm-121/'+name+'">GitHub · '+name+'</a>'));
 });
 test("research: project index anchors target each card",()=>{
- assert.match(research,/项目索引 · 2 项/);
- for(const slug of ["scholarlens","retailflow"]){assert.ok(research.includes('href="#'+slug+'"'));assert.ok(research.includes('id="'+slug+'"'));}
+ assert.match(research,/项目索引 · 3 项/);
+ for(const slug of ["scholarlens","retailflow","tooltune"]){assert.ok(research.includes('href="#'+slug+'"'));assert.ok(research.includes('id="'+slug+'"'));}
 });
 test("research: shared styles preserve static themed content",()=>{
  assert.match(research,/href="\.\.\/assets\/research-cases.css"/);assert.match(research,/href="\.\.\/assets\/reading-theme.css"/);
