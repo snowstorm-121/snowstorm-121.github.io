@@ -104,6 +104,7 @@ test("ToolTune cover keeps its title text while balancing wrapped lines", async 
   assert.match(text, /<h1>ToolTune · 工具调用微调<\/h1>/);
   const css = await readFile(new URL("../assets/research-portfolio.css", import.meta.url), "utf8");
   assert.match(css, /\.research-editorial \.research-cover h1\s*\{[^}]*text-wrap:\s*balance/);
+  assert.match(css, /\.research-editorial \.research-cover h1\s*\{[^}]*word-break:\s*keep-all;[^}]*overflow-wrap:\s*normal/);
 });
 
 test("editorial layout keeps the index reachable and table values intact", async () => {

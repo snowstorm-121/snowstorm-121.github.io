@@ -166,7 +166,7 @@
 .research-editorial .research-cover::after { display: none; }
 .research-editorial .portfolio-cover-copy { min-width: 0; }
 .research-editorial .research-cover .archive-label { color: var(--portfolio-accent); }
-.research-editorial .research-cover h1 { max-width: 15ch; margin: 0; font-size: clamp(36px, 4vw, 56px); line-height: 1.18; text-wrap: balance; overflow-wrap: anywhere; }
+.research-editorial .research-cover h1 { max-width: 15ch; margin: 0; font-size: clamp(36px, 4vw, 56px); line-height: 1.18; text-wrap: balance; word-break: keep-all; overflow-wrap: normal; }
 .research-editorial .research-cover .archive-intro { margin-top: 22px; font-size: clamp(17px, 1.65vw, 21px); line-height: 1.7; }
 .research-editorial .portfolio-cover-cta {
   display: inline-flex;
