@@ -63,3 +63,41 @@ test("shared presentation CSS stays scoped and collapses exhibits image-first", 
   assert.match(css, /\.portfolio-visual--scholarlens img\s*\{[^}]*object-fit:\s*contain/);
   assert.match(css, /\.research-portfolio \.portfolio-intro \.archive-intro\s*\{[^}]*max-width:\s*16em;[^}]*text-wrap:\s*balance/);
 });
+
+const caseHashes = {
+  scholarlens: "2bfdef34dd4fb228d0df56c52a8e1980cd3643271f103f15de06c7f97ae32d83",
+  retailflow: "0f3c2e0ec797633892e6090116a005eff2ad2595c44e7a27ee855e6bdadd9cc2",
+  tooltune: "15764e8270f3d7e07104ab1c1340777de0d08714d00979ae2709723366a8aacd",
+};
+
+for (const [slug, expectedHash] of Object.entries(caseHashes)) {
+  test(`${slug} keeps its original article and adds a sourced editorial cover`, async () => {
+    const text = await readFile(new URL(`../research/${slug}/index.html`, import.meta.url), "utf8");
+    const article = text.match(/<article class="archive-content">[\s\S]*?<\/article>/)?.[0];
+    assert.ok(article);
+    assert.equal(createHash("sha256").update(article).digest("hex"), expectedHash);
+    assert.match(text, new RegExp(`<body class="archive-page archive-research research-case research-case--${slug} research-editorial">`));
+    assert.match(text, /href="\.\.\/\.\.\/assets\/research-cases\.css">\s*<link rel="stylesheet" href="\.\.\/\.\.\/assets\/research-portfolio\.css">/);
+    assert.match(text, new RegExp(`<section class="archive-photo research-cover"[^>]*>\\s*<div class="portfolio-cover-copy">[\\s\\S]*?<ul class="portfolio-tags">[\\s\\S]*?<a class="portfolio-cover-cta" href="#experiments">查看实验结果<\\/a>[\\s\\S]*?<figure class="portfolio-visual portfolio-visual--${slug}">`));
+    assert.match(text, /<dl class="portfolio-facts" aria-label="项目资料">(?:[\s\S]*?<div><dt>[^<]+<\/dt><dd>[^<]+<\/dd><\/div>){3}\s*<\/dl>\s*<div class="archive-layout">/);
+    assert.deepEqual([...text.matchAll(/<section id="([^"]+)"/g)].map(m => m[1]), ["problem", "engineering", "experiments", "conclusion"]);
+  });
+}
+
+test("case graphics state what their evidence does and does not establish", async () => {
+  const cases = await Promise.all(Object.keys(caseHashes).map(slug => readFile(new URL(`../research/${slug}/index.html`, import.meta.url), "utf8")));
+  const [scholarlens, retailflow, tooltune] = cases;
+  for (const value of ["../assets/scholarlens-demo.png", "真实演示界面 · 不计入正式评测", "240 道可回答题", "100 道生成题", "不是答案正确率"]) assert.ok(scholarlens.includes(value), value);
+  for (const value of ["流程示意", "模型提出", "应用校验", "用户确认", "事务与回执", "参数变化使旧确认失效", "2026-10-20", "B0/B1/B2 各 0/4", "已见 Dev", "模拟"]) assert.ok(retailflow.includes(value), value);
+  for (const value of ["严格决策匹配 · 冻结均衡 Test", "89/190", "46.84%", "100/190", "52.63%", "17 题改善 / 6 题退化", "95 调用 + 95 非调用", "Validation", "单工具", "不代表真实 API 成功或生产流量准确率"]) assert.ok(tooltune.includes(value), value);
+  assert.match(tooltune, /<div class="portfolio-bar" aria-hidden="true"><span style="width:46\.84%"><\/span><\/div>/);
+  assert.match(tooltune, /<div class="portfolio-bar" aria-hidden="true"><span style="width:52\.63%"><\/span><\/div>/);
+});
+
+test("editorial layout keeps the index reachable and table values intact", async () => {
+  const css = await readFile(new URL("../assets/research-portfolio.css", import.meta.url), "utf8");
+  assert.match(css, /\.research-editorial \.research-cover::after\s*\{[^}]*display:\s*none/);
+  assert.match(css, /\.research-editorial \.archive-layout\s*\{[^}]*minmax\(0, 150px\) minmax\(0, 820px\)/);
+  assert.match(css, /@media \(max-width: 1024px\)[\s\S]*?\.research-editorial \.archive-index[^{]*\{[^}]*position:\s*static/);
+  assert.match(css, /\.research-editorial \.research-table td\s*\{[^}]*white-space:\s*nowrap/);
+});

@@ -63,7 +63,7 @@ test("RetailFlow dossier: factual process plate and separate phase ledger", asyn
 test("Research dossiers: scoped covers, single-column reading and retained overview facts", async () => {
   for (const name of ["scholarlens", "retailflow", "tooltune"]) {
     const text = await readFile(new URL(`../research/${name}/index.html`, import.meta.url), "utf8");
-    assert.match(text, /class="archive-page archive-research research-case research-case--(?:scholarlens|retailflow|tooltune)"/);
+    assert.match(text, new RegExp(`class="archive-page archive-research research-case research-case--${name} research-editorial"`));
     assert.ok(text.includes(`research-case--${name}`));
     assert.match(text, /class="archive-photo research-cover"/);
   }

@@ -11,8 +11,9 @@
   <link rel="stylesheet" href="../../assets/reading-theme.css">
   <link rel="stylesheet" href="../../assets/archive-directory.css">
   <link rel="stylesheet" href="../../assets/research-cases.css">
+  <link rel="stylesheet" href="../../assets/research-portfolio.css">
 </head>
-<body class="archive-page archive-research research-case research-case--scholarlens">
+<body class="archive-page archive-research research-case research-case--scholarlens research-editorial">
   <header class="archive-header">
     <a href="../../index.html">← 返回主页</a>
     <nav class="archive-switcher" aria-label="档案分类">
@@ -24,10 +25,24 @@
   </header>
   <main class="archive-shell">
     <section class="archive-photo research-cover" aria-label="ScholarLens 案例">
-      <p class="archive-label">RESEARCH CASE / 01 · 研究原型</p>
-      <h1>ScholarLens · <span class="research-cover-name">研知</span></h1>
-      <p class="archive-intro">让论文问答回到原文：在单篇论文内，留下可定位的证据与可复核的实验。</p>
+      <div class="portfolio-cover-copy">
+        <p class="archive-label">RESEARCH CASE / 01 · 研究原型</p>
+        <h1>ScholarLens · <span class="research-cover-name">研知</span></h1>
+        <p class="archive-intro">让论文问答回到原文：在单篇论文内，留下可定位的证据与可复核的实验。</p>
+        <ul class="portfolio-tags"><li>单篇论文</li><li>本地 RAG</li><li>证据定位</li></ul>
+        <a class="portfolio-cover-cta" href="#experiments">查看实验结果</a>
+      </div>
+      <figure class="portfolio-visual portfolio-visual--scholarlens">
+        <img src="../assets/scholarlens-demo.png" width="1440" height="900" alt="ScholarLens 单篇论文问答与原文证据的真实演示界面">
+        <figcaption>真实演示界面 · 不计入正式评测</figcaption>
+        <p class="portfolio-visual-note">Dense EvidenceRecall@5 为 0.6290 · 冻结 Test 240 道可回答题；这是证据覆盖，不是答案正确率。</p>
+      </figure>
     </section>
+    <dl class="portfolio-facts" aria-label="项目资料">
+      <div><dt>研究范围</dt><dd>用户选定的单篇论文；QASPER 英文题集。</dd></div>
+      <div><dt>工程方法</dt><dd>正文与标注隔离，Dense 检索与原文位置审计。</dd></div>
+      <div><dt>证据边界</dt><dd>检索 240 道可回答题；另有 100 道生成题。</dd></div>
+    </dl>
     <div class="archive-layout">
       <aside class="archive-index" aria-label="案例章节">
         <p class="archive-label">阅读航线</p>

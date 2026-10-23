@@ -11,8 +11,9 @@
   <link rel="stylesheet" href="../../assets/reading-theme.css">
   <link rel="stylesheet" href="../../assets/archive-directory.css">
   <link rel="stylesheet" href="../../assets/research-cases.css">
+  <link rel="stylesheet" href="../../assets/research-portfolio.css">
 </head>
-<body class="archive-page archive-research research-case research-case--retailflow">
+<body class="archive-page archive-research research-case research-case--retailflow research-editorial">
   <header class="archive-header">
     <a href="../../index.html">← 返回主页</a>
     <nav class="archive-switcher" aria-label="档案分类">
@@ -24,10 +25,29 @@
   </header>
   <main class="archive-shell">
     <section class="archive-photo research-cover" aria-label="RetailFlow 案例">
-      <p class="archive-label">RESEARCH CASE / 02 · 实验原型</p>
-      <h1>RetailFlow</h1>
-      <p class="archive-intro">让模型提出操作，让应用核验边界：在模拟零售业务中，追踪确认、提交与恢复。</p>
+      <div class="portfolio-cover-copy">
+        <p class="archive-label">RESEARCH CASE / 02 · 实验原型</p>
+        <h1>RetailFlow</h1>
+        <p class="archive-intro">让模型提出操作，让应用核验边界：在模拟零售业务中，追踪确认、提交与恢复。</p>
+        <ul class="portfolio-tags"><li>本地 CLI Agent</li><li>模拟零售</li><li>事务回执</li></ul>
+        <a class="portfolio-cover-cta" href="#experiments">查看实验结果</a>
+      </div>
+      <figure class="portfolio-visual portfolio-visual--retailflow">
+        <figcaption>流程示意 · 模拟写操作，不表示任务已成功执行</figcaption>
+        <ol class="portfolio-flow">
+          <li><span>01</span><strong>模型提出</strong><small>提出工具与具体参数</small></li>
+          <li><span>02</span><strong>应用校验</strong><small>核验身份、归属与当前提案</small></li>
+          <li><span>03</span><strong>用户确认</strong><small>对当前提案明确确认</small></li>
+          <li><span>04</span><strong>事务与回执</strong><small>同一事务提交与恢复</small></li>
+        </ol>
+        <p class="portfolio-visual-note">参数变化使旧确认失效。历史冻结 Test（2026-10-20）：B0/B1/B2 各 0/4，业务效果未达标。</p>
+      </figure>
     </section>
+    <dl class="portfolio-facts" aria-label="项目资料">
+      <div><dt>研究范围</dt><dd>本地 CLI 与模拟零售查询、取消、退货。</dd></div>
+      <div><dt>工程方法</dt><dd>具体提案、用户确认、SQLite 事务回执。</dd></div>
+      <div><dt>证据边界</dt><dd>历史冻结 Test 三组各 0/4；当前已见 Dev 属于开发排障，未重跑 Test。</dd></div>
+    </dl>
     <div class="archive-layout">
       <aside class="archive-index" aria-label="案例章节">
         <p class="archive-label">阅读航线</p>

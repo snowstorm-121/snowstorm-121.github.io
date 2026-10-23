@@ -11,8 +11,9 @@
   <link rel="stylesheet" href="../../assets/reading-theme.css">
   <link rel="stylesheet" href="../../assets/archive-directory.css">
   <link rel="stylesheet" href="../../assets/research-cases.css">
+  <link rel="stylesheet" href="../../assets/research-portfolio.css">
 </head>
-<body class="archive-page archive-research research-case research-case--tooltune">
+<body class="archive-page archive-research research-case research-case--tooltune research-editorial">
   <header class="archive-header">
     <a href="../../index.html">← 返回主页</a>
     <nav class="archive-switcher" aria-label="档案分类">
@@ -24,10 +25,28 @@
   </header>
   <main class="archive-shell">
     <section class="archive-photo research-cover" aria-label="ToolTune 案例">
-      <p class="archive-label">RESEARCH CASE / 03 · 实验原型 · 2026-10-22</p>
-      <h1>ToolTune · 工具调用微调</h1>
-      <p class="archive-intro">在本地小预算下，追踪一次量化 LoRA 训练怎样改变工具调用决策，以及它没有证明什么。</p>
+      <div class="portfolio-cover-copy">
+        <p class="archive-label">RESEARCH CASE / 03 · 实验原型 · 2026-10-22</p>
+        <h1>ToolTune · 工具调用微调</h1>
+        <p class="archive-intro">在本地小预算下，追踪一次量化 LoRA 训练怎样改变工具调用决策，以及它没有证明什么。</p>
+        <ul class="portfolio-tags"><li>MLX 量化 LoRA</li><li>单工具决策</li><li>冻结对照</li></ul>
+        <a class="portfolio-cover-cta" href="#experiments">查看实验结果</a>
+      </div>
+      <figure class="portfolio-visual portfolio-visual--tooltune">
+        <figcaption>严格决策匹配 · 冻结均衡 Test</figcaption>
+        <div class="portfolio-scale"><span>0%</span><span>100%</span></div>
+        <dl class="portfolio-score-list">
+          <div><dt>B0 无 adapter <span>89/190</span></dt><dd><span>46.84%</span><div class="portfolio-bar" aria-hidden="true"><span style="width:46.84%"></span></div></dd></div>
+          <div><dt>U200 LoRA <span>100/190</span></dt><dd><span>52.63%</span><div class="portfolio-bar" aria-hidden="true"><span style="width:52.63%"></span></div></dd></div>
+        </dl>
+        <p class="portfolio-visual-note">17 题改善 / 6 题退化。95 调用 + 95 非调用；不代表真实 API 成功或生产流量准确率。</p>
+      </figure>
     </section>
+    <dl class="portfolio-facts" aria-label="项目资料">
+      <div><dt>研究范围</dt><dd>单轮、单工具的调用或非调用决策。</dd></div>
+      <div><dt>工程方法</dt><dd>MLX 4-bit 基座上训练 rank 8 LoRA；Validation 选中 U200。</dd></div>
+      <div><dt>证据边界</dt><dd>冻结 Test 190 题，95 调用 + 95 非调用；没有执行真实 API。</dd></div>
+    </dl>
     <div class="archive-layout">
       <aside class="archive-index" aria-label="案例章节">
         <p class="archive-label">阅读航线</p>
