@@ -11,8 +11,9 @@
   <link rel="stylesheet" href="../assets/reading-theme.css">
   <link rel="stylesheet" href="../assets/archive-directory.css">
   <link rel="stylesheet" href="../assets/research-cases.css">
+  <link rel="stylesheet" href="../assets/research-portfolio.css">
 </head>
-<body class="archive-page archive-research">
+<body class="archive-page archive-research research-portfolio">
   <header class="archive-header">
     <a href="../index.html">← 返回主页</a>
     <nav class="archive-switcher" aria-label="档案分类">
@@ -23,13 +24,17 @@
     <button type="button" data-reading-theme-toggle aria-label="切换阅读模式"><span>昼</span><span class="reading-theme-tide" aria-hidden="true"></span><span>夜</span></button>
   </header>
   <main class="archive-shell">
-    <section class="archive-photo" aria-label="烛微观澜">
-      <p class="archive-label">RESEARCH ARCHIVE / 03</p>
-      <h1>烛微观澜</h1>
-      <p class="archive-intro">从问题出发，留下实验、工程与结论可以回望的记录。</p>
+    <section class="archive-photo portfolio-intro" aria-label="烛微观澜">
+      <div class="portfolio-intro-copy">
+        <p class="archive-label">RESEARCH ARCHIVE / 03</p>
+        <h1>烛微观澜</h1>
+        <p class="archive-intro">从原文证据，到执行边界，再到模型训练。</p>
+        <p>从问题出发，留下实验、工程与结论可以回望的记录。</p>
+      </div>
+      <div class="portfolio-intro-image" role="img" aria-label="海岸氛围照片"></div>
     </section>
     <section class="archive-layout" aria-label="研究档案目录">
-      <aside class="archive-index" aria-labelledby="category-index-title">
+      <aside class="archive-index portfolio-index" aria-labelledby="category-index-title">
         <p class="archive-label" id="category-index-title">项目索引 · 3 项</p>
         <ol class="archive-category-index">
           <li><a href="#scholarlens">ScholarLens</a></li>
@@ -38,37 +43,77 @@
         </ol>
       </aside>
       <ol class="archive-projects">
-        <li class="archive-project" id="scholarlens">
-          <p class="archive-label">论文 · 证据</p>
-          <h2>ScholarLens</h2>
-          <p class="archive-status">研究原型</p>
-          <p>面向用户选定单篇论文的本地 RAG 证据问答，保留可回看的原文位置与引用记录。</p>
-          <p>主要工作：正文与标注隔离、混合检索、引用审计与冻结评测。</p>
-          <div class="research-links">
-            <a href="./scholarlens/">阅读 ScholarLens 案例</a>
-            <a href="https://github.com/snowstorm-121/ScholarLens">GitHub · ScholarLens</a>
+        <li class="archive-project portfolio-exhibit" id="scholarlens">
+          <figure class="portfolio-visual portfolio-visual--scholarlens">
+            <img src="./assets/scholarlens-demo.png" width="1440" height="900" alt="ScholarLens 单篇论文问答与原文证据的真实演示界面">
+            <figcaption>真实演示界面 · 不计入正式评测</figcaption>
+          </figure>
+          <div class="portfolio-copy">
+            <p class="portfolio-number">01 / EVIDENCE</p>
+            <p class="archive-label">论文 · 证据</p>
+            <h2>ScholarLens</h2>
+            <p class="archive-status">研究原型</p>
+            <p>面向用户选定单篇论文的本地 RAG 证据问答，保留可回看的原文位置与引用记录。</p>
+            <p>主要工作：正文与标注隔离、混合检索、引用审计与冻结评测。</p>
+            <ul class="portfolio-tags" aria-label="技术方向"><li>本地 RAG</li><li>引用审计</li><li>冻结评测</li></ul>
+            <p class="portfolio-finding"><strong>0.6290</strong><span>Dense EvidenceRecall@5 · 冻结 Test 240 道可回答题</span></p>
+            <p class="portfolio-note">这是证据覆盖，不是答案正确率。</p>
+            <div class="research-links portfolio-cta">
+              <a href="./scholarlens/">阅读 ScholarLens 案例</a>
+              <a href="https://github.com/snowstorm-121/ScholarLens">GitHub · ScholarLens</a>
+            </div>
           </div>
         </li>
-        <li class="archive-project" id="retailflow">
-          <p class="archive-label">零售 · 执行</p>
-          <h2>RetailFlow</h2>
-          <p class="archive-status">实验原型</p>
-          <p>模拟零售环境中的本地 CLI Agent，探索工具执行前的身份校验、用户确认与事务恢复边界。</p>
-          <p>主要工作：具体参数提案、确认失效机制、SQLite 事务回执与冻结评测；不连接真实订单或支付。</p>
-          <div class="research-links">
-            <a href="./retailflow/">阅读 RetailFlow 案例</a>
-            <a href="https://github.com/snowstorm-121/RetailFlow">GitHub · RetailFlow</a>
+        <li class="archive-project portfolio-exhibit" id="retailflow">
+          <figure class="portfolio-visual portfolio-visual--retailflow">
+            <figcaption>流程示意 · 不是成功执行记录</figcaption>
+            <ol class="portfolio-flow">
+              <li><span>01</span><strong>模型提出</strong><small>具体参数提案</small></li>
+              <li><span>02</span><strong>应用校验</strong><small>身份与所有权</small></li>
+              <li><span>03</span><strong>用户确认</strong><small>针对当前参数</small></li>
+              <li><span>04</span><strong>事务与回执</strong><small>SQLite 提交记录</small></li>
+            </ol>
+            <p class="portfolio-visual-note">参数变化使旧确认失效；保护层正确性不等于模型任务成功。</p>
+          </figure>
+          <div class="portfolio-copy">
+            <p class="portfolio-number">02 / BOUNDARY</p>
+            <p class="archive-label">零售 · 执行</p>
+            <h2>RetailFlow</h2>
+            <p class="archive-status">实验原型</p>
+            <p>模拟零售环境中的本地 CLI Agent，探索工具执行前的身份校验、用户确认与事务恢复边界。</p>
+            <p>主要工作：具体参数提案、确认失效机制、SQLite 事务回执与冻结评测；不连接真实订单或支付。</p>
+            <ul class="portfolio-tags" aria-label="技术方向"><li>CLI Agent</li><li>参数确认</li><li>事务恢复</li></ul>
+            <p class="portfolio-finding"><strong>B0/B1/B2 各 0/4</strong><span>历史冻结 Test · 2026-10-20</span></p>
+            <p class="portfolio-note">业务效果未达标；不以工程保护层的正确性代替业务结果。</p>
+            <div class="research-links portfolio-cta">
+              <a href="./retailflow/">阅读 RetailFlow 案例</a>
+              <a href="https://github.com/snowstorm-121/RetailFlow">GitHub · RetailFlow</a>
+            </div>
           </div>
         </li>
-        <li class="archive-project" id="tooltune">
-          <p class="archive-label">微调 · 工具调用</p>
-          <h2>ToolTune</h2>
-          <p class="archive-status">实验原型</p>
-          <p>在 Apple Silicon 上进行本地量化 LoRA 微调，记录工具调用决策、参数输出与冻结 Test 的逐题变化。</p>
-          <p>主要工作：严格数据处理、分组抽样、训练目标校验与冻结对照；均衡诊断集结果不代表真实 API 执行成功率。</p>
-          <div class="research-links">
-            <a href="./tooltune/">阅读 ToolTune 案例</a>
-            <a href="https://github.com/snowstorm-121/ToolTune">GitHub · ToolTune</a>
+        <li class="archive-project portfolio-exhibit" id="tooltune">
+          <figure class="portfolio-visual portfolio-visual--tooltune">
+            <figcaption>严格决策匹配 · 冻结均衡 Test</figcaption>
+            <div class="portfolio-scale"><span>0%</span><span>100%</span></div>
+            <dl class="portfolio-score-list">
+              <div><dt>B0 <span>89/190</span></dt><dd><span>46.84%</span><div class="portfolio-bar" aria-hidden="true"><span style="width:46.84%"></span></div></dd></div>
+              <div><dt>U200 <span>100/190</span></dt><dd><span>52.63%</span><div class="portfolio-bar" aria-hidden="true"><span style="width:52.63%"></span></div></dd></div>
+            </dl>
+            <p class="portfolio-visual-note">17 题改善 / 6 题退化</p>
+            <p class="portfolio-visual-note">95 调用 + 95 非调用；不代表真实 API 成功或生产流量准确率。</p>
+          </figure>
+          <div class="portfolio-copy">
+            <p class="portfolio-number">03 / TRAINING</p>
+            <p class="archive-label">微调 · 工具调用</p>
+            <h2>ToolTune</h2>
+            <p class="archive-status">实验原型</p>
+            <p>在 Apple Silicon 上进行本地量化 LoRA 微调，记录工具调用决策、参数输出与冻结 Test 的逐题变化。</p>
+            <p>主要工作：严格数据处理、分组抽样、训练目标校验与冻结对照；均衡诊断集结果不代表真实 API 执行成功率。</p>
+            <ul class="portfolio-tags" aria-label="技术方向"><li>量化 LoRA</li><li>冻结 Test</li><li>逐题对照</li></ul>
+            <div class="research-links portfolio-cta">
+              <a href="./tooltune/">阅读 ToolTune 案例</a>
+              <a href="https://github.com/snowstorm-121/ToolTune">GitHub · ToolTune</a>
+            </div>
           </div>
         </li>
       </ol>

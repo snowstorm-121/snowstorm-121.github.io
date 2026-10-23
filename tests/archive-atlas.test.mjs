@@ -21,7 +21,7 @@ const checks=[
  ["theme stylesheet", /href="\.\.\/assets\/reading-theme.css"/],
  ["directory stylesheet", /href="\.\.\/assets\/archive-directory.css"/],
  ["native theme toggle", /<button type="button" data-reading-theme-toggle[\s\S]*?昼[\s\S]*?reading-theme-tide[\s\S]*?夜[\s\S]*?<\/button>/],
- ["photo strip", /<section class="archive-photo"[\s\S]*?<h1>/],
+ ["photo strip", /<section class="archive-photo(?: [^"]+)?"[\s\S]*?<h1>/],
  ["editorial body", /class="archive-layout"/],
  ["no old visualization", null]
 ];
@@ -40,7 +40,10 @@ for(const [page,names] of Object.entries({living:["长夜微澜","纸上星河",
  const items=[...pages[page].matchAll(/<li class="archive-category">([\s\S]*?)<\/li>/g)].map(m=>m[1]);
  assert.equal(items.length,4);assert.match(items[i],new RegExp("<h2>"+name+"</h2>"));assert.match(items[i],/<span class="archive-status">尚未发布<\/span>/);assert.doesNotMatch(items[i],/<a\b|<button\b|href=/);
 }));
-const projects=[...research.matchAll(/<li class="archive-project"[^>]*>([\s\S]*?)<\/li>/g)].map(m=>m[1]);
+const projects=["scholarlens","retailflow","tooltune"].map((slug,index,slugs)=>{
+ const start=research.indexOf('id="'+slug+'"');const end=index<2?research.indexOf('id="'+slugs[index+1]+'"',start):research.indexOf('</ol>\n    </section>',start);
+ return start<0?"":research.slice(start,end<0?undefined:end);
+});
 test("research: three published projects in order",()=>{
  assert.equal(projects.length,3);assert.match(projects[0],/<h2>ScholarLens<\/h2>/);assert.match(projects[1],/<h2>RetailFlow<\/h2>/);assert.match(projects[2],/<h2>ToolTune<\/h2>/);
 });
