@@ -45,6 +45,7 @@
 .research-portfolio .portfolio-intro .archive-label { color: var(--portfolio-accent); }
 .research-portfolio .portfolio-intro h1 { margin: 0; font-size: clamp(42px, 5vw, 70px); letter-spacing: .04em; }
 .research-portfolio .portfolio-intro .archive-intro { max-width: 16em; margin: 24px 0 12px; font-size: clamp(22px, 2.8vw, 34px); line-height: 1.45; text-wrap: balance; }
+.research-portfolio .portfolio-intro .archive-intro span { display: inline-block; white-space: nowrap; }
 .research-portfolio .portfolio-intro-copy > p:last-child { color: var(--portfolio-muted); }
 .research-portfolio .portfolio-intro-image {
   min-height: 320px;
@@ -165,7 +166,7 @@
 .research-editorial .research-cover::after { display: none; }
 .research-editorial .portfolio-cover-copy { min-width: 0; }
 .research-editorial .research-cover .archive-label { color: var(--portfolio-accent); }
-.research-editorial .research-cover h1 { max-width: 15ch; margin: 0; font-size: clamp(36px, 4vw, 56px); line-height: 1.18; overflow-wrap: anywhere; }
+.research-editorial .research-cover h1 { max-width: 15ch; margin: 0; font-size: clamp(36px, 4vw, 56px); line-height: 1.18; text-wrap: balance; overflow-wrap: anywhere; }
 .research-editorial .research-cover .archive-intro { margin-top: 22px; font-size: clamp(17px, 1.65vw, 21px); line-height: 1.7; }
 .research-editorial .portfolio-cover-cta {
   display: inline-flex;

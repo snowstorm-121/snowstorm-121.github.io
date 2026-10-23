@@ -14,7 +14,10 @@ const exhibit = slug => {
 test("overview has scoped style, semantic intro and three ordered exhibits", () => {
   assert.match(html, /<body class="archive-page archive-research research-portfolio">/);
   assert.match(html, /<h1>烛微观澜<\/h1>/);
-  assert.match(html, /从原文证据，到执行边界，再到模型训练。/);
+  const intro = html.match(/<p class="archive-intro">([\s\S]*?)<\/p>/)?.[1];
+  assert.ok(intro);
+  assert.deepEqual([...intro.matchAll(/<span>([^<]+)<\/span>/g)].map(match => match[1]), ["从原文证据，", "到执行边界，", "再到模型训练。"]);
+  assert.equal(intro.replace(/<[^>]+>/g, ""), "从原文证据，到执行边界，再到模型训练。");
   assert.match(html, /href="\.\.\/assets\/research-cases\.css">\s*<link rel="stylesheet" href="\.\.\/assets\/research-portfolio\.css">/);
   assert.deepEqual([...html.matchAll(/<li class="archive-project portfolio-exhibit" id="([^"]+)"/g)].map(m => m[1]), ["scholarlens", "retailflow", "tooltune"]);
   assert.match(html, /<aside class="archive-index portfolio-index"/);
@@ -62,6 +65,8 @@ test("shared presentation CSS stays scoped and collapses exhibits image-first", 
   assert.match(css, /\.portfolio-bar\s*\{[^}]*width:\s*100%/);
   assert.match(css, /\.portfolio-visual--scholarlens img\s*\{[^}]*object-fit:\s*contain/);
   assert.match(css, /\.research-portfolio \.portfolio-intro \.archive-intro\s*\{[^}]*max-width:\s*16em;[^}]*text-wrap:\s*balance/);
+  assert.match(css, /\.research-portfolio \.portfolio-intro \.archive-intro span\s*\{[^}]*display:\s*inline-block/);
+  assert.match(css, /\.research-editorial \.research-cover h1\s*\{[^}]*text-wrap:\s*balance/);
 });
 
 const caseHashes = {
@@ -92,6 +97,13 @@ test("case graphics state what their evidence does and does not establish", asyn
   for (const value of ["严格决策匹配 · 冻结均衡 Test", "89/190", "46.84%", "100/190", "52.63%", "17 题改善 / 6 题退化", "95 调用 + 95 非调用", "Validation", "单工具", "不代表真实 API 成功或生产流量准确率"]) assert.ok(tooltune.includes(value), value);
   assert.match(tooltune, /<div class="portfolio-bar" aria-hidden="true"><span style="width:46\.84%"><\/span><\/div>/);
   assert.match(tooltune, /<div class="portfolio-bar" aria-hidden="true"><span style="width:52\.63%"><\/span><\/div>/);
+});
+
+test("ToolTune cover keeps its title text while balancing wrapped lines", async () => {
+  const text = await readFile(new URL("../research/tooltune/index.html", import.meta.url), "utf8");
+  assert.match(text, /<h1>ToolTune · 工具调用微调<\/h1>/);
+  const css = await readFile(new URL("../assets/research-portfolio.css", import.meta.url), "utf8");
+  assert.match(css, /\.research-editorial \.research-cover h1\s*\{[^}]*text-wrap:\s*balance/);
 });
 
 test("editorial layout keeps the index reachable and table values intact", async () => {
