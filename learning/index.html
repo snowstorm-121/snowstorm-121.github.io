@@ -10,9 +10,10 @@
   <link rel="stylesheet" href="../assets/library.css">
   <link rel="stylesheet" href="../assets/reading-theme.css">
   <link rel="stylesheet" href="../assets/archive-directory.css">
+  <link rel="stylesheet" href="../assets/learning-handbook.css">
   <script src="../assets/learning-directory.js" defer></script>
 </head>
-<body class="archive-page archive-learning">
+<body class="archive-page archive-learning learning-handbook">
   <header class="archive-header">
     <a href="../index.html">← 返回主页</a>
     <nav class="archive-switcher" aria-label="档案分类">
@@ -24,11 +25,15 @@
   </header>
   <main class="archive-shell">
     <section class="archive-photo" aria-label="星野问津">
-      <p class="archive-label">LEARNING ARCHIVE / 01</p>
-      <h1>星野问津</h1>
-      <p class="archive-intro">从近岸基础走向远处模型，沿学习路线与七个阶段次第阅读。</p>
+      <div class="learning-hero-copy">
+        <p class="archive-label">LEARNING ARCHIVE / 01</p>
+        <h1>星野问津</h1>
+        <p class="archive-intro">从近岸基础走向远处模型，沿学习路线与七个阶段次第阅读。</p>
+        <a class="learning-browse" href="#learning-directory">浏览学习目录 ↓</a>
+      </div>
+      <div class="learning-hero-image" aria-hidden="true"></div>
     </section>
-    <section class="archive-layout" data-learning-directory data-relations-url="./pytorch/atlas-relations.json" aria-label="PyTorch 学习目录">
+    <section class="archive-layout" id="learning-directory" data-learning-directory data-relations-url="./pytorch/atlas-relations.json" aria-label="PyTorch 学习目录">
       <nav class="archive-index" aria-labelledby="directory-index-title">
         <p class="archive-label" id="directory-index-title">PyTorch · 学习路线</p>
         <ol class="archive-stage-list">
@@ -43,10 +48,12 @@
         </ol>
       </nav>
       <section class="archive-content" aria-labelledby="directory-title">
-        <p class="archive-label">按顺序阅读 · <span data-directory-count>10 篇</span></p>
-        <h2 id="directory-title" data-directory-title aria-live="polite">基础阶段</h2>
-        <p>按学习顺序阅读本阶段的笔记，或进入阶段页查看完整目录。</p>
-        <a class="archive-destination" data-directory-destination href="./pytorch/foundation/">进入此阶段 →</a>
+        <div class="learning-directory-heading">
+          <p class="archive-label">按顺序阅读 · <span data-directory-count>10 篇</span></p>
+          <h2 id="directory-title" data-directory-title aria-live="polite">基础阶段</h2>
+          <p>按学习顺序阅读本阶段的笔记，或进入阶段页查看完整目录。</p>
+          <a class="archive-destination" data-directory-destination href="./pytorch/foundation/">进入此阶段 →</a>
+        </div>
         <p class="archive-status" data-directory-status role="status">文章列表暂不可用</p>
         <ol class="archive-articles" data-directory-articles></ol>
       </section>

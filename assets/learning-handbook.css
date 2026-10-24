@@ -1,0 +1,185 @@
+.learning-handbook.archive-page {
+  --handbook-paper: #f5f3ee;
+  --handbook-ink: #203136;
+  --handbook-muted: #52666a;
+  --handbook-line: #cbd4d1;
+  --handbook-accent: #27565d;
+  --handbook-selected: #e5efec;
+  color: var(--handbook-ink);
+  background: var(--handbook-paper);
+}
+:root[data-reading-theme="dark"] .learning-handbook.archive-page {
+  --handbook-paper: #101b22;
+  --handbook-ink: #edf2ef;
+  --handbook-muted: #b9c9cb;
+  --handbook-line: #41565d;
+  --handbook-accent: #a5dad4;
+  --handbook-selected: #1c343b;
+}
+.learning-handbook .archive-header {
+  padding-inline: max(24px, calc((100% - 1200px) / 2));
+  border-color: var(--handbook-line);
+  background: var(--handbook-paper);
+}
+.learning-handbook .archive-header a:hover,
+.learning-handbook .archive-switcher [aria-current="page"] {
+  color: var(--handbook-accent);
+}
+.learning-handbook .archive-header [data-reading-theme-toggle] { color: var(--handbook-ink); }
+.learning-handbook .archive-shell { width: min(1200px, calc(100% - 48px)); margin: 28px auto 88px; }
+.learning-handbook .archive-photo {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: clamp(20px, 4vw, 52px);
+  align-items: center;
+  min-height: 300px;
+  padding: 0;
+  color: var(--handbook-ink);
+  background-color: var(--handbook-paper);
+  background-image: none;
+}
+.learning-handbook .learning-hero-copy { min-width: 0; padding: 20px 0 24px; }
+.learning-handbook .archive-photo .archive-label,
+.learning-handbook .archive-index .archive-label,
+.learning-handbook .learning-directory-heading .archive-label {
+  color: var(--handbook-accent);
+  font-weight: 650;
+}
+.learning-handbook .archive-photo h1 { font-size: clamp(42px, 5vw, 64px); line-height: 1.2; letter-spacing: -.045em; }
+.learning-handbook .archive-intro {
+  max-width: 32em;
+  margin: 16px 0 0;
+  color: var(--handbook-muted);
+  font-size: clamp(16px, 1.5vw, 18px);
+  line-height: 1.85;
+  overflow-wrap: break-word;
+}
+.learning-handbook .learning-browse {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 22px;
+  padding: 6px 18px;
+  border: 1px solid var(--handbook-accent);
+  color: var(--handbook-accent);
+  font-weight: 650;
+}
+.learning-handbook .learning-browse:hover { background: var(--handbook-selected); }
+.learning-handbook .learning-hero-image {
+  min-width: 0;
+  min-height: 278px;
+  height: 100%;
+  background-color: #9ab4b5;
+  background-image: url("./homepage/coast-background.png");
+  background-position: center;
+  background-size: cover;
+}
+.learning-handbook .archive-layout {
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+  gap: 48px;
+  margin-top: 48px;
+  padding-top: 30px;
+  border-top: 1px solid var(--handbook-line);
+}
+.learning-handbook .archive-index {
+  position: sticky;
+  top: 16px;
+  align-self: start;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  padding: 0 18px 0 0;
+  border-right: 1px solid var(--handbook-line);
+}
+.learning-handbook .archive-index .archive-label { margin-bottom: 14px; }
+.learning-handbook .archive-stage-list { counter-reset: handbook-stage; }
+.learning-handbook .archive-stage-list li {
+  position: relative;
+  min-width: 0;
+  padding: 7px 8px 7px 0;
+  border-color: var(--handbook-line);
+  counter-increment: handbook-stage;
+  overflow-wrap: anywhere;
+}
+.learning-handbook .archive-stage-list li::before {
+  position: absolute;
+  inset-inline-start: 12px;
+  top: 16px;
+  color: var(--handbook-muted);
+  font: 12px/1.5 Georgia, serif;
+  content: counter(handbook-stage, decimal-leading-zero);
+  pointer-events: none;
+}
+.learning-handbook .archive-stage-list button,
+.learning-handbook .archive-stage-list a {
+  min-width: 0;
+  min-height: 44px;
+  padding: 9px 4px 9px 44px;
+  color: var(--handbook-ink);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.learning-handbook .archive-stage-list button { min-height: 44px; font-weight: 600; }
+.learning-handbook .archive-stage-list button + a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 7px 4px 7px 44px;
+  color: var(--handbook-accent);
+  font-size: 13px;
+  text-decoration: none;
+}
+.learning-handbook .archive-stage-list button + a:hover { text-decoration: underline; }
+.learning-handbook .archive-stage-list li:has([aria-pressed="true"]) { background: var(--handbook-selected); }
+.learning-handbook .archive-stage-list [aria-pressed="true"] {
+  font-weight: 750;
+  border-inline-start: 3px solid var(--handbook-accent);
+  color: var(--handbook-accent);
+}
+.learning-handbook .archive-stage-list a:hover,
+.learning-handbook .archive-stage-list button:hover { color: var(--handbook-accent); }
+.learning-handbook .archive-content { min-width: 0; }
+.learning-handbook .learning-directory-heading { padding-bottom: 22px; border-bottom: 1px solid var(--handbook-line); }
+.learning-handbook .learning-directory-heading .archive-label { margin-bottom: 10px; }
+.learning-handbook .learning-directory-heading h2 { color: var(--handbook-ink); font-size: clamp(30px, 3.2vw, 40px); line-height: 1.25; }
+.learning-handbook .learning-directory-heading > p:not(.archive-label) { max-width: 42em; margin: 14px 0 10px; color: var(--handbook-muted); }
+.learning-handbook .archive-destination {
+  min-height: 44px;
+  padding: 8px 0;
+  color: var(--handbook-accent);
+  font-weight: 650;
+}
+.learning-handbook .archive-status { color: var(--handbook-muted); }
+.learning-handbook .archive-status:empty { display: none; }
+.learning-handbook .archive-articles { list-style: decimal-leading-zero; margin-top: 22px; padding-inline-start: 2.7em; }
+.learning-handbook .archive-articles li { padding: 0 0 0 8px; border-color: var(--handbook-line); }
+.learning-handbook .archive-articles li::marker { color: var(--handbook-accent); font: 14px Georgia, serif; }
+.learning-handbook .archive-articles a {
+  display: flex;
+  align-items: center;
+  min-height: 54px;
+  padding: 10px 4px;
+  color: var(--handbook-ink);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.learning-handbook .archive-articles a:hover { color: var(--handbook-accent); text-decoration: underline; }
+.learning-handbook :focus-visible { outline: 2px solid var(--handbook-accent); outline-offset: 3px; }
+@media (max-width: 900px) {
+  .learning-handbook .archive-photo { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .learning-handbook .learning-hero-copy { padding: 12px 0 0; }
+  .learning-handbook .learning-hero-image { min-height: 190px; height: 190px; }
+  .learning-handbook .archive-layout { grid-template-columns: minmax(0, 1fr); gap: 34px; margin-top: 34px; }
+  .learning-handbook .archive-index { position: static; max-height: none; overflow: visible; padding: 0; border: 0; }
+  .learning-handbook .archive-stage-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; }
+  .learning-handbook .archive-stage-list li { border: 1px solid var(--handbook-line); padding: 4px 5px 4px 0; }
+}
+@media (max-width: 480px) {
+  .learning-handbook .archive-header { padding: 12px 16px; }
+  .learning-handbook .archive-shell { width: calc(100% - 32px); margin-top: 18px; }
+  .learning-handbook .learning-hero-image { min-height: 150px; height: 150px; }
+  .learning-handbook .archive-stage-list { gap: 8px; }
+  .learning-handbook .archive-stage-list li::before { inset-inline-start: 8px; }
+  .learning-handbook .archive-stage-list button,
+  .learning-handbook .archive-stage-list a,
+  .learning-handbook .archive-stage-list button + a { padding-inline-start: 32px; }
+}
