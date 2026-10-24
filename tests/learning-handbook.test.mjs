@@ -68,3 +68,11 @@ test("desktop reading layout and narrow two-column index use fluid widths", () =
   assert.match(css, /\.learning-handbook \.archive-stage-list[^}]*overflow-wrap:\s*anywhere/);
   assert.doesNotMatch(css, /animation:|transition:/);
 });
+
+test("phone stage labels leave room for Transformer beside the stage number", () => {
+  const phoneCss = css.split(/@media\s*\(max-width:\s*480px\)/)[1];
+  assert.ok(phoneCss, "phone styles must be present");
+  assert.match(phoneCss, /\.learning-handbook \.archive-stage-list \{ gap:\s*8px; \}/);
+  assert.match(phoneCss, /\.learning-handbook \.archive-stage-list button,\s*\.learning-handbook \.archive-stage-list button \+ a\s*\{[^}]*font-size:\s*14px/);
+  assert.match(phoneCss, /\.learning-handbook \.archive-stage-list button,\s*\.learning-handbook \.archive-stage-list a,\s*\.learning-handbook \.archive-stage-list button \+ a\s*\{[^}]*padding-inline-start:\s*24px/);
+});

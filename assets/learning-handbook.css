@@ -180,6 +180,8 @@
   .learning-handbook .archive-stage-list { gap: 8px; }
   .learning-handbook .archive-stage-list li::before { inset-inline-start: 8px; }
   .learning-handbook .archive-stage-list button,
+  .learning-handbook .archive-stage-list button + a { font-size: 14px; }
+  .learning-handbook .archive-stage-list button,
   .learning-handbook .archive-stage-list a,
-  .learning-handbook .archive-stage-list button + a { padding-inline-start: 32px; }
+  .learning-handbook .archive-stage-list button + a { padding-inline-start: 24px; }
 }
